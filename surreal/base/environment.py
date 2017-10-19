@@ -8,7 +8,7 @@ class Environment(object):
     Base environment class
     """
 
-    def __init__(self, name="env")
+    def __init__(self, name="env"):
         self._name = name
 
     def initialize(self):

@@ -1,1 +1,7 @@
-SURREAL
+# SURREAL
+
+## Installation
+
+```
+pip install -e .
+```
