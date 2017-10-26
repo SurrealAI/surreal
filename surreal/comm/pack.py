@@ -7,6 +7,10 @@ from .serializer import np_serialize, np_deserialize, binary_hash
 
 class Pack:
     def serialize(self):
+        """
+        Returns:
+            hask_key, binarized_data
+        """
         raise NotImplementedError
 
     @classmethod
@@ -17,18 +21,8 @@ class Pack:
         """
         raise NotImplementedError
 
-    def get_key(self):
-        """
-        Key of this pack to be stored in Redis. None if this pack is not stored.
-        """
-        return None
-
     def get_data(self):
         raise NotImplementedError
-
-    def jsonify(self):
-        # TODO
-        pass
 
 
 class NumpyPack(Pack):
@@ -36,18 +30,13 @@ class NumpyPack(Pack):
 
     def __init__(self, data):
         self._data = data
-        self._cache = None
 
     def serialize(self):
-        self._cache = np_serialize(self.get_data())
-        return self._cache
+        binary = np_serialize(self.get_data())
+        return binary_hash(binary), binary
 
     def get_data(self):
         return self._data
-
-    def get_key(self):
-        binary = self._cache if self._cache else self.serialize()
-        return binary_hash(binary)
 
     def __getattr__(self, key):
         if not isinstance(self._data, dict) or key in dir(self):
