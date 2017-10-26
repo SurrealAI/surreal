@@ -1,7 +1,6 @@
 import redis
 import threading
 import itertools
-from .pack import Pack
 
 
 class RedisQueueThread(threading.Thread):
@@ -33,19 +32,8 @@ class RedisClient:
         self.queue_threads = {}
         self.subscribe_threads = {}
 
-    def mset(self, data_dict):
-        assert isinstance(data_dict, dict)
-        return self.client.mset(data_dict)
-
-    def send_packs(self, packs):
-        assert isinstance(packs, list)
-        assert all(isinstance(p, Pack) for p in packs)
-        data = {}
-        for p in packs:
-            hash_key, binary = p.serialize()
-            assert isinstance(binary, bytes)
-            data[hash_key] = binary
-        self.client.mset(data)
+    def mset(self, *key_value_pairs):
+        return self.client.mset(dict(key_value_pairs))
 
     def mget(self, key_list):
         assert isinstance(key_list, list)
