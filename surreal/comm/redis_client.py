@@ -27,13 +27,11 @@ class RedisClient:
         self.queue_threads = {}
         self.subscribe_threads = {}
 
-    def mset(self, data_dict):
-        assert isinstance(data_dict, dict)
-        return self.client.mset(data_dict)
-
-    def mget(self, key_list):
-        assert isinstance(key_list, list)
-        return self.client.mget(key_list)
+        # delegated method
+        self.set = self.client.set
+        self.get = self.client.get
+        self.mset = self.client.mset
+        self.mget = self.client.mget
 
     def push_to_queue(self, queue_name, binary):
         self.client.lpush(queue_name, binary)
@@ -58,7 +56,21 @@ class RedisClient:
         self.client.publish(channel, msg)
 
     def subscribe_thread(self, channel, handler, sleep_time=0.1):
-        self.pubsub.subscribe(channel, handler)
+        """
+        handler: function takes an incoming msg from the subscribed channel
+
+        Every message read from a PubSub instance will be a dictionary with the following keys.
+        type: One of the following: 'subscribe', 'unsubscribe', 'psubscribe',
+            'punsubscribe', 'message', 'pmessage'
+        channel: The channel [un]subscribed to or the channel a message was published to
+        pattern: The pattern that matched a published message's channel.
+            Will be None in all cases except for 'pmessage' types.
+        data: The message data. With [un]subscribe messages, this value will be
+            the number of channels and patterns the connection is currently
+            subscribed to. With [p]message messages,
+            this value will be the actual published message.
+        """
+        self.pubsub.subscribe(**{channel: handler})
         t = self.pubsub.run_in_thread(sleep_time=sleep_time)
         self.subscribe_threads[channel] = t
         return t

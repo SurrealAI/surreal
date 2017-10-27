@@ -30,7 +30,7 @@ class UniformReplay(object):
         samps = []
         print('SAMPLE total size', len(self.memory), 'batch_i', batch_i)
         for i in self.memory:
-            time.sleep(.7)
+            time.sleep(.3)
             if i % 3 == 0:
                 samps.append(self.memory[i])
         return samps
@@ -39,6 +39,9 @@ class UniformReplay(object):
         return len(self.memory) > 10
 
     def _locked_insert(self, *args, **kwargs):
+        """
+        Must not sample and insert at the same time
+        """
         with self._lock:
             return self.insert(*args, **kwargs)
 
