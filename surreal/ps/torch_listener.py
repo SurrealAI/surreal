@@ -14,7 +14,7 @@ class TorchPSListener(PSListener):
         self.ps_name = ps_name
         self._listener_thread = None
 
-    def _unflatten_tensors(flat, tensors):
+    def unflatten_tensors(flat, tensors):
         """View a flat buffer using the sizes of tensors"""
         outputs = []
         offset = 0
