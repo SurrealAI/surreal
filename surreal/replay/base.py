@@ -1,96 +1,113 @@
 import time
 import threading
+import itertools
 from surreal.comm import RedisClient
 from .pointer_queue import PointerQueue
 from .exp_download_queue import ExpDownloadQueue
 
 
-class Queue(object):
-    """
-    Base queue class
-    """
-
-    def __init__(self, name="queue"):
-        self._name = name
-        self._type = None
-
-    def add(self, transitions):
-        """Add a new experience into queue
-
-        Args:
-            transitions: a list of (s, a, s', r) encoded by protobuf
-        """
-        raise NotImplementedError()
-
-    def empty(self):
-        """Empty the queue and reset"""
-        raise NotImplementedError()
-
-    def sample(self, batch_size):
-        """Sample a mini-batch of experiences from the queue
-
-        Args:
-            batch_size: number of experiences to be sampled
-        """
-        raise NotImplementedError()
-
-
-class UniformReplay(object):
-    def __init__(self, redis_client, batch_size):
+class Replay(object):
+    def __init__(self,
+                 redis_client,
+                 batch_size,
+                 download_queue_size,
+                 name='replay'):
         assert isinstance(redis_client, RedisClient)
         self.pointer_queue = PointerQueue(
             redis_client=redis_client,
-            queue_name='replay',
+            queue_name=name,
         )
         self.exp_download_queue = ExpDownloadQueue(
             redis_client=redis_client,
-            maxsize=5
+            maxsize=download_queue_size,
         )
-        self.memory = {}
         self.batch_size = batch_size
         self._lock = threading.Lock()
 
     def insert(self, exp_dict):
-        print('INSERT', exp_dict)
-        time.sleep(0.5)
-        self.memory[len(self.memory)] = exp_dict
+        """
+        Add a new experience to the replay.
+        Args:
+            exp_dict: experience dictionary with
+                {"obs_pointers", "reward", "action", "info"} keys
+        """
+        raise NotImplementedError
 
-    def sample(self, batch_i):
-        # TODO: self.batch_size
-        samps = []
-        print('SAMPLE total size', len(self.memory), 'batch_i', batch_i)
-        for i in self.memory:
-            time.sleep(.3)
-            if i % 3 == 0:
-                samps.append(self.memory[i])
-        return samps
+    def sample(self, batch_size, batch_i):
+        """
+        This function is called in the `exp_download_queue` thread, its operation
+        is async, i.e. overlaps with the insertion operations.
+
+        Args:
+            batch_size: passed from self.batch_size, defined in the
+                constructor upfront.
+            batch_i: the i-th batch it is sampling.
+            Note that `batch_size` is
+
+        Returns:
+            a list of exp_dicts
+        """
+        raise NotImplementedError
 
     def start_sample_condition(self):
-        return len(self.memory) > 10
+        """
+        Tells the thread to start sampling only when this condition is met.
+        For example, only when the replay memory has > 10K experiences.
 
-    def _locked_insert(self, *args, **kwargs):
+        Returns:
+            bool: whether to start sampling or not
+        """
+        raise NotImplementedError
+
+    def aggregate_batch(self, exp_list):
+        """
+        Will be called in `next_batch()` method to produce the actual inputs
+        to the neural network training loop.
+
+        Args:
+            exp_list: list of experience dictionaries with actual observations
+                {"obses", "reward", "action", "info"} keys
+
+        Returns:
+            batched Tensors, batched action/reward vectors, etc.
+        """
+        raise NotImplementedError
+
+    def _locked_insert(self, exp_dict):
         """
         Must not sample and insert at the same time
         """
         with self._lock:
-            return self.insert(*args, **kwargs)
+            return self.insert(exp_dict)
 
-    def _locked_sample(self, *args, **kwargs):
+    def _locked_sample(self, batch_i):
         with self._lock:
-            return self.sample(*args, **kwargs)
+            return self.sample(self.batch_size, batch_i)
 
     def start_threads(self):
-        self.pointer_queue.run_enqueue_thread()
-        self.pointer_queue.run_dequeue_thread(self._locked_insert)
-        self.exp_download_queue.run_enqueue_thread(
+        """
+        Call this method to launch all background threads that talk to Redis.
+        """
+        self.pointer_queue.start_enqueue_thread()
+        self.pointer_queue.start_dequeue_thread(self._locked_insert)
+        self.exp_download_queue.start_enqueue_thread(
             self._locked_sample,
             self.start_sample_condition,
         )
 
-    def next_batch(self):
-        # TODO method to aggregate exp_dicts into batched tensors
-        return self.exp_download_queue.dequeue()
+    def stop_threads(self):
+        self.pointer_queue.start_enqueue_thread()
+        self.pointer_queue.stop_dequeue_thread()
+        self.exp_download_queue.stop_enqueue_thread()
 
-    def batch_iter(self):
-        while True:
-            yield self.next_batch()
+    def next_batch(self):
+        exp_list = self.exp_download_queue.dequeue()
+        return self.aggregate_batch(exp_list)
+
+    def batch_iterator(self):
+        """
+        Yields:
+            batch_i, (batched inputs to neural network)
+        """
+        for batch_i in itertools.count():
+            yield batch_i, self.next_batch()

@@ -20,7 +20,7 @@ class RedisQueueThread(StoppableThread):
             self._handler(binary, i)
 
 
-class RedisClient:
+class RedisClient(object):
     def __init__(self, host='localhost', port=6379):
         self.client = redis.StrictRedis(host=host, port=port)
         self.pubsub = self.client.pubsub(ignore_subscribe_messages=True)

@@ -39,7 +39,7 @@ class ExpDownloadQueue:
         self.downloader = ObsDownloader(redis_client)
         self._enqueue_thread = None
 
-    def run_enqueue_thread(self, sampler, start_sample_condition):
+    def start_enqueue_thread(self, sampler, start_sample_condition):
         """
         Producer thread, runs sampler function on a priority replay structure
         Args:

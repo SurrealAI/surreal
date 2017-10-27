@@ -29,7 +29,7 @@ class PointerQueue:
     def _enqueue_producer(self, binary, i):
         return self.queue.put(ExpPack.deserialize(binary))
 
-    def run_enqueue_thread(self):
+    def start_enqueue_thread(self):
         """
         Producer thread, get pointerpacks queued up in list from Redis
         """
@@ -41,7 +41,7 @@ class PointerQueue:
     def stop_enqueue_thread(self):
         self.client.stop_queue_thread(self.queue_name)
 
-    def run_dequeue_thread(self, handler):
+    def start_dequeue_thread(self, handler):
         """
         handler function takes an experience dict (ExpPack.data) and
         inserts it into a priority replay data structure.

@@ -6,7 +6,7 @@ import pickle
 from .serializer import np_serialize, np_deserialize, binary_hash
 
 
-class Pack:
+class Pack(object):
     def __init__(self, data, serializer=None):
         """
         Args:

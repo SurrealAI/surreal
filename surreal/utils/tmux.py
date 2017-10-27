@@ -15,7 +15,7 @@ def tmux_get_window(session, window_name):
     return session.find_where({'window_name': window_name})
 
 
-class TmuxExecutor:
+class TmuxExecutor(object):
     def __init__(self, start_dir='.', verbose=True, dry_run=False):
         self.server = libtmux.Server()
         self.start_dir = os.path.expanduser(start_dir)

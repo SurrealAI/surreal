@@ -9,7 +9,7 @@ import pickle
 from surreal.comm import to_str
 
 
-class PSListener:
+class PSListener(object):
     def __init__(self, redis_client, ps_name):
         assert isinstance(redis_client, RedisClient)
         self.client = redis_client

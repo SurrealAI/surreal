@@ -6,7 +6,7 @@ import pickle
 from surreal.comm import RedisClient
 
 
-class PSNotifier:
+class PSNotifier(object):
     def __init__(self, redis_client, ps_name):
         assert isinstance(redis_client, RedisClient)
         self.client = redis_client
