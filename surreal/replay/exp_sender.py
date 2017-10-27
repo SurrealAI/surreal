@@ -1,7 +1,7 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.comm import RedisClient, PointerPack, ObsPack, ExpPack, to_str
+from surreal.comm import RedisClient, ObsPack, ExpPack
 
 
 class ExpSender:
@@ -9,8 +9,9 @@ class ExpSender:
         assert isinstance(redis_client, RedisClient)
         self.client = redis_client
         self.queue_name = queue_name
+        self.visited_obs = set() # avoid resending obs
 
-    def send(self, obses, action, reward, done, info, replay_info):
+    def send(self, obses, action, reward, done, info):
         """
         Args:
             exp_dict: {obses: [np_image0, np_image1], action, reward, info}
@@ -23,15 +24,17 @@ class ExpSender:
         # observation pack
         obs_pointers = []
         for obs in obses:
-            obs_pointer, binary = ObsPack(obs).serialize()
-            redis_mset[obs_pointer] = binary
+            pack = ObsPack(obs)
+            obs_pointer, binary = pack.get_key(), pack.serialize()
+            if obs_pointer not in self.visited_obs:
+                self.visited_obs.add(obs_pointer)
+                redis_mset[obs_pointer] = binary
             obs_pointers.append(obs_pointer)
         # experience pack
-        exp = ExpPack(obs_pointers, action, reward, done, info)
-        exp_pointer, binary = exp.serialize()
+        pack = ExpPack(obs_pointers, action, reward, done, info)
+        exp_pointer, binary = pack.get_key(), pack.serialize()
         redis_mset[exp_pointer] = binary
         self.client.mset(redis_mset)
-        # pointer pack
-        ppack = PointerPack(obs_pointers, exp_pointer, replay_info)
-        _, binary = ppack.serialize()
+        # send to queue
         self.client.push_to_queue(self.queue_name, binary)
+

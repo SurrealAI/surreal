@@ -1,5 +1,5 @@
 import queue
-from surreal.comm import PointerPack, RedisClient
+from surreal.comm import ExpPack, RedisClient
 from surreal.utils.common import StoppableThread
 
 
@@ -13,8 +13,8 @@ class _PointerDequeueThread(StoppableThread):
         while True:
             if self.is_stopped():
                 break
-            pointerpack = self.queue.get(block=True, timeout=None)
-            self.handler(pointerpack)
+            exp = self.queue.get(block=True, timeout=None)
+            self.handler(exp.data)
             self.queue.task_done()
 
 
@@ -27,9 +27,9 @@ class PointerQueue:
         self._dequeue_thread = None
 
     def _enqueue_producer(self, binary, i):
-        return self.queue.put(PointerPack.deserialize(binary))
+        return self.queue.put(ExpPack.deserialize(binary))
 
-    def enqueue_thread(self):
+    def run_enqueue_thread(self):
         """
         Producer thread, get pointerpacks queued up in list from Redis
         """
@@ -41,10 +41,10 @@ class PointerQueue:
     def stop_enqueue_thread(self):
         self.client.stop_queue_thread(self.queue_name)
 
-    def dequeue_thread(self, handler):
+    def run_dequeue_thread(self, handler):
         """
-        handler function takes a PointerPack and inserts it into a priority
-        replay data structure.
+        handler function takes an experience dict (ExpPack.data) and
+        inserts it into a priority replay data structure.
         """
         if self._dequeue_thread is not None:
             raise ValueError('Dequeue thread is already running')

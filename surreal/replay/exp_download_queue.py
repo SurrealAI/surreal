@@ -1,76 +1,67 @@
 import queue
 import itertools
-from surreal.comm import PointerPack, RedisClient
+from time import sleep
+from surreal.comm import RedisClient, ExpPack
 from surreal.utils.common import StoppableThread
-from .exp_downloader import ExpDownloader
+from .obs_downloader import ObsDownloader
 
 
-class _ExpEnqueueThread(StoppableThread):
-    def __init__(self, queue, sampler):
+class _EnqueueThread(StoppableThread):
+    def __init__(self, queue, sampler, downloader, start_sample_condition):
+        """
+        start_sample_condition(): begins sampling only when this returns True.
+            Example: when the replay memory exceeds a threshold size
+        """
         self.queue = queue
         self.sampler = sampler
+        self.downloader = downloader
+        self.start_sample_condition = start_sample_condition
         super().__init__()
 
     def run(self):
+        while not self.start_sample_condition():
+            if self.is_stopped():
+                break
+            sleep(0.5)
         for i in itertools.count():
             if self.is_stopped():
                 break
+            exp_dicts = self.sampler(i)
+            exps = self.downloader.download(exp_dicts)
             # block if the queue is full
-            self.queue.put(self.sampler(i), block=True, timeout=None)
-
-
-class _ExpDequeueThread(StoppableThread):
-    def __init__(self, queue, handler):
-        self.queue = queue
-        self.handler = handler
-        super().__init__()
-
-    def run(self):
-        while True:
-            if self.is_stopped():
-                break
-            pointerpack = self.queue.get(block=True, timeout=None)
-            self.handler(pointerpack)
-            self.queue.task_done()
+            self.queue.put(exps, block=True, timeout=None)
 
 
 class ExpDownloadQueue:
     def __init__(self, redis_client, maxsize):
         self.queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)
-        self.downloader = ExpDownloader(redis_client)
-        self._dequeue_thread = None
+        self.downloader = ObsDownloader(redis_client)
+        self._enqueue_thread = None
 
-    def _enqueue_producer(self, binary, i):
-        return self.queue.put(PointerPack.deserialize(binary))
-
-    def enqueue_thread(self, sampler):
+    def run_enqueue_thread(self, sampler, start_sample_condition):
         """
         Producer thread, runs sampler function on a priority replay structure
         Args:
-            sampler: batch_i -> list of
-                       {'exp_pointer': "hashkey", 'obs_pointers': ["hashkey"s]}
+            sampler: batch_i -> list of exp_dicts with 'obs_pointers' field
         """
-        return self.client.pull_from_queue_thread(
-            queue_name=self.queue_name,
-            handler=self._enqueue_producer
+        if self._enqueue_thread is not None:
+            raise ValueError('Enqueue thread is already running')
+        self._enqueue_thread = _EnqueueThread(
+            queue=self.queue,
+            sampler=sampler,
+            downloader=self.downloader,
+            start_sample_condition=start_sample_condition,
         )
+        self._enqueue_thread.start()
+        return self._enqueue_thread
 
     def stop_enqueue_thread(self):
-        self.client.stop_queue_thread(self.queue_name)
+        self._enqueue_thread.stop()
+        self._enqueue_thread = None
 
-    def dequeue_thread(self, handler):
+    def dequeue(self):
         """
-        handler function takes a PointerPack and processes it
+        Called by the neural network, draw the next batch of experiences
         """
-        if self._dequeue_thread is not None:
-            raise ValueError('Dequeue thread is already running')
-        self._dequeue_thread = _DownloadDequeueThread(self.queue, handler)
-        self._dequeue_thread.start()
-        return self._dequeue_thread
-
-    def stop_dequeue_thread(self):
-        self._dequeue_thread.stop()
-        self._dequeue_thread = None
-
-
+        return self.queue.get(block=True, timeout=None)

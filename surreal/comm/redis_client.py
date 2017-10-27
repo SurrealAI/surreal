@@ -15,7 +15,8 @@ class RedisQueueThread(StoppableThread):
         for i in itertools.count():
             if self.is_stopped():
                 break
-            binary = self._client.brpop(self._queue_name)
+            # ignore queue name
+            _, binary = self._client.brpop(self._queue_name)
             self._handler(binary, i)
 
 

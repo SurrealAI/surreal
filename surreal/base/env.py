@@ -3,7 +3,7 @@ A template class that defines base environment APIs
 """
 
 
-class Environment(object):
+class Env(object):
     """
     Base environment class
     """

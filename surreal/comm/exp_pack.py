@@ -17,11 +17,12 @@ class ExpPack(NumpyPack):
             'info': info
         })
 
+    def get_key(self):
+        return 'exp:' + super().get_key()
+
 
 class ObsPack(NumpyPack):
     unpack_init = False
 
-    @property
-    def obs(self):
-        return self._data
-
+    def get_key(self):
+        return 'obs:' + super().get_key()

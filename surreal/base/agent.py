@@ -8,9 +8,10 @@ class Agent(object):
     Base agent class
     """
 
-    def __init__(self, name="agent"):
+    def __init__(self, name="agent", rank=0):
         """Each agent has a body and a head"""
         self._name = name
+        self._rank = rank
         self._body = None
         self._head = None
 
