@@ -9,7 +9,7 @@ class DummyReplay(Replay):
 
     def insert(self, exp_dict):
         print('INSERT', exp_dict)
-        time.sleep(0.5)
+        time.sleep(0.2)
         self.memory[len(self.memory)] = exp_dict
 
     def sample(self, batch_size, batch_i):

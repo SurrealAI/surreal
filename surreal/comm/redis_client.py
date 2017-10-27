@@ -44,6 +44,9 @@ class RedisClient(object):
           handler: does something upon receiving an object
             [binary_data, index] -> None
         """
+        if queue_name in self.queue_threads:
+            raise RuntimeError('Queue thread [{}] is already running'
+                               .format(queue_name))
         t = RedisQueueThread(self.client, queue_name, handler)
         self.queue_threads[queue_name] = t
         t.start()

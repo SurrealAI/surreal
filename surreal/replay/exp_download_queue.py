@@ -46,7 +46,7 @@ class ExpDownloadQueue:
             sampler: batch_i -> list of exp_dicts with 'obs_pointers' field
         """
         if self._enqueue_thread is not None:
-            raise ValueError('Enqueue thread is already running')
+            raise RuntimeError('Enqueue thread is already running')
         self._enqueue_thread = _EnqueueThread(
             queue=self.queue,
             sampler=sampler,

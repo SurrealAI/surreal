@@ -14,3 +14,7 @@ for i, batch in replay.batch_iterator():
     print(batch['reward'], batch['info'])
     if i == 2:
         break
+
+sleep(5)
+replay.stop_threads()
+print('THREAD STOPPED')

@@ -96,7 +96,7 @@ class Replay(object):
         )
 
     def stop_threads(self):
-        self.pointer_queue.start_enqueue_thread()
+        self.pointer_queue.stop_enqueue_thread()
         self.pointer_queue.stop_dequeue_thread()
         self.exp_download_queue.stop_enqueue_thread()
 
