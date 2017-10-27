@@ -2,15 +2,33 @@
 Defines packs that will be sent to redis
 """
 import inspect
+import pickle
 from .serializer import np_serialize, np_deserialize, binary_hash
 
 
 class Pack:
+    def __init__(self, data, serializer=None):
+        """
+        Args:
+            serializer defaults to pickle.dumps
+        """
+        self._data = data
+        if serializer is None:
+            self._serializer = pickle.dumps
+        else:
+            self._serializer = serializer
+        self._cache = None
+
     def serialize(self):
         """
         Returns:
             hask_key, binarized_data
         """
+        if self._cache is None:
+            self._cache = self._serializer(self._data)
+        return self._cache
+
+    def get_key(self):
         raise NotImplementedError
 
     @classmethod
@@ -21,22 +39,19 @@ class Pack:
         """
         raise NotImplementedError
 
-    def get_data(self):
-        raise NotImplementedError
+    @property
+    def data(self):
+        return self._data
 
 
 class NumpyPack(Pack):
     unpack_init = True
 
     def __init__(self, data):
-        self._data = data
+        super().__init__(data, serializer=np_serialize)
 
-    def serialize(self):
-        binary = np_serialize(self.get_data())
-        return binary_hash(binary), binary
-
-    def get_data(self):
-        return self._data
+    def get_key(self):
+        return binary_hash(self.serialize())
 
     def __getattr__(self, key):
         if not isinstance(self._data, dict) or key in dir(self):

@@ -1,14 +1,14 @@
 import redis
 import threading
 import itertools
+from surreal.utils.common import StoppableThread
 
 
-class RedisQueueThread(threading.Thread):
+class RedisQueueThread(StoppableThread):
     def __init__(self, redis_client, queue_name, handler, **kwargs):
         self._client = redis_client
         self._queue_name = queue_name
         self._handler = handler
-        self._stop_event = threading.Event() # stoppable thread
         super().__init__(**kwargs)
 
     def run(self):
@@ -18,12 +18,6 @@ class RedisQueueThread(threading.Thread):
             binary = self._client.brpop(self._queue_name)
             self._handler(binary, i)
 
-    def stop(self):
-        self._stop_event.set()
-
-    def is_stopped(self):
-        return self._stop_event.is_set()
-
 
 class RedisClient:
     def __init__(self, host='localhost', port=6379):
@@ -32,8 +26,9 @@ class RedisClient:
         self.queue_threads = {}
         self.subscribe_threads = {}
 
-    def mset(self, *key_value_pairs):
-        return self.client.mset(dict(key_value_pairs))
+    def mset(self, data_dict):
+        assert isinstance(data_dict, dict)
+        return self.client.mset(data_dict)
 
     def mget(self, key_list):
         assert isinstance(key_list, list)

@@ -5,7 +5,7 @@ from .serializer import np_serialize, np_deserialize, binary_hash
 class ExpPack(NumpyPack):
     unpack_init = True
 
-    def __init__(self, obs_pointers, action, reward, info):
+    def __init__(self, obs_pointers, action, reward, done, info):
         assert isinstance(obs_pointers, list)
         assert isinstance(reward, (float, int))
         assert isinstance(info, dict)
@@ -13,6 +13,7 @@ class ExpPack(NumpyPack):
             'obs_pointers': obs_pointers,
             'action': action,
             'reward': reward,
+            'done': done,
             'info': info
         })
 

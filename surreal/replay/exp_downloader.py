@@ -8,8 +8,13 @@ class ExpDownloader:
     def __init__(self, redis_client):
         self.client = redis_client
 
-    def download(self, exp_pointer, obs_pointers):
+    def download(self, pointer_dict_list):
+        """
+        list of {'exp_pointer': "hashkey", 'obs_pointers': ["hashkey"s]}
+        """
         assert isinstance(obs_pointers, list)
+
+    def shit(self):
         exp, *obses = self.client.mget([exp_pointer] + obs_pointers)
         exp = ExpPack.deserialize(exp)
         assert len(obs_pointers) == len(exp.obs_pointers) # expected pointes

@@ -1,34 +1,37 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.comm import RedisClient, ObsPack, ExpPack, to_str
+from surreal.comm import RedisClient, PointerPack, ObsPack, ExpPack, to_str
 
 
 class ExpSender:
-    def __init__(self, redis_client):
+    def __init__(self, redis_client, queue_name):
+        assert isinstance(redis_client, RedisClient)
         self.client = redis_client
+        self.queue_name = queue_name
 
-    def send(self, exp_dict):
+    def send(self, obses, action, reward, done, info, replay_info):
         """
         Args:
             exp_dict: {obses: [np_image0, np_image1], action, reward, info}
 
         - Send the observations with their hash as key
         - Send the experience tuple with its hash as key
-        - Send the pointer pack to Redis queue
+        - Send the PointerPack to Redis queue
         """
-        assert isinstance(exp_dict, dict)
-
-
-
-        exp, *obses = self.client.mget([exp_pointer] + obs_pointers)
-        exp = ExpPack.deserialize(exp)
-        assert len(obs_pointers) == len(exp.obs_pointers) # expected pointes
-        actual_pointers = {to_str(p) for p in obs_pointers}
-        downloaded_pointers = {to_str(p) for p in exp.obs_pointers}
-        assert actual_pointers == downloaded_pointers
-        obses = [ObsPack.deserialize(obs).obs for obs in obses]
-        exp = exp.get_data()
-        exp['obses'] = obses
-        del exp['obs_pointers']
-        return exp
+        redis_mset = {}
+        # observation pack
+        obs_pointers = []
+        for obs in obses:
+            obs_pointer, binary = ObsPack(obs).serialize()
+            redis_mset[obs_pointer] = binary
+            obs_pointers.append(obs_pointer)
+        # experience pack
+        exp = ExpPack(obs_pointers, action, reward, done, info)
+        exp_pointer, binary = exp.serialize()
+        redis_mset[exp_pointer] = binary
+        self.client.mset(redis_mset)
+        # pointer pack
+        ppack = PointerPack(obs_pointers, exp_pointer, replay_info)
+        _, binary = ppack.serialize()
+        self.client.push_to_queue(self.queue_name, binary)
