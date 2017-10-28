@@ -10,11 +10,11 @@ ag.initialize()
 env = DummyEnv(ag.dummy_matrix, sleep=.3)
 
 client = RedisClient()
-sender = ExpSender(client, 'replay')
+sender = ExpSender(client, 'replay', obs_cache_size=5)
 
 
 last_obs = ag.dummy_matrix
-for i in range(32):
+for i in range(10):
     a = i % 10
     obs, reward, done, info = env.step(a)
     info['td-error'] = reward/10.

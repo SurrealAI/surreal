@@ -5,11 +5,21 @@ from surreal.comm import RedisClient, ObsPack, ExpPack
 
 
 class ExpSender:
-    def __init__(self, redis_client, queue_name):
+    def __init__(self, redis_client, queue_name, obs_cache_size=10000000):
+        """
+        obs_cache_size: max size of the cache of obs hashes so that we don't
+            send duplicate obs to Redis.
+        """
         assert isinstance(redis_client, RedisClient)
         self.client = redis_client
         self.queue_name = queue_name
-        self.visited_obs = set() # avoid resending obs
+        self._visited_obs = set() # avoid resending obs
+        self._obs_cache_size = obs_cache_size
+
+    def _add_to_visited(self, obs_pointer):
+        self._visited_obs.add(obs_pointer)
+        if len(self._visited_obs) > self._obs_cache_size:
+            self._visited_obs.pop()
 
     def send(self, obses, action, reward, done, info):
         """
@@ -26,8 +36,8 @@ class ExpSender:
         for obs in obses:
             pack = ObsPack(obs)
             obs_pointer, binary = pack.get_key(), pack.serialize()
-            if obs_pointer not in self.visited_obs:
-                self.visited_obs.add(obs_pointer)
+            if obs_pointer not in self._visited_obs:
+                self._add_to_visited(obs_pointer)
                 redis_mset[obs_pointer] = binary
             obs_pointers.append(obs_pointer)
         # experience pack
