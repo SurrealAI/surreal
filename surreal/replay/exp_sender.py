@@ -7,13 +7,13 @@ from surreal.comm import RedisClient, ObsPack, ExpPack
 class ExpSender:
     def __init__(self, redis_client, queue_name, obs_cache_size=10000000):
         """
-        obs_cache_size: max size of the cache of obs hashes so that we don't
-            send duplicate obs to Redis.
+        obs_cache_size: max size of the cache of new_obs hashes so that we don't
+            send duplicate new_obs to Redis.
         """
         assert isinstance(redis_client, RedisClient)
         self.client = redis_client
         self.queue_name = queue_name
-        self._visited_obs = set() # avoid resending obs
+        self._visited_obs = set() # avoid resending new_obs
         self._obs_cache_size = obs_cache_size
 
     def _add_to_visited(self, obs_pointer):

@@ -32,9 +32,9 @@ class ReplayBuffer(object):
             Max number of transitions to store in the buffer. When the buffer
             overflows the old memories are dropped.
           obs_encode_mode: 'concat' or 'seq'
-            if concat, assume each obs is of the same shape
+            if concat, assume each new_obs is of the same shape
             if seq, stack the variable-length sequences into
-                torch.utils.nn.rnn.PackedSequence, assume [seq_len x feature_size]
+                torch_util.utils.nn.rnn.PackedSequence, assume [seq_len x feature_size]
         """
         # TODO: also drop Redis memory
         self._storage = []

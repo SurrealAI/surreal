@@ -18,7 +18,7 @@ class ObsDownloader:
         assert isinstance(exp_dicts, list)
         assert len(exp_dicts) > 0, 'exp_dicts download list cannot be empty'
         assert all(isinstance(exp, dict) for exp in exp_dicts)
-        # prevent reinserting the actual heavy obs back into exps
+        # prevent reinserting the actual heavy new_obs back into exps
         exp_dicts = [exp.copy() for exp in exp_dicts]
         all_obs_pointers = []
         for exp in exp_dicts:

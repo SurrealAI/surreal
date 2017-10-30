@@ -22,19 +22,20 @@ class RedisQueueThread(StoppableThread):
 
 class RedisClient(object):
     def __init__(self, host='localhost', port=6379):
-        self.client = redis.StrictRedis(host=host, port=port)
-        self.pubsub = self.client.pubsub(ignore_subscribe_messages=True)
-        self.queue_threads = {}
-        self.subscribe_threads = {}
+        self._client = redis.StrictRedis(host=host, port=port)
+        self._pubsub = self._client.pubsub(ignore_subscribe_messages=True)
+        self._queue_threads = {}
+        self._subscribe_threads = {}
 
         # delegated method
-        self.set = self.client.set
-        self.get = self.client.get
-        self.mset = self.client.mset
-        self.mget = self.client.mget
+        self.set = self._client.set
+        self.get = self._client.get
+        self.mset = self._client.mset
+        self.mget = self._client.mget
+        self.flushall = self._client.flushall
 
     def push_to_queue(self, queue_name, binary):
-        self.client.lpush(queue_name, binary)
+        self._client.lpush(queue_name, binary)
 
     def pull_from_queue_thread(self, queue_name, handler):
         """
@@ -44,19 +45,19 @@ class RedisClient(object):
           handler: does something upon receiving an object
             [binary_data, index] -> None
         """
-        if queue_name in self.queue_threads:
+        if queue_name in self._queue_threads:
             raise RuntimeError('Queue thread [{}] is already running'
                                .format(queue_name))
-        t = RedisQueueThread(self.client, queue_name, handler)
-        self.queue_threads[queue_name] = t
+        t = RedisQueueThread(self._client, queue_name, handler)
+        self._queue_threads[queue_name] = t
         t.start()
         return t
 
     def stop_queue_thread(self, queue_name):
-        self.queue_threads[queue_name].stop()
+        self._queue_threads[queue_name].stop()
 
     def publish(self, channel, msg):
-        self.client.publish(channel, msg)
+        self._client.publish(channel, msg)
 
     def subscribe_thread(self, channel, handler, sleep_time=0.1):
         """
@@ -73,10 +74,10 @@ class RedisClient(object):
             subscribed to. With [p]message messages,
             this value will be the actual published message.
         """
-        self.pubsub.subscribe(**{channel: handler})
-        t = self.pubsub.run_in_thread(sleep_time=sleep_time)
-        self.subscribe_threads[channel] = t
+        self._pubsub.subscribe(**{channel: handler})
+        t = self._pubsub.run_in_thread(sleep_time=sleep_time)
+        self._subscribe_threads[channel] = t
         return t
 
     def stop_subscribe_thread(self, channel):
-        self.subscribe_threads[channel].stop()
+        self._subscribe_threads[channel].stop()
