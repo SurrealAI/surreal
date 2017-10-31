@@ -4,7 +4,7 @@ Sample pointers from replay buffer and pull the actual observations
 from surreal.comm import RedisClient, ObsPack, ExpPack
 
 
-class ExpSender:
+class ExpSender(object):
     def __init__(self, redis_client, queue_name, obs_cache_size=10000000):
         """
         obs_cache_size: max size of the cache of new_obs hashes so that we don't

@@ -1,7 +1,7 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.comm import RedisClient, ObsPack, ExpPack, to_str
+from surreal.comm import RedisClient, ObsPack, ExpPack
 
 
 class ObsDownloader:

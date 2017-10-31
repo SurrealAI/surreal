@@ -3,7 +3,7 @@ Defines packs that will be sent to redis
 """
 import inspect
 import pickle
-from .serializer import np_serialize, np_deserialize, binary_hash
+import surreal.utils as U
 
 
 class Pack(object):
@@ -48,10 +48,10 @@ class NumpyPack(Pack):
     unpack_init = True
 
     def __init__(self, data):
-        super().__init__(data, serializer=np_serialize)
+        super().__init__(data, serializer=U.np_serialize)
 
     def get_key(self):
-        return binary_hash(self.serialize())
+        return U.binary_hash(self.serialize())
 
     def __getattr__(self, key):
         if not isinstance(self._data, dict) or key in dir(self):
@@ -61,7 +61,7 @@ class NumpyPack(Pack):
 
     @classmethod
     def deserialize(cls, binary):
-        data = np_deserialize(binary)
+        data = U.np_deserialize(binary)
         if cls.unpack_init:
             return cls(**data)
         else:
