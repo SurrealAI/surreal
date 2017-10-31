@@ -5,6 +5,7 @@ import inspect
 import collections
 import functools
 import argparse
+import re
 from easydict import EasyDict
 
 
@@ -20,11 +21,36 @@ class StoppableThread(threading.Thread):
         return self._stop_event.is_set()
 
 
+def _get_qualified_type_name(type_):
+    name = str(type_)
+    r = re.compile("<class '(.*)'>")
+    match = r.match(name)
+    if match:
+        return match.group(1)
+    else:
+        return name
+
+
 def assert_type(x, expected_type, message=''):
     assert isinstance(x, expected_type), (
         (message + ': ' if message else '')
-        + 'expected type `{}`, actual type `{}`'.format(expected_type, type(x))
+        + 'expected type `{}`, actual type `{}`'.format(
+            _get_qualified_type_name(expected_type),
+            _get_qualified_type_name(type(x))
+        )
     )
+
+
+def fformat(float_num, precision):
+    """
+    https://stackoverflow.com/a/44702621/3453033
+    """
+    assert isinstance(precision, int) and precision > 0
+    return ('{{:.{}f}}'
+            .format(precision)
+            .format(float_num)
+            .rstrip('0')
+            .rstrip('.'))
 
 
 def is_sequence(obj):
@@ -46,6 +72,18 @@ def include_keys(include, d):
     """
     assert is_sequence(include)
     return {k: v for k, v in d.items() if k in set(include)}
+
+
+def exclude_keys(exclude, d):
+    """
+    Remove the `exclude` keys from a kwargs dict.
+
+    Args:
+      exclude: list or set of keys to be excluded
+      d: raw dict that might have irrelevant keys
+    """
+    assert is_sequence(exclude)
+    return {k: v for k, v in d.items() if k not in set(exclude)}
 
 
 def iter_last(iterable):
