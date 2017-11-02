@@ -25,7 +25,7 @@ class DummyEnv(Env):
         Args:
             action: the next action to take
         """
-        self.matrix = self.matrix + np.ones([84,84,3]).astype(np.float32)
+        self.matrix = self.matrix + np.ones([4]).astype(np.float32)
         time.sleep(self.sleep)
         return self.matrix, action*0.1, bool(action%3==0), {'yoyo': action*0.3}
 
