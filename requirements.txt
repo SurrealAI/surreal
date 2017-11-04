@@ -1,0 +1,9 @@
+numpy
+torch
+torchvision
+seaborn
+easydict
+redis
+tqdm
+tabulate
+pandas
