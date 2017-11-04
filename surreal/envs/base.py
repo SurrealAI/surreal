@@ -76,6 +76,7 @@ class Env(object):
 
         Returns: observation (object): the initial observation of the
             space.
+            info (dict)
         """
         return self._reset()
 
@@ -193,8 +194,8 @@ class Wrapper(Env):
 
 class ObservationWrapper(Wrapper):
     def _reset(self):
-        observation = self.env.reset()
-        return self._observation(observation)
+        observation, info = self.env.reset()
+        return self._observation(observation), info
 
     def _step(self, action):
         observation, reward, done, info = self.env.step(action)
