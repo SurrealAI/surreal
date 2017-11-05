@@ -1,12 +1,12 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.distributed import RedisClient, ObsPack, ExpPack
+from surreal.distributed import RedisClient, ObsPack
 
 
 class ObsFetcher(object):
     def __init__(self, redis_client):
-        self.client = redis_client
+        self._client = redis_client
 
     def fetch(self, exp_dicts):
         """
@@ -29,14 +29,13 @@ class ObsFetcher(object):
             else:
                 assert 'obs_pointers' in exp
                 all_obs_pointers.extend(exp['obs_pointers'])
-        all_obs = self.client.mget(all_obs_pointers)
-        all_obs = [ObsPack.deserialize(obs).data for obs in all_obs]
+        all_obs = self._client.mget(all_obs_pointers)
+        all_obs = [ObsPack.deserialize(obs) for obs in all_obs]
         for exp in exp_dicts:
             if 'obses' in exp:
                 continue
             num_obs = len(exp['obs_pointers'])
             exp['obses'] = all_obs[:num_obs]
-            del exp['obs_pointers']
             del all_obs[:num_obs]
         assert len(all_obs) == 0, 'should be empty after all exp'
         return exp_dicts

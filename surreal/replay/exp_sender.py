@@ -1,7 +1,7 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.distributed import RedisClient, ObsPack, ExpPack
+from surreal.distributed import RedisClient, ObsPack, ExpPointerPack, ExpFullPack
 
 
 class ExpSender(object):
@@ -35,14 +35,14 @@ class ExpSender(object):
         obs_pointers = []
         for obs in obses:
             pack = ObsPack(obs)
-            obs_pointer, binary = pack.get_key(), pack.serialize()
+            obs_pointer, binary = pack.serialize()
             if obs_pointer not in self._visited_obs:
                 self._add_to_visited(obs_pointer)
                 redis_mset[obs_pointer] = binary
             obs_pointers.append(obs_pointer)
         # experience pack
-        pack = ExpPack(obs_pointers, action, reward, done, info)
-        exp_pointer, binary = pack.get_key(), pack.serialize()
+        pack = ExpPointerPack(obs_pointers, action, reward, done, info)
+        exp_pointer, binary = pack.serialize()
         redis_mset[exp_pointer] = binary
         self.client.mset(redis_mset)
         # send to queue
