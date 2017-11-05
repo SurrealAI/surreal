@@ -38,7 +38,6 @@ q_agent = QAgent(
     q_func=q_func,
     action_dim=2,
 )
-q_agent = DummyAgent(0)
 env = DummyEnv(q_agent.dummy_matrix, sleep=.3)
 
 client = RedisClient()

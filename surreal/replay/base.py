@@ -1,18 +1,20 @@
 import time
 import threading
 import itertools
+import surreal.utils as U
 from surreal.distributed import RedisClient
 from .pointer_queue import PointerQueue
 from .exp_fetcher_queue import ExpFetcherQueue
 
 
 class Replay(object):
-    def __init__(self,
+    def __init__(self, *,
                  redis_client,
                  batch_size,
-                 download_queue_size,
-                 name='replay'):
-        assert isinstance(redis_client, RedisClient)
+                 name='replay',
+                 download_queue_size=5):
+        U.assert_type(redis_client, RedisClient)
+        self.batch_size = batch_size
         self._pointer_queue = PointerQueue(
             redis_client=redis_client,
             queue_name=name,
@@ -21,7 +23,6 @@ class Replay(object):
             redis_client=redis_client,
             maxsize=download_queue_size,
         )
-        self.batch_size = batch_size
         self._lock = threading.Lock()
 
     def insert(self, exp_dict):

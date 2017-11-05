@@ -9,15 +9,12 @@ from .base import Replay
 
 
 class UniformReplay(Replay):
-    def __init__(
-        self,
-        redis_client,
-        memory_size,
-        sampling_start_size,
-        batch_size,
-        download_queue_size,
-        name='replay'
-    ):
+    def __init__(self, *,
+                 redis_client,
+                 batch_size,
+                 memory_size,
+                 sampling_start_size,
+                 **kwargs):
         """
         Args:
           memory_size: Max number of experience to store in the buffer.
@@ -27,8 +24,7 @@ class UniformReplay(Replay):
         super().__init__(
             redis_client=redis_client,
             batch_size=batch_size,
-            download_queue_size=download_queue_size,
-            name=name
+            **kwargs
         )
         # TODO: also drop Redis memory
         self._memory = []

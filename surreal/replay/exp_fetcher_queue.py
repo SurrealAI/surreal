@@ -27,7 +27,7 @@ class _EnqueueThread(StoppableThread):
             if self.is_stopped():
                 break
             exp_dicts = self._sampler(i)
-            exps = self._fetcher.download(exp_dicts)
+            exps = self._fetcher.fetch(exp_dicts)
             # block if the queue is full
             self._queue.put(exps, block=True, timeout=None)
 

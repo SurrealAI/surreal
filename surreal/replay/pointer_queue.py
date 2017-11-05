@@ -19,7 +19,10 @@ class _PointerDequeueThread(StoppableThread):
 
 
 class PointerQueue:
-    def __init__(self, redis_client, queue_name, maxsize=0):
+    def __init__(self,
+                 redis_client,
+                 queue_name,
+                 maxsize=0):
         self.queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)
         self.queue_name = queue_name
