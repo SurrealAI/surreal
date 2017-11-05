@@ -1,5 +1,5 @@
 import queue
-from surreal.comm import ExpPack, RedisClient
+from surreal.distributed import ExpPack, RedisClient
 from surreal.utils.common import StoppableThread
 
 

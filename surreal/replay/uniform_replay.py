@@ -4,7 +4,7 @@ import numpy as np
 from easydict import EasyDict
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
-from surreal.comm import RedisClient
+from surreal.distributed import RedisClient
 from .base import Replay
 
 

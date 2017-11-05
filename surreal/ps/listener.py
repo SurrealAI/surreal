@@ -1,7 +1,7 @@
 """
 Notifier broadcasts message as well as the neural network parameters to the PS
 """
-from surreal.comm import RedisClient
+from surreal.distributed import RedisClient
 import queue
 import itertools
 from time import sleep

@@ -1,7 +1,7 @@
 import time
 import threading
 import itertools
-from surreal.comm import RedisClient
+from surreal.distributed import RedisClient
 from .pointer_queue import PointerQueue
 from .exp_fetcher_queue import ExpFetcherQueue
 

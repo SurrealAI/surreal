@@ -3,7 +3,7 @@ Notifier broadcasts message as well as the neural network parameters to the PS
 """
 import time
 import pickle
-from surreal.comm import RedisClient
+from surreal.distributed import RedisClient
 import surreal.utils as U
 
 

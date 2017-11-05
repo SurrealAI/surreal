@@ -1,5 +1,5 @@
 import surreal.utils as U
-from surreal.comm import *
+from surreal.distributed import *
 from surreal.replay import *
 from surreal.ps import *
 from surreal.envs import *
