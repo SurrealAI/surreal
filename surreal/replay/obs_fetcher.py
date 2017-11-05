@@ -4,7 +4,7 @@ Sample pointers from replay buffer and pull the actual observations
 from surreal.comm import RedisClient, ObsPack, ExpPack
 
 
-class ObsDownloader:
+class ObsFetcher:
     def __init__(self, redis_client):
         self.client = redis_client
 
