@@ -1,8 +1,8 @@
 import queue
 import itertools
 from time import sleep
-from surreal.distributed import RedisClient
 from surreal.utils.common import StoppableThread
+from .redis_client import RedisClient
 from .obs_fetcher import ObsFetcher
 
 

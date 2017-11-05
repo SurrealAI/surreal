@@ -1,10 +1,10 @@
-import time
-import threading
 import itertools
+import threading
+
 import surreal.utils as U
 from surreal.distributed import RedisClient
-from .pointer_queue import PointerQueue
-from .exp_fetcher_queue import ExpFetcherQueue
+from surreal.distributed.exp_fetcher_queue import ExpFetcherQueue
+from surreal.distributed.pointer_queue import PointerQueue
 
 
 class Replay(object):

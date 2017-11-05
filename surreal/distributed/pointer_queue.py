@@ -1,6 +1,7 @@
 import queue
-from surreal.distributed import RedisClient, ExpPack
 from surreal.utils.common import StoppableThread
+from .redis_client import RedisClient
+from .packs import ExpPack
 
 
 class _PointerDequeueThread(StoppableThread):

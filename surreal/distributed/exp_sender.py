@@ -1,7 +1,8 @@
 """
 Sample pointers from replay buffer and pull the actual observations
 """
-from surreal.distributed import RedisClient, ObsPack, ExpPointerPack, ExpFullPack
+from .redis_client import RedisClient
+from .packs import ObsPack, ExpPointerPack, ExpFullPack
 
 
 class ExpSender(object):
