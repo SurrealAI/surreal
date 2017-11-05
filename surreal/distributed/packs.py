@@ -7,6 +7,8 @@ import surreal.utils as U
 
 
 class Pack(object):
+    pointer_prefix = ''  # override this in subclasses
+
     def __init__(self, data, serializer=None):
         """
         Args:
@@ -25,7 +27,8 @@ class Pack(object):
             hask_key, binarized_data
         """
         binary = self._serializer(self._data)
-        return U.binary_hash(binary), binary
+        pointer = '{}:{}'.format(self.pointer_prefix, U.binary_hash(binary))
+        return pointer, binary
 
     @staticmethod
     def deserialize(binary, deserializer=None):
@@ -43,6 +46,8 @@ class Pack(object):
 
 
 class ExpPack(Pack):
+    pointer_prefix = 'exp'
+
     def serialize(self):
         """
         Also insert exp_pointer (i.e. hash of this exp dict before serialize)
@@ -85,6 +90,8 @@ class ExpFullPack(ExpPack):
 
 
 class ObsPack(Pack):
+    pointer_prefix = 'obs'
+
     @staticmethod
     def deserialize(binary):
         return pickle.loads(binary)
