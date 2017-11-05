@@ -4,7 +4,7 @@ Actor function
 import torch
 import random
 from torch.autograd import Variable
-from surreal.utils.torch_util import to_scalar
+from surreal.utils.pytorch import to_scalar
 import threading
 
 
@@ -54,7 +54,7 @@ class QAgent(object):
     @classmethod
     def load(cls, q_module_class, fname, *args, **kwargs):
         """
-        q_module_class: instance of surreal.utils.torch_util.Module
+        q_module_class: instance of surreal.utils.pytorch.Module
         """
         q_func = q_module_class.load(fname)
         return cls(q_func, *args, **kwargs)

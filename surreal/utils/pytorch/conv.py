@@ -48,7 +48,7 @@ def conv_fc_init(layer,
 
 def flatten_conv(x):
     """
-    https://discuss.torch_util.org/t/runtimeerror-input-is-not-contiguous/930/4
+    https://discuss.pytorch.org/t/runtimeerror-input-is-not-contiguous/930/4
     `.contiguous()` copies the tensor if the data isn't contiguous
     """
     return x.contiguous().view(x.size(0), -1)
@@ -65,7 +65,7 @@ def global_avg_pool(x):
 
 def global_max_pool(x):
     N, C, H, W = x.size()
-    # torch_util.max returns a tuple of (max, indices)
+    # pytorch.max returns a tuple of (max, indices)
     return x.view(N, C, H * W).max(dim=2)[0].squeeze(dim=2)
 
 

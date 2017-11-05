@@ -18,7 +18,7 @@ def _net_or_parameters(net):
 def set_requires_grad(net, requires_grad):
     """
     no gradients computed
-    http://torch_util.org/docs/master/notes/autograd.html?highlight=volatile
+    http://pytorch.org/docs/master/notes/autograd.html?highlight=volatile
     """
     for param in _net_or_parameters(net):
         param.requires_grad = requires_grad
@@ -50,10 +50,10 @@ def net_clip_grad_value(net, clip):
 
 def net_clip_grad_norm(net, clip, *, norm_type=2):
     """
-    Unlike torch_util.nn.utils.net_clip_grad_norm,
+    Unlike pytorch.nn.utils.net_clip_grad_norm,
     this function clips norm by every parameter
     original src:
-    http://torch_util.org/docs/0.2.0/_modules/torch_util/nn/utils/clip_grad.html#net_clip_grad_norm
+    http://pytorch.org/docs/0.2.0/_modules/pytorch/nn/utils/clip_grad.html#net_clip_grad_norm
     """
     for param in _net_or_parameters(net):
         grad = param.grad

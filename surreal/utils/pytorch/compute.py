@@ -72,7 +72,7 @@ def torch_norm(tensor, norm_type=2):
 def torch_clip_norm(tensor, clip, norm_type=2, in_place=False):
     """
     original src:
-    http://torch_util.org/docs/0.2.0/_modules/torch_util/nn/utils/clip_grad.html#net_clip_grad_norm
+    http://pytorch.org/docs/0.2.0/_modules/pytorch/nn/utils/clip_grad.html#net_clip_grad_norm
     """
     norm = torch_norm(tensor, norm_type)
     clip_coef = clip / (norm + 1e-6)

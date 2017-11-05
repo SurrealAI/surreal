@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from easydict import EasyDict
 import surreal.utils as U
-from surreal.utils.torch_util import GpuVariable as Variable
+from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.comm import RedisClient
 from .base import Replay
 

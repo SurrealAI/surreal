@@ -3,7 +3,7 @@ Shape inference methods
 """
 import math
 from functools import partial
-from surreal.utils.torch_util import shape
+from surreal.utils.pytorch import shape
 from surreal.utils.common import include_keys
 
 

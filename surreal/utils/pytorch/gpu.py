@@ -28,7 +28,7 @@ def _data_to_cuda(data):
 
 class GpuVariable(Variable):
     """
-    Hack torch_util variable to auto transfer to GPU
+    Hack pytorch variable to auto transfer to GPU
     Have the following line at the top:
 
     from ml_utils import GpuVariable as Variable
@@ -42,7 +42,7 @@ class GpuVariable(Variable):
 
 class GpuParameter(torch.nn.Parameter):
     """
-    Hack torch_util variable to auto transfer to GPU
+    Hack torch variable to auto transfer to GPU
     Have the following line at the top:
 
     from ml_utils import GpuVariable as Variable

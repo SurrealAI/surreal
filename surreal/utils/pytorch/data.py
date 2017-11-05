@@ -115,7 +115,7 @@ def _to_tensor(x, gpu=-1):
 
 def to_float_tensor(x, copy=True):
     """
-    FloatTensor is the most used torch_util type, so we create a special method for it
+    FloatTensor is the most used pytorch type, so we create a special method for it
     """
     typ = get_torch_type(x)
     if typ == 'tensor':

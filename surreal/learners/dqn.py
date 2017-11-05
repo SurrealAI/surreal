@@ -5,7 +5,7 @@ https://github.com/openai/gym/issues/543
 """
 import torch
 import surreal.utils as U
-from surreal.utils.torch_util import GpuVariable as Variable
+from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
 from easydict import EasyDict
 
