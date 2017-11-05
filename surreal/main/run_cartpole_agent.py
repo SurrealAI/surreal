@@ -21,7 +21,6 @@ C = {
 C = EasyDict(C)
 
 client = RedisClient()
-client.flushall()
 sender = ExpSender(client, 'replay', obs_cache_size=5)
 
 env = gym.make('CartPole-v0')

@@ -59,6 +59,8 @@ q_agent = QAgent(
 )
 
 client = RedisClient()
+# TODO debug only
+client.flushall()
 broadcaster = TorchBroadcaster(client, debug=0)
 
 client = RedisClient()
