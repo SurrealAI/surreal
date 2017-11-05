@@ -32,7 +32,7 @@ class _EnqueueThread(StoppableThread):
             self._queue.put(exps, block=True, timeout=None)
 
 
-class ExpFetcherQueue:
+class ObsFetchQueue(object):
     def __init__(self, redis_client, maxsize):
         self._queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)

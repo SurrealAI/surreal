@@ -3,8 +3,8 @@ import threading
 
 import surreal.utils as U
 from surreal.distributed import RedisClient
-from surreal.distributed.exp_fetcher_queue import ExpFetcherQueue
-from surreal.distributed.pointer_queue import PointerQueue
+from surreal.distributed.obs_fetch_queue import ObsFetchQueue
+from surreal.distributed.exp_queue import ExpQueue
 
 
 class Replay(object):
@@ -15,11 +15,11 @@ class Replay(object):
                  download_queue_size=5):
         U.assert_type(redis_client, RedisClient)
         self.batch_size = batch_size
-        self._pointer_queue = PointerQueue(
+        self._exp_queue = ExpQueue(
             redis_client=redis_client,
             queue_name=name,
         )
-        self._exp_fetcher_queue = ExpFetcherQueue(
+        self._obs_fetch_queue = ObsFetchQueue(
             redis_client=redis_client,
             maxsize=download_queue_size,
         )
@@ -89,20 +89,20 @@ class Replay(object):
         """
         Call this method to launch all background threads that talk to Redis.
         """
-        self._pointer_queue.start_enqueue_thread()
-        self._pointer_queue.start_dequeue_thread(self._locked_insert)
-        self._exp_fetcher_queue.start_enqueue_thread(
+        self._exp_queue.start_enqueue_thread()
+        self._exp_queue.start_dequeue_thread(self._locked_insert)
+        self._obs_fetch_queue.start_enqueue_thread(
             self._locked_sample,
             self.start_sample_condition,
         )
 
     def stop_threads(self):
-        self._pointer_queue.stop_enqueue_thread()
-        self._pointer_queue.stop_dequeue_thread()
-        self._exp_fetcher_queue.stop_enqueue_thread()
+        self._exp_queue.stop_enqueue_thread()
+        self._exp_queue.stop_dequeue_thread()
+        self._obs_fetch_queue.stop_enqueue_thread()
 
     def next_batch(self):
-        exp_list = self._exp_fetcher_queue.dequeue()
+        exp_list = self._obs_fetch_queue.dequeue()
         return self.aggregate_batch(exp_list)
 
     def batch_iterator(self):

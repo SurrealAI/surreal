@@ -43,7 +43,7 @@ class Listener(object):
             binary = client.get(ps_name)
             self.update(binary, msg['message'])
 
-        self._listener_thread = self._client.subscribe_thread(
+        self._listener_thread = self._client.start_subscribe_thread(
             ps_name, _msg_handler
         )
         return self._listener_thread

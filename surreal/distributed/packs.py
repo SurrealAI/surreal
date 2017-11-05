@@ -62,6 +62,9 @@ class ExpPack(Pack):
 
 
 class ExpPointerPack(ExpPack):
+    """
+    Only obs_pointers are sent. Actual obses will be downloaded later.
+    """
     def __init__(self, obs_pointers, action, reward, done, info):
         assert isinstance(obs_pointers, list)
         assert isinstance(reward, (float, int))
@@ -76,6 +79,9 @@ class ExpPointerPack(ExpPack):
 
 
 class ExpFullPack(ExpPack):
+    """
+    Send the full exp tuple with full obses. Useful for on-policy learning.
+    """
     def __init__(self, obses, action, reward, done, info):
         assert isinstance(obses, list)
         assert isinstance(reward, (float, int))

@@ -4,7 +4,7 @@ import itertools
 import surreal.utils as U
 
 
-class RedisQueueThread(U.StoppableThread):
+class _DequeueThread(U.StoppableThread):
     def __init__(self, redis_client, queue_name, handler, **kwargs):
         """
         Args:
@@ -37,14 +37,26 @@ class RedisClient(object):
         # delegated method
         self.set = self._client.set
         self.get = self._client.get
-        self.mset = self._client.mset
-        self.mget = self._client.mget
         self.flushall = self._client.flushall
 
-    def push_to_queue(self, queue_name, binary):
+    def mset(self, mset_dict):
+        U.assert_type(mset_dict, dict)
+        if len(mset_dict) == 0:
+            return False
+        else:
+            return self._client.mset(mset_dict)
+
+    def mget(self, mget_list):
+        U.assert_type(mget_list, list)
+        if len(mget_list) == 0:
+            return []
+        else:
+            return self._client.mget(mget_list)
+
+    def enqueue(self, queue_name, binary):
         self._client.lpush(queue_name, binary)
 
-    def pull_from_queue_thread(self, queue_name, handler):
+    def start_dequeue_thread(self, queue_name, handler):
         """
         Forks a thread that runs in an infinite loop, listens on a Redis list
         Args:
@@ -55,18 +67,18 @@ class RedisClient(object):
         if queue_name in self._queue_threads:
             raise RuntimeError('Queue thread [{}] is already running'
                                .format(queue_name))
-        t = RedisQueueThread(self._client, queue_name, handler)
+        t = _DequeueThread(self._client, queue_name, handler)
         self._queue_threads[queue_name] = t
         t.start()
         return t
 
-    def stop_queue_thread(self, queue_name):
+    def stop_dequeue_thread(self, queue_name):
         self._queue_threads[queue_name].stop()
 
     def publish(self, channel, msg):
         self._client.publish(channel, msg)
 
-    def subscribe_thread(self, channel, handler, sleep_time=0.1):
+    def start_subscribe_thread(self, channel, handler, sleep_time=0.1):
         """
         handler: function takes an incoming msg from the subscribed channel
 

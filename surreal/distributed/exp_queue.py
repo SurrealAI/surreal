@@ -4,7 +4,7 @@ from .redis_client import RedisClient
 from .packs import ExpPack
 
 
-class _PointerDequeueThread(StoppableThread):
+class _DequeueThread(StoppableThread):
     def __init__(self, queue, handler):
         self.queue = queue
         self.handler = handler
@@ -19,7 +19,7 @@ class _PointerDequeueThread(StoppableThread):
             self.queue.task_done()
 
 
-class PointerQueue:
+class ExpQueue(object):
     def __init__(self,
                  redis_client,
                  queue_name,
@@ -35,15 +35,16 @@ class PointerQueue:
 
     def start_enqueue_thread(self):
         """
-        Producer thread, get pointerpacks queued up in list from Redis
+        Producer thread, dequeue from a list on Redis server and enqueue into
+        local ExpQueue.
         """
-        return self._client.pull_from_queue_thread(
+        return self._client.start_dequeue_thread(
             queue_name=self.queue_name,
             handler=self._enqueue_producer
         )
 
     def stop_enqueue_thread(self):
-        self._client.stop_queue_thread(self.queue_name)
+        self._client.stop_dequeue_thread(self.queue_name)
 
     def start_dequeue_thread(self, handler):
         """
@@ -52,7 +53,7 @@ class PointerQueue:
         """
         if self._dequeue_thread is not None:
             raise ValueError('Dequeue thread is already running')
-        self._dequeue_thread = _PointerDequeueThread(self._queue, handler)
+        self._dequeue_thread = _DequeueThread(self._queue, handler)
         self._dequeue_thread.start()
         return self._dequeue_thread
 
