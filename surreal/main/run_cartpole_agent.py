@@ -35,12 +35,13 @@ q_func = FFQfunc(
 )
 
 q_agent = QAgent(
-    q_func=q_func,
+    model=q_func,
+    action_mode='train',
     action_dim=2,
 )
 
 client = RedisClient()
-listener = TorchListener(client, q_func, q_agent.get_lock(), debug=0)
+listener = TorchListener(client, q_agent, debug=0)
 listener.run_listener_thread()
 
 
@@ -73,8 +74,10 @@ obs = env.reset()
 # q_agent.set_eval(stochastic=False)
 for T in itertools.count():
     # print(binary_hash(q_agent.q_func.parameters_to_binary()))
-    action = q_agent.act(U.to_float_tensor(obs), vectorize=True)
-    q_agent.eps = exploration.value(T)
+    action = q_agent.act(
+        U.to_float_tensor(obs),
+        eps=exploration.value(T)
+    )
     new_obs, reward, done, info = env.step(action)
     # replay_buffer.add(new_obs, action, reward, new_obs, float(done))
     sender.send([obs, new_obs], action, reward, done, info)

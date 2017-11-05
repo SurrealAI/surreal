@@ -1,11 +1,18 @@
 import redis
 import threading
 import itertools
-from surreal.utils.common import StoppableThread
+import surreal.utils as U
 
 
-class RedisQueueThread(StoppableThread):
+class RedisQueueThread(U.StoppableThread):
     def __init__(self, redis_client, queue_name, handler, **kwargs):
+        """
+        Args:
+            redis_client:
+            queue_name:
+            handler:
+            **kwargs:
+        """
         self._client = redis_client
         self._queue_name = queue_name
         self._handler = handler

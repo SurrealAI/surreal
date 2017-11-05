@@ -1,5 +1,6 @@
 """
-Notifier broadcasts message as well as the neural network parameters to the PS
+Broadcasts the neural network parameters and message (if any) to the
+parameter server.
 """
 import time
 import pickle

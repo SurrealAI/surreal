@@ -26,7 +26,6 @@ CARTPOLE_CONFIG = {
         'freq': None,
     },
     'log': {
-        'freq': 100,
         'file_name': None,
         'file_mode': 'w',
         'time_format': None,
@@ -50,11 +49,6 @@ q_func = FFQfunc(
     dueling=False
 )
 
-q_agent = QAgent(
-    q_func=q_func,
-    action_dim=2,
-)
-
 client = RedisClient()
 # TODO debug only
 client.flushall()
@@ -71,13 +65,18 @@ replay = TorchUniformReplay(
 
 dqn = DQN(
     config=CARTPOLE_CONFIG,
-    agent=q_agent,
-    replay=replay,
+    model=q_func,
 )
+
+def debug_td_error(td_error):
+    raw_loss = U.huber_loss_per_element(td_error)
+    print(U.to_scalar(torch.mean(raw_loss)))
+
 
 replay.start_threads()
 for i, batch in replay.batch_iterator():
-    dqn.train_batch(i, batch)
+    td_error = dqn.learn(batch, i)
+    debug_td_error(td_error)
     if (i+1) % 1 == 0:
         broadcaster.broadcast(
             net=q_func,

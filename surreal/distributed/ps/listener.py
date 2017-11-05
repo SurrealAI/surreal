@@ -16,14 +16,17 @@ class Listener(object):
         self._name = name
         self._listener_thread = None
 
-    def update(self, binary, message):
+    def update(self, binary, message=''):
         """
-        Updates the policy network's parameters.
+        Abstract method that updates the parameters on the agent side.
+
+        Args:
+            binary: binarized parameters
+            message: associated meta-data, if any. Can be empty.
         """
         raise NotImplementedError
 
     def run_listener_thread(self):
-        # TODO: don't forget to lock PyTorch network when doing updates
         if self._listener_thread is not None:
             raise RuntimeError('Listener thread already running')
 

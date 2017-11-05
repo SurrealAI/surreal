@@ -4,6 +4,12 @@ import gym
 from gym import spaces
 import cv2
 
+
+"""
+If `GLIBCXX_3.4.20` not found for Atari, run
+`conda install libgcc`
+https://github.com/openai/gym/issues/543
+"""
 class NoopResetEnv(gym.Wrapper):
     def __init__(self, env, noop_max=30):
         """Sample initial states by taking random number of no-ops on reset.

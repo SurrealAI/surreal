@@ -1,5 +1,5 @@
 """
-Defines packs that will be sent to redis
+Defines packs that will be sent to Redis
 """
 import inspect
 import pickle
@@ -10,7 +10,8 @@ class Pack(object):
     def __init__(self, data, serializer=None):
         """
         Args:
-            serializer defaults to pickle.dumps
+            data
+            serializer: defaults to pickle.dumps
         """
         self._data = data
         if serializer is None:
@@ -29,6 +30,11 @@ class Pack(object):
         return self._cache
 
     def get_key(self):
+        """
+        Abstract method.
+        Returns:
+            hash key of self.
+        """
         raise NotImplementedError
 
     @classmethod
@@ -54,6 +60,9 @@ class NumpyPack(Pack):
         return U.binary_hash(self.serialize())
 
     def __getattr__(self, key):
+        """
+        Simulate dot-accessed dictionary of this pack's data.
+        """
         if not isinstance(self._data, dict) or key in dir(self):
             return object.__getattribute__(self, key)
         else:

@@ -1,86 +1,29 @@
-"""
-If `GLIBCXX_3.4.20` not found for Atari, run
-`conda install libgcc`
-https://github.com/openai/gym/issues/543
-"""
 import torch
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
 from easydict import EasyDict
+from .base import Learner
 
 
-DEFAULT_DQN_CONFIG = {
-    'lr': 5e-4,
-    # 'train_freq': 1,
-    'optimizer': 'Adam',
-    'grad_norm_clipping': 10,
-    'gamma': .99,
-    'target_network_update_freq': 500,
-    'double_q': True,
-    'checkpoint': {
-        'dir': '.',
-        'freq': None,
-    },
-    'log': {
-        'freq': 1,
-        'file_name': None,
-        'file_mode': 'w',
-        'time_format': None,
-        'print_level': 'INFO',
-        'stream': 'out',
-    },
-    'prioritized': {
-        'enabled': False,
-        'alpha': 0.6,
-        'beta0': 0.4,
-        'beta_anneal_iters': None,
-        'eps': 1e-6
-    },
-}
-
-
-class DQN:
-    def __init__(self,
-                 config,
-                 agent,
-                 replay,  # TODO: probably don't need this in ctor
-                 q_target=None):
-        """
-        q_target: if None, DQN will create a clone from actor.q_func
-            specify q_target for multiprocessing. Call .share_memory() first
-        """
-        # TODO
-        # self.config = C = U.fill_default_config(config, DEFAULT_DQN_CONFIG)
-        self.config = C = EasyDict(config)
-        self.agent = agent
-        self.replay = replay
-        self.q_func = agent.q_func  # TODO standardize agent API
-        if q_target is None:
-            self.q_target = self.q_func.clone()
-        else:
-            self.q_target = q_target
-        log_kwargs = U.exclude_keys(['freq'], C.log)
-        self.log = U.Logger.get_logger('DQN', **log_kwargs)
-        # TODO add different optimizers
+class DQN(Learner):
+    def __init__(self, config, model):
+        super().__init__(config, model)
+        self.q_func = model  # nothing but an alias
+        self.q_target = self.q_func.clone()
         self.optimizer = torch.optim.Adam(
             self.q_func.parameters(),
-            lr=C.lr,
+            lr=self.config.lr,
             eps=1e-4
         )
         self.target_update_tracker = PeriodicTracker(
-            period=C.target_network_update_freq,
+            period=self.config.target_network_update_freq,
         )
 
-    def save(self):
-        model_file = U.f_join(self.config.checkpoint.dir, "model.ckpt")
-        U.f_mkdir_in_path(model_file)
-        self.agent.save(model_file)
-
-    def update_target(self):
+    def _update_target(self):
         self.q_target.copy_from(self.q_func)
 
-    def run_optimizer(self, loss):
+    def _run_optimizer(self, loss):
         self.optimizer.zero_grad()
         loss.backward()
         norm_clip = self.config.grad_norm_clipping
@@ -92,7 +35,7 @@ class DQN:
             # )
         self.optimizer.step()
 
-    def optimize(self, obses_t, actions, rewards, obses_tp1, dones, weights):
+    def _optimize(self, obses_t, actions, rewards, obses_tp1, dones, weights):
         # Compute Q(s_t, a)
         # columns of actions taken
         C = self.config
@@ -105,12 +48,13 @@ class DQN:
         q_tp1 = self.q_target(obses_tp1)
         # Double Q
         if C.double_q:
-            # NOTE: select argmax action using online weights instead of q_target
+            # select argmax action using online weights instead of q_target
             q_tp1_online = self.q_func(obses_tp1)
             q_tp1_online_argmax = q_tp1_online.max(1, keepdim=True)[1]
             q_tp1_best = q_tp1.gather(1, q_tp1_online_argmax)
         else:
-            # Minh 2015 Nature paper: use target network for both policy and value selection
+            # Minh 2015 Nature paper
+            # use target network for both policy and value selection
             q_tp1_best = q_tp1.max(1, keepdim=True)[0]
         # Q value for terminal states are 0
         q_tp1_best = (1.0 - dones) * q_tp1_best
@@ -122,10 +66,26 @@ class DQN:
         # torch_where
         raw_loss = U.huber_loss_per_element(td_error)
         weighted_loss = torch.mean(weights * raw_loss)
-        print(U.to_scalar(weighted_loss))
-        self.run_optimizer(weighted_loss)
+        self._run_optimizer(weighted_loss)
         return td_error
 
+    def learn(self, batch_exp, batch_i):
+        weights = Variable(U.torch_ones_like(batch_exp.rewards))
+        td_errors = self._optimize(
+            batch_exp.obses[0],
+            batch_exp.actions,
+            batch_exp.rewards,
+            batch_exp.obses[1],
+            batch_exp.dones,
+            weights,
+        )
+        batch_size = batch_exp.obses[0].size(0)
+        if self.target_update_tracker.track_increment(batch_size):
+            # Update target network periodically.
+            self._update_target()
+        return td_errors
+
+    """
     def train_batch(self, batch_i, exp):
         C = self.config
 
@@ -170,5 +130,6 @@ class DQN:
 
         if self.target_update_tracker.track_increment(batch_size):
             # Update target network periodically.
-            self.update_target()
+            self._update_target()
 
+    """

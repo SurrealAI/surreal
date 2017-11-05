@@ -3,8 +3,11 @@ import surreal.utils as U
 
 
 class TorchBroadcaster(Broadcaster):
-    def __init__(self, *args, debug=False, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 redis_client,
+                 name='ps',
+                 *, debug=False):
+        super().__init__(redis_client=redis_client, name=name)
         self._debug = debug
 
     def broadcast(self, net, message):

@@ -36,7 +36,8 @@ q_func = FFQfunc(
 )
 
 q_agent = QAgent(
-    q_func=q_func,
+    model=q_func,
+    action_mode='train',
     action_dim=action_dim,
 )
 

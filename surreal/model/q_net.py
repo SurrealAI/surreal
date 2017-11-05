@@ -37,7 +37,7 @@ class DuelingQbase(U.Module):
                 U.conv_fc_init(lin)
                 self.fc_state_layers.append(lin)
 
-    def forward_dueling(self, x):
+    def forward(self, x):
         """
         x is the processed tensor from raw states before the dueling layers,
         its shape should be [batch x prelinear_size]
@@ -115,5 +115,5 @@ class FFQfunc(DuelingQbase):
         for conv in self.conv_layers:
             x = F.relu(conv(x))
         x = U.flatten_conv(x)
-        return self.forward_dueling(x)
+        return super().forward(x)
 
