@@ -12,7 +12,7 @@ class Replay(object):
                  redis_client,
                  batch_size,
                  name='replay',
-                 download_queue_size=5):
+                 fetch_queue_size=5):
         U.assert_type(redis_client, RedisClient)
         self.batch_size = batch_size
         self._exp_queue = ExpQueue(
@@ -21,7 +21,7 @@ class Replay(object):
         )
         self._obs_fetch_queue = ObsFetchQueue(
             redis_client=redis_client,
-            maxsize=download_queue_size,
+            maxsize=fetch_queue_size,
         )
         self._lock = threading.Lock()
 

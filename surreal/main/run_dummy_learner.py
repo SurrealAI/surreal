@@ -4,6 +4,7 @@ from surreal.envs import *
 from surreal.learners.dqn import DQN
 from surreal.model.q_net import FFQfunc
 from surreal.replay import *
+from pprint import pprint
 
 parser = U.ArgParser()
 # parser.add('gpu', type=int)
@@ -50,12 +51,8 @@ q_func = FFQfunc(
     dueling=False
 )
 
-q_agent = QAgent(
-    q_func=q_func,
-    action_dim=2,
-)
-
 client = RedisClient()
+client.flushall()
 broadcaster = TorchBroadcaster(client, debug=True)
 
 client = RedisClient()
@@ -64,18 +61,16 @@ replay = TorchUniformReplay(
     memory_size=100000,
     sampling_start_size=64,
     batch_size=32,
-    download_queue_size=5,
+    fetch_queue_size=5,
 )
 
-dqn = DQN(
-    config=CARTPOLE_CONFIG,
-    agent=q_agent,
-    replay=replay,
-)
 
 replay.start_threads()
 for i, batch in replay.batch_iterator():
     print(batch)
+    print('='*30)
+    for item in replay._memory:
+        pprint(item)
     input('...')
 
     # dqn.train_batch(i, batch)

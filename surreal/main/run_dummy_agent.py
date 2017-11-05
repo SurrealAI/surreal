@@ -3,49 +3,31 @@ from easydict import EasyDict
 
 from scratch.dummy_agent import *
 from scratch.dummy_env import *
-from surreal.agents.q_agent import QAgent
 from surreal.distributed.ps import *
+from surreal.distributed import *
 from surreal.model.q_net import FFQfunc
 from surreal.replay import *
 from surreal.session import *
 
-C = {
-    'exploration': { # NOTE: piecewise schedule requires that fraction and final_eps
-        # are lists of the same dim that specifies each "piece"
-        'schedule': 'linear',
-        'steps': 5000,
-        'final_eps': 0.02,
-    },
-}
-C = EasyDict(C)
 
 client = RedisClient()
-client.flushall()
-sender = ExpSender(client, 'replay', obs_cache_size=5)
-
-env = gym.make('CartPole-v0')
-env = EpisodeMonitor(env, filename=None)
-
-q_func = FFQfunc(
-    input_shape=[4],
-    action_dim=2,
-    convs=[],
-    fc_hidden_sizes=[64],
-    dueling=False
+sender = ExpSender(
+    client,
+    'replay',
+    pointers_only=True,
+    save_exp_on_redis=True,
+    obs_cache_size=5
 )
 
-q_agent = QAgent(
-    q_func=q_func,
-    action_dim=2,
-)
-env = DummyEnv(q_agent.dummy_matrix, sleep=.3)
+ag = DummyAgent(0)
+env = DummyEnv(ag.dummy_matrix, sleep=.1)
 
 client = RedisClient()
-listener = TorchListener(client, q_func, q_agent.get_lock(), debug=True)
-listener.run_listener_thread()
+# listener = TorchListener(client, q_func, q_agent.get_lock(), debug=True)
+# listener.run_listener_thread()
 
 
-last_obs = q_agent.dummy_matrix
+last_obs = ag.dummy_matrix
 for i in range(100):
     a = i % 10
     obs, reward, done, info = env.step(a)
