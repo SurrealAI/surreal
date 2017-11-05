@@ -1,14 +1,12 @@
-import surreal.utils as U
-from surreal.distributed import *
-from surreal.replay import *
-from surreal.ps import *
-from surreal.envs import *
-from surreal.session import *
-from surreal.agents.q_agent import QAgent
-from surreal.model.q_net import FFQfunc
-import gym
-from tabulate import tabulate
 from easydict import EasyDict
+from tabulate import tabulate
+
+from surreal.agents.q_agent import QAgent
+from surreal.distributed import *
+from surreal.envs import *
+from surreal.model.q_net import FFQfunc
+from surreal.replay import *
+from surreal.session import *
 
 C = {
     'exploration': { # NOTE: piecewise schedule requires that fraction and final_eps

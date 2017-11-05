@@ -1,12 +1,9 @@
-import surreal.utils as U
-from surreal.distributed import *
-from surreal.replay import *
-from surreal.ps import *
-from surreal.envs import *
 from surreal.agents.q_agent import QAgent
-from surreal.model.q_net import FFQfunc
+from surreal.distributed.ps import *
+from surreal.envs import *
 from surreal.learners.dqn import DQN
-from easydict import EasyDict
+from surreal.model.q_net import FFQfunc
+from surreal.replay import *
 
 parser = U.ArgParser()
 # parser.add('gpu', type=int)
