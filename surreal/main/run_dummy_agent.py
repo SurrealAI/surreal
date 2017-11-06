@@ -28,7 +28,7 @@ client = RedisClient()
 
 
 last_obs = ag.dummy_matrix
-for i in range(10000):
+for i in range(100):
     a = i % 10
     obs, reward, done, info = env.step(a)
     info['td-error'] = reward/10.

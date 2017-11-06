@@ -1,5 +1,5 @@
 from surreal.utils.tmux import *
-from surreal.comm import *
+from surreal.distributed import *
 from surreal.replay import *
 from scratch.dummy_agent import *
 from scratch.dummy_env import *

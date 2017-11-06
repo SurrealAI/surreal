@@ -24,12 +24,10 @@ class _EnqueueThread(U.StoppableThread):
             while True:
                 exp_dicts = self._sampler(i)
                 if exp_dicts is None:  # start_sample_condition not met
-                    print('DEBUG sample condition NOT NOT NOT met')
                     time.sleep(.5)
                 else:
                     exps = self._fetcher.fetch(exp_dicts)
                     # block if the queue is full
-                    print('DEBUG obsfetch queue len', self._queue.qsize())
                     self._queue.put(exps, block=True, timeout=None)
                     break
 

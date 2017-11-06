@@ -152,17 +152,14 @@ class Replay(object):
                 obs_pointers = exp['obs_pointers']
                 U.assert_type(obs_pointers, list)
                 evict_obs_pointers.extend(obs_pointers)
-        print('DEBUG delete start', len(evict_obs_pointers))
         ref_pointers = ['ref-' + _p for _p in evict_obs_pointers]
         ref_counts = self._client.mdecr(ref_pointers)
         # only evict when ref count drops to 0
-        print('DEBUG ref_counts', ref_counts)
         evict_obs_pointers = [evict_obs_pointers[i]
                               for i in range(len(evict_obs_pointers))
                               if ref_counts[i] <= 0]
         # mass delete exp and obs (only when ref drop to 0) on Redis
         _ret = self._client.mdel(evict_obs_pointers + evict_exp_pointers)
-        print('DEBUG delete done', _ret)
         return evicted_exp_list
 
     def evict(self, *args, **kwargs):
