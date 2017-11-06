@@ -60,11 +60,14 @@ class Replay(object):
     def _insert(self, exp_dict):
         """
         Add a new experience to the replay.
-        Includes evict logic if exceeds memory capacity
+        Includes passive evict logic if memory capacity is exceeded.
 
         Args:
             exp_dict: experience dictionary with
                 {"obs_pointers", "reward", "action", "info"} keys
+
+        Returns:
+            a list of exp_dict evicted, or empty list if still within capacity
         """
         raise NotImplementedError
 
@@ -86,7 +89,7 @@ class Replay(object):
 
     def _evict(self, *args, **kwargs):
         """
-        Evict old experiences.
+        Actively evict old experiences.
 
         Returns:
             list of exp dicts that contain `exp_pointer` or `obs_pointers`.
@@ -126,7 +129,12 @@ class Replay(object):
         """
         Must not sample and insert at the same time
         """
-        return self._job_queue.process(self._wrapped_insert, exp_dict)
+        evicted_exp_list = self._job_queue.process(
+            self._wrapped_insert,
+            exp_dict
+        )
+        self._clean_evicted(evicted_exp_list)
+        return evicted_exp_list
 
     def _wrapped_sample(self, batch_i):
         # returns None if start_sample_condition not met
@@ -139,9 +147,9 @@ class Replay(object):
     def sample(self, batch_i):
         return self._job_queue.process(self._wrapped_sample, batch_i)
 
-    def _wrapped_evict(self, *args, **kwargs):
-        with self._replay_lock:
-            evicted_exp_list = self._evict(*args, **kwargs)
+    def _clean_evicted(self, evicted_exp_list):
+        if not evicted_exp_list:
+            return
         evict_exp_pointers = []
         evict_obs_pointers = []
         for exp in evicted_exp_list:
@@ -159,7 +167,12 @@ class Replay(object):
                               for i in range(len(evict_obs_pointers))
                               if ref_counts[i] <= 0]
         # mass delete exp and obs (only when ref drop to 0) on Redis
-        _ret = self._client.mdel(evict_obs_pointers + evict_exp_pointers)
+        self._client.mdel(evict_obs_pointers + evict_exp_pointers)
+
+    def _wrapped_evict(self, *args, **kwargs):
+        with self._replay_lock:
+            evicted_exp_list = self._evict(*args, **kwargs)
+        self._clean_evicted(evicted_exp_list)
         return evicted_exp_list
 
     def evict(self, *args, **kwargs):

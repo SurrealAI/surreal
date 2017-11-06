@@ -60,7 +60,7 @@ class UniformReplay():
 
 replay=UniformReplay(10)
 for i in range(16):
-    replay._insert({i})
+    print(replay._insert({i}))
 print(replay._memory)
 replay._evict(2)
 print(replay._memory)

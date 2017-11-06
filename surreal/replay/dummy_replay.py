@@ -14,7 +14,14 @@ class DummyReplay(Replay):
     def _insert(self, exp_dict):
         print('INSERT', exp_dict['exp_pointer'])
         time.sleep(0.2)
-        self._memory[len(self._memory)] = exp_dict
+        evicted = []
+        key = len(self._memory)
+        if key in self._memory:
+            evicted.append(self._memory[key])
+        self._memory[key] = exp_dict
+        if evicted:
+            print('INSERT passive evict', evicted['exp_pointer'])
+        return evicted
 
     def _sample(self, batch_size, batch_i):
         samps = []
