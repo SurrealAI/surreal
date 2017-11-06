@@ -5,13 +5,16 @@ import surreal.utils as U
 import threading
 from .redis_client import RedisClient
 from .obs_fetcher import ObsFetcher
+from .obs_ref_count import decr_ref_count
 
 
 class _EnqueueThread(U.StoppableThread):
     def __init__(self,
+                 client,
                  queue,
                  sampler,
                  fetcher):
+        self._client = client
         self._queue = queue
         self._sampler = sampler
         self._fetcher = fetcher
@@ -27,6 +30,13 @@ class _EnqueueThread(U.StoppableThread):
                     time.sleep(.5)
                 else:
                     exps = self._fetcher.fetch(exp_dicts)
+                    # decr ref counts which were incr'ed by sample()
+                    # evict the exps which should have been evicted by insert()
+                    obs_pointers = []
+                    for exp in exps:
+                        if 'obs_pointers' in exp:
+                            obs_pointers.extend(exp['obs_pointers'])
+                    decr_ref_count(self._client, obs_pointers, delete=True)
                     # block if the queue is full
                     self._queue.put(exps, block=True, timeout=None)
                     break
@@ -36,6 +46,7 @@ class ObsFetchQueue(object):
     def __init__(self, redis_client, maxsize):
         self._queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)
+        self._client = redis_client
         self._fetcher = ObsFetcher(redis_client)
         self._enqueue_thread = None
 
@@ -57,6 +68,7 @@ class ObsFetchQueue(object):
         if self._enqueue_thread is not None:
             raise RuntimeError('Enqueue thread is already running')
         self._enqueue_thread = _EnqueueThread(
+            client=self._client,
             queue=self._queue,
             sampler=sampler,
             fetcher=self._fetcher,

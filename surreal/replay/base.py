@@ -141,7 +141,16 @@ class Replay(object):
         # returns None if start_sample_condition not met
         with self._replay_lock:
             if self.start_sample_condition():
-                return self._sample(self.batch_size, batch_i)
+                sampled_exp_list = self._sample(self.batch_size, batch_i)
+                U.assert_type(sampled_exp_list, list)
+                # incr ref count so that it doesn't get evicted by insert()
+                # make sure to decr count after fetch(obs_pointers)!!
+                obs_pointers = []
+                for exp in sampled_exp_list:
+                    if 'obs_pointers' in exp:
+                        obs_pointers.extend(exp['obs_pointers'])
+                incr_ref_count(self._client, obs_pointers)
+                return sampled_exp_list
             else:
                 return None
 
