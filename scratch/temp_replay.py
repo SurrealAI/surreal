@@ -1,14 +1,9 @@
 import random
-from .base import Replay
-from .aggregator import aggregate_torch
 
 
-class UniformReplay(Replay):
-    def __init__(self, *,
-                 redis_client,
-                 batch_size,
+class UniformReplay():
+    def __init__(self,
                  memory_size,
-                 sampling_start_size,
                  **kwargs):
         """
         Args:
@@ -16,14 +11,9 @@ class UniformReplay(Replay):
             When the buffer overflows the old memories are dropped.
           sampling_start_size: min number of exp above which we will start sampling
         """
-        super().__init__(
-            redis_client=redis_client,
-            batch_size=batch_size,
-            **kwargs
-        )
         self._memory = []
         self._maxsize = memory_size
-        self._sampling_start_size = sampling_start_size
+        self._sampling_start_size = 0
         self._next_idx = 0
 
     def _insert(self, exp_dict):
@@ -68,6 +58,12 @@ class UniformReplay(Replay):
         return len(self._memory)
 
 
-class TorchUniformReplay(UniformReplay):
-    def aggregate_batch(self, exp_list):
-        return aggregate_torch(exp_list)
+replay=UniformReplay(10)
+for i in range(16):
+    replay._insert({i})
+print(replay._memory)
+replay._evict(2)
+print(replay._memory)
+for i in range(100,107):
+    replay._insert({i})
+print(replay._memory)
