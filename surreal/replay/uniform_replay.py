@@ -1,11 +1,6 @@
 import random
-import torch
-import numpy as np
-from easydict import EasyDict
-import surreal.utils as U
-from surreal.utils.pytorch import GpuVariable as Variable
-from surreal.distributed import RedisClient
 from .base import Replay
+from .aggregator import aggregate_torch
 
 
 class UniformReplay(Replay):
@@ -32,14 +27,14 @@ class UniformReplay(Replay):
         self._sampling_start_size = sampling_start_size
         self._next_idx = 0
 
-    def insert(self, exp_dict):
+    def _insert(self, exp_dict):
         if self._next_idx >= len(self._memory):
             self._memory.append(exp_dict)
         else:
             self._memory[self._next_idx] = exp_dict
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
-    def sample(self, batch_size, batch_i):
+    def _sample(self, batch_size, batch_i):
         indices = [random.randint(0, len(self._memory) - 1)
                    for _ in range(batch_size)]
         return [self._memory[i] for i in indices]
@@ -52,21 +47,5 @@ class UniformReplay(Replay):
 
 
 class TorchUniformReplay(UniformReplay):
-    def _obs_concat(self, obs_list):
-        # convert uint8 to float32, if any
-        return Variable(U.to_float_tensor(np.stack(obs_list)))
-
     def aggregate_batch(self, exp_list):
-        obses0, actions, rewards, obses1, dones = [], [], [], [], []
-        for exp in exp_list:
-            obses0.append(np.array(exp['obses'][0], copy=False))
-            actions.append(exp['action'])
-            rewards.append(exp['reward'])
-            obses1.append(np.array(exp['obses'][1], copy=False))
-            dones.append(float(exp['done']))
-        return EasyDict(
-            obses=[self._obs_concat(obses0), self._obs_concat(obses1)],
-            actions=Variable(torch.LongTensor(actions).unsqueeze(1)),
-            rewards=Variable(torch.FloatTensor(rewards).unsqueeze(1)),
-            dones=Variable(torch.FloatTensor(dones).unsqueeze(1)),
-        )
+        return aggregate_torch(exp_list)

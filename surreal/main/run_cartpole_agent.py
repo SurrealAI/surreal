@@ -21,7 +21,13 @@ C = {
 C = EasyDict(C)
 
 client = RedisClient()
-sender = ExpSender(client, 'replay', obs_cache_size=5)
+sender = ExpSender(
+    client,
+    'replay',
+    obs_cache_size=5,
+    pointers_only=True,
+    save_exp_on_redis=False,
+)
 
 env = gym.make('CartPole-v0')
 env = EpisodeMonitor(env, filename=None)

@@ -6,43 +6,6 @@ from surreal.model.q_net import FFQfunc
 from surreal.replay import *
 from pprint import pprint
 
-parser = U.ArgParser()
-# parser.add('gpu', type=int)
-parser.add('-s', '--save-dir', type=str, default='')
-parser.add('-d', '--dueling', action='store_true')
-parser.add('-r', '--prioritized', action='store_true')
-args = parser.parse()
-
-
-CARTPOLE_CONFIG = {
-    'lr': 1e-3,
-    # 'train_freq': 1,
-    'optimizer': 'Adam',
-    'grad_norm_clipping': 10,
-    'gamma': .99,
-    'target_network_update_freq': 500,
-    'double_q': True,
-    'checkpoint': {
-        'dir': '~/Train/cartpole' if not args.save_dir else args.save_dir,
-        'freq': None,
-    },
-    'log': {
-        'freq': 100,
-        'file_name': None,
-        'file_mode': 'w',
-        'time_format': None,
-        'print_level': 'INFO',
-        'stream': 'out',
-    },
-    'prioritized': {
-        'enabled': args.prioritized,
-        'alpha': 0.6,
-        'beta0': 0.4,
-        'beta_anneal_iters': None,
-        'eps': 1e-6
-    },
-}
-
 q_func = FFQfunc(
     input_shape=[4],
     action_dim=2,
@@ -56,27 +19,21 @@ client.flushall()
 broadcaster = TorchBroadcaster(client, debug=True)
 
 client = RedisClient()
-replay = TorchUniformReplay(
+replay = DummyReplay(
     redis_client=client,
-    memory_size=100000,
-    sampling_start_size=64,
-    batch_size=32,
-    fetch_queue_size=5,
+    # memory_size=100000,
+    sampling_start_size=5,
+    batch_size=7,
+    fetch_queue_size=10,
 )
 
-
-replay.start_threads()
+replay.start_queue_threads()
+replay.start_evict_thread(6, sleep_interval=4.)
 for i, batch in replay.batch_iterator():
-    print(batch)
+    print(batch['rewards'])
     print('='*30)
-    for item in replay._memory:
-        pprint(item)
-    input('...')
-
-    # dqn.train_batch(i, batch)
-    # if (i+1) % 100 == 0:
-    #     broadcaster.broadcast(
-    #         net=q_func,
-    #         message='batch '+str(i)
-    #     )
+    # for item in replay._memory:
+    #     pprint(item)
+    # print('='*30)
+    # input('...')
 

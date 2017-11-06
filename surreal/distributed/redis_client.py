@@ -38,6 +38,32 @@ class RedisClient(object):
         self.set = self._client.set
         self.get = self._client.get
         self.flushall = self._client.flushall
+        # incr many keys together, should be the same as pipelining
+        _mincr_lua = """
+        local retval
+        retval={}
+        for i = 1,#KEYS do
+            table.insert(retval, redis.call('incr', KEYS[i]))
+        end
+        return retval
+        """
+        self.mincr = self._client.register_script(_mincr_lua)
+        # decr many keys together, return values will never drop below 0
+        # the key is automatically deleted if it drops to 0.
+        _mdecr_lua = """
+        local retval, counts
+        retval={}
+        for i = 1,#KEYS do
+            counts = redis.call('decr', KEYS[i])
+            if counts <= 0 then
+                redis.call('del', KEYS[i])
+                counts = 0
+            end
+            table.insert(retval, counts)
+        end
+        return retval
+        """
+        self.mdecr = self._client.register_script(_mdecr_lua)
 
     def mset(self, mset_dict):
         U.assert_type(mset_dict, dict)
@@ -52,6 +78,16 @@ class RedisClient(object):
             return []
         else:
             return self._client.mget(mget_list)
+
+    def mdel(self, mdel_list):
+        """
+        mass delete keys
+        """
+        U.assert_type(mdel_list, list)
+        if len(mdel_list) == 0:
+            return 0
+        else:
+            return self._client.delete(*mdel_list)
 
     def enqueue(self, queue_name, binary):
         self._client.lpush(queue_name, binary)

@@ -2,7 +2,7 @@
 Sample pointers from replay buffer and pull the actual observations
 """
 from .redis_client import RedisClient
-from .packs import ObsPack
+from .packs import ObsPack, RedisMissingValue
 
 
 class ObsFetcher(object):
@@ -31,7 +31,11 @@ class ObsFetcher(object):
                 assert 'obs_pointers' in exp
                 all_obs_pointers.extend(exp['obs_pointers'])
         all_obs = self._client.mget(all_obs_pointers)
-        all_obs = [ObsPack.deserialize(obs) for obs in all_obs]
+        try:
+            all_obs = [ObsPack.deserialize(obs) for obs in all_obs]
+        except RedisMissingValue:
+            print('ERROR fetch obs_pointers', all_obs_pointers)
+            raise
         for exp in exp_dicts:
             if 'obses' in exp:
                 continue

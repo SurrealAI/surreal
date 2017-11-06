@@ -27,7 +27,7 @@ class ExpSender(object):
               `pointers_only` is False.
         """
         assert isinstance(redis_client, RedisClient)
-        self.client = redis_client
+        self._client = redis_client
         self.queue_name = queue_name
         self._visited_obs = set() # avoid resending new_obs
         self._pointers_only = pointers_only
@@ -54,6 +54,7 @@ class ExpSender(object):
         if self._pointers_only:
             # observation pack
             obs_pointers = []
+            ref_pointers = []
             for obs in obses:
                 pack = ObsPack(obs)
                 obs_pointer, binary = pack.serialize()
@@ -61,6 +62,9 @@ class ExpSender(object):
                     self._add_to_visited(obs_pointer)
                     redis_mset[obs_pointer] = binary
                 obs_pointers.append(obs_pointer)
+                # reference counter, evict when dropped to zero
+                ref_pointers.append('ref-' + obs_pointer)
+            self._client.mincr(ref_pointers)
             # experience pack
             exp_pack = ExpPointerPack(obs_pointers, action, reward, done, info)
         else:
@@ -68,7 +72,7 @@ class ExpSender(object):
         exp_pointer, binary = exp_pack.serialize()
         if self._save_exp_on_redis:
             redis_mset[exp_pointer] = binary
-        self.client.mset(redis_mset)
+        self._client.mset(redis_mset)
         # send to queue
-        self.client.enqueue(self.queue_name, binary)
+        self._client.enqueue(self.queue_name, binary)
 

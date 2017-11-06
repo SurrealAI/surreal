@@ -20,7 +20,7 @@ sender = ExpSender(
 )
 
 ag = DummyAgent(0)
-env = DummyEnv(ag.dummy_matrix, sleep=.1)
+env = DummyEnv(ag.dummy_matrix, sleep=.02)
 
 client = RedisClient()
 # listener = TorchListener(client, q_func, q_agent.get_lock(), debug=True)
@@ -28,7 +28,7 @@ client = RedisClient()
 
 
 last_obs = ag.dummy_matrix
-for i in range(100):
+for i in range(10000):
     a = i % 10
     obs, reward, done, info = env.step(a)
     info['td-error'] = reward/10.

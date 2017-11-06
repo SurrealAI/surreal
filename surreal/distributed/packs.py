@@ -6,6 +6,10 @@ import pickle
 import surreal.utils as U
 
 
+class RedisMissingValue(Exception):
+    pass
+
+
 class Pack(object):
     pointer_prefix = ''  # override this in subclasses
 
@@ -38,6 +42,8 @@ class Pack(object):
         """
         if deserializer is None:
             deserializer = pickle.loads
+        if binary is None:
+            raise RedisMissingValue()
         return deserializer(binary)
 
     @property
@@ -97,10 +103,6 @@ class ExpFullPack(ExpPack):
 
 class ObsPack(Pack):
     pointer_prefix = 'obs'
-
-    @staticmethod
-    def deserialize(binary):
-        return pickle.loads(binary)
 
     def get_key(self):
         return 'obs:' + super().get_key()

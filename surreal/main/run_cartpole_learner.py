@@ -60,7 +60,7 @@ replay = TorchUniformReplay(
     memory_size=100000,
     sampling_start_size=1000,
     batch_size=64,
-    download_queue_size=5,
+    fetch_queue_size=5,
 )
 
 dqn = DQN(
@@ -73,7 +73,7 @@ def debug_td_error(td_error):
     print(U.to_scalar(torch.mean(raw_loss)))
 
 
-replay.start_threads()
+replay.start_queue_threads()
 for i, batch in replay.batch_iterator():
     td_error = dqn.learn(batch, i)
     debug_td_error(td_error)
