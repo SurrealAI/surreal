@@ -3,6 +3,7 @@ Sample pointers from replay buffer and pull the actual observations
 """
 from .redis_client import RedisClient
 from .packs import ObsPack, ExpPointerPack, ExpFullPack
+from .obs_ref_count import incr_ref_count
 
 
 class ExpSender(object):
@@ -54,7 +55,6 @@ class ExpSender(object):
         if self._pointers_only:
             # observation pack
             obs_pointers = []
-            ref_pointers = []
             for obs in obses:
                 pack = ObsPack(obs)
                 obs_pointer, binary = pack.serialize()
@@ -63,8 +63,7 @@ class ExpSender(object):
                     redis_mset[obs_pointer] = binary
                 obs_pointers.append(obs_pointer)
                 # reference counter, evict when dropped to zero
-                ref_pointers.append('ref-' + obs_pointer)
-            self._client.mincr(ref_pointers)
+            incr_ref_count(self._client, obs_pointers)
             # experience pack
             exp_pack = ExpPointerPack(obs_pointers, action, reward, done, info)
         else:

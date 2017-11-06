@@ -7,6 +7,7 @@ import surreal.utils as U
 from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
+from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
 
 
 class _EvictThread(U.StoppableThread):
@@ -160,12 +161,12 @@ class Replay(object):
                 obs_pointers = exp['obs_pointers']
                 U.assert_type(obs_pointers, list)
                 evict_obs_pointers.extend(obs_pointers)
-        ref_pointers = ['ref-' + _p for _p in evict_obs_pointers]
-        ref_counts = self._client.mdecr(ref_pointers)
-        # only evict when ref count drops to 0
-        evict_obs_pointers = [evict_obs_pointers[i]
-                              for i in range(len(evict_obs_pointers))
-                              if ref_counts[i] <= 0]
+        evict_obs_pointers = decr_ref_count(
+            self._client,
+            evict_obs_pointers,
+            delete=False
+        )
+        # print('DEBUG deleted', evict_obs_pointers)
         # mass delete exp and obs (only when ref drop to 0) on Redis
         self._client.mdel(evict_obs_pointers + evict_exp_pointers)
 

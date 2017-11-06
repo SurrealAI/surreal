@@ -1,3 +1,4 @@
+import torch
 from surreal.agents.q_agent import QAgent
 from surreal.distributed.ps import *
 from surreal.envs import *
@@ -57,9 +58,9 @@ broadcaster = TorchBroadcaster(client, debug=0)
 client = RedisClient()
 replay = UniformReplay(
     redis_client=client,
-    memory_size=100000,
-    sampling_start_size=1000,
-    batch_size=64,
+    memory_size=100,
+    sampling_start_size=40,
+    batch_size=16,
     fetch_queue_size=5,
 )
 
