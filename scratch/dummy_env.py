@@ -2,7 +2,7 @@
 A template class that defines base environment APIs
 """
 import numpy as np
-from surreal.envs.base import Env
+from surreal.env.base import Env
 import time
 
 

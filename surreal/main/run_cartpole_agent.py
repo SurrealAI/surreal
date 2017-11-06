@@ -2,10 +2,10 @@ import gym
 from easydict import EasyDict
 from tabulate import tabulate
 
-from surreal.agents.q_agent import QAgent
+from surreal.agent.q_agent import QAgent
 from surreal.distributed import *
 from surreal.distributed.ps import *
-from surreal.envs import *
+from surreal.env import *
 from surreal.model.q_net import FFQfunc
 from surreal.replay import *
 from surreal.session import *

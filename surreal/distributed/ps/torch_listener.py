@@ -3,7 +3,7 @@ Notifier broadcasts message as well as the neural network parameters to the PS
 """
 from .listener import Listener
 import time
-from surreal.agents.base import Agent
+from surreal.agent.base import Agent
 import surreal.utils as U
 import threading
 

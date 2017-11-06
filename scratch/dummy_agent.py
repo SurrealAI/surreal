@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import threading
-from surreal.agents import Agent
+from surreal.agent import Agent
 
 
 class DummyAgent(object):
