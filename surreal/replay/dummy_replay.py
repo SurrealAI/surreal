@@ -36,7 +36,8 @@ class DummyReplay(Replay):
         exps = []
         for k in evict_keys:
             exps.append(self._memory.pop(k))
-        print('EVICT DONE:', [exp['exp_pointer'] for exp in exps])
+        print('EVICT DONE:', [exp['exp_pointer'] for exp in exps],
+              [exp['obs_pointers'] for exp in exps])
         return exps
 
     def start_sample_condition(self):

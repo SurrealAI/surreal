@@ -1,10 +1,10 @@
 import queue
-from surreal.utils.common import StoppableThread
+import surreal.utils as U
 from .redis_client import RedisClient
 from .packs import ExpPack
 
 
-class _DequeueThread(StoppableThread):
+class _DequeueThread(U.StoppableThread):
     def __init__(self, queue, handler):
         self.queue = queue
         self.handler = handler

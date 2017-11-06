@@ -6,3 +6,4 @@ from .schedule import *
 from .logger import Logger
 from .filesys import *
 from .serializer import *
+from .parallel import *

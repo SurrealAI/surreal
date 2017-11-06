@@ -11,14 +11,10 @@ class _EnqueueThread(U.StoppableThread):
     def __init__(self,
                  queue,
                  sampler,
-                 fetcher,
-                 start_sample_condition,
-                 evict_lock):
+                 fetcher):
         self._queue = queue
         self._sampler = sampler
         self._fetcher = fetcher
-        self._start_sample_condition = start_sample_condition
-        self._evict_lock = evict_lock
         super().__init__()
 
     def run(self):
@@ -26,18 +22,16 @@ class _EnqueueThread(U.StoppableThread):
             if self.is_stopped():
                 break
             while True:
-                print('DEBUG outside evict lock')
-                with self._evict_lock:
-                    if self._start_sample_condition():
-                        print('DEBUG condition met')
-                        exp_dicts = self._sampler(i)
-                        exps = self._fetcher.fetch(exp_dicts)
-                        break
-                print('DEBUG sample condition not met')
-                time.sleep(0.5)
-            # block if the queue is full
-            print('DEBUG obsfetch queue len', self._queue.qsize())
-            self._queue.put(exps, block=True, timeout=None)
+                exp_dicts = self._sampler(i)
+                if exp_dicts is None:  # start_sample_condition not met
+                    print('DEBUG sample condition NOT NOT NOT met')
+                    time.sleep(.5)
+                else:
+                    exps = self._fetcher.fetch(exp_dicts)
+                    # block if the queue is full
+                    print('DEBUG obsfetch queue len', self._queue.qsize())
+                    self._queue.put(exps, block=True, timeout=None)
+                    break
 
 
 class ObsFetchQueue(object):
@@ -47,10 +41,7 @@ class ObsFetchQueue(object):
         self._fetcher = ObsFetcher(redis_client)
         self._enqueue_thread = None
 
-    def start_enqueue_thread(self,
-                             sampler,
-                             start_sample_condition,
-                             evict_lock):
+    def start_enqueue_thread(self, sampler):
         """
         Producer thread, runs sampler function on a priority replay structure
         Args:
@@ -67,13 +58,10 @@ class ObsFetchQueue(object):
         """
         if self._enqueue_thread is not None:
             raise RuntimeError('Enqueue thread is already running')
-        U.assert_type(evict_lock, type(threading.Lock()))
         self._enqueue_thread = _EnqueueThread(
             queue=self._queue,
             sampler=sampler,
             fetcher=self._fetcher,
-            start_sample_condition=start_sample_condition,
-            evict_lock=evict_lock
         )
         self._enqueue_thread.start()
         return self._enqueue_thread

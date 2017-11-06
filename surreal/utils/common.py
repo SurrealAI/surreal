@@ -1,24 +1,11 @@
 import sys
 import os
-import threading
 import inspect
 import collections
 import functools
 import argparse
 import re
 from easydict import EasyDict
-
-
-class StoppableThread(threading.Thread):
-    def __init__(self, *args, **kwargs):
-        self._stop_event = threading.Event() # stoppable thread
-        super().__init__(*args, **kwargs)
-
-    def stop(self):
-        self._stop_event.set()
-
-    def is_stopped(self):
-        return self._stop_event.is_set()
 
 
 def _get_qualified_type_name(type_):

@@ -1,15 +1,15 @@
 import itertools
 import threading
 import time
+import queue
 
 import surreal.utils as U
 from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
-from surreal.utils.common import StoppableThread
 
 
-class _EvictThread(StoppableThread):
+class _EvictThread(U.StoppableThread):
     def __init__(self,
                  evict_func,
                  evict_args,
@@ -53,11 +53,9 @@ class Replay(object):
             redis_client=redis_client,
             maxsize=fetch_queue_size,
         )
-        # keeps the integrity of the replay memory data structure
-        self._replay_lock = threading.Lock()
-        # avoid evicting and fetching at the same time
-        self._evict_lock = threading.Lock()
         self._evict_thread = None
+        self._replay_lock = threading.Lock()
+        self._job_queue = U.JobQueue()
 
     def _insert(self, exp_dict):
         """
@@ -120,58 +118,69 @@ class Replay(object):
         """
         raise NotImplementedError
 
+    def _wrapped_insert(self, exp_dict):
+        with self._replay_lock:
+            return self._insert(exp_dict)
+
     def insert(self, exp_dict):
         """
         Must not sample and insert at the same time
         """
+        return self._job_queue.process(self._wrapped_insert, exp_dict)
+
+    def _wrapped_sample(self, batch_i):
+        # returns None if start_sample_condition not met
         with self._replay_lock:
-            return self._insert(exp_dict)
+            if self.start_sample_condition():
+                return self._sample(self.batch_size, batch_i)
+            else:
+                return None
 
     def sample(self, batch_i):
+        return self._job_queue.process(self._wrapped_sample, batch_i)
+
+    def _wrapped_evict(self, *args, **kwargs):
         with self._replay_lock:
-            return self._sample(self.batch_size, batch_i)
+            evicted_exp_list = self._evict(*args, **kwargs)
+        evict_exp_pointers = []
+        evict_obs_pointers = []
+        for exp in evicted_exp_list:
+            U.assert_type(exp, dict)
+            if 'exp_pointer' in exp:
+                evict_exp_pointers.append(exp['exp_pointer'])
+            if 'obs_pointers' in exp:
+                obs_pointers = exp['obs_pointers']
+                U.assert_type(obs_pointers, list)
+                evict_obs_pointers.extend(obs_pointers)
+        print('DEBUG delete start', len(evict_obs_pointers))
+        ref_pointers = ['ref-' + _p for _p in evict_obs_pointers]
+        ref_counts = self._client.mdecr(ref_pointers)
+        # only evict when ref count drops to 0
+        print('DEBUG ref_counts', ref_counts)
+        evict_obs_pointers = [evict_obs_pointers[i]
+                              for i in range(len(evict_obs_pointers))
+                              if ref_counts[i] <= 0]
+        # mass delete exp and obs (only when ref drop to 0) on Redis
+        _ret = self._client.mdel(evict_obs_pointers + evict_exp_pointers)
+        print('DEBUG delete done', _ret)
+        return evicted_exp_list
 
     def evict(self, *args, **kwargs):
-        with self._evict_lock:
-            with self._replay_lock:
-                evicted_exp_list = self._evict(*args, **kwargs)
-            evict_exp_pointers = []
-            evict_obs_pointers = []
-            for exp in evicted_exp_list:
-                U.assert_type(exp, dict)
-                if 'exp_pointer' in exp:
-                    evict_exp_pointers.append(exp['exp_pointer'])
-                if 'obs_pointers' in exp:
-                    obs_pointers = exp['obs_pointers']
-                    U.assert_type(obs_pointers, list)
-                    evict_obs_pointers.extend(obs_pointers)
-
-            print('DEBUG delete start', len(evict_obs_pointers))
-            ref_pointers = ['ref-' + _p for _p in evict_obs_pointers]
-            ref_counts = self._client.mdecr(ref_pointers)
-            # only evict when ref count drops to 0
-            print('DEBUG ref_counts', ref_counts)
-            evict_obs_pointers = [evict_obs_pointers[i]
-                                  for i in range(len(evict_obs_pointers))
-                                  if ref_counts[i] <= 0]
-            # mass delete exp and obs (only when ref drop to 0) on Redis
-            _ret = self._client.mdel(evict_obs_pointers + evict_exp_pointers)
-            print('DEBUG delete done', _ret)
-            return evicted_exp_list
+        return self._job_queue.process(self._wrapped_evict, *args, **kwargs)
 
     def start_queue_threads(self):
         """
         Call this method to launch all background threads that talk to Redis.
         """
+        self._job_queue.start_thread()
         self._exp_queue.start_enqueue_thread()
         self._exp_queue.start_dequeue_thread(self.insert)
         self._obs_fetch_queue.start_enqueue_thread(
             sampler=self.sample,
-            start_sample_condition=self.start_sample_condition,
-            evict_lock=self._evict_lock
         )
 
     def stop_queue_threads(self):
+        self._job_queue.stop_thread()
         self._exp_queue.stop_enqueue_thread()
         self._exp_queue.stop_dequeue_thread()
         self._obs_fetch_queue.stop_enqueue_thread()
