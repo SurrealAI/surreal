@@ -1,4 +1,76 @@
-# API (tentative)
+# Steps to add a new RL algorithm
+
+Read the inline docstrings of each class in the source code for more information:
+
+## Step 1: Model
+
+Create a model that extends `utils.pytorch.Module`, which is an extension of the PyTorch Module. This model represents the policy network or Q function.
+
+## Step 2: Agent
+
+Extend the `agent.base.Agent` class.
+
+Required override:
+- `_act()`
+
+Optional override:
+- `initialize()`
+- `close()`
+
+## Step 3: Learner
+
+Extend the `learner.base.Learner` class.
+
+Required override:
+- `learn()`
+
+## Step 4: Replay
+
+Extend the `replay.base.Replay` class.
+
+Required override:
+- `_insert()`
+- `_sample()`
+- `start_sample_condition()`
+- `aggregate_batch()`
+
+Optional override:
+- `_evict()`
+
+
+# Installation
+
+## Main surreal library
+
+```
+cd Surreal/
+pip install -e surreal
+```
+
+## Redis
+
+```
+brew install redis
+
+$ redis-server  # runs on localhost with default port
+```
+
+## Docker and Kubernetes
+
+TODO
+
+## Run Cartpole
+
+```
+# make sure redis-server is running locally at the default port
+# must run the following two commands in order
+python surreal/main/run_cartpole_learner.py
+python surreal/main/run_cartpole_agent.py
+```
+
+# Detailed API
+
+**will be moved to another file**
 
 ## Agent-side components
 
@@ -32,7 +104,7 @@ Extends `envs.base.Env` class. Wrappers extend `envs.base.Wrapper` class.
  
 Key difference from OpenAI Gym API 
 
- -  `reset()` function now returns a tuple `(obs, info)` instead of just `obs`. 
+ -  `reset()` function now returns a tuple `(obs, info)` instead of just `obs`.
  - Support self-play and multi-agent (future). 
  - We rely heavily on the catch-all `info` dict to make env and agents as versatile as possible. In Gym, `info` contains nothing but unimportant diagnostics, and is typically empty altogether. In contrast, we will put crucial information such as the individual frames in `info` when doing frame-stacking, because we don't want to duplicate each frame many times in the Redis storage. The other scenario is multi-agent training. The `info` dict will likely have rich contents. 
  
@@ -239,13 +311,3 @@ while True:
 ### Distributed logging
 
 
-# Installation
-
-## Main surreal library
-```
-pip install -e .
-```
-
-## Redis
-
-## Docker and Kubernetes
