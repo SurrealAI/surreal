@@ -3,6 +3,7 @@ from collections import deque
 import gym
 from gym import spaces
 import cv2
+from .atari_names import atari_name_cap
 
 
 """
@@ -219,8 +220,8 @@ class LazyFrames(object):
         return self.numpy(dtype)
 
 
-def make_atari(game_name):
-    env = gym.make(game_name + "NoFrameskip-v4")
+def make_atari(name):
+    env = gym.make(atari_name_cap(name) + "NoFrameskip-v4")
     return env
 
 

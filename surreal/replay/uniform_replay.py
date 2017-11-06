@@ -64,10 +64,9 @@ class UniformReplay(Replay):
     def start_sample_condition(self):
         return len(self) > self._sampling_start_size
 
+    def aggregate_batch(self, exp_list):
+        return aggregate_torch(exp_list)
+
     def __len__(self):
         return len(self._memory)
 
-
-class TorchUniformReplay(UniformReplay):
-    def aggregate_batch(self, exp_list):
-        return aggregate_torch(exp_list)

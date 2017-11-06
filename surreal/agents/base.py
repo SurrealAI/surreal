@@ -49,6 +49,9 @@ class Agent(object):
         Args:
             obs:
             **kwargs: passed to self._act()
+
+        Returns:
+            action to be executed in the env
         """
         with self._forward_lock:
             return self._act(obs, self.model, self.action_mode, *args, **kwargs)

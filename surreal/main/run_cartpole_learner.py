@@ -55,7 +55,7 @@ client.flushall()
 broadcaster = TorchBroadcaster(client, debug=0)
 
 client = RedisClient()
-replay = TorchUniformReplay(
+replay = UniformReplay(
     redis_client=client,
     memory_size=100000,
     sampling_start_size=1000,
