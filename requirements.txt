@@ -1,9 +1,8 @@
-numpy
-torch
-torchvision
-seaborn
 easydict
-redis
-tqdm
-tabulate
+libtmux
+numpy
 pandas
+redis
+seaborn
+tabulate
+tqdm
