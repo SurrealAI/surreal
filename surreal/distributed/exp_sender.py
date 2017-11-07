@@ -13,19 +13,26 @@ class ExpSender(object):
                  *,
                  pointers_only=True,
                  save_exp_on_redis=True,
-                 obs_cache_size=10000000):
+                 max_redis_queue_size=1000000,
+                 obs_cache_size=1000000):
         """
         Args:
-            redis_client
-            queue_name: name of the ExpQueue
-            pointers_only (default True): send only pointers instead of full obs
-              if True, the exp_dict will contain only 'obs_pointers' field
-              otherwise it will have 'obses' field.
-            save_exp_on_redis: whether to save Exp dict on Redis replay server
-              or not. if False, only push exp to the Redis queue without saving.
-            obs_cache_size: max size of the cache of new_obs hashes so that we
-              don't send duplicate new_obs to Redis. Will be ignored if
-              `pointers_only` is False.
+          redis_client
+          queue_name: name of the ExpQueue
+          pointers_only (default True): send only pointers instead of full obs
+            if True, the exp_dict will contain only 'obs_pointers' field
+            otherwise it will have 'obses' field.
+          save_exp_on_redis: whether to save Exp dict on Redis replay server
+            or not. if False, only push exp to the Redis queue without saving.
+          max_redis_queue_size: NOTE
+            If the agent generates exp faster than the Replay inserts exp on
+            learner side, then the exp queue on Redis replay server will
+            increase indefinitely, consuming more and more memory. To prevent
+            this, we need to cap by a max size. If the cap is reached, the
+            agent will be blocked until Replay dequeues the next item.
+          obs_cache_size: max size of the cache of new_obs hashes so that we
+            don't send duplicate new_obs to Redis. Will be ignored if
+            `pointers_only` is False.
         """
         assert isinstance(redis_client, RedisClient)
         self._client = redis_client
@@ -33,6 +40,7 @@ class ExpSender(object):
         self._visited_obs = set() # avoid resending new_obs
         self._pointers_only = pointers_only
         self._save_exp_on_redis = save_exp_on_redis
+        self._max_redis_queue_size = max_redis_queue_size
         self._obs_cache_size = obs_cache_size
 
     def _add_to_visited(self, obs_pointer):
@@ -72,6 +80,12 @@ class ExpSender(object):
         if self._save_exp_on_redis:
             redis_mset[exp_pointer] = binary
         self._client.mset(redis_mset)
-        # send to queue
-        self._client.enqueue(self.queue_name, binary)
+        # will block and wait if max_redis_queue_size is reached
+        print(self._client._client.llen(self.queue_name))
+        self._client.enqueue_block_on_full(
+            queue_name=self.queue_name,
+            values=[binary],
+            max_size=self._max_redis_queue_size,
+            time_out=0
+        )
 

@@ -27,6 +27,7 @@ sender = ExpSender(
     obs_cache_size=5,
     pointers_only=True,
     save_exp_on_redis=False,
+    max_redis_queue_size=200,
 )
 
 env = gym.make('CartPole-v0')
@@ -87,6 +88,7 @@ for T in itertools.count():
     new_obs, reward, done, info = env.step(action)
     # replay_buffer.add(new_obs, action, reward, new_obs, float(done))
     sender.send([obs, new_obs], action, reward, done, info)
+    # time.sleep(0.01)
     obs = new_obs
     if done:
         obs = env.reset()

@@ -1,7 +1,48 @@
 import redis
-import threading
+import time
 import itertools
 import surreal.utils as U
+
+
+# ====== Lua scripts for Redis ======
+# incr many keys together, should be the same as pipelining
+_LUA_MINCR = """
+local retval
+retval={}
+for i = 1,#KEYS do
+    table.insert(retval, redis.call('incr', KEYS[i]))
+end
+return retval
+"""
+
+# decr many keys together, return values will never drop below 0
+# the key is automatically deleted if it drops to 0.
+_LUA_MDECR = """
+local retval, counts
+retval={}
+for i = 1,#KEYS do
+    counts = redis.call('decr', KEYS[i])
+    if counts <= 0 then
+        redis.call('del', KEYS[i])
+        counts = 0
+    end
+    table.insert(retval, counts)
+end
+return retval
+"""
+
+# push to the list only when it has enough capacity, otherwise return -1
+# implements `BLPUSH` if combined with sleep() spin lock
+_LUA_BLPUSH = """
+local max_size, num_elems
+max_size = tonumber(ARGV[1])
+table.remove(ARGV, 1)
+num_elems = #ARGV
+if redis.call('LLEN', KEYS[1]) + num_elems <= max_size then
+    return redis.call('LPUSH', KEYS[1], unpack(ARGV))  
+end 
+return -1
+"""
 
 
 class _DequeueThread(U.StoppableThread):
@@ -38,32 +79,9 @@ class RedisClient(object):
         self.set = self._client.set
         self.get = self._client.get
         self.flushall = self._client.flushall
-        # incr many keys together, should be the same as pipelining
-        _mincr_lua = """
-        local retval
-        retval={}
-        for i = 1,#KEYS do
-            table.insert(retval, redis.call('incr', KEYS[i]))
-        end
-        return retval
-        """
-        self.mincr = self._client.register_script(_mincr_lua)
-        # decr many keys together, return values will never drop below 0
-        # the key is automatically deleted if it drops to 0.
-        _mdecr_lua = """
-        local retval, counts
-        retval={}
-        for i = 1,#KEYS do
-            counts = redis.call('decr', KEYS[i])
-            if counts <= 0 then
-                redis.call('del', KEYS[i])
-                counts = 0
-            end
-            table.insert(retval, counts)
-        end
-        return retval
-        """
-        self.mdecr = self._client.register_script(_mdecr_lua)
+        self.mincr = self._client.register_script(_LUA_MINCR)
+        self.mdecr = self._client.register_script(_LUA_MDECR)
+        self._blpush = self._client.register_script(_LUA_BLPUSH)
 
     def mset(self, mset_dict):
         U.assert_type(mset_dict, dict)
@@ -89,8 +107,53 @@ class RedisClient(object):
         else:
             return self._client.delete(*mdel_list)
 
-    def enqueue(self, queue_name, binary):
-        self._client.lpush(queue_name, binary)
+    def blpush(self,
+               queue_name,
+               values,
+               max_size,
+               sleep_interval=0.1,
+               time_out=0):
+        """
+        Simulates BLPUSH, block until a Redis list has enough capacity.
+        same as Python's synchronized `Queue.put()` semantics.
+
+        Args:
+            queue_name:
+            values:
+            max_size:
+            sleep_interval: in seconds, for spin lock
+            time_out: if 0, wait indefinitely, otherwise return None if timeout
+
+        Returns:
+            queue size (i.e. llen) after pushing
+        """
+        if not isinstance(values, list):
+            values = [values]
+        assert max_size > len(values)
+        start_time = time.time()
+        while True:
+            ret = self._blpush(keys=[queue_name], args=[max_size]+values)
+            if ret < 0:
+                time.sleep(sleep_interval)
+                if time_out > 0 and time.time() - start_time > time_out:
+                    return None
+            else:
+                return ret
+
+    enqueue_block_on_full = blpush
+
+    def enqueue(self, queue_name, values):
+        """
+        Warnings:
+            This method does not block when the queue is full. If the agent
+            produces exp faster than the Replay can consume, the memory will
+            grow indefinitely.
+            Use `blpush()` or alias `enqueue_block_on_full()` instead.
+        """
+        if not isinstance(values, list):
+            values = [values]
+        self._client.lpush(queue_name, *values)
+
 
     def start_dequeue_thread(self, queue_name, handler):
         """
