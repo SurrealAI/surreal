@@ -6,7 +6,7 @@ from easydict import EasyDict
 from .base import Learner
 
 
-class DQN(Learner):
+class DQNLearner(Learner):
     def __init__(self, config, model):
         super().__init__(config, model)
         self.q_func = model  # nothing but an alias

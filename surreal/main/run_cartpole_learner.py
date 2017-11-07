@@ -2,7 +2,7 @@ import torch
 from surreal.agent.q_agent import QAgent
 from surreal.distributed.ps import *
 from surreal.env import *
-from surreal.learner.dqn import DQN
+from surreal.learner.dqn import DQNLearner
 from surreal.model.q_net import FFQfunc
 from surreal.replay import *
 
@@ -67,7 +67,7 @@ replay = UniformReplay(
     exp_queue_size=100 if DEBUG else 100000
 )
 
-dqn = DQN(
+dqn = DQNLearner(
     config=CARTPOLE_CONFIG,
     model=q_func,
 )
