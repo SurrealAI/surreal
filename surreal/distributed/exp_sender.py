@@ -81,7 +81,6 @@ class ExpSender(object):
             redis_mset[exp_pointer] = binary
         self._client.mset(redis_mset)
         # will block and wait if max_redis_queue_size is reached
-        print(self._client._client.llen(self.queue_name))
         self._client.enqueue_block_on_full(
             queue_name=self.queue_name,
             values=[binary],

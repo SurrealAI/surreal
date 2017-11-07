@@ -42,13 +42,25 @@ class Replay(object):
                  redis_client,
                  batch_size,
                  name='replay',
-                 fetch_queue_size=5):
+                 fetch_queue_size=5,
+                 exp_queue_size=100000):
+        """
+
+        Args:
+            redis_client:
+            batch_size:
+            name:
+            fetch_queue_size: max number of pre-fetch minibatches
+            exp_queue_size: limit so that Replay doesn't pull exp faster than
+                it can insert.
+        """
         U.assert_type(redis_client, RedisClient)
         self.batch_size = batch_size
         self._client = redis_client
         self._exp_queue = ExpQueue(
             redis_client=redis_client,
             queue_name=name,
+            maxsize=exp_queue_size,
         )
         self._obs_fetch_queue = ObsFetchQueue(
             redis_client=redis_client,

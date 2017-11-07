@@ -23,7 +23,7 @@ class ExpQueue(object):
     def __init__(self,
                  redis_client,
                  queue_name,
-                 maxsize=0):
+                 maxsize=100000):
         self._queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)
         self.queue_name = queue_name

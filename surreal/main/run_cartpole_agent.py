@@ -88,7 +88,6 @@ for T in itertools.count():
     new_obs, reward, done, info = env.step(action)
     # replay_buffer.add(new_obs, action, reward, new_obs, float(done))
     sender.send([obs, new_obs], action, reward, done, info)
-    # time.sleep(0.01)
     obs = new_obs
     if done:
         obs = env.reset()
