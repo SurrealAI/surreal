@@ -131,7 +131,7 @@ class Replay(object):
 
         Args:
             exp_list: list of experience dictionaries with actual observations
-                {"obses", "reward", "action", "info"} keys
+                {"obs", "reward", "action", "info"} keys
 
         Returns:
             batched Tensors, batched action/reward vectors, etc.

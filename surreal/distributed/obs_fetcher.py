@@ -13,9 +13,9 @@ class ObsFetcher(object):
         """
         Args:
             exp_dicts: list of exp_dicts with 'obs_pointers' field
-            NOTE if exp_dicts already have 'obses' field, the call is no-op
+            NOTE if exp_dicts already have 'obs' field, the call is no-op
         Returns:
-            fill out each 'obses' field, delete 'obs_pointers' key
+            fill out each 'obs' field, delete 'obs_pointers' key
         """
         assert isinstance(exp_dicts, list)
         assert len(exp_dicts) > 0, 'exp_dicts download list cannot be empty'
@@ -24,8 +24,8 @@ class ObsFetcher(object):
         exp_dicts = [exp.copy() for exp in exp_dicts]
         all_obs_pointers = []
         for exp in exp_dicts:
-            if 'obses' in exp:
-                # obses already present, no need to re-fetch
+            if 'obs' in exp:
+                # obs already present, no need to re-fetch
                 continue
             else:
                 assert 'obs_pointers' in exp
@@ -37,10 +37,10 @@ class ObsFetcher(object):
             print('ERROR fetch obs_pointers', all_obs_pointers)
             raise
         for exp in exp_dicts:
-            if 'obses' in exp:
+            if 'obs' in exp:
                 continue
             num_obs = len(exp['obs_pointers'])
-            exp['obses'] = all_obs[:num_obs]
+            exp['obs'] = all_obs[:num_obs]
             del all_obs[:num_obs]
         assert len(all_obs) == 0, 'should be empty after all exp'
         return exp_dicts

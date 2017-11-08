@@ -35,21 +35,21 @@ class DQNLearner(Learner):
             # )
         self.optimizer.step()
 
-    def _optimize(self, obses_t, actions, rewards, obses_tp1, dones, weights):
+    def _optimize(self, obs_t, actions, rewards, obs_tp1, dones, weights):
         # Compute Q(s_t, a)
         # columns of actions taken
         C = self.config
-        batch_size = obses_t.size(0)
+        batch_size = obs_t.size(0)
         assert (U.shape(actions)
                 == U.shape(rewards)
                 == U.shape(dones)
                 == (batch_size, 1))
-        q_t_at_action = self.q_func(obses_t).gather(1, actions)
-        q_tp1 = self.q_target(obses_tp1)
+        q_t_at_action = self.q_func(obs_t).gather(1, actions)
+        q_tp1 = self.q_target(obs_tp1)
         # Double Q
         if C.double_q:
             # select argmax action using online weights instead of q_target
-            q_tp1_online = self.q_func(obses_tp1)
+            q_tp1_online = self.q_func(obs_tp1)
             q_tp1_online_argmax = q_tp1_online.max(1, keepdim=True)[1]
             q_tp1_best = q_tp1.gather(1, q_tp1_online_argmax)
         else:
@@ -72,14 +72,14 @@ class DQNLearner(Learner):
     def learn(self, batch_exp, batch_i):
         weights = Variable(U.torch_ones_like(batch_exp.rewards))
         td_errors = self._optimize(
-            batch_exp.obses[0],
+            batch_exp.obs[0],
             batch_exp.actions,
             batch_exp.rewards,
-            batch_exp.obses[1],
+            batch_exp.obs[1],
             batch_exp.dones,
             weights,
         )
-        batch_size = batch_exp.obses[0].size(0)
+        batch_size = batch_exp.obs[0].size(0)
         if self.target_update_tracker.track_increment(batch_size):
             # Update target network periodically.
             self._update_target()
@@ -108,20 +108,20 @@ class DQNLearner(Learner):
         if C.prioritized.enabled:
             experience = self.replay.sample(C.batch_size,
                                               beta=beta_schedule.value(T))
-            (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
+            (obs_t, actions, rewards, obs_tp1, dones, weights, batch_idxes) = experience
         else:
             weights = Variable(U.torch_ones_like(exp.rewards))
             batch_idxes = None
 
         td_errors = self.optimize(
-            exp.obses[0],
+            exp.obs[0],
             exp.actions,
             exp.rewards,
-            exp.obses[1],
+            exp.obs[1],
             exp.dones,
             weights,
         )
-        batch_size = exp.obses[0].size(0)
+        batch_size = exp.obs[0].size(0)
         if C.prioritized.enabled:
             # TODO
             new_priorities = torch.abs(td_errors) + C.prioritized.eps
