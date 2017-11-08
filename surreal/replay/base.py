@@ -1,13 +1,13 @@
 import itertools
 import threading
 import time
-import queue
 
 import surreal.utils as U
 from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
 from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
+from .aggregator import torch_aggregate
 
 
 class _EvictThread(U.StoppableThread):
@@ -41,6 +41,8 @@ class Replay(object):
     def __init__(self, *,
                  redis_client,
                  batch_size,
+                 obs_spec,
+                 action_spec,
                  name='replay',
                  fetch_queue_size=5,
                  exp_queue_size=100000):
@@ -66,6 +68,8 @@ class Replay(object):
             redis_client=redis_client,
             maxsize=fetch_queue_size,
         )
+        self._obs_spec = obs_spec
+        self._action_spec = action_spec
         self._evict_thread = None
         self._replay_lock = threading.Lock()
         self._job_queue = U.JobQueue()
@@ -132,7 +136,11 @@ class Replay(object):
         Returns:
             batched Tensors, batched action/reward vectors, etc.
         """
-        raise NotImplementedError
+        return torch_aggregate(
+            exp_list,
+            obs_spec=self._obs_spec,
+            action_spec=self._action_spec,
+        )
 
     def _wrapped_insert(self, exp_dict):
         with self._replay_lock:

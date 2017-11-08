@@ -26,6 +26,11 @@ class Env(object):
     The methods are accessed publicly as "step", "reset", etc.. The
     non-underscored versions are wrapper methods to which we may add
     functionality over time.
+
+    In __init__(), you must specify two instance variables:
+    - action_spec
+    - obs_spec
+    Both of them must be dict
     """
     metadata = {}
 
@@ -33,6 +38,10 @@ class Env(object):
         # We use __new__ since we want the env author to be able to
         # override __init__ without remembering to call super.
         env = super(Env, cls).__new__(cls)
+        # env must have instance vars action_spec and obs_spec
+        # they must be dict
+        assert hasattr(env, 'action_spec') and isinstance(env.action_spec, dict)
+        assert hasattr(env, 'obs_spec') and isinstance(env.obs_spec, dict)
         env._closed = False
         return env
 
@@ -148,6 +157,8 @@ class Wrapper(Env):
         self.metadata = self.env.metadata.copy()
         self.metadata.update(metadata)
         self._ensure_no_double_wrap()
+        self.obs_spec = env.obs_spec
+        self.action_spec = env.action_spec
 
     @classmethod
     def class_name(cls):

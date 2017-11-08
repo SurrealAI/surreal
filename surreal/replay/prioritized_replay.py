@@ -1,12 +1,14 @@
 import random
 from .base import Replay
-from .aggregator import aggregate_torch
+from .aggregator import torch_aggregate
 
 
 class PrioritizedReplay(Replay):
     def __init__(self, *,
                  redis_client,
                  batch_size,
+                 obs_spec,
+                 action_spec,
                  memory_size,
                  sampling_start_size,
                  **kwargs):
@@ -19,6 +21,8 @@ class PrioritizedReplay(Replay):
         super().__init__(
             redis_client=redis_client,
             batch_size=batch_size,
+            obs_spec=obs_spec,
+            action_spec=action_spec,
             **kwargs
         )
         self._maxsize = memory_size
@@ -36,7 +40,4 @@ class PrioritizedReplay(Replay):
 
     def start_sample_condition(self):
         raise NotImplementedError
-
-    def aggregate_batch(self, exp_list):
-        return aggregate_torch(exp_list)
 
