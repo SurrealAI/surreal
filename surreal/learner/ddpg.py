@@ -38,28 +38,20 @@ class DDPGLearner(Learner):
     def _update_target(self):
         self.model_target.copy_from(self.model)
 
-    def _run_optimizer(self, loss):
-        self.optimizer.zero_grad()
-        loss.backward()
-        norm_clip = self.config.grad_norm_clipping
-        if norm_clip is not None:
-            self.model.clip_grad_norm(norm_clip)
-        self.optimizer.step()
-
-    def _optimize(self, obses_t, actions, rewards, obses_tp1, dones):
+    def _optimize(self, obs, actions, rewards, obs_next, dones):
 
         # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
-        obses_tp1.volatile = True
-        next_actions_target = self.model_target.forward_actor(obses_tp1)
+        obs_next.volatile = True
+        next_actions_target = self.model_target.forward_actor(obs_next)
 
-        obses_tp1.volatile = False
-        next_Q_target = self.model_target.forward_critic(obses_tp1, next_actions_target)
+        obs_next.volatile = False
+        next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
         next_Q_target.volatile = False
         y = rewards + self.discount_factor * next_Q_target * dones
 
         # compute Q(s_t, a_t)
         actions = actions.squeeze()
-        y_policy = self.model.forward_critic(obses_t, actions)
+        y_policy = self.model.forward_critic(obs, actions)
 
         # critic update
         self.model.critic.zero_grad()
@@ -70,23 +62,20 @@ class DDPGLearner(Learner):
         # actor update
         self.model.actor.zero_grad()
         actor_loss = -self.model.forward_critic(
-            obses_t,
-            self.model.forward_actor(obses_t)
+            obs,
+            self.model.forward_actor(obs)
         ).mean()
         actor_loss.backward()
         self.actor_optim.step()
 
-        print('update steps')
-
     def learn(self, batch_exp, batch_i):
         self._optimize(
-            batch_exp.obses[0],
+            batch_exp.obs,
             batch_exp.actions,
             batch_exp.rewards,
-            batch_exp.obses[1],
+            batch_exp.obs_next,
             batch_exp.dones
         )
-        batch_size = batch_exp.obses[0].size(0)
-        if self.target_update_tracker.track_increment(batch_size):
+        if self.target_update_tracker.track_increment(1):
             # Update target network periodically.
             self._update_target()
