@@ -43,8 +43,9 @@ info_print = PeriodicTracker(5)
 obs = env.reset()
 for T in itertools.count():
     action = ddpg_agent.act(U.to_float_tensor(obs))
-    # env.render()
+    env.render()
     new_obs, reward, done, info = env.step(action)
+    reward *= 0.1 # reward scaling
     sender.send([obs, new_obs], action, reward, done, info)
     obs = new_obs
 

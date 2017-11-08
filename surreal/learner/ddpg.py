@@ -13,6 +13,7 @@ class DDPGLearner(Learner):
         super().__init__(config, model)
 
         self.discount_factor = 0.99
+        self.tau = 0.01
 
         self.model = model  # nothing but an alias
         self.model_target = self.model.clone()
@@ -21,24 +22,16 @@ class DDPGLearner(Learner):
 
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
-            lr=1e-3,
-            eps=1e-4
+            lr=1e-3
         )
 
         self.actor_optim = torch.optim.Adam(
             self.model.actor.parameters(),
-            lr=1e-4,
-            eps=1e-4
+            lr=1e-4
         )
 
-        self.target_update_tracker = PeriodicTracker(
-            period=self.config.target_network_update_freq,
-        )
 
-    def _update_target(self):
-        self.model_target.copy_from(self.model)
-
-    def _optimize(self, obs, actions, rewards, obs_next, dones):
+    def _optimize(self, obs, actions, rewards, obs_next, done):
 
         # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
         obs_next.volatile = True
@@ -47,7 +40,7 @@ class DDPGLearner(Learner):
         obs_next.volatile = False
         next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
         next_Q_target.volatile = False
-        y = rewards + self.discount_factor * next_Q_target * dones
+        y = rewards + self.discount_factor * next_Q_target * done
 
         # compute Q(s_t, a_t)
         actions = actions.squeeze()
@@ -68,6 +61,11 @@ class DDPGLearner(Learner):
         actor_loss.backward()
         self.actor_optim.step()
 
+        # soft update target networks
+        U.soft_update(self.model_target.actor, self.model.actor, self.tau)
+        U.soft_update(self.model_target.critic, self.model.critic, self.tau)
+
+
     def learn(self, batch_exp, batch_i):
         self._optimize(
             batch_exp.obs,
@@ -76,6 +74,6 @@ class DDPGLearner(Learner):
             batch_exp.obs_next,
             batch_exp.dones
         )
-        if self.target_update_tracker.track_increment(1):
-            # Update target network periodically.
-            self._update_target()
+        # if self.target_update_tracker.track_increment(1):
+        #     # Update target network periodically.
+        #     self._update_target()
