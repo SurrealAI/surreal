@@ -35,21 +35,21 @@ class DQNLearner(Learner):
             # )
         self.optimizer.step()
 
-    def _optimize(self, obs_t, actions, rewards, obs_tp1, dones, weights):
+    def _optimize(self, obs, actions, rewards, obs_next, dones, weights):
         # Compute Q(s_t, a)
         # columns of actions taken
         C = self.config
-        batch_size = obs_t.size(0)
+        batch_size = obs.size(0)
         assert (U.shape(actions)
                 == U.shape(rewards)
                 == U.shape(dones)
                 == (batch_size, 1))
-        q_t_at_action = self.q_func(obs_t).gather(1, actions)
-        q_tp1 = self.q_target(obs_tp1)
+        q_t_at_action = self.q_func(obs).gather(1, actions)
+        q_tp1 = self.q_target(obs_next)
         # Double Q
         if C.double_q:
             # select argmax action using online weights instead of q_target
-            q_tp1_online = self.q_func(obs_tp1)
+            q_tp1_online = self.q_func(obs_next)
             q_tp1_online_argmax = q_tp1_online.max(1, keepdim=True)[1]
             q_tp1_best = q_tp1.gather(1, q_tp1_online_argmax)
         else:
@@ -108,7 +108,7 @@ class DQNLearner(Learner):
         if C.prioritized.enabled:
             experience = self.replay.sample(C.batch_size,
                                               beta=beta_schedule.value(T))
-            (obs_t, actions, rewards, obs_tp1, dones, weights, batch_idxes) = experience
+            (obs, actions, rewards, obs_next, dones, weights, batch_idxes) = experience
         else:
             weights = Variable(U.torch_ones_like(exp.rewards))
             batch_idxes = None
