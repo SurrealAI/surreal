@@ -72,14 +72,14 @@ class DQNLearner(Learner):
     def learn(self, batch_exp, batch_i):
         weights = Variable(U.torch_ones_like(batch_exp.rewards))
         td_errors = self._optimize(
-            batch_exp.obs[0],
+            batch_exp.obs,
             batch_exp.actions,
             batch_exp.rewards,
-            batch_exp.obs[1],
+            batch_exp.obs_next,
             batch_exp.dones,
             weights,
         )
-        batch_size = batch_exp.obs[0].size(0)
+        batch_size = batch_exp.obs.size(0)
         if self.target_update_tracker.track_increment(batch_size):
             # Update target network periodically.
             self._update_target()

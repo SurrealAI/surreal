@@ -41,7 +41,8 @@ def torch_aggregate(exp_list, obs_spec, action_spec):
     else:
         raise NotImplementedError('action_spec unsupported '+str(action_spec))
     return EasyDict(
-        obs=[_obs_concat(obs0), _obs_concat(obs1)],
+        obs=_obs_concat(obs0),
+        obs_next=_obs_concat(obs1),
         actions=actions,
         rewards=Variable(torch.FloatTensor(rewards).unsqueeze(1)),
         dones=Variable(torch.FloatTensor(dones).unsqueeze(1)),
