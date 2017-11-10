@@ -19,7 +19,7 @@ agent_config = {
     'optimizer': 'Adam',
     'grad_norm_clipping': 10,
     'gamma': .99,
-    'target_network_update_freq': 250 * 64,
+    'target_network_update_freq': 100,
     'double_q': True,
     'checkpoint': {
         'dir': '~/Train/cartpole' if not args.save_dir else args.save_dir,
@@ -41,7 +41,7 @@ agent_config = {
     },
 }
 
-ddpg_func = DDPGfunc(
+ddpg_model = DDPGfunc(
     obs_dim=17,
     action_dim=6,
 )
@@ -58,14 +58,16 @@ replay = UniformReplay(
     redis_client=client,
     memory_size=100 if DEBUG else 100000,
     sampling_start_size=40 if DEBUG else 1000,
+    obs_spec={},
+    action_spec={'type': 'continuous'},
     batch_size=16 if DEBUG else 64,
     fetch_queue_size=5,
     exp_queue_size=100 if DEBUG else 100000
 )
 
-ddpg = DDPGLearner(
+ddpg_learner = DDPGLearner(
     config=agent_config,
-    model=ddpg_func,
+    model=ddpg_model,
 )
 
 def debug_td_error(td_error):
@@ -75,10 +77,10 @@ def debug_td_error(td_error):
 
 replay.start_queue_threads()
 for i, batch in replay.batch_iterator():
-    ddpg.learn(batch, i)
-    if (i+1) % 1 == 0:
+    ddpg_learner.learn(batch, i)
+    if (i+1) % 10 == 0:
         broadcaster.broadcast(
-            net=ddpg_func,
+            net=ddpg_model,
             message='batch '+str(i)
         )
 

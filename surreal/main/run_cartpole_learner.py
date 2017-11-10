@@ -66,7 +66,7 @@ replay = UniformReplay(
     sampling_start_size=40 if DEBUG else 1000,
     batch_size=16 if DEBUG else 64,
     fetch_queue_size=5,
-    exp_queue_size=100 if DEBUG else 100000
+    exp_queue_size=100 if DEBUG else 10000
 )
 
 dqn = DQNLearner(
