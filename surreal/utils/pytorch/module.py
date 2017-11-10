@@ -6,6 +6,7 @@ from surreal.utils.common import SaveInitArgs
 from surreal.utils.serializer import binary_hash
 from collections import OrderedDict
 import numpy as np
+import threading
 
 
 def _net_or_parameters(net):
@@ -93,10 +94,12 @@ def unflatten_tensors(flat, tensors):
 
 class Module(torch.nn.Module, SaveInitArgs):
     """
-    Enhanced nn.Module
+    All models in Surreal should extend this module, not pytorch one
     """
     def __init__(self):
         super().__init__()
+        # Locks forward prop to avoid race condition with parameter server recv
+        self._forward_lock = threading.Lock()
         self.gpu_index = -1
 
     def freeze(self):
@@ -118,7 +121,7 @@ class Module(torch.nn.Module, SaveInitArgs):
         Unlike the builtin .cuda(), this call sends to the device specified
         in the `with torch_gpu_scope` contextk
         """
-        scope_gpu_index = get_scope_gpu() # from torch_gpu_scope() context
+        scope_gpu_index = get_scope_gpu()  # from torch_gpu_scope() context
         if scope_gpu_index >= 0 and self.gpu_index < 0:
             self.gpu_index = scope_gpu_index
             self.cuda(self.gpu_index)
@@ -129,7 +132,8 @@ class Module(torch.nn.Module, SaveInitArgs):
         transfer to GPU before forward pass
         """
         self.scoped_cuda()
-        return super().__call__(*args, **kwargs)
+        with self._forward_lock:
+            return super().__call__(*args, **kwargs)
 
     def clip_grad_value(self, clip):
         return net_clip_grad_value(self, clip)
@@ -140,9 +144,10 @@ class Module(torch.nn.Module, SaveInitArgs):
     def save(self, fname):
         save_dict = OrderedDict()
         # from meta class SaveInitArgs
-        save_dict['init_args'] = self.init_args
-        save_dict['torch'] = self.state_dict()
-        torch.save(save_dict, fname)
+        with self._forward_lock:
+            save_dict['init_args'] = self.init_args
+            save_dict['torch'] = self.state_dict()
+            torch.save(save_dict, fname)
 
     def load(self, fname):
         save_dict = torch.load(os.path.expanduser(fname))
@@ -171,8 +176,9 @@ class Module(torch.nn.Module, SaveInitArgs):
         buffer = torch.from_numpy(buffer)
         params = [param.data for param in self.parameters()]
         new_params = unflatten_tensors(buffer, params)
-        for p, n in zip(params, new_params):
-            p.copy_(n)
+        with self._forward_lock:
+            for p, n in zip(params, new_params):
+                p.copy_(n)
 
     def clone(self, no_grad=True):
         """

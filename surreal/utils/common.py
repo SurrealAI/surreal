@@ -6,6 +6,7 @@ import functools
 import argparse
 import re
 from easydict import EasyDict
+from enum import Enum
 
 
 def _get_qualified_type_name(type_):
@@ -26,6 +27,44 @@ def assert_type(x, expected_type, message=''):
             _get_qualified_type_name(type(x))
         )
     )
+
+
+class StringEnum(Enum):
+    """
+    https://docs.python.org/3.4/library/enum.html#duplicatefreeenum
+    The created options will automatically have the same string value as name.
+    """
+    def __init__(self, *args, **kwargs):
+        self._value_ = self.name
+
+    @classmethod
+    def get_enum(cls, option):
+        return get_enum(cls, option)
+
+
+def create_string_enum(class_name, option_names):
+    assert_type(option_names, str)
+    assert_type(option_names, list)
+    return StringEnum(class_name, option_names)
+
+
+def get_enum(enum_class, option):
+    """
+    Args:
+        enum_class:
+        option: if the value doesn't belong to Enum, throw error.
+            Can be either the str name or the actual enum value
+    """
+    assert issubclass(enum_class, StringEnum)
+    if isinstance(option, enum_class):
+        return option
+    else:
+        assert_type(option, str)
+        option = option.lower()
+        if option not in enum_class.__members__:
+            raise ValueError('"{}" is not a valid option in {}'
+                             .format(option, enum_class.__name__))
+        return enum_class(option)
 
 
 def fformat(float_num, precision):

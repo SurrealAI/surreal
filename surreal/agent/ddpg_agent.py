@@ -12,8 +12,8 @@ import numpy as np
 
 class DDPGAgent(Agent):
 
-    def __init__(self, model, action_mode, action_dim):
-        super().__init__(model, action_mode)
+    def __init__(self, model, agent_mode, action_dim):
+        super().__init__(model, agent_mode)
         self.action_dim = action_dim
 
         # Ornstein-Uhlenbeck noise for exploration

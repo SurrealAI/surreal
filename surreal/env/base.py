@@ -1,7 +1,22 @@
 """
 A template class that defines base environment APIs
 """
-class Env(object):
+
+
+class _EnvMeta(type):
+    """
+    Ensure that env always has `action_spec` and `obs_spec` after __init__
+    """
+    def __call__(self, *args, **kwargs):
+        env = super().__call__(*args, **kwargs)
+        # env must have instance vars action_spec and obs_spec
+        # they must be dict
+        assert hasattr(env, 'action_spec') and isinstance(env.action_spec, dict)
+        assert hasattr(env, 'obs_spec') and isinstance(env.obs_spec, dict)
+        return env
+
+
+class Env(metaclass=_EnvMeta):
     """The main Env class. It encapsulates an environment with
     arbitrary behind-the-scenes dynamics. An environment can be
     partially or fully observed.
@@ -38,10 +53,6 @@ class Env(object):
         # We use __new__ since we want the env author to be able to
         # override __init__ without remembering to call super.
         env = super(Env, cls).__new__(cls)
-        # env must have instance vars action_spec and obs_spec
-        # they must be dict
-        assert hasattr(env, 'action_spec') and isinstance(env.action_spec, dict)
-        assert hasattr(env, 'obs_spec') and isinstance(env.obs_spec, dict)
         env._closed = False
         return env
 
