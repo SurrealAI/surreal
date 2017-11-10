@@ -168,6 +168,52 @@ class SaveInitArgs(metaclass=SaveInitArgsMeta):
     pass
 
 
+class AutoInitializeMeta(type):
+    """
+    Call the special method ._initialize() after __init__.
+    Useful if some logic must be run after the object is constructed.
+    For example, the following code doesn't work because `self.y` does not exist
+    when super class calls self._initialize()
+
+    class BaseClass():
+        def __init__(self):
+            self._initialize()
+
+        def _initialize():
+            self.x = self.get_x()
+
+        def get_x(self):
+            # abstract method that only subclass
+
+    class SubClass(BaseClass):
+        def __init__(self, y):
+            super().__init__()
+            self.y = y
+
+        def get_x(self):
+            return self.y * 3
+
+    Fix:
+    class BaseClass(metaclass=AutoInitializeMeta):
+        def __init__(self):
+            pass
+            # self._initialize() is now automatically called after __init__
+
+        def _initialize():
+            print('INIT', self.x)
+
+        def get_x(self):
+            # abstract method that only subclass
+            raise NotImplementedError
+    """
+    def __call__(self, *args, **kwargs):
+        obj = super().__call__(*args, **kwargs)
+        assert hasattr(obj, '_initialize'), \
+            'AutoInitializeMeta requires that subclass implements _initialize()'
+        obj._initialize()
+        return obj
+
+
 class noop_context:
     """
     Placeholder context manager that does nothing.

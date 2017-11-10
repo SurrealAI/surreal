@@ -1,12 +1,10 @@
 """
 A template class that defines base agent APIs
 """
-import threading
 import surreal.utils as U
-
-# TODO torch_listener inside __init__
-# add a .module_list() class for torch listener
-# In __init__
+from easydict import EasyDict
+from surreal.distributed.redis_client import RedisClient
+from surreal.distributed.ps.torch_listener import TorchListener
 
 
 class AgentMode(U.StringEnum):
@@ -15,12 +13,25 @@ class AgentMode(U.StringEnum):
     eval_deterministic = ()
 
 
-class Agent(object):
+class Agent(metaclass=U.AutoInitializeMeta):
     def __init__(self, config, agent_mode):
         U.assert_type(config, dict)
+        self.config = C = EasyDict(config)
         self.agent_mode = AgentMode.get_enum(agent_mode)
+        self._client = RedisClient(
+            host=C.redis.ps.host,
+            port=C.redis.ps.port
+        )
 
-    def act(self, obs, *args, **kwargs):
+    def _initialize(self):
+        # for AutoInitializeMeta interface
+        self._listener = TorchListener(
+            redis_client=self._client,
+            module_dict=self.module_dict()
+        )
+        self._listener.run_listener_thread()
+
+    def act(self, obs):
         """
         Abstract method for taking actions.
         You should check `self.agent_mode` in the function and change act()
@@ -29,8 +40,6 @@ class Agent(object):
         Args:
             obs: typically a single obs, make sure to vectorize it first before
                 passing to the torch `model`.
-            *args, **kwargs: other info to make the action, such as the current
-                epsilon exploration value.
 
         Returns:
             action to be executed in the env

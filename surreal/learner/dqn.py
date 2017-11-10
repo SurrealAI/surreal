@@ -2,22 +2,23 @@ import torch
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
+from surreal.model.q_net import FFQfunc
 from easydict import EasyDict
 from .base import Learner
 
 
 class DQNLearner(Learner):
-    def __init__(self, config, model):
-        super().__init__(config, model)
-        self.q_func = model  # nothing but an alias
+    def __init__(self, config):
+        super().__init__(config)
+        self.q_func = FFQfunc(**self.config.model)
         self.q_target = self.q_func.clone()
         self.optimizer = torch.optim.Adam(
             self.q_func.parameters(),
-            lr=self.config.lr,
+            lr=self.config.algo.lr,
             eps=1e-4
         )
         self.target_update_tracker = PeriodicTracker(
-            period=self.config.target_network_update_freq,
+            period=self.config.algo.target_network_update_freq,
         )
 
     def _update_target(self):
@@ -26,7 +27,7 @@ class DQNLearner(Learner):
     def _run_optimizer(self, loss):
         self.optimizer.zero_grad()
         loss.backward()
-        norm_clip = self.config.grad_norm_clipping
+        norm_clip = self.config.algo.grad_norm_clipping
         if norm_clip is not None:
             self.q_func.clip_grad_norm(norm_clip)
             # torch.nn.utils.net_clip_grad_norm(
@@ -38,7 +39,7 @@ class DQNLearner(Learner):
     def _optimize(self, obs, actions, rewards, obs_next, dones, weights):
         # Compute Q(s_t, a)
         # columns of actions taken
-        C = self.config
+        C = self.config.algo
         batch_size = obs.size(0)
         assert (U.shape(actions)
                 == U.shape(rewards)
@@ -69,7 +70,7 @@ class DQNLearner(Learner):
         self._run_optimizer(weighted_loss)
         return td_error
 
-    def learn(self, batch_exp, batch_i):
+    def learn(self, batch_exp):
         weights = Variable(U.torch_ones_like(batch_exp.rewards))
         td_errors = self._optimize(
             batch_exp.obs,
@@ -84,6 +85,11 @@ class DQNLearner(Learner):
             # Update target network periodically.
             self._update_target()
         return td_errors
+
+    def module_dict(self):
+        return {
+            'q_func': self.q_func
+        }
 
     """
     def train_batch(self, batch_i, exp):
