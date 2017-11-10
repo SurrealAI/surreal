@@ -25,7 +25,7 @@ class _EnqueueThread(U.StoppableThread):
             if self.is_stopped():
                 break
             while True:
-                exp_dicts = self._sampler(i)
+                exp_dicts = self._sampler()
                 if exp_dicts is None:  # start_sample_condition not met
                     time.sleep(.5)
                 else:

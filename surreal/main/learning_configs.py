@@ -1,14 +1,4 @@
 cartpole_learning_config = {
-    'redis': {
-        'replay': {
-            'host': 'localhost',
-            'port': 6379,
-        },
-        'ps': {
-            'host': 'localhost',
-            'port': 6379,
-        },
-    },
     'model': {
         'input_shape': [4],
         'action_dim': 2,
@@ -41,6 +31,23 @@ cartpole_learning_config = {
         'dir': '~/Train/cartpole',
         'freq': None,
     },
+}
+
+cartpole_env_config = {
+
+}
+
+session_config = {
+    'redis': {
+        'replay': {
+            'host': 'localhost',
+            'port': 6379,
+        },
+        'ps': {
+            'host': 'localhost',
+            'port': 6379,
+        },
+    },
     'log': {
         'file_name': None,
         'file_mode': 'w',
@@ -50,3 +57,5 @@ cartpole_learning_config = {
     },
 }
 
+# TODO temp workaround
+cartpole_learning_config.update(session_config)

@@ -37,7 +37,7 @@ class _EvictThread(U.StoppableThread):
             time.sleep(self._sleep_interval)
 
 
-class Replay(object):
+class Replay(metaclass=U.AutoInitializeMeta):
     def __init__(self, *,
                  redis_client,
                  batch_size,
@@ -71,8 +71,10 @@ class Replay(object):
         self._obs_spec = obs_spec
         self._action_spec = action_spec
         self._evict_thread = None
-        self._replay_lock = threading.Lock()
         self._job_queue = U.JobQueue()
+
+    def _initialize(self):
+        self.start_queue_threads()
 
     def _insert(self, exp_dict):
         """
@@ -88,7 +90,7 @@ class Replay(object):
         """
         raise NotImplementedError
 
-    def _sample(self, batch_size, batch_i):
+    def _sample(self, batch_size):
         """
         This function is called in the `exp_download_queue` thread, its operation
         is async, i.e. overlaps with the insertion operations.
@@ -96,7 +98,6 @@ class Replay(object):
         Args:
             batch_size: passed from self.batch_size, defined in the
                 constructor upfront.
-            batch_i: the i-th batch it is sampling.
             Note that `batch_size` is
 
         Returns:
@@ -142,40 +143,39 @@ class Replay(object):
             action_spec=self._action_spec,
         )
 
-    def _wrapped_insert(self, exp_dict):
-        with self._replay_lock:
-            return self._insert(exp_dict)
-
     def insert(self, exp_dict):
         """
         Must not sample and insert at the same time
         """
         evicted_exp_list = self._job_queue.process(
-            self._wrapped_insert,
+            self._insert,
             exp_dict
         )
         self._clean_evicted(evicted_exp_list)
         return evicted_exp_list
 
-    def _wrapped_sample(self, batch_i):
-        # returns None if start_sample_condition not met
-        with self._replay_lock:
-            if self.start_sample_condition():
-                sampled_exp_list = self._sample(self.batch_size, batch_i)
-                U.assert_type(sampled_exp_list, list)
-                # incr ref count so that it doesn't get evicted by insert()
-                # make sure to decr count after fetch(obs_pointers)!!
-                obs_pointers = []
-                for exp in sampled_exp_list:
-                    if 'obs_pointers' in exp:
-                        obs_pointers.extend(exp['obs_pointers'])
-                incr_ref_count(self._client, obs_pointers)
-                return sampled_exp_list
-            else:
-                return None
+    def _wrapped_sample_before_fetch(self):
+        """
+        Returns:
+            List of exp_dicts with obs_pointers, fed to the ObsFetchQueue
+            None if start_sample_condition not met
+        """
+        if self.start_sample_condition():
+            sampled_exp_list = self._sample(self.batch_size)
+            U.assert_type(sampled_exp_list, list)
+            # incr ref count so that it doesn't get evicted by insert()
+            # make sure to decr count after fetch(obs_pointers)!!
+            obs_pointers = []
+            for exp in sampled_exp_list:
+                if 'obs_pointers' in exp:
+                    obs_pointers.extend(exp['obs_pointers'])
+            incr_ref_count(self._client, obs_pointers)
+            return sampled_exp_list
+        else:
+            return None
 
-    def sample(self, batch_i):
-        return self._job_queue.process(self._wrapped_sample, batch_i)
+    def _sample_before_fetch(self):
+        return self._job_queue.process(self._wrapped_sample_before_fetch)
 
     def _clean_evicted(self, evicted_exp_list):
         if not evicted_exp_list:
@@ -200,8 +200,7 @@ class Replay(object):
         self._client.mdel(evict_obs_pointers + evict_exp_pointers)
 
     def _wrapped_evict(self, *args, **kwargs):
-        with self._replay_lock:
-            evicted_exp_list = self._evict(*args, **kwargs)
+        evicted_exp_list = self._evict(*args, **kwargs)
         self._clean_evicted(evicted_exp_list)
         return evicted_exp_list
 
@@ -215,9 +214,7 @@ class Replay(object):
         self._job_queue.start_thread()
         self._exp_queue.start_enqueue_thread()
         self._exp_queue.start_dequeue_thread(self.insert)
-        self._obs_fetch_queue.start_enqueue_thread(
-            sampler=self.sample,
-        )
+        self._obs_fetch_queue.start_enqueue_thread(self._sample_before_fetch)
 
     def stop_queue_threads(self):
         self._job_queue.stop_thread()
@@ -243,14 +240,20 @@ class Replay(object):
         self._evict_thread = None
         return t
 
-    def next_batch(self):
+    def sample(self):
         exp_list = self._obs_fetch_queue.dequeue()
         return self.aggregate_batch(exp_list)
 
-    def batch_iterator(self):
+    def sample_iterator(self, stop_condition=None):
         """
+        Args:
+            stop_condition: function () -> bool
+                if None, never stops.
+
         Yields:
-            batch_i, (batched inputs to neural network)
+            batched inputs to neural network
         """
-        for batch_i in itertools.count():
-            yield batch_i, self.next_batch()
+        if stop_condition is None:
+            stop_condition = lambda: True
+        while stop_condition():
+            yield self.sample()

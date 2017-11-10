@@ -1,6 +1,5 @@
 import random
 from .base import Replay
-from .aggregator import torch_aggregate
 
 
 class UniformReplay(Replay):
@@ -40,7 +39,7 @@ class UniformReplay(Replay):
         self._next_idx = (self._next_idx + 1) % self._maxsize
         return evicted
 
-    def _sample(self, batch_size, batch_i):
+    def _sample(self, batch_size):
         indices = [random.randint(0, len(self._memory) - 1)
                    for _ in range(batch_size)]
         return [self._memory[i] for i in indices]

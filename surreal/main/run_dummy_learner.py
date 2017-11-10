@@ -29,7 +29,7 @@ replay = DummyReplay(
 
 replay.start_queue_threads()
 replay.start_evict_thread(6, sleep_interval=4.)
-for i, batch in replay.batch_iterator():
+for i, batch in replay.sample_iterator():
     print(batch['rewards'])
     print('='*30)
     # for item in replay._memory:

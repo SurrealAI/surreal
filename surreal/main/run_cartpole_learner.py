@@ -38,8 +38,7 @@ def debug_td_error(td_error):
 
 
 dqn = DQNLearner(cartpole_learning_config)
-replay.start_queue_threads()
-for i, batch in replay.batch_iterator():
+for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)
     debug_td_error(td_error)
     if (i+1) % 1 == 0:
