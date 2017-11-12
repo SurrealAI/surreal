@@ -1,7 +1,5 @@
-cartpole_learning_config = {
+cartpole_learn_config = {
     'model': {
-        'input_shape': [4],
-        'action_dim': 2,
         'convs': [],
         'fc_hidden_sizes': [64],
         'dueling': False
@@ -27,35 +25,14 @@ cartpole_learning_config = {
             'eps': 1e-6
         },
     },
-    'checkpoint': {
-        'dir': '~/Train/cartpole',
-        'freq': None,
-    },
 }
 
 cartpole_env_config = {
-
-}
-
-session_config = {
-    'redis': {
-        'replay': {
-            'host': 'localhost',
-            'port': 6379,
-        },
-        'ps': {
-            'host': 'localhost',
-            'port': 6379,
-        },
+    'action_spec': {
+        'dim': [2],
+        'type': 'discrete'
     },
-    'log': {
-        'file_name': None,
-        'file_mode': 'w',
-        'time_format': None,
-        'print_level': 'INFO',
-        'stream': 'out',
-    },
+    'obs_spec': {
+        'dim': [4],
+    }
 }
-
-# TODO temp workaround
-cartpole_learning_config.update(session_config)

@@ -1,11 +1,10 @@
 import torch
-from surreal.agent.q_agent import QAgent
 from surreal.distributed.ps import *
 from surreal.env import *
 from surreal.learner.dqn import DQNLearner
-from surreal.model.q_net import FFQfunc
 from surreal.replay import *
-from surreal.main.learning_configs import cartpole_learning_config
+from surreal.main.cartpole_configs import *
+from surreal.session import *
 
 parser = U.ArgParser()
 # parser.add('gpu', type=int)
@@ -37,7 +36,11 @@ def debug_td_error(td_error):
     print(U.to_scalar(torch.mean(raw_loss)))
 
 
-dqn = DQNLearner(cartpole_learning_config)
+dqn = DQNLearner(
+    learn_config=cartpole_learn_config,
+    env_config=cartpole_env_config,
+    session_config=LOCAL_SESSION_CONFIG
+)
 for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)
     debug_td_error(td_error)

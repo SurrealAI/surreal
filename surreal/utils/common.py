@@ -303,57 +303,6 @@ def deprecated(func, msg='', action='warning'):
     return _deprecated
 
 
-def _trace_key(dict_trace, key):
-    return 'key "{}" '.format('/'.join(dict_trace + [key]))
-
-
-def _has_required(config):
-    for key, val in config.items():
-        if val == 'REQUIRED':
-            return True
-        elif isinstance(val, dict):
-            if _has_required(val):
-                return True
-    return False
-
-
-def _fill_default_config(config, default_config, dict_trace):
-    for key, default_value in default_config.items():
-        if key not in config:
-            if default_value == 'REQUIRED':
-                raise KeyError(_trace_key(dict_trace, key) + 'is a required config')
-            elif isinstance(default_value, dict):
-                if _has_required(default_value):
-                    raise ValueError(_trace_key(dict_trace, key) + 'missing. '
-                                                                   'Its sub-dict has a required config')
-            config[key] = default_value
-        else:
-            value = config[key]
-            if isinstance(value, dict) and not isinstance(default_value, dict):
-                raise ValueError(_trace_key(dict_trace, key)
-                                 + 'must be a single value instead of a sub-dict')
-            if isinstance(default_value, dict):
-                if not isinstance(value, dict):
-                    raise ValueError(_trace_key(dict_trace, key)
-                                     + 'must have a sub-dict instead of a single value')
-                config[key] = _fill_default_config(value, default_value,
-                                                   dict_trace + [key])
-            if value == default_value == 'REQUIRED':
-                raise ValueError(_trace_key(dict_trace, key) + ' is required.')
-    return config
-
-
-def fill_default_config(config, default_config):
-    """
-    Special: denote the value as 'REQUIRED' (all-caps) in default_config to enforce
-
-    Returns:
-        AttributeDict
-        `config` filled by default values if certain keys are unspecified
-    """
-    return EasyDict(_fill_default_config(config, default_config, []))
-
-
 class ArgParser(object):
     def __init__(self, **kwargs):
         """

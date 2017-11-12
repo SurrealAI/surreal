@@ -10,7 +10,7 @@ from surreal.env import *
 from surreal.model.q_net import FFQfunc
 from surreal.replay import *
 from surreal.session import *
-from surreal.main.learning_configs import cartpole_learning_config
+from surreal.main.cartpole_configs import *
 
 client = RedisClient()
 sender = ExpSender(
@@ -26,7 +26,9 @@ env = gym.make('CartPole-v0')
 env = EpisodeMonitor(env, filename=None)
 
 q_agent = QAgent(
-    config=cartpole_learning_config,
+    learn_config=cartpole_learn_config,
+    env_config=cartpole_env_config,
+    session_config=LOCAL_SESSION_CONFIG,
     agent_mode=AgentMode.training,
 )
 

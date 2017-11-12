@@ -117,3 +117,17 @@ class FFQfunc(DuelingQbase):
         x = U.flatten_conv(x)
         return super().forward(x)
 
+
+def build_ffqfunc(learn_config, env_config):
+    action_dim = env_config.action_spec.dim
+    assert len(action_dim) == 1
+    assert env_config.action_spec.type == 'discrete'
+    action_dim = action_dim[0]
+    q_func = FFQfunc(
+        input_shape=env_config.obs_spec.dim,
+        action_dim=action_dim,
+        convs=learn_config.model.convs,
+        fc_hidden_sizes=learn_config.model.fc_hidden_sizes,
+        dueling=learn_config.model.dueling
+    )
+    return q_func, action_dim

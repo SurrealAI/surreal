@@ -5,17 +5,22 @@ import torch
 import random
 from torch.autograd import Variable
 import surreal.utils as U
-from surreal.model.q_net import FFQfunc
+from surreal.model.q_net import build_ffqfunc
 from .base import Agent, AgentMode
 
 
 class QAgent(Agent):
-    def __init__(self, config, agent_mode):
-        super().__init__(config, agent_mode)
-        self.q_func = FFQfunc(**self.config.model)
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config,
+                 agent_mode):
+        super().__init__(learn_config, env_config, session_config, agent_mode)
+        self.q_func, self.action_dim = build_ffqfunc(
+            self.learn_config,
+            self.env_config
+        )
         self.exploration = self.get_exploration_schedule()
-        # TODO move this to env config
-        self.action_dim = self.config.model.action_dim
         self.T = 0
 
     def act(self, obs):
@@ -35,9 +40,18 @@ class QAgent(Agent):
         return {
             'q_func': self.q_func
         }
-        
+
+    def default_config(self):
+        return {
+            'model': {
+                'convs': '_list_',
+                'fc_hidden_sizes': '_list_',
+                'dueling': '_bool_'
+            },
+        }
+
     def get_exploration_schedule(self):
-        C = self.config.algo.exploration
+        C = self.learn_config.algo.exploration
         if C.schedule.lower() == 'linear':
             return U.LinearSchedule(
                 initial_p=1.0,

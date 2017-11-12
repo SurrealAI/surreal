@@ -2,13 +2,17 @@
 Template class for all learners
 """
 import surreal.utils as U
-from easydict import EasyDict
+from surreal.session import Config, BASE_SESSION_CONFIG, extend_config
+from surreal.env import BASE_ENV_CONFIG
 from surreal.distributed.redis_client import RedisClient
 from surreal.distributed.ps.torch_broadcaster import TorchBroadcaster
 
 
 class Learner(metaclass=U.AutoInitializeMeta):
-    def __init__(self, config):
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config):
         """
 
         Args:
@@ -16,15 +20,16 @@ class Learner(metaclass=U.AutoInitializeMeta):
                 section "log": {logger configs}
             model: utils.pytorch.Module for the policy network
         """
-        U.assert_type(config, dict)
-        self.config = C = EasyDict(config)
+        self.learn_config = extend_config(learn_config, self.default_config())
+        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
+        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         self._client = RedisClient(
-            host=C.redis.ps.host,
-            port=C.redis.ps.port
+            host=self.session_config.redis.ps.host,
+            port=self.session_config.redis.ps.port
         )
         # TODO better logging
-        log_kwargs = C.log if 'log' in C else {}
-        self.log = U.Logger.get_logger('Learner', **log_kwargs)
+        # log_kwargs = C.log if 'log' in C else {}
+        # self.log = U.Logger.get_logger('Learner', **log_kwargs)
 
     def _initialize(self):
         # for AutoInitializeMeta interface
@@ -32,6 +37,13 @@ class Learner(metaclass=U.AutoInitializeMeta):
             redis_client=self._client,
             module_dict=self.module_dict()
         )
+
+    def default_config(self):
+        """
+        Returns:
+            a dict of defaults.
+        """
+        raise NotImplementedError
 
     def learn(self, batch_exp):
         """

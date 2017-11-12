@@ -2,23 +2,26 @@ import torch
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
-from surreal.model.q_net import FFQfunc
-from easydict import EasyDict
+from surreal.model.q_net import build_ffqfunc
 from .base import Learner
 
 
 class DQNLearner(Learner):
-    def __init__(self, config):
-        super().__init__(config)
-        self.q_func = FFQfunc(**self.config.model)
+    def __init__(self, learn_config, env_config, session_config):
+        super().__init__(learn_config, env_config, session_config)
+        self.q_func, self.action_dim = build_ffqfunc(
+            self.learn_config,
+            self.env_config
+        )
+        self.algo = self.learn_config.algo
         self.q_target = self.q_func.clone()
         self.optimizer = torch.optim.Adam(
             self.q_func.parameters(),
-            lr=self.config.algo.lr,
+            lr=self.algo.lr,
             eps=1e-4
         )
         self.target_update_tracker = PeriodicTracker(
-            period=self.config.algo.target_network_update_freq,
+            period=self.algo.target_network_update_freq,
         )
 
     def _update_target(self):
@@ -27,7 +30,7 @@ class DQNLearner(Learner):
     def _run_optimizer(self, loss):
         self.optimizer.zero_grad()
         loss.backward()
-        norm_clip = self.config.algo.grad_norm_clipping
+        norm_clip = self.algo.grad_norm_clipping
         if norm_clip is not None:
             self.q_func.clip_grad_norm(norm_clip)
             # torch.nn.utils.net_clip_grad_norm(
@@ -39,7 +42,6 @@ class DQNLearner(Learner):
     def _optimize(self, obs, actions, rewards, obs_next, dones, weights):
         # Compute Q(s_t, a)
         # columns of actions taken
-        C = self.config.algo
         batch_size = obs.size(0)
         assert (U.shape(actions)
                 == U.shape(rewards)
@@ -48,7 +50,7 @@ class DQNLearner(Learner):
         q_t_at_action = self.q_func(obs).gather(1, actions)
         q_tp1 = self.q_target(obs_next)
         # Double Q
-        if C.double_q:
+        if self.algo.double_q:
             # select argmax action using online weights instead of q_target
             q_tp1_online = self.q_func(obs_next)
             q_tp1_online_argmax = q_tp1_online.max(1, keepdim=True)[1]
@@ -62,7 +64,7 @@ class DQNLearner(Learner):
         # .detach() stops gradient and makes the Variable forget its creator
         q_tp1_best = q_tp1_best.detach()
         # RHS of bellman equation
-        q_expected = rewards + C.gamma * q_tp1_best
+        q_expected = rewards + self.algo.gamma * q_tp1_best
         td_error = q_t_at_action - q_expected
         # torch_where
         raw_loss = U.huber_loss_per_element(td_error)
@@ -85,6 +87,35 @@ class DQNLearner(Learner):
             # Update target network periodically.
             self._update_target()
         return td_errors
+
+    def default_config(self):
+        return {
+            'model': {
+                'convs': '_list_',
+                'fc_hidden_sizes': '_list_',
+                'dueling': '_bool_'
+            },
+            'algo': {
+                'lr': 1e-3,
+                'optimizer': 'Adam',
+                'grad_norm_clipping': 10,
+                'gamma': .99,
+                'target_network_update_freq': '_int_',
+                'double_q': True,
+                'exploration': {
+                    'schedule': 'linear',
+                    'steps': '_int_',
+                    'final_eps': 0.01,
+                },
+                'prioritized': {
+                    'enabled': False,
+                    'alpha': 0.6,
+                    'beta0': 0.4,
+                    'beta_anneal_iters': None,
+                    'eps': 1e-6
+                },
+            },
+        }
 
     def module_dict(self):
         return {

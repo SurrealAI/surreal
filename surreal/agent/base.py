@@ -2,7 +2,8 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from easydict import EasyDict
+from surreal.session import Config, BASE_SESSION_CONFIG, extend_config
+from surreal.env import BASE_ENV_CONFIG
 from surreal.distributed.redis_client import RedisClient
 from surreal.distributed.ps.torch_listener import TorchListener
 
@@ -14,13 +15,18 @@ class AgentMode(U.StringEnum):
 
 
 class Agent(metaclass=U.AutoInitializeMeta):
-    def __init__(self, config, agent_mode):
-        U.assert_type(config, dict)
-        self.config = C = EasyDict(config)
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config,
+                 agent_mode):
+        self.learn_config = extend_config(learn_config, self.default_config())
+        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
+        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         self.agent_mode = AgentMode.get_enum(agent_mode)
         self._client = RedisClient(
-            host=C.redis.ps.host,
-            port=C.redis.ps.port
+            host=self.session_config.redis.ps.host,
+            port=self.session_config.redis.ps.port
         )
 
     def _initialize(self):
@@ -50,6 +56,13 @@ class Agent(metaclass=U.AutoInitializeMeta):
         """
         Returns:
             a dict of name -> surreal.utils.pytorch.Module
+        """
+        raise NotImplementedError
+
+    def default_config(self):
+        """
+        Returns:
+            a dict of defaults.
         """
         raise NotImplementedError
 
