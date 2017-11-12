@@ -1,14 +1,13 @@
-from .base import Wrapper
+from .wrapper import Wrapper
 from surreal.distributed import ExpSender, RedisClient
-from surreal.session import Config, extend_config
-from surreal.agent.default_configs import BASE_AGENT_CONFIG
+from surreal.session import Config, extend_config, BASE_LEARN_CONFIG
 
 
 class ExpSenderWrapper(Wrapper):
     # TODO support N-step obs send
     def __init__(self, env, *, learn_config, session_config):
         super().__init__(env)
-        learn_config = extend_config(learn_config, BASE_AGENT_CONFIG)
+        learn_config = extend_config(learn_config, BASE_LEARN_CONFIG)
         if 'sender' not in learn_config:
             sender_config = Config(self.default_config())
         else:

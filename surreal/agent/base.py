@@ -2,8 +2,8 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from surreal.session import Config, BASE_SESSION_CONFIG, extend_config
-from surreal.env import BASE_ENV_CONFIG
+from surreal.session import (extend_config,
+                     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed.redis_client import RedisClient
 from surreal.distributed.ps.torch_listener import TorchListener
 
@@ -64,7 +64,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         Returns:
             a dict of defaults.
         """
-        raise NotImplementedError
+        return BASE_LEARN_CONFIG
 
     def close(self):
         """

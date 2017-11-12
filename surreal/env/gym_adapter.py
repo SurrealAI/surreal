@@ -1,5 +1,5 @@
 import gym
-from .base import Wrapper
+from .wrapper import Wrapper
 
 
 class GymAdapter(Wrapper):

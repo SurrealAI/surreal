@@ -7,8 +7,8 @@ from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
 from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
-from surreal.env import BASE_ENV_CONFIG
+from surreal.session import (Config, extend_config,
+                             BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from .aggregator import torch_aggregate
 
 

@@ -4,7 +4,7 @@ import csv
 import os.path as osp
 import json
 import pandas
-from .base import Wrapper
+from .wrapper import Wrapper
 
 __all__ = ['EpisodeMonitor', 'get_monitor_files', 'load_results']
 
