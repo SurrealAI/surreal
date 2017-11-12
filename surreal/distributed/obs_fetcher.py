@@ -34,8 +34,8 @@ class ObsFetcher(object):
         try:
             all_obs = [ObsPack.deserialize(obs) for obs in all_obs]
         except RedisMissingValue:
-            print('ERROR fetch obs_pointers', all_obs_pointers)
-            raise
+            # print('ERROR fetch obs_pointers', all_obs_pointers)
+            raise RedisMissingValue
         for exp in exp_dicts:
             if 'obs' in exp:
                 continue

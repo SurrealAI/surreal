@@ -1,14 +1,6 @@
 from surreal.session import *
 import copy
-import pytest
-import contextlib
-
-
-@contextlib.contextmanager
-def pytest_print_raises(exc):
-    with pytest.raises(exc) as e_info:
-        yield
-    print('EXPECTED:', e_info)
+from test.utils import *
 
 
 @pytest.fixture

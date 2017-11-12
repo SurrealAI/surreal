@@ -13,9 +13,9 @@ class ExpSender(object):
                  queue_name,
                  *,
                  pointers_only=True,
-                 save_exp_on_redis=True,
-                 max_redis_queue_size=1000000,
-                 obs_cache_size=1000000):
+                 save_exp_on_redis=False,
+                 max_redis_queue_size=10000,
+                 obs_cache_size=10000):
         """
         Args:
           redis_client

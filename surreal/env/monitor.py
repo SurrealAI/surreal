@@ -1,11 +1,10 @@
-import gym
-from gym.core import Wrapper
 import time
 from glob import glob
 import csv
 import os.path as osp
 import json
 import pandas
+from .base import Wrapper
 
 __all__ = ['EpisodeMonitor', 'get_monitor_files', 'load_results']
 
@@ -14,8 +13,8 @@ class EpisodeMonitor(Wrapper):
     EXT = "monitor.csv"
     f = None
 
-    def __init__(self, env, filename, allow_early_resets=False, reset_keywords=()):
-        Wrapper.__init__(self, env=env)
+    def __init__(self, env, filename, allow_early_resets=False):
+        super().__init__(env)
         self.tstart_ep0 = time.time()
         self.tstart_ep_current = None  # by .reset()
         if filename is None:
@@ -28,12 +27,10 @@ class EpisodeMonitor(Wrapper):
                 else:
                     filename = filename + "." + EpisodeMonitor.EXT
             self.f = open(filename, "wt")
-            self.f.write('#%s\n'%json.dumps({"t_start": self.tstart_ep0, "gym_version": gym.__version__,
-                "env_id": env.spec.id if env.spec else 'Unknown'}))
-            self.logger = csv.DictWriter(self.f, fieldnames=('r', 'l', 't')+reset_keywords)
+            self.f.write('#%s\n'%json.dumps({"t_start": self.tstart_ep0}))
+            self.logger = csv.DictWriter(self.f, fieldnames=('r', 'l', 't'))
             self.logger.writeheader()
 
-        self.reset_keywords = reset_keywords
         self.allow_early_resets = allow_early_resets
         self.rewards = None
         self.needs_reset = True
@@ -49,11 +46,6 @@ class EpisodeMonitor(Wrapper):
         self.rewards = []
         self.needs_reset = False
         self.tstart_ep_current = time.time()
-        for k in self.reset_keywords:
-            v = kwargs.get(k)
-            if v is None:
-                raise ValueError('Expected you to pass kwarg %s into reset'%k)
-            self.current_reset_info[k] = v
         return self.env.reset(**kwargs)
 
     def _step(self, action):
@@ -81,7 +73,7 @@ class EpisodeMonitor(Wrapper):
             self.episode_times.append(eptime)
             info['episode'] = epinfo
         self.total_steps += 1
-        return (ob, rew, done, info)
+        return ob, rew, done, info
 
     def close(self):
         if self.f is not None:

@@ -23,7 +23,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self.learn_config = extend_config(learn_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        self.agent_mode = AgentMode.get_enum(agent_mode)
+        self.agent_mode = AgentMode[agent_mode]
         self._client = RedisClient(
             host=self.session_config.redis.ps.host,
             port=self.session_config.redis.ps.port
@@ -83,5 +83,5 @@ class Agent(metaclass=U.AutoInitializeMeta):
         Args:
             agent_mode: enum of AgentMode class
         """
-        self.agent_mode = AgentMode.get_enum(agent_mode)
+        self.agent_mode = AgentMode[agent_mode]
 

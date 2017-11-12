@@ -6,6 +6,7 @@ from easydict import EasyDict
 import torch
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
+from surreal.env import ActionType
 
 
 def _obs_concat(obs_list):
@@ -34,9 +35,10 @@ def torch_aggregate(exp_list, obs_spec, action_spec):
         rewards.append(exp['reward'])
         obs1.append(np.array(exp['obs'][1], copy=False))
         dones.append(float(exp['done']))
-    if action_spec['type'] == 'continuous':
+    action_type = ActionType[action_spec['type']]
+    if action_type == ActionType.continuous:
         actions = _obs_concat(actions)
-    elif action_spec['type'] == 'discrete':
+    elif action_type == ActionType.discrete:
         actions = Variable(torch.LongTensor(actions).unsqueeze(1))
     else:
         raise NotImplementedError('action_spec unsupported '+str(action_spec))

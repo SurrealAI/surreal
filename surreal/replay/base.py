@@ -61,8 +61,8 @@ class Replay(metaclass=U.AutoInitializeMeta):
 
         self.batch_size = self.replay_config.batch_size
         self._client = RedisClient(
-            host=self.session_config.redis.ps.host,
-            port=self.session_config.redis.ps.port
+            host=self.session_config.redis.replay.host,
+            port=self.session_config.redis.replay.port
         )
         self._exp_queue = ExpQueue(
             redis_client=self._client,

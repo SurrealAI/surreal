@@ -1,7 +1,6 @@
 import json
 import yaml
 import re
-from easydict import EasyDict
 import surreal.utils as U
 
 

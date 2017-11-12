@@ -1,9 +1,10 @@
 """
 A template class that defines base environment APIs
 """
+import surreal.utils as U
 
 
-class _EnvMeta(type):
+class _EnvMeta(type):  # DEPRECATED
     """
     Ensure that env always has `action_spec` and `obs_spec` after __init__
     """
@@ -16,7 +17,7 @@ class _EnvMeta(type):
         return env
 
 
-class Env(metaclass=_EnvMeta):
+class Env(object):
     """The main Env class. It encapsulates an environment with
     arbitrary behind-the-scenes dynamics. An environment can be
     partially or fully observed.
@@ -41,11 +42,6 @@ class Env(metaclass=_EnvMeta):
     The methods are accessed publicly as "step", "reset", etc.. The
     non-underscored versions are wrapper methods to which we may add
     functionality over time.
-
-    In __init__(), you must specify two instance variables:
-    - action_spec
-    - obs_spec
-    Both of them must be dict
     """
     metadata = {}
 
@@ -69,9 +65,6 @@ class Env(metaclass=_EnvMeta):
 
     def _render(self, *args, **kwargs):
         pass
-
-    def _seed(self, seed=None):
-        return []
 
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
@@ -122,23 +115,6 @@ class Env(metaclass=_EnvMeta):
         # end up with double close.
         self._closed = True
 
-    def seed(self, seed=None):
-        """Sets the seed for this env's random number generator(s).
-
-        Note:
-            Some environments use multiple pseudorandom number generators.
-            We want to capture all such seeds used in order to ensure that
-            there aren't accidental correlations between multiple generators.
-
-        Returns:
-            list<bigint>: Returns the list of seeds used in this env's random
-              number generators. The first value in the list should be the
-              "main" seed, or the value which a reproducer should pass to
-              'seed'. Often, the main seed equals the provided 'seed', but
-              this won't be true if seed=None, for example.
-        """
-        return self._seed(seed)
-
     @property
     def unwrapped(self):
         """Completely unwrap this env.
@@ -168,8 +144,8 @@ class Wrapper(Env):
         self.metadata = self.env.metadata.copy()
         self.metadata.update(metadata)
         self._ensure_no_double_wrap()
-        self.obs_spec = env.obs_spec
-        self.action_spec = env.action_spec
+        # self.obs_spec = env.obs_spec
+        # self.action_spec = env.action_spec
 
     @classmethod
     def class_name(cls):
@@ -200,9 +176,6 @@ class Wrapper(Env):
     def _close(self):
         return self.env.close()
 
-    def _seed(self, seed=None):
-        return self.env.seed(seed)
-
     def __str__(self):
         return '<{}{}>'.format(type(self).__name__, self.env)
 
@@ -214,7 +187,7 @@ class Wrapper(Env):
         return self.env.unwrapped
 
 
-class ObservationWrapper(Wrapper):
+class ObsWrapper(Wrapper):
     def _reset(self):
         observation, info = self.env.reset()
         return self._observation(observation), info
@@ -258,3 +231,8 @@ class ActionWrapper(Wrapper):
 
     def _reverse_action(self, action):
         raise NotImplementedError
+
+
+class ActionType(U.StringEnum):
+    continuous = ()
+    discrete = ()

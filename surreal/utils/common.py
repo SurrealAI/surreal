@@ -6,7 +6,7 @@ import functools
 import argparse
 import re
 from easydict import EasyDict
-from enum import Enum
+from enum import Enum, EnumMeta
 
 
 def _get_qualified_type_name(type_):
@@ -29,17 +29,30 @@ def assert_type(x, expected_type, message=''):
     )
 
 
-class StringEnum(Enum):
+class _GetItemEnumMeta(EnumMeta):
+    """
+    Hijack the __getitem__ method from metaclass, because subclass cannot
+        override magic methods. More informative error message.
+    """
+    def __getitem__(self, option):
+        enum_class = None
+        for v in self.__members__.values():
+            enum_class = v.__class__
+            break
+        assert enum_class is not None, \
+            'must have at least one option in StringEnum'
+        return get_enum(enum_class, option)
+
+
+class StringEnum(Enum, metaclass=_GetItemEnumMeta):
     """
     https://docs.python.org/3.4/library/enum.html#duplicatefreeenum
     The created options will automatically have the same string value as name.
+
+    Support [] subscript, i.e. MyFruit['orange'] -> MyFruit.orange
     """
     def __init__(self, *args, **kwargs):
         self._value_ = self.name
-
-    @classmethod
-    def get_enum(cls, option):
-        return get_enum(cls, option)
 
 
 def create_string_enum(class_name, option_names):
@@ -61,10 +74,12 @@ def get_enum(enum_class, option):
     else:
         assert_type(option, str)
         option = option.lower()
-        if option not in enum_class.__members__:
-            raise ValueError('"{}" is not a valid option in {}'
-                             .format(option, enum_class.__name__))
-        return enum_class(option)
+        options = enum_class.__members__
+        if option not in options:
+            raise ValueError('"{}" is not a valid option for {}. '
+                             'Available options are {}.'
+             .format(option, enum_class.__name__, list(options)))
+        return options[option]
 
 
 def fformat(float_num, precision):
