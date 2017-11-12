@@ -26,9 +26,7 @@ q_agent = QAgent(
 info_print = PeriodicTracker(100)
 
 obs, info = env.reset()
-# q_agent.set_eval(stochastic=False)
 for T in itertools.count():
-    # print(binary_hash(q_agent.q_func.parameters_to_binary()))
     action = q_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
     if done:

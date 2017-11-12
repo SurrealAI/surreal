@@ -1,41 +1,462 @@
-# Steps to add a new RL algorithm
+# Design
 
-Read the inline docstrings of each class in the source code for more information:
+Read the source code doc strings of each class for more information.
 
-## Step 1: Model
+## Configs
 
-Create a model that extends `utils.pytorch.Module`, which is an extension of the PyTorch Module. This model represents the policy network or Q function.
+The major components, such as `Agent`, `Learner`, and `Replay`, are all configured by the `surreal.session.Config` objects.
 
-## Step 2: Agent
+### Semantics
 
-Extend the `agent.base.Agent` class.
+`Config` is essentially dict with attribute access. For example, `Config.myvalue` is equivalent to `Config['myvalue']`, and you can perform the same dict operations on Config, e.g. `.keys()`, `.items()`, etc. `Config` behaves very much like [EasyDict](https://github.com/makinacorpus/easydict).
 
-Required override:
-- `_act()`
+Besides the usual dict methods, `Config` has the following extra methods:
 
-Optional override:
-- `initialize()`
+- `load_file` (class method): loads from JSON or YAML according to the file extension.
+- `dump_file`
+- `extend`: extends a default "base config". Think of it as a JSON equivalent of "python default keyword arguments".
+
+Example of default config:
+```python
+default_config = Config({
+    'redis': {
+        'replay': {
+            'host': 'localhost',
+            'port': 6379,
+        },
+        'ps': {
+            'host': '192.168.11.11',
+            'port': 8888,
+        },
+    },
+    'obs_spec': {
+        'type': 'continuous',
+        'dim': [64, 64, 3]
+    }
+})
+
+my_config = Config({
+    'redis': {
+        'replay': {
+            'host': 'myreplayhost'
+        },
+        'ps': {
+            'port': 12345
+        }
+    },
+    'obs_spec': {
+        'extra': 'special_extra'
+    }
+})
+
+my_config.extend(default_config)
+
+# Now my_config will be filled by the defaults:
+assert my_config == Config({
+    'redis': {
+        'replay': {
+            'host': 'myreplayhost',
+            'port': 6379,
+        },
+        'ps': {
+            'host': '192.168.11.11',
+            'port': 12345
+        }
+    },
+    'obs_spec': {
+        'type': 'continuous',
+        'dim': [64, 64, 3],
+        'extra': 'special_extra'
+    }
+})
+```
+
+The base config can specify special placeholders. `extend()` will check if the input config satisfies the placeholder specification in the default config. Any entry marked by the placeholder is required and will raise `ConfigError` if it's missing from the input config.
+
+The following placeholders are supported:
+
+- `_object_`: matches anything.
+- `_singleton_`: matches any object that is not a list or dict.
+- `_dict_`
+- `_list_`
+- `_int_`
+- `_float_`
+- `_num_`: matches both `int` and `float`
+- `_bool_`
+- `_str_`
+- `_enum[option1, option2, ...]_`: matches a string if it is one of the options. The enum options are enclosed in square brackets and separated by comma.
+
+
+Example of placeholder semantics:
+```python
+default_config = Config({
+    'redis': {
+        'replay': {
+            'host': 'localhost',
+            'port': 6379,
+            'flag': '_bool_'
+        },
+        'ps': {
+            'host': '_str_',
+            'port': '_int_',
+        },
+    },
+    'obs_spec': {
+        'type': '_enum[continuous,discrete]_',
+        'dim': '_list_'
+    }
+})
+
+my_config = Config({
+    'redis': {
+        'replay': {
+            'flag': False
+        },
+        'ps': {
+            'host': 'mypshost',
+            'port': 12345
+        }
+    },
+    'obs_spec': {
+        'type': 'discrete',
+        'dim': [128, 128]
+    }
+})
+
+my_config.extend(default_config)
+
+assert my_config == Config({
+    'redis': {
+        'replay': {
+            'host': 'localhost',
+            'port': 6379,
+            'flag': False
+        },
+        'ps': {
+            'host': 'mypshost',
+            'port': 12345
+        }
+    },
+    'obs_spec': {
+        'type': 'discrete',
+        'dim': [128, 128]
+    }
+})
+```
+
+### Surreal configs
+
+All Surreal experiments boil down to 3 configs. The default base configs can be found in `session/default_configs.py`.
+
+**You can find concrete examples in `main.cartpole_configs`.**
+
+Let's take DQN as example:
+
+#### 1. learn_config
+
+Anything related to agent, model, training hyperparameters, and replay buffer. Typically have the following sub-dict:
+
+- `model`: architecture of the Q function. Depth of conv layers, filter widths, etc.
+- `algo`: hyperparameters in Q learning. Learning rate, discounting factor, Q-target update frequency, etc.
+- `replay`: replay memory settings. Memory size, priority schedule, eviction policy, etc. 
+- `sender`: agent side calls `env.ExpSenderWrapper` to send experience tuples to the replay server. Sender config includes obs cache size, max redis replay queue size, etc. 
+
+#### 2. env_config
+
+- `action_spec`: provides information to the model builder. For Gym envs, `action_spec` is redundant, but must be consistent with their `action_space`. 
+    - `type`: `continuous` or `discrete`. 
+    - `dim`: a list that specifies the action shape in continuous control, or a singleton list of the action dimension in discrete tasks. 
+   
+- `obs_spec`: provides information to the model builder. For Gym envs, `obs_spec` is redundant, but must be consistent with their `obs_space`. 
+    - `type`: TODO
+    
+    
+#### 3. session_config
+
+Configures the cluster, monitor, evaluator, and logger. Takes care of all book-keeping. 
+
+- `redis`: IP addresses of the replay server(s) and parameter server(s).
+- `logger`: distributed logging (TODO)
+- `monitor`: video monitoring (TODO), tensorboard visualization
+- `evaluator`: tracks evaluation performance, checkpoints the best parameters.
+
+Please refer to `session.default_configs.BASE_SESSION_CONFIG`.
+
+
+## Agent
+
+To add a new agent, please extend `agent.base.Agent` class. Example `agent/q_agent.py`.
+
+Make sure all the NNs in the agent inherits from `utils.pytorch.Module`, **NOT** the native `torch.nn.Module`!!
+
+Override the following methods:
+
+- `act(obs)`: returns an action upon seeing the observation.
+- `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. The dict must be consistent with `learner.module_dict()` for the parameter server to work correctly. 
+- `default_config()`: specify the agent's defaults for `learn_config`. 
+- `close()`: clean up
+
+Public entry API:
+
+- `act(obs)`
 - `close()`
 
-## Step 3: Learner
+Agent also encapsulates exploration logic. It needs to have support for both the training and evaluation mode, e.g. epsilon greedy during training but `argmax` at evaluation. 
+Agent process should use `AgentMode.training` while evaluator process should use `AgentMode.eval_***`. 
+All enums must inherit from `utils.StringEnum`.
 
-Extend the `learner.base.Learner` class.
+```python
+class AgentMode(StringEnum):
+    training = ()
+    eval_stochastic = ()
+    eval_deterministic = ()
+```
 
-Required override:
-- `learn()`
 
-## Step 4: Replay
+## Learner
 
-Extend the `replay.base.Replay` class.
+To add a new learner, please extend `learner.base.Learner` class. Example `learner/dqn.py`. 
 
-Required override:
-- `_insert()`
-- `_sample()`
-- `start_sample_condition()`
-- `aggregate_batch()`
+Override the following methods:
 
-Optional override:
-- `_evict()`
+- `learn(batch_exp)`: takes a batch of experience and performs one iteration of the optimization loop. The input is typically an `EasyDict` with the following batched values:
+    - obs
+    - obs_next
+    - actions
+    - rewards
+    - dones
+- `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. Because the values are broadcasted to Redis, the `module_dict` must be consistent with `agent.module_dict()` for the parameter server to work correctly. 
+- `default_config()`: specify the learner's defaults for `learn_config`. 
+- `save(file_path)`: saves the learned parameters to `file_path`. TODO: save() should be triggered by a remote notification from the evaluator, because the learner process doesn't do book-keeping. 
+
+Public entry API:
+
+- `learn(batch_exp)`
+- `broadcast(message='')`: pushes the latest parameters to the parameter server.
+- `save(file_path)`
+
+## Replay
+
+To add a new replay, please extend `replay.base.Replay` class. Example `replay/uniform_replay.py`. 
+Replay object keeps an internal data structure of the replay buffer, which can be as complicated as max-sum-trees that execute insertion at O(log(n)). 
+
+
+Override the following methods:
+
+- `_insert(exp_dict)`: add a new experience to the replay. Implements _passive eviction_ logic if memory capacity is exceeded.
+- `_sample(batch_size)`: samples from internal memory data structure and returns a list of `exp_dict`. 
+- `_evict(*args, **kwargs)`: _active eviction_. Returns a list of `exp_dict` to be evicted.
+- `_start_sample_condition()`: returns True if we are ready to start sampling, e.g. when the replay memory has accumulated more than 1000 `exp_dict`. 
+- `_aggregate_batch(list_of_exp_dict)`: aggregate a batch into PyTorch tensors for the learner. Returns `batch_exp`, an `EasyDict` of entries consistent with `learner.learn(batch_exp)` (see [Learner API](#learner)).
+
+
+Public entry API:
+
+- `sample()`: returns `batch_exp`. Note that `batch_size` is specified in `learn_config` at initialization, so we don't pass it again as an arg.
+- `sample_iterator()`: infinite iterator that wraps around `sample()`.
+- `evict(*args, **kwargs)`: active eviction. 
+- `insert(exp_dict)`: not typically called by hand. `insert()` runs in the background. 
+
+All the background threads are automatically started at initialization. 
+
+TODO: add more explanation about the background threads. Meanwhile you can read about them in [legacy.md](docs/legacy.md).
+
+
+## Environment
+ 
+To add a new environment, please extend `env.base.Env` class. 
+
+Wrappers extend `env.base.Wrapper` class.
+ 
+Key difference from OpenAI Gym API 
+
+ -  `reset()` function now returns a tuple `(obs, info)` instead of just `obs`.
+ - `metadata` is a class-level dict that passes on to derived classes.
+ - `obs_spec` and `action_spec` are now passed from the env config instead of being instance attributes. There will be no `action_space` and `obs_space` attributes as in Gym. 
+ - We rely heavily on the catch-all `info` dict to make env and agents as versatile as possible. In Gym, `info` contains nothing but unimportant diagnostics, and is typically empty altogether. In contrast, we will put crucial information such as the individual frames in `info` when doing frame-stacking, because we don't want to duplicate each frame many times in the Redis storage. The other scenario is multi-agent training. The `info` dict will likely have rich contents. 
+ 
+#### env.GymAdapter
+
+Wraps any Gym env into a Surreal-compatible env. Note that you still have to make sure the `obs_spec` and `action_spec` in the env config are consistent with the Gym env. The code does not enforce the constraint. Your model builder will build the wrong NN if the specs are wrong. 
+
+#### env.ExpSenderWrapper
+
+Encapsulates the `ExpSender` that sends experience dicts to the replay server. Each `env.step()` call will connect to the network. 
+
+The wrapper takes `learn_config` and `session_config`. Make sure the `learn_config` dict includes a section of `"sender"`: 
+
+```python
+{
+    'sender': {
+        'pointers_only': True,
+        'save_exp_on_redis': False,
+        'max_redis_queue_size': 10000,
+        'obs_cache_size': 10000,
+    },
+    # ... other configs ...
+}
+```
+
+#### env.Monitor
+
+TODO: the current `env.EpisodeMonitor` is very crude. It doesn't do any visualization.
+
+
+## Session
+
+Session is not a singleton, but a collection of components that take care of all kinds of book-keeping and cluster management. 
+  
+### Evaluator
+
+TODO
+
+Environment and agents can behave differently in training mode than in evaluation mode. On the env side, Atari games have many wrappers (such as cap to only 1 life) that make them easier to train. Those wrappers will be removed during eval. 
+
+On the agent side, the agent will do `argmax` or other different behaviors for eval instead of epsilon-greedy policy.   
+
+Evaluation can run infrequently on a separate process than the agents and learners.
+It will also take care of book-keeping:
+
+ - Evaluation score tracking
+ - Checkpointing
+ 
+ 
+### Tensorboard
+ 
+TODO
+
+### Kubernetes
+ 
+TODO
+
+
+
+# Workflow
+
+## A Tale of Three Configs
+
+```python
+cartpole_learn_config = {
+    'model': {
+        'convs': [],
+        'fc_hidden_sizes': [128],
+        'dueling': False
+    },
+    'algo': {
+        'lr': 1e-3,
+        'optimizer': 'Adam',
+        'grad_norm_clipping': 10,
+        'gamma': .99,
+        'target_network_update_freq': 250 * 64,
+        'double_q': True,
+        'exploration': {
+            'schedule': 'linear',
+            'steps': 30000,
+            'final_eps': 0.01,
+        },
+        'prioritized': {
+            'enabled': False,
+            'alpha': 0.6,
+            'beta0': 0.4,
+            'beta_anneal_iters': None,
+            'eps': 1e-6
+        },
+    },
+    'replay': {
+        'batch_size': 64,
+        'memory_size': 100000,
+        'sampling_start_size': 1000,
+    },
+    'sender': {
+        'pointers_only': True,
+        'save_exp_on_redis': False,
+        'max_redis_queue_size': 100000,
+        'obs_cache_size': 100000,
+    }
+}
+
+
+cartpole_env_config = {
+    'action_spec': {
+        'dim': [2],
+        'type': 'discrete'
+    },
+    'obs_spec': {
+        'dim': [4],
+    }
+}
+
+
+cartpole_session_config = {
+    'redis': {
+        'replay': {
+            'name': 'replay',
+            'host': 'localhost',
+            'port': 6379,
+        },
+        'ps': {
+            'name': 'ps',
+            'host': '192.168.0.0',
+            'port': 8888,
+        },
+    },
+}
+```
+
+## Agent side main script
+
+1. Create the env from `env_config`.
+2. Wrap it with `env.ExpSenderWrapper`. Redis replay server must be up and running by now. `learn_config` should include a `"sender"` section. 
+3. Create the agent from all 3 configs and set to `AgentMode.training`.
+4. Start env loop. 
+
+```python
+env = GymAdapter(gym.make('CartPole-v0'))
+env = ExpSenderWrapper(
+    env,
+    learn_config=cartpole_learn_config,
+    session_config=cartpole_session_config
+)
+env = EpisodeMonitor(env)
+
+q_agent = QAgent(
+    learn_config=cartpole_learn_config,
+    env_config=cartpole_env_config,
+    session_config=cartpole_session_config,
+    agent_mode=AgentMode.training,
+)
+obs, info = env.reset()
+for T in itertools.count():
+    action = q_agent.act(U.to_float_tensor(obs))
+    obs, reward, done, info = env.step(action)  # sends to Redis automatically
+    if done:
+        obs, info = env.reset()
+```
+
+## Learner side main script
+
+1. Create the replay data structure from all 3 configs. `learn_config` should include a `"replay"` section.
+2. Create the learner from all 3 configs.
+3. `replay.sample_iterator()` loop. 
+4. Call `learner.broadcast()` periodically to push the latest parameters to Redis server. 
+
+
+```python
+replay = UniformReplay(
+    learn_config=cartpole_learn_config,
+    env_config=cartpole_env_config,
+    session_config=cartpole_session_config
+)
+dqn = DQNLearner(
+    learn_config=cartpole_learn_config,
+    env_config=cartpole_env_config,
+    session_config=cartpole_session_config
+)
+for i, batch in enumerate(replay.sample_iterator()):
+    td_error = dqn.learn(batch)  # doesn't have to return td_error
+    if (i+1) % 100 == 0:
+        dqn.broadcast(message='hello surreal '+str(i))
+```
 
 
 # Installation
@@ -44,7 +465,7 @@ Optional override:
 
 ```
 cd Surreal/
-pip install -e surreal
+pip install -e .
 ```
 
 ## Redis
@@ -67,247 +488,3 @@ TODO
 python surreal/main/run_cartpole_learner.py
 python surreal/main/run_cartpole_agent.py
 ```
-
-# Detailed API
-
-**will be moved to another file**
-
-## Agent-side components
-
-Agent-side code listens for updates from the parameter server and sends experiences to the distributed Replay pool. 
-
-### Model 
-
-A neural network that extends the `model.base.Model` class.  
-
-The model is responsible for forward/backward prop and parameter serialization/deserialization, but not the action selection. 
-
-### Agent
-
-An agent wraps the Model class and selects actions that will be executed in the environment. The actions are not necessarily the same as the `Model` output, because the policy can be epsilon-greedy, for example. 
-
-Agent also encapsulates exploration logic. It needs to have support for both the training and evaluation mode, e.g. epsilon greedy during training but `argmax` at evaluation. 
- 
-### ExpSender
- 
- Send experience tuples to the distributed Replay pool, i.e. a Redis server (or cluster of servers) that holds all the observation in memory. 
- 
-### TorchListener
- 
- Listens for new updates from the parameter server, and update the `Model` inside the `agent` accordingly. 
- 
- Warning: make sure you lock the agent so that "updating parameters" and "forward prop" do not interleave. Use `threading.Lock()`
- 
-### Environment
- 
-Extends `envs.base.Env` class. Wrappers extend `envs.base.Wrapper` class.
- 
-Key difference from OpenAI Gym API 
-
- -  `reset()` function now returns a tuple `(obs, info)` instead of just `obs`.
- - Support self-play and multi-agent (future). 
- - We rely heavily on the catch-all `info` dict to make env and agents as versatile as possible. In Gym, `info` contains nothing but unimportant diagnostics, and is typically empty altogether. In contrast, we will put crucial information such as the individual frames in `info` when doing frame-stacking, because we don't want to duplicate each frame many times in the Redis storage. The other scenario is multi-agent training. The `info` dict will likely have rich contents. 
- 
- 
-## Learner-side components
-
-### One-step learner 
-
-Learners extend `learners.base.Learner` class. It performs one batch of policy optimization at each `.optimize(...)` call. 
-
-### Replay
-
-Replay pools extend `replay.base.Replay` class. It keeps an internal data structure of the replay buffer, which can be as complicated as max-sum-trees that execute insertion at O(log(n)). 
-
-Under the hood, replay objects are also responsible for communicating with the Redis replay server asynchronously. The end user does not need to know anything about the threads, which will start running in background when they call `replay.start_threads()`. More specifically, the threads obey the "producer-consumer pattern": 
-
-1. `PointerQueue` enqueue thread that downloads the experience tuples with observation pointers from the replay server.
-
-2. `PointerQueue` dequeue thread that inserts the experience tuples into the local replay object. The insertion logic can be very complicated, like the max-sum-tree data structure in Prioritized Experience Replay.
-
-3. `ExpFetcherQueue` enqueue thread that downloads the actual observations from their pointers. This thread also aggregates the batch of downloaded observations into PyTorch-ready tensors. The learner will pull from this queue to retrieve the next mini-batch.
-
-Note that `ExpFetcherQueue`'s dequeue method is _synchronous_, because it is invoked by the learner every time it needs the next mini-batch. If the rate of agents producing experience is slower than the rate of learners consuming experience (i.e. backprop), the call to `dequeue` will wait until the next `batch_size` of samples arrive. The `dequeue` method is wrapped in `replay.batch_iterator()`.
-
-In the release, we will provide at least the following instantiations of the abstract `Replay` class:
-
-- UniformReplay: vanilla DQN. 
-- PrioritizedReplay: [Prioritized Experience Replay](https://arxiv.org/abs/1511.05952).
-- MixedReplay: [Interpolated Policy Gradient](https://arxiv.org/pdf/1706.00387.pdf).
-
-### TorchBroadcaster
-
-Broadcasts the latest parameters to the parameter server.
-Called inside the learner optimization loop.
-
-## Main entry points
-
-### Workflow: `run_agent.py`
-
-#### Purpose
-
-The `run_agent` script does NOT do any learning. It is only responsible for generating experiences.
-
-#### Initialization
-
-1. Initialize the environment instance with monitoring and visualization wrappers. 
-
-2. Initialize a model from scratch or saved checkpoint. 
-
-3. Create an agent with the model we just created.
-
-4. Specify the exploration strategy for the agent. Because each agent is independent of each other in the cluster, they can adopt different exploration strategies to navigate the state space more efficiently. 
-
-5. Create an instance of `RedisClient` that connects to the replay server address. 
-
-6. Create an `ExpSender` object that wraps around the `RedisClient` above. 
- 
-7. Create another instance of `RedisClient` that connects to the parameter server address. 
-
-8. Create a `TorchListener` from the `RedisClient` above and the `model` object. The listener will continuously listen for broadcasted messages from the parameter server and push the new parameters into the `model`. 
-
-#### Main loop
-
-Now we are ready to run the agent-environment interaction loop.  
-
-1. Start the listener thread in the background. `listener.run_listener_thread()`. 
-
-2. Receives initial observation and info by calling `env.rest()`. 
-
-3. For each iteration, the `agent` calls `.act(obs)` and returns the selected action (can be random according to the exploration strategy). 
-
-4. Call `env.step(action) -> obs, reward, done, info`. 
-
-5. Call `exp_sender.send([obs], action, reward, done, info)` to upload the experience tuple to the replay server.
-
-6. Do book-keeping, like logging the current reward streaks, speed `iter/s`, number of steps, etc.
- 
- 
-#### Skeleton code
-
-```python
-env = Visualization(EpisodeMonitor(Atari('SpaceInvaders')))
-q_model = QFunction(hiddens=[64, 32], action_space=6)
-exploration = LinearSchedule(...)
-q_agent = QAgent(q_model, exploration)
-q_agent.set_mode('training')
-
-replay_client = RedisClient('127.0.0.1:6060') # replay server IP
-exp_sender = ExpSender(replay_client)
-
-ps_client = RedisClient('192.168.6.6:8080') # parameter server IP
-listener = TorchListener(ps_client, q_model)
-listener.run_listener_thread()
-
-obs, info = env.reset()
-while True:
-    action = q_agent.act(obs)
-    new_obs, reward, done, info = env.step(action)
-    exp_sender.send([obs, new_obs], action, reward, done, info)
-    obs = new_obs
-```
-
-### Workflow: `run_learner.py`
-
-#### Purpose
-
-The learner script updates the parameters by sampling from the replay pool. It is unaware of the env or agent exploration. It broadcasts the latest parameters after every minibatch. 
-
-#### Initialization
-
-1. Initialize a model from scratch or saved checkpoint. 
-
-2. Create an instance of `RedisClient` that connects to the replay server address. 
-
-3. Create an object that inherits the `replay.base.Replay` class. Initialize with the above client and other settings of the replay, such as batch size, start sampling condition, prioritization hyper-parameters, etc. 
- 
-4. Create another instance of `RedisClient` that connects to the parameter server address. 
-
-5. Create a `TorchBroadcaster` instance with the above client. 
-
-6. Initialize the learner with the `model` and `replay` objects. 
-
-#### Main loop
-
-1. `replay.start_threads()` to start various background jobs together.
-    1. `PointerQueue` enqueue thread. 
-    2. `PointerQueue` dequeue thread.  
-    3. `ExpFetcherQueue` enqueue thread. 
-    
-2. For-loop over `replay.batch_iterator()`. Each iteration returns the next minibatch as PyTorch-ready tensors. 
-
-3. `learner.optimize(batch)`
-
-4. At every few steps, call `broadcaster.broadcast(model)` to push the latest params to the parameter server. 
-
-#### Skeleton code
-
-```python
-# model spec must be the same as in agents
-q_model = QFunction(hiddens=[64, 32], action_space=6)
-
-replay_client = RedisClient('127.0.0.1:6060') # replay server IP
-replay = UniformReplay(replay_client, batch_size=64)
-
-ps_client = RedisClient('192.168.6.6:8080') # parameter server IP
-broadcaster = TorchBroadcaster(ps_client, q_model)
-
-dqn = DQNLearner(q_model, replay)
-
-replay.start_threads()
-for i, batch in replay.batch_iterator():
-    dqn.optimize(i, batch)
-    if i % BROADCAST_FREQUENCY == 0:
-        broadcaster.broadcast(q_model, tag_message)
-```
-
-### Cluster management
-
-- Scripts to start Redis server.
-- The above can all be wrapped in Kubernetes (@Zihua)
-
-
-## Other components
-
-### Visualization panel
-
-- [Visdom](https://github.com/facebookresearch/visdom). 
-- [Tensorboard](https://github.com/lanpa/tensorboard-pytorch) for PyTorch. 
-
-### Evaluation process
-
-Environment and agents can behave differently in training mode than in evaluation mode. On the env side, Atari games have many wrappers (such as cap to only 1 life) that make them easier to train. Those wrappers will be removed during eval. 
-
-On the agent side, the agent will do `argmax` or other different behaviors for eval instead of epsilon-greedy policy.   
-
-Evaluation can run infrequently on a separate process than the agents and learners.
-It will also take care of book-keeping:
-
- - Evaluation score tracking
- - Checkpointing
- - Logging
- - Visualization board
-
-#### Skeleton code
-
-```python
-env = Visualization(EpisodeMonitor(Atari('SpaceInvaders')))
-q_model = QFunction(hiddens=[64, 32], action_space=6)
-q_agent = QAgent(q_model, exploration=None)
-q_agent.set_mode('eval')
-
-ps_client = RedisClient('192.168.6.6:8080') # parameter server IP
-listener = TorchListener(ps_client, q_model)
-listener.run_listener_thread()
-
-obs, info = env.reset()
-while True:
-    action = q_agent.act(obs)
-    new_obs, reward, done, info = env.step(action)
-    obs = new_obs
-    # book-keeping code goes here
-```
-
-### Distributed logging
-
-

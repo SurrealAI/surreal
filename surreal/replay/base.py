@@ -107,7 +107,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
 
     def _sample(self, batch_size):
         """
-        This function is called in the `exp_download_queue` thread, its operation
+        This function is called in the `exp_fetch_queue` thread, its operation
         is async, i.e. overlaps with the insertion operations.
 
         Args:
