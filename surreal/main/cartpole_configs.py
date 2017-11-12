@@ -1,3 +1,6 @@
+from surreal.session import LOCAL_SESSION_CONFIG
+
+
 cartpole_learn_config = {
     'model': {
         'convs': [],
@@ -48,3 +51,6 @@ cartpole_env_config = {
         'dim': [4],
     }
 }
+
+
+cartpole_session_config = LOCAL_SESSION_CONFIG

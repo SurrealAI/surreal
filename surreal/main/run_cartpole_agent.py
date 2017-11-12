@@ -12,14 +12,14 @@ env = GymAdapter(gym.make('CartPole-v0'))
 env = ExpSenderWrapper(
     env,
     learn_config=cartpole_learn_config,
-    session_config=LOCAL_SESSION_CONFIG
+    session_config=cartpole_session_config
 )
 env = EpisodeMonitor(env, filename=None)
 
 q_agent = QAgent(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
-    session_config=LOCAL_SESSION_CONFIG,
+    session_config=cartpole_session_config,
     agent_mode=AgentMode.training,
 )
 

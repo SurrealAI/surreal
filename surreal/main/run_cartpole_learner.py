@@ -16,12 +16,12 @@ def debug_td_error(td_error):
 replay = UniformReplay(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
-    session_config=LOCAL_SESSION_CONFIG
+    session_config=cartpole_session_config
 )
 dqn = DQNLearner(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
-    session_config=LOCAL_SESSION_CONFIG
+    session_config=cartpole_session_config
 )
 for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)

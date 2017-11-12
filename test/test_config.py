@@ -259,3 +259,58 @@ def test_override_keyword():
         C['keys'] = 10
     with pytest_print_raises(ConfigError):
         Config({'a':{ 'd': [{'b':{'items': 100}}]}, 'c': 10})
+
+
+def test_vanilla():
+    default_config = Config({
+        'redis': {
+            'replay': {
+                'host': 'localhost',
+                'port': 6379,
+            },
+            'ps': {
+                'host': '192.168.11.11',
+                'port': 8888,
+            },
+        },
+        'obs_spec': {
+            'type': 'continuous',
+            'dim': [64, 64, 3]
+        }
+    })
+
+    my_config = Config({
+        'redis': {
+            'replay': {
+                'host': 'myreplayhost'
+            },
+            'ps': {
+                'port': 12345
+            }
+        },
+        'obs_spec': {
+            'extra': 'special_extra'
+        }
+    })
+
+    my_config.extend(default_config)
+
+    # Now my_config will be filled by the defaults:
+    assert my_config == Config({
+        'redis': {
+            'replay': {
+                'host': 'myreplayhost',
+                'port': 6379,
+            },
+            'ps': {
+                'host': '192.168.11.11',
+                'port': 12345
+            }
+        },
+        'obs_spec': {
+            'type': 'continuous',
+            'dim': [64, 64, 3],
+            'extra': 'special_extra'
+        }
+    })
+
