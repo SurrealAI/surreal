@@ -72,12 +72,6 @@ class Agent(metaclass=U.AutoInitializeMeta):
         """
         pass
 
-    def save(self, file_name):
-        """
-        Checkpoint model to disk
-        """
-        raise NotImplementedError
-
     def set_agent_mode(self, agent_mode):
         """
         Args:
@@ -85,3 +79,5 @@ class Agent(metaclass=U.AutoInitializeMeta):
         """
         self.agent_mode = AgentMode[agent_mode]
 
+    def __del__(self):
+        self.close()

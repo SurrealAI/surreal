@@ -65,7 +65,7 @@ class UniformReplay(Replay):
         assert len(evicted) == evict_size
         return evicted
 
-    def start_sample_condition(self):
+    def _start_sample_condition(self):
         return len(self) > self.replay_config.sampling_start_size
 
     def __len__(self):

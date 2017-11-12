@@ -130,7 +130,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         """
         return []
 
-    def start_sample_condition(self):
+    def _start_sample_condition(self):
         """
         Tells the thread to start sampling only when this condition is met.
         For example, only when the replay memory has > 10K experiences.
@@ -140,7 +140,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         """
         raise NotImplementedError
 
-    def aggregate_batch(self, exp_list):
+    def _aggregate_batch(self, exp_list):
         """
         Will be called in `next_batch()` method to produce the actual inputs
         to the neural network training loop.
@@ -175,7 +175,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
             List of exp_dicts with obs_pointers, fed to the ObsFetchQueue
             None if start_sample_condition not met
         """
-        if self.start_sample_condition():
+        if self._start_sample_condition():
             sampled_exp_list = self._sample(self.batch_size)
             U.assert_type(sampled_exp_list, list)
             # incr ref count so that it doesn't get evicted by insert()
@@ -257,7 +257,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
 
     def sample(self):
         exp_list = self._obs_fetch_queue.dequeue()
-        return self.aggregate_batch(exp_list)
+        return self._aggregate_batch(exp_list)
 
     def sample_iterator(self, stop_condition=None):
         """

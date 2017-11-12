@@ -38,6 +38,6 @@ class FIFOReplay(Replay):
     def _evict(self, *args, **kwargs):
         return []
 
-    def start_sample_condition(self):
+    def _start_sample_condition(self):
         raise NotImplementedError
 

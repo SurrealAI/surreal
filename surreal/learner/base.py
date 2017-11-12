@@ -65,7 +65,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         """
         raise NotImplementedError
 
-    def save(self, folder):
+    def save(self, file_path):
         """
         Checkpoint to disk
         """

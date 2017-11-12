@@ -26,7 +26,7 @@ class DummyReplay(Replay):
     def _sample(self, batch_size, batch_i):
         samps = []
         print('SAMPLE START total memory', len(self._memory), 'batch_i', batch_i)
-        assert self.start_sample_condition()
+        assert self._start_sample_condition()
         indices = [random.randint(0, len(self._memory) - 1)
                    for _ in range(batch_size)]
         memkeys = list(self._memory.keys())
@@ -47,7 +47,7 @@ class DummyReplay(Replay):
               [exp['obs_pointers'] for exp in exps])
         return exps
 
-    def start_sample_condition(self):
+    def _start_sample_condition(self):
         return len(self._memory) > self._sampling_start_size
 
     # def aggregate_batch(self, exp_list):
