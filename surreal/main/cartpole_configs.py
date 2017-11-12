@@ -25,6 +25,11 @@ cartpole_learn_config = {
             'eps': 1e-6
         },
     },
+    'replay': {
+        'batch_size': 64,
+        'memory_size': 100000,
+        'sampling_start_size': 1000,
+    }
 }
 
 cartpole_env_config = {

@@ -145,6 +145,10 @@ def _fill_default_config(config, default_config, dict_trace):
     return config
 
 
+_RESERVED_METHODS = ['keys', 'items', 'values', 'get', 'copy', 'update',
+                     'extend', 'load_file', 'dump_file', 'to_dict']
+
+
 class Config(dict):
     """
     Source code modified from EasyDict to support extra methods.
@@ -160,6 +164,9 @@ class Config(dict):
             setattr(self, k, v)
 
     def __setattr__(self, name, value):
+        if name in _RESERVED_METHODS:
+            raise ConfigError('"{}()" is a reserved method, cannot override'
+                              .format(name))
         if isinstance(value, (list, tuple)):
             value = [self.__class__(x)
                      if isinstance(x, dict) else x for x in value]

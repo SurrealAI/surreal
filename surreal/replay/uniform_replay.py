@@ -3,14 +3,10 @@ from .base import Replay
 
 
 class UniformReplay(Replay):
-    def __init__(self, *,
-                 redis_client,
-                 batch_size,
-                 obs_spec,
-                 action_spec,
-                 memory_size,
-                 sampling_start_size,
-                 **kwargs):
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config):
         """
         Args:
           memory_size: Max number of experience to store in the buffer.
@@ -18,16 +14,21 @@ class UniformReplay(Replay):
           sampling_start_size: min number of exp above which we will start sampling
         """
         super().__init__(
-            redis_client=redis_client,
-            batch_size=batch_size,
-            obs_spec=obs_spec,
-            action_spec=action_spec,
-            **kwargs
+            learn_config=learn_config,
+            env_config=env_config,
+            session_config=session_config
         )
         self._memory = []
-        self._maxsize = memory_size
-        self._sampling_start_size = sampling_start_size
+        self.memory_size = self.replay_config.memory_size
         self._next_idx = 0
+
+    def default_config(self):
+        conf = super().default_config()
+        conf.update({
+            'memory_size': '_int_',
+            'sampling_start_size': '_int_'
+        })
+        return conf
 
     def _insert(self, exp_dict):
         evicted = []
@@ -36,7 +37,7 @@ class UniformReplay(Replay):
         else:
             evicted.append(self._memory[self._next_idx])
             self._memory[self._next_idx] = exp_dict
-        self._next_idx = (self._next_idx + 1) % self._maxsize
+        self._next_idx = (self._next_idx + 1) % self.memory_size
         return evicted
 
     def _sample(self, batch_size):
@@ -65,7 +66,7 @@ class UniformReplay(Replay):
         return evicted
 
     def start_sample_condition(self):
-        return len(self) > self._sampling_start_size
+        return len(self) > self.replay_config.sampling_start_size
 
     def __len__(self):
         return len(self._memory)

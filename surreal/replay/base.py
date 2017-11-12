@@ -7,6 +7,8 @@ from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
 from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
+from surreal.env import BASE_ENV_CONFIG
 from .aggregator import torch_aggregate
 
 
@@ -38,14 +40,10 @@ class _EvictThread(U.StoppableThread):
 
 
 class Replay(metaclass=U.AutoInitializeMeta):
-    def __init__(self, *,
-                 redis_client,
-                 batch_size,
-                 obs_spec,
-                 action_spec,
-                 name='replay',
-                 fetch_queue_size=5,
-                 exp_queue_size=100000):
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config):
         """
 
         Args:
@@ -56,25 +54,42 @@ class Replay(metaclass=U.AutoInitializeMeta):
             exp_queue_size: limit so that Replay doesn't pull exp faster than
                 it can insert.
         """
-        U.assert_type(redis_client, RedisClient)
-        self.batch_size = batch_size
-        self._client = redis_client
+        self.replay_config = Config(learn_config).replay
+        self.replay_config.extend(self.default_config())
+        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
+        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
+
+        self.batch_size = self.replay_config.batch_size
+        self._client = RedisClient(
+            host=self.session_config.redis.ps.host,
+            port=self.session_config.redis.ps.port
+        )
         self._exp_queue = ExpQueue(
-            redis_client=redis_client,
-            queue_name=name,
-            maxsize=exp_queue_size,
+            redis_client=self._client,
+            queue_name=self.replay_config.name,
+            maxsize=self.replay_config.exp_queue_size,
         )
         self._obs_fetch_queue = ObsFetchQueue(
-            redis_client=redis_client,
-            maxsize=fetch_queue_size,
+            redis_client=self._client,
+            maxsize=self.replay_config.fetch_queue_size,
         )
-        self._obs_spec = obs_spec
-        self._action_spec = action_spec
         self._evict_thread = None
         self._job_queue = U.JobQueue()
 
     def _initialize(self):
         self.start_queue_threads()
+
+    def default_config(self):
+        """
+        Returns:
+            dict of default configs, will be placed in learn_config['replay']
+        """
+        return {
+            'name': 'replay',
+            'batch_size': '_int_',
+            'fetch_queue_size': 10,
+            'exp_queue_size': 10000
+        }
 
     def _insert(self, exp_dict):
         """
@@ -139,8 +154,8 @@ class Replay(metaclass=U.AutoInitializeMeta):
         """
         return torch_aggregate(
             exp_list,
-            obs_spec=self._obs_spec,
-            action_spec=self._action_spec,
+            obs_spec=self.env_config.obs_spec,
+            action_spec=self.env_config.action_spec,
         )
 
     def insert(self, exp_dict):

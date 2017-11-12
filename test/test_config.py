@@ -158,13 +158,13 @@ def recursive_print(D):
 
 
 def test_json(C):
-    Config(C).dump_file('test.json')
-    assert Config.load_file('test.json') == C
+    Config(C).dump_file('debug_config.json')
+    assert Config.load_file('debug_config.json') == C
 
 
 def test_yaml(C):
-    Config(C).dump_file('test.yaml')
-    assert Config.load_file('test.yaml') == C
+    Config(C).dump_file('debug_config.yaml')
+    assert Config.load_file('debug_config.yaml') == C
 
 
 def test_num_error(C_num):
@@ -240,3 +240,30 @@ def test_enum_options():
     C_correct = copy.deepcopy(C)
     assert extend_config(C, C_default) == C_correct
 
+
+def test_subdict_extend():
+    C = {
+        'redis': {
+            'replay': {
+                'type': 'fifo'
+            }
+        }
+    }
+    C= Config(C)
+    sub = {
+        'type': '_enum[uniform, priority, fifo]_' ,
+        'other': 'should be added'
+    }
+    C.redis.replay.extend(sub)
+    assert C.redis.replay.type == 'fifo'
+    assert C.redis.replay.other == 'should be added'
+
+
+def test_override_keyword():
+    C = Config({'a': 3, 'b': 4})
+    with pytest_print_raises(ConfigError):
+        C.extend = 10
+    with pytest_print_raises(ConfigError):
+        C['keys'] = 10
+    with pytest_print_raises(ConfigError):
+        Config({'a':{ 'd': [{'b':{'items': 100}}]}, 'c': 10})
