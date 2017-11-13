@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
+
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
-from surreal.utils.pytorch import GpuVariable as Variable
-from surreal.session import PeriodicTracker
-from easydict import EasyDict
 from .base import Learner
+
+from tensorboardX import SummaryWriter
 
 
 class DDPGLearner(Learner):
@@ -23,19 +23,25 @@ class DDPGLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
         )
-        self.model_target = self.model.clone()
+        self.model_target = DDPGModel(
+            obs_dim=self.obs_dim,
+            action_dim=self.action_dim,
+        )
 
         self.critic_criterion = nn.MSELoss()
 
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
-            lr=1e-3
+            lr=1e-4
         )
 
         self.actor_optim = torch.optim.Adam(
             self.model.actor.parameters(),
             lr=1e-4
         )
+
+        self.train_iteration = 0
+        self.writer = SummaryWriter()
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
 
@@ -46,16 +52,17 @@ class DDPGLearner(Learner):
         obs_next.volatile = False
         next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
         next_Q_target.volatile = False
-        y = rewards + self.discount_factor * next_Q_target * done
+        y = rewards + self.discount_factor * next_Q_target * (1.0 - done)
 
         # compute Q(s_t, a_t)
-        actions = actions.squeeze()
         y_policy = self.model.forward_critic(obs, actions)
 
         # critic update
         self.model.critic.zero_grad()
         critic_loss = self.critic_criterion(y_policy, y)
         critic_loss.backward()
+        for p in self.model.critic.parameters():
+            p.grad.data.clamp_(-5.0, 5.0)
         self.critic_optim.step()
 
         # actor update
@@ -65,11 +72,24 @@ class DDPGLearner(Learner):
             self.model.forward_actor(obs)
         ).mean()
         actor_loss.backward()
+        for p in self.model.actor.parameters():
+            p.grad.data.clamp_(-5.0, 5.0)
         self.actor_optim.step()
+
+        # emit summaries
+        if self.writer:
+            self.writer.add_scalar('actor_loss', actor_loss.data[0], self.train_iteration)
+            self.writer.add_scalar('critic_loss', critic_loss.data[0], self.train_iteration)
+            self.writer.add_scalar('action_norm', actions.norm(2, 1).mean().data[0], self.train_iteration)
+            self.writer.add_scalar('rewards', rewards.mean().data[0], self.train_iteration)
+            self.writer.add_scalar('Q_target', y.mean().data[0], self.train_iteration)
+            self.writer.add_scalar('Q_policy', y_policy.mean().data[0], self.train_iteration)
 
         # soft update target networks
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
+
+        self.train_iteration += 1
 
     def learn(self, batch):
         self._optimize(

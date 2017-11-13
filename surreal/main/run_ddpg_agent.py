@@ -8,8 +8,11 @@ from surreal.replay import *
 from surreal.session import *
 from surreal.main.halfcheetah_configs import *
 
+import time
 
-env = GymAdapter(gym.make('HalfCheetah-v1'))
+env = gym.make('HalfCheetah-v1')
+env._max_episode_steps = 100
+env = GymAdapter(env)
 env = ExpSenderWrapper(
     env,
     learn_config=halfcheetah_learn_config,
@@ -24,14 +27,15 @@ ddpg_agent = DDPGAgent(
     agent_mode=AgentMode.training
 )
 
-info_print = PeriodicTracker(100)
+info_print = PeriodicTracker(1)
 
 obs, _ = env.reset()
 for T in itertools.count():
 
     action = ddpg_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
-    # env.render()
+    env.render()
+
     if done:
         obs, _ = env.reset()
         if info_print.track_increment():
