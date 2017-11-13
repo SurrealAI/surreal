@@ -7,12 +7,12 @@ import numpy as np
 from .model_builders import *
 
 
-class DDPGfunc(U.Module):
+class DDPGModel(U.Module):
 
     def __init__(self,
                  obs_dim,
                  action_dim):
-        super(DDPGfunc, self).__init__()
+        super(DDPGModel, self).__init__()
 
         # hyperparameters
         self.obs_dim = obs_dim

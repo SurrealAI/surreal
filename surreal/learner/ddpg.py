@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import surreal.utils as U
+from surreal.model.ddpg_net import DDPGModel
 from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
 from easydict import EasyDict
@@ -9,13 +10,19 @@ from .base import Learner
 
 class DDPGLearner(Learner):
 
-    def __init__(self, config, model):
-        super().__init__(config, model)
+    def __init__(self, learn_config, env_config, session_config):
+        super().__init__(learn_config, env_config, session_config)
 
         self.discount_factor = 0.99
         self.tau = 0.01
 
-        self.model = model  # nothing but an alias
+        self.action_dim = self.env_config.action_spec.dim[0]
+        self.obs_dim = self.env_config.obs_spec.dim[0]
+
+        self.model = DDPGModel(
+            obs_dim=self.obs_dim,
+            action_dim=self.action_dim,
+        )
         self.model_target = self.model.clone()
 
         self.critic_criterion = nn.MSELoss()
@@ -29,7 +36,6 @@ class DDPGLearner(Learner):
             self.model.actor.parameters(),
             lr=1e-4
         )
-
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
 
@@ -65,15 +71,19 @@ class DDPGLearner(Learner):
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
 
-
-    def learn(self, batch_exp, batch_i):
+    def learn(self, batch):
         self._optimize(
-            batch_exp.obs,
-            batch_exp.actions,
-            batch_exp.rewards,
-            batch_exp.obs_next,
-            batch_exp.dones
+            batch.obs,
+            batch.actions,
+            batch.rewards,
+            batch.obs_next,
+            batch.dones
         )
         # if self.target_update_tracker.track_increment(1):
         #     # Update target network periodically.
         #     self._update_target()
+
+    def module_dict(self):
+        return {
+            'ddpg': self.model,
+        }
