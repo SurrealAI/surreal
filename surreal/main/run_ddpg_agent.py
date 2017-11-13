@@ -34,7 +34,8 @@ for T in itertools.count():
 
     action = ddpg_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
-    env.render()
+    #env.render()
+    time.sleep(0.1)
 
     if done:
         obs, _ = env.reset()

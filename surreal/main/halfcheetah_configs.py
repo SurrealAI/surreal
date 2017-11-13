@@ -30,7 +30,7 @@ halfcheetah_learn_config = {
     },
     'replay': {
         'batch_size': 256,
-        'memory_size': 1000000,
+        'memory_size': 100000,
         'sampling_start_size': 1000,
     },
     'sender': {

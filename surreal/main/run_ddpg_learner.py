@@ -1,3 +1,5 @@
+from tabulate import tabulate
+
 from surreal.learner.ddpg import DDPGLearner
 from surreal.main.halfcheetah_configs import *
 from surreal.replay import *
@@ -18,9 +20,11 @@ dpg_learner = DDPGLearner(
 
 for i, batch in enumerate(replay.sample_iterator()):
     dpg_learner.learn(batch)
-
     dpg_learner.writer.add_scalar('replay_size', len(replay), i)
 
-    if (i+1) % 1 == 0:
+    if (i+1) % 10 == 0:
         dpg_learner.broadcast(message='batch '+str(i))
 
+    # book-keeping, TODO should be done in Evaluator
+    if i % 100 == 0:
+        print('model updates completed: {}'.format(i))
