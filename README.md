@@ -199,6 +199,12 @@ Override the following methods:
 Public entry API:
 
 - `act(obs)`
+- `pull_parameters()`: pull latest parameters from the parameter server.
+- `pull_parameter_info()`: pull the latest parameter info, returns a dict with
+    - `time`: time stamp of the parameter, i.e. `time.time()`.
+    - `iteration`: provided by the learner.
+    - `message`: optional message sent by the learner. Empty string is default.
+    - `hash`: hash signature of the parameter binary blob.
 - `close()`
 
 Agent also encapsulates exploration logic. It needs to have support for both the training and evaluation mode, e.g. epsilon greedy during training but `argmax` at evaluation. 
@@ -232,7 +238,7 @@ Override the following methods:
 Public entry API:
 
 - `learn(batch_exp)`
-- `broadcast(message='')`: pushes the latest parameters to the parameter server.
+- `push_parameters(iteration, message='')`: pushes the latest parameters to the parameter server. Message is optional.
 - `save(file_path)`
 
 ## Replay
@@ -430,6 +436,7 @@ for T in itertools.count():
     action = q_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)  # sends to Redis automatically
     if done:
+        q_agent.pull_parameters()  # periodically pull the latest
         obs, info = env.reset()
 ```
 
@@ -454,8 +461,7 @@ dqn = DQNLearner(
 )
 for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)  # doesn't have to return td_error
-    if (i+1) % 100 == 0:
-        dqn.broadcast(message='hello surreal '+str(i))
+    dqn.push_parameters(i, message='hello surreal')  # optional message
 ```
 
 
