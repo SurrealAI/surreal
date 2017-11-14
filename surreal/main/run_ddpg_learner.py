@@ -22,8 +22,9 @@ for i, batch in enumerate(replay.sample_iterator()):
     dpg_learner.learn(batch)
     dpg_learner.writer.add_scalar('replay_size', len(replay), i)
 
-    if (i+1) % 10 == 0:
-        dpg_learner.broadcast(message='batch '+str(i))
+    # if (i+1) % 10 == 0:
+    #     dpg_learner.broadcast(message='batch '+str(i))
+    dpg_learner.push_parameters(i, message='batch '+str(i))
 
     # book-keeping, TODO should be done in Evaluator
     if i % 100 == 0:

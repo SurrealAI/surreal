@@ -11,13 +11,8 @@ from surreal.main.halfcheetah_configs import *
 import time
 
 env = gym.make('HalfCheetah-v1')
-env._max_episode_steps = 100
+# env._max_episode_steps = 100
 env = GymAdapter(env)
-env = ExpSenderWrapper(
-    env,
-    learn_config=halfcheetah_learn_config,
-    session_config=halfcheetah_session_config
-)
 env = EpisodeMonitor(env, filename=None)
 
 ddpg_agent = DDPGAgent(
@@ -29,16 +24,16 @@ ddpg_agent = DDPGAgent(
 
 info_print = PeriodicTracker(1)
 
+ddpg_agent.pull_parameters()
+
 obs, _ = env.reset()
 for T in itertools.count():
 
     action = ddpg_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
-    #env.render()
-    time.sleep(0.1)
+    env.render()
 
     if done:
-        ddpg_agent.pull_parameters()
         obs, _ = env.reset()
         if info_print.track_increment():
             # book-keeping, TODO should be done in Evaluator
