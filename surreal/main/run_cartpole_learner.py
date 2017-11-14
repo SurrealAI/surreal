@@ -26,6 +26,5 @@ dqn = DQNLearner(
 for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)
     debug_td_error(td_error)
-    if (i+1) % 1 == 0:
-        dqn.broadcast(message='batch '+str(i))
+    dqn.push_parameters(i, message='batch '+str(i))
 

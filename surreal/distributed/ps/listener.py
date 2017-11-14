@@ -6,12 +6,12 @@ import queue
 import itertools
 from time import sleep
 import pickle
-from surreal.utils import assert_type, bytes2str
+import surreal.utils as U
 
 
 class Listener(object):
     def __init__(self, redis_client, name='ps'):
-        assert_type(redis_client, RedisClient)
+        U.assert_type(redis_client, RedisClient)
         self._client = redis_client
         self._name = name
         self._listener_thread = None
@@ -33,7 +33,7 @@ class Listener(object):
         ps_name, client = self._name, self._client
 
         def _msg_handler(msg):
-            if 'message' not in bytes2str(msg['type']):
+            if 'message' not in U.bytes2str(msg['type']):
                 return
             msg = pickle.loads(msg['data'])
             ps_time = pickle.loads(client.get('time'))

@@ -4,8 +4,7 @@ Template class for all learners
 import surreal.utils as U
 from surreal.session import (extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
-from surreal.distributed.redis_client import RedisClient
-from surreal.distributed.ps.torch_broadcaster import TorchBroadcaster
+from surreal.distributed import RedisClient, ParameterServer
 
 
 class Learner(metaclass=U.AutoInitializeMeta):
@@ -32,10 +31,20 @@ class Learner(metaclass=U.AutoInitializeMeta):
         # self.log = U.Logger.get_logger('Learner', **log_kwargs)
 
     def _initialize(self):
-        # for AutoInitializeMeta interface
+        """
+        For AutoInitializeMeta interface
+        TorchBroadcaster deprecated in favor of active pushing
+
+        from surreal.distributed.ps.torch_broadcaster import TorchBroadcaster
         self._broadcaster = TorchBroadcaster(
             redis_client=self._client,
             module_dict=self.module_dict()
+        )
+        """
+        self._parameter_server = ParameterServer(
+            redis_client=self._client,
+            module_dict=self.module_dict(),
+            name=self.session_config.redis.ps.name
         )
 
     def default_config(self):
@@ -71,5 +80,12 @@ class Learner(metaclass=U.AutoInitializeMeta):
         """
         raise NotImplementedError
 
-    def broadcast(self, message=''):
-        self._broadcaster.broadcast(message=message)
+    def push_parameters(self, iteration, message=''):
+        """
+        Learner pushes latest parameters to the parameter server.
+
+        Args:
+            iteration: the current number of learning iterations
+            message: optional message, must be pickleable.
+        """
+        self._parameter_server.push(iteration, message=message)

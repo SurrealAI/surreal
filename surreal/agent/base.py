@@ -4,8 +4,7 @@ A template class that defines base agent APIs
 import surreal.utils as U
 from surreal.session import (extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
-from surreal.distributed.redis_client import RedisClient
-from surreal.distributed.ps.torch_listener import TorchListener
+from surreal.distributed import RedisClient, ParameterServer
 
 
 class AgentMode(U.StringEnum):
@@ -30,12 +29,22 @@ class Agent(metaclass=U.AutoInitializeMeta):
         )
 
     def _initialize(self):
-        # for AutoInitializeMeta interface
+        """
+        Implements AutoInitializeMeta meta class.
+        distributed.ps.TorchListener deprecated in favor of active pulling
+
+        from surreal.distributed.ps.torch_listener import TorchListener
         self._listener = TorchListener(
             redis_client=self._client,
             module_dict=self.module_dict()
         )
         self._listener.run_listener_thread()
+        """
+        self._parameter_server = ParameterServer(
+            redis_client=self._client,
+            module_dict=self.module_dict(),
+            name=self.session_config.redis.ps.name
+        )
 
     def act(self, obs):
         """
@@ -58,6 +67,18 @@ class Agent(metaclass=U.AutoInitializeMeta):
             a dict of name -> surreal.utils.pytorch.Module
         """
         raise NotImplementedError
+
+    def pull_parameters(self):
+        """
+        Update agent by pulling parameters from parameter server.
+        """
+        self._parameter_server.pull()
+
+    def pull_parameter_info(self):
+        """
+        Update agent by pulling parameters from parameter server.
+        """
+        return self._parameter_server.pull_info()
 
     def default_config(self):
         """
