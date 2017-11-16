@@ -2,6 +2,7 @@ import surreal.utils as U
 import pytest
 import contextlib
 import os, sys
+from surreal.distributed import *
 
 
 @contextlib.contextmanager

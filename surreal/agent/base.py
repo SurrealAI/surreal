@@ -72,7 +72,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         """
         Update agent by pulling parameters from parameter server.
         """
-        self._parameter_server.pull()
+        return self._parameter_server.pull()
 
     def pull_parameter_info(self):
         """

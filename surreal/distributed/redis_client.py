@@ -79,9 +79,10 @@ class RedisClient(object):
         self.set = self._client.set
         self.get = self._client.get
         self.flushall = self._client.flushall
-        self.mincr = self._client.register_script(_LUA_MINCR)
-        self.mdecr = self._client.register_script(_LUA_MDECR)
-        self._blpush = self._client.register_script(_LUA_BLPUSH)
+        self.register_script = self._client.register_script
+        self.mincr = self.register_script(_LUA_MINCR)
+        self.mdecr = self.register_script(_LUA_MDECR)
+        self._blpush = self.register_script(_LUA_BLPUSH)
 
     def mset(self, mset_dict):
         U.assert_type(mset_dict, dict)

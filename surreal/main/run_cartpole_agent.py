@@ -29,8 +29,8 @@ obs, info = env.reset()
 for T in itertools.count():
     action = q_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
+    is_pulled = q_agent.pull_parameters()
     if done:
-        q_agent.pull_parameters()
         # print(q_agent.pull_parameter_info())
         obs, info = env.reset()
         if info_print.track_increment():
