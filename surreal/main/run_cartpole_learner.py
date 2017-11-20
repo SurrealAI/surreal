@@ -5,7 +5,12 @@ from surreal.main.cartpole_configs import *
 from surreal.session import *
 
 
-RedisClient().flushall()  # DEBUG ONLY
+C = Config(cartpole_session_config)
+for server in ['replay', 'ps', 'tensorplex']:
+    RedisClient(
+        host=C[server]['host'],
+        port=C[server]['port']
+    ).flushall()
 
 
 def debug_td_error(td_error):

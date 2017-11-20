@@ -1,4 +1,5 @@
 import gym
+import sys
 from tabulate import tabulate
 from surreal.agent.base import AgentMode
 from surreal.agent.q_agent import QAgent
@@ -7,6 +8,11 @@ from surreal.replay import *
 from surreal.session import *
 from surreal.main.cartpole_configs import *
 
+
+if len(sys.argv) == 2:
+    agent_id = sys.argv[1]
+else:
+    agent_id = 'debug'
 
 env = GymAdapter(gym.make('CartPole-v0'))
 env = ExpSenderWrapper(
@@ -20,7 +26,7 @@ q_agent = QAgent(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config,
-    agent_id=1,
+    agent_id=agent_id,
     agent_mode=AgentMode.training,
 )
 
