@@ -31,8 +31,8 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self.agent_mode = AgentMode[agent_mode]
         self.log = LoggerplexClient(
             client_id=self.agent_name,
-            host=self.session_config.tensorboard.host,
-            port=self.session_config.tensorboard.port
+            host=self.session_config.tensorplex.host,
+            port=self.session_config.tensorplex.port
         )
         self._client = RedisClient(
             host=self.session_config.ps.host,

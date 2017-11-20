@@ -54,7 +54,7 @@ cartpole_env_config = {
 
 
 cartpole_session_config = Config({
-    'tensorboard': {
+    'tensorplex': {
         'folder': '~/Temp/cartpole'
     }
 })

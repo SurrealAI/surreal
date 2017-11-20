@@ -36,7 +36,7 @@ BASE_SESSION_CONFIG = {
         'host': '_str_',
         'port': '_int_',
     },
-    'tensorboard': {
+    'tensorplex': {
         'host': '_str_',
         'port': '_int_',
         'folder': '_str_',
@@ -55,7 +55,7 @@ LOCAL_SESSION_CONFIG = {
         'host': 'localhost',
         'port': 6380,
     },
-    'tensorboard': {
+    'tensorplex': {
         'host': 'localhost',
         'port': 6381,
         'folder': '_str_',

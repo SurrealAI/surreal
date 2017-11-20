@@ -67,8 +67,8 @@ class Replay(metaclass=U.AutoInitializeMeta):
         )
         self.log = LoggerplexClient(
             client_id='replay',
-            host=self.session_config.tensorboard.host,
-            port=self.session_config.tensorboard.port
+            host=self.session_config.tensorplex.host,
+            port=self.session_config.tensorplex.port
         )
         self._exp_queue = ExpQueue(
             redis_client=self._client,
