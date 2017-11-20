@@ -9,6 +9,7 @@ from surreal.distributed.exp_queue import ExpQueue
 from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
 from surreal.session import (Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
+from tensorplex.loggerplex import LoggerplexClient
 from .aggregator import torch_aggregate
 
 
@@ -61,8 +62,13 @@ class Replay(metaclass=U.AutoInitializeMeta):
 
         self.batch_size = self.replay_config.batch_size
         self._client = RedisClient(
-            host=self.session_config.redis.replay.host,
-            port=self.session_config.redis.replay.port
+            host=self.session_config.replay.host,
+            port=self.session_config.replay.port
+        )
+        self.log = LoggerplexClient(
+            client_id='replay',
+            host=self.session_config.tensorboard.host,
+            port=self.session_config.tensorboard.port
         )
         self._exp_queue = ExpQueue(
             redis_client=self._client,

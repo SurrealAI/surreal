@@ -112,17 +112,20 @@ def _fill_default_config(config, default_config, dict_trace):
             config[key] = default_value
         else:
             value = config[key]
-            if _is_req(value):
-                _raise_req_error(key, default_value, dict_trace,
-                     'Wrong key-value pair "{}: {}": '
-                     'Cannot have "_<special>_" entries in the result config.'
-                     .format(key, value)
-                 )
             if _is_req(default_value):
-                checker = _req_type_check(default_value)
-                if not checker(value):
-                    _raise_req_error(key, default_value, dict_trace,
-                                     'Wrong type:')
+                # value remains a placeholder after being extended
+                if _is_req(value):
+                    if value != default_value:
+                        raise ConfigError(
+                            'inherited {}: "{}" must match default "{}"'
+                            .format(_trace_key(dict_trace, key),
+                                    value, default_value)
+                        )
+                else:
+                    checker = _req_type_check(default_value)
+                    if not checker(value):
+                        _raise_req_error(
+                            key, default_value, dict_trace, 'Wrong type:')
             else:
                 if (isinstance(value, dict) and
                         not isinstance(default_value, dict)):

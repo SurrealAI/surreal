@@ -14,8 +14,8 @@ class ExpSenderWrapper(Wrapper):
             sender_config = learn_config.sender.extend(self.default_config())
         sender_config['queue_name'] = learn_config.replay.name
         self._client = RedisClient(
-            host=session_config.redis.replay.host,
-            port=session_config.redis.replay.port
+            host=session_config.replay.host,
+            port=session_config.replay.port
         )
         self.sender = ExpSender(self._client, **sender_config)
         self._obs = None  # obs of the current time step

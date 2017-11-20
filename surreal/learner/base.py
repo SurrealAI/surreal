@@ -5,6 +5,7 @@ import surreal.utils as U
 from surreal.session import (extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed import RedisClient, ParameterServer
+from tensorplex.loggerplex import LoggerplexClient
 
 
 class Learner(metaclass=U.AutoInitializeMeta):
@@ -13,6 +14,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
                  env_config,
                  session_config):
         """
+        Write log to self.log
 
         Args:
             config: a dictionary of hyperparameters. It can include a special
@@ -23,12 +25,14 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         self._client = RedisClient(
-            host=self.session_config.redis.ps.host,
-            port=self.session_config.redis.ps.port
+            host=self.session_config.ps.host,
+            port=self.session_config.ps.port
         )
-        # TODO better logging
-        # log_kwargs = C.log if 'log' in C else {}
-        # self.log = U.Logger.get_logger('Learner', **log_kwargs)
+        self.log = LoggerplexClient(
+            client_id='learner',
+            host=self.session_config.tensorboard.host,
+            port=self.session_config.tensorboard.port
+        )
 
     def _initialize(self):
         """
@@ -44,7 +48,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self._parameter_server = ParameterServer(
             redis_client=self._client,
             module_dict=self.module_dict(),
-            name=self.session_config.redis.ps.name
+            name=self.session_config.ps.name
         )
 
     def default_config(self):

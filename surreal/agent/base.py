@@ -5,6 +5,7 @@ import surreal.utils as U
 from surreal.session import (extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed import RedisClient, ParameterServer
+from tensorplex.loggerplex import LoggerplexClient
 
 
 class AgentMode(U.StringEnum):
@@ -18,14 +19,24 @@ class Agent(metaclass=U.AutoInitializeMeta):
                  learn_config,
                  env_config,
                  session_config,
+                 agent_id,
                  agent_mode):
+        """
+        Write all logs to self.log
+        """
         self.learn_config = extend_config(learn_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
+        self.agent_name = 'agent-{}'.format(agent_id)
         self.agent_mode = AgentMode[agent_mode]
+        self.log = LoggerplexClient(
+            client_id=self.agent_name,
+            host=self.session_config.tensorboard.host,
+            port=self.session_config.tensorboard.port
+        )
         self._client = RedisClient(
-            host=self.session_config.redis.ps.host,
-            port=self.session_config.redis.ps.port
+            host=self.session_config.ps.host,
+            port=self.session_config.ps.port
         )
 
     def _initialize(self):
@@ -43,7 +54,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self._parameter_server = ParameterServer(
             redis_client=self._client,
             module_dict=self.module_dict(),
-            name=self.session_config.redis.ps.name
+            name=self.session_config.ps.name
         )
 
     def act(self, obs):

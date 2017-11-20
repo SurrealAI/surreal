@@ -1,4 +1,4 @@
-from surreal.session import LOCAL_SESSION_CONFIG
+from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
 cartpole_learn_config = {
@@ -53,4 +53,10 @@ cartpole_env_config = {
 }
 
 
-cartpole_session_config = LOCAL_SESSION_CONFIG
+cartpole_session_config = Config({
+    'tensorboard': {
+        'folder': '~/Temp/cartpole'
+    }
+})
+
+cartpole_session_config.extend(LOCAL_SESSION_CONFIG)

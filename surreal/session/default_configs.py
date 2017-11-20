@@ -26,40 +26,39 @@ BASE_ENV_CONFIG = {
 
 # ======================== Session side ========================
 BASE_SESSION_CONFIG = {
-    'redis': {
-        'replay': {
-            'name': 'replay',
-            'host': '_str_',
-            'port': '_int_',
-        },
-        'ps': {
-            'name': 'ps',
-            'host': '_str_',
-            'port': '_int_',
-        },
+    'replay': {
+        'name': 'replay',
+        'host': '_str_',
+        'port': '_int_',
     },
-    'log': {
-        'file_name': None,
-        'file_mode': 'w',
-        'time_format': None,
-        'print_level': 'INFO',
-        'stream': 'out',
+    'ps': {
+        'name': 'ps',
+        'host': '_str_',
+        'port': '_int_',
+    },
+    'tensorboard': {
+        'host': '_str_',
+        'port': '_int_',
+        'folder': '_str_',
+        'overwrite': False,
+        'debug': False,
     },
 }
 
 
 LOCAL_SESSION_CONFIG = {
-    'redis': {
-        'replay': {
-            'name': 'replay',
-            'host': 'localhost',
-            'port': 6379,
-        },
-        'ps': {
-            'name': 'ps',
-            'host': 'localhost',
-            'port': 6379,
-        },
+    'replay': {
+        'host': 'localhost',
+        'port': 6379,
+    },
+    'ps': {
+        'host': 'localhost',
+        'port': 6380,
+    },
+    'tensorboard': {
+        'host': 'localhost',
+        'port': 6381,
+        'folder': '_str_',
     },
 }
 

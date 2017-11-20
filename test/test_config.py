@@ -314,3 +314,60 @@ def test_vanilla():
         }
     })
 
+
+def test_abstract_extend():
+    "where the extended dict may also contain _special_"
+    default_config = Config({
+        'replay': {
+            'host': '_str_',
+            'port': '_int_',
+        },
+        'obs_spec': {
+            'type': '_enum[continuous,discrete]_',
+            'dim': '_list_'
+        }
+    })
+
+    my_config = Config({
+        'replay': {
+            'host': 'localhost',
+            'port': '_int_',
+        },
+        'obs_spec': {
+            'type': '_enum[continuous,discrete]_',
+            'dim': '_list_',
+            'extra': '_float_'
+        }
+    })
+    gold_config = Config(my_config)
+    my_config.extend(default_config)
+
+    # Now my_config will be filled by the defaults:
+    assert my_config == gold_config
+
+    my_config = Config({
+        'replay': {
+            'host': 'localhost',
+            'port': '_dict_',  # wrong
+        },
+        'obs_spec': {
+            'type': '_enum[continuous,discrete]_',
+            'dim': '_list_',
+            'extra': '_float_'
+        }
+    })
+    with pytest_print_raises(ConfigError):
+        my_config.extend(default_config)
+
+    my_config = Config({
+        'replay': {
+            'host': 'localhost',
+            'port': '_int_',
+        },
+        'obs_spec': {
+            'type': '_enum[continuous,discrete]_',
+            # missing dim
+        }
+    })
+    with pytest_print_raises(ConfigError):
+        my_config.extend(default_config)

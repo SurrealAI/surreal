@@ -14,8 +14,15 @@ class QAgent(Agent):
                  learn_config,
                  env_config,
                  session_config,
+                 agent_id,
                  agent_mode):
-        super().__init__(learn_config, env_config, session_config, agent_mode)
+        super().__init__(
+            learn_config=learn_config,
+            env_config=env_config,
+            session_config=session_config,
+            agent_id=agent_id,
+            agent_mode=agent_mode,
+        )
         self.q_func, self.action_dim = build_ffqfunc(
             self.learn_config,
             self.env_config

@@ -20,6 +20,7 @@ q_agent = QAgent(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config,
+    agent_id=1,
     agent_mode=AgentMode.training,
 )
 
