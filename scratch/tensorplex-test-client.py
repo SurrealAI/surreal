@@ -4,17 +4,21 @@ import sys
 import threading
 import math
 import gym
-from visual_logger import TensorboardWrapper, TensorboardMonitor
+from monitorEnv import TensorboardWrapper
 
 class EnvThread (threading.Thread):
-    def __init__(self, groupID, plotID):
+    def __init__(self, setID, groupID):
         threading.Thread.__init__(self)
         env = gym.make("PongNoFrameskip-v4")
-        self.env = TensorboardWrapper(env, 'localhost', groupID, plotID)
+        self.env = TensorboardWrapper(env, setID, groupID)
+
+        self.setID = setID
+        self.groupID = groupID
 
     def run(self):
         print("started routine")
-        for _ in range(5):
+        for eps in range(10):
+            print("Thread_{}_{} running episode {}".format(self.setID, self.groupID, eps + 1))
             self.run_env()
         print("finished routine")
 
@@ -27,17 +31,13 @@ class EnvThread (threading.Thread):
 
 
 if __name__ == '__main__':
-    
-    # initializing experiments
-    TensorboardMonitor.build_experiments('localhost', num_plots_per_group=2)
-
-
     # and then initialize agent threads
     threads = []
     for i in range(6):
-        plotID = i // 3
+        setID = i // 3
         groupID = i % 3
-        env_thread = EnvThread(groupID, plotID)
+        # 2 sets, 3 groups. total 6 plots
+        env_thread = EnvThread(setID, groupID)
         threads.append(env_thread)
 
     for i in range(6):
@@ -45,12 +45,6 @@ if __name__ == '__main__':
 
     for t in threads:
         t.join()
-
-    # example usage of learner side
-    tb = TensorboardMonitor('localhost')
-    for i in range(100): 
-        tb.add_scalar_values(['val1', 'val2', 'val3'], [i, 2* i, 3*i])
-
 
 
 
