@@ -1,7 +1,7 @@
 from .tmux_runner import TmuxRunner
 from .config import Config
 import time
-import collections
+from collections import OrderedDict
 
 
 class TmuxCluster(object):
@@ -167,21 +167,21 @@ class TmuxCluster(object):
             window: get specific window. None for all windows.
                 If group is None, window must also be None.
         Returns:
-            stdout string if both `group` and `window` are specified.
-            else OrderedDict({"session:window": "pane stdout"})
+            OrderedDict({"session:window": "pane stdout"})
             pane stdout captures only the visible part unless you specify history
         """
         if group is None:
             assert window is None
         else:
             group = self._session_group(group)
-        if group and window:
-            stdout = self._tmux.get_stdout(group, str(window), history=history)
-            return '\n'.join(stdout)
+        if window:
+            window = str(window)
 
-        outdict = collections.OrderedDict()
+        outdict = OrderedDict()
         for sess, win in self._iterate_all_windows():
             if group and group != sess:
+                continue
+            if window and window != win:
                 continue
             stdout = self._tmux.get_stdout(sess, win, history=history)
             assert isinstance(stdout, list)  # list of lines
@@ -193,7 +193,7 @@ class TmuxCluster(object):
         Returns:
             OrderedDict({"session:window": "error-message"})
         """
-        outdict = collections.OrderedDict()
+        outdict = OrderedDict()
         for sess, win in self._iterate_all_windows():
             err = self._tmux.check_error(sess, win)
             if err:

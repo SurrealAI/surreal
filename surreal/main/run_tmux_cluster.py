@@ -12,26 +12,30 @@ cluster = TmuxCluster(
     dry_run=0,
 )
 
-
-i=1
-if i==0:
-    cluster.launch(
-        agent_names=list(range(5)),
-        agent_args=['yo'+str(i) for i in range(10, 15)],
-    )
-elif i==1:
+def get_stdout(group, window, history):
     for win, out in cluster.get_stdout(
-        group='redis',
-        window=None,
-        history=0
+            group=group,
+            window=window,
+            history=history
     ).items():
         print('='*20, win, '='*20)
         print(out)
-    print(cluster.get_stdout(group='agent', window=1, history=350))
+
+i=1
+if i==0:
+    N = range(0, 5)
+    cluster.launch(
+        agent_names=['yo'+str(i) for i in N],
+        agent_args=[str(i) for i in N],
+    )
+elif i==1:
+    get_stdout('redis', None, 0)
+    get_stdout('agent', 'yo2', 40)
 elif i==2:
+    N = range(5, 10)
     cluster.add_agents(
-        agent_names=list(range(10,35)),
-        agent_args=['yo'+str(i) for i in range(20, 45)],
+        agent_names=['yo'+str(i) for i in N],
+        agent_args=[str(i) for i in N],
     )
 elif i==3:
     cluster.kill_agents(

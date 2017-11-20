@@ -10,9 +10,9 @@ from surreal.main.cartpole_configs import *
 
 
 if len(sys.argv) == 2:
-    agent_id = sys.argv[1]
+    agent_id = int(sys.argv[1])
 else:
-    agent_id = 'debug'
+    agent_id = 0
 
 env = GymAdapter(gym.make('CartPole-v0'))
 env = ExpSenderWrapper(

@@ -27,6 +27,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self.learn_config = extend_config(learn_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
+        U.assert_type(agent_id, int)
         self.agent_name = 'agent-{}'.format(agent_id)
         self.agent_mode = AgentMode[agent_mode]
         self.log = LoggerplexClient(
