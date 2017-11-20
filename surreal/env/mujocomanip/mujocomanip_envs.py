@@ -18,3 +18,4 @@ class SurrealSawyerStackEnv(SawyerStackEnv, Env):
     def _reset(self):
         return super()._reset(), {}
 
+# TODO: add error checks for stuff like action spec
