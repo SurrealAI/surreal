@@ -225,7 +225,7 @@ class TmuxCluster(object):
         """
         outdict = OrderedDict()
         for sess, win in self._iterate_all_windows():
-            err = self._tmux.check_error(sess, win)
+            err = self._tmux.check_error(sess, win, history=100)
             if err:
                 outdict['{}:{}'.format(sess, win)] = err
         return outdict

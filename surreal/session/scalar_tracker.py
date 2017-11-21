@@ -3,7 +3,7 @@ class PeriodicTracker(object):
         """
         first: if True, triggers at the first time
         """
-        assert isinstance(period, int)
+        assert isinstance(period, int) and period > 0
         assert isinstance(init_value, int)
         self.period = period
         self.value = init_value

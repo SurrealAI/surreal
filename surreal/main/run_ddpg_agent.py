@@ -45,7 +45,7 @@ for T in itertools.count():
             info_table = []
             avg_reward = np.mean(env.get_episode_rewards()[-10:])
             info_table.append(['Last 10 rewards', U.fformat(avg_reward, 3)])
-            avg_speed = 1 / (float(np.mean(env.get_episode_times()[-10:])) + 1e-6)
+            avg_speed = 1 / (float(np.mean(env.get_episode_duration()[-10:])) + 1e-6)
             info_table.append(['Speed iter/s', U.fformat(avg_speed, 1)])
             info_table.append(['Total steps', env.get_total_steps()])
             info_table.append(['Episodes', len(env.get_episode_rewards())])

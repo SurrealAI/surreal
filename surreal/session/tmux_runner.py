@@ -117,7 +117,7 @@ class TmuxRunner(object):
             cmd += ['-S', str(-abs(history))]
         return pane.cmd(*cmd).stdout
 
-    def check_error(self, session_name, window_name):
+    def check_error(self, session_name, window_name, history=0):
         """
         Implements a very crude and not very reliable way to detect exception.
 
@@ -130,7 +130,7 @@ class TmuxRunner(object):
             False: if the *visible* pane does not show Traceback
             None: if the window doesn't exist
         """
-        stdout = self.get_stdout(session_name, window_name)
+        stdout = self.get_stdout(session_name, window_name, history=history)
         if stdout is None:
             return None
         for i, line in enumerate(stdout):

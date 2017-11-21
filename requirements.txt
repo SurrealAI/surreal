@@ -4,7 +4,6 @@ gym
 libtmux
 mujoco_py==0.5.7
 numpy
-pandas
 redis
 seaborn
 tabulate

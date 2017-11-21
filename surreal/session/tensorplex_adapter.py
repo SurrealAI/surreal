@@ -1,4 +1,6 @@
 import surreal.utils as U
+from .config import Config
+from .default_configs import BASE_SESSION_CONFIG
 from tensorplex import TensorplexClient, LoggerplexClient
 
 
@@ -12,20 +14,22 @@ NONAGENT_GROUP_NAME = 'stats'
 
 class Loggerplex(LoggerplexClient):
     def __init__(self, name, session_config):
+        C = Config(session_config).extend(BASE_SESSION_CONFIG)
         super().__init__(
             name,
-            host=session_config['tensorplex']['host'],
-            port=session_config['tensorplex']['port'],
+            host=C.tensorplex.host,
+            port=C.tensorplex.port
         )
 
 
 class AgentTensorplex(TensorplexClient):
     def __init__(self, agent_id, session_config):
         U.assert_type(agent_id, int)
+        C = Config(session_config).extend(BASE_SESSION_CONFIG)
         super().__init__(
             '{}/{}'.format(AGENT_GROUP_NAME, agent_id),
-            host=session_config['tensorplex']['host'],
-            port=session_config['tensorplex']['port'],
+            host=C.tensorplex.host,
+            port=C.tensorplex.port
         )
 
 
@@ -35,8 +39,9 @@ class StatsTensorplex(TensorplexClient):
         Args:
             section_name: will show up on Tensorboard as a separate section
         """
+        C = Config(session_config).extend(BASE_SESSION_CONFIG)
         super().__init__(
             '{}/{}'.format(NONAGENT_GROUP_NAME, section_name),
-            host=session_config['tensorplex']['host'],
-            port=session_config['tensorplex']['port'],
+            host=C.tensorplex.host,
+            port=C.tensorplex.port
         )

@@ -1,5 +1,7 @@
+import surreal.utils as U
 from surreal.session import TmuxCluster
 from surreal.main.cartpole_configs import cartpole_session_config
+from collections import OrderedDict
 import pprint
 
 
@@ -22,17 +24,18 @@ def get_stdout(group, window, history):
         print(out)
 
 i=0
+
 if i==0:
-    N = range(0, 5)
+    N = range(0, 35)
     cluster.launch(
         agent_names=['yo'+str(i) for i in N],
         agent_args=[str(i) for i in N],
     )
 elif i==1:
-    get_stdout('redis', None, 0)
+    get_stdout('infras', None, 0)
     get_stdout('agent', 'yo2', 40)
 elif i==2:
-    N = range(5, 10)
+    N = range(5, 35)
     cluster.add_agents(
         agent_names=['yo'+str(i) for i in N],
         agent_args=[str(i) for i in N],
@@ -43,6 +46,7 @@ elif i==3:
     )
 elif i==4:
     cluster.killall()
+    U.f_remove('~/Temp/cartpole')
 elif i==5:
     for win, out in cluster.check_error().items():
         print('='*20, win, '='*20)

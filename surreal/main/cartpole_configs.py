@@ -56,6 +56,8 @@ cartpole_env_config = {
 cartpole_session_config = Config({
     'tensorplex': {
         'folder': '~/Temp/cartpole',
+        'average_episodes': 50,
+        'interval_episodes': 50
     }
 })
 
