@@ -1,6 +1,9 @@
 from .tmux_runner import TmuxRunner
 from .config import Config
+from .default_configs import BASE_SESSION_CONFIG
 import time
+import json
+import shlex
 from collections import OrderedDict
 
 
@@ -10,11 +13,16 @@ class TmuxCluster(object):
     1. Redis replay server
     2. Redis parameter server
     3. Redis tensorplex/loggerplex server
-    4. Learner
-    5. Evaluator (=None to skip evaluation)
-    6. Tensorboard
-    7. Army of agents
+    4. Loggerplex (distributed logging server script)
+    5. Tensorplex (distributed tensorplex server script)
+    6. Tensorboard, `tensorboard --logdir . --port <tb_port>`
+    7. Learner
+    8. Evaluator (=None to skip evaluation)
+    9. Army of agents
     """
+    LOGGERPLEX_SCRIPT = 'surreal.session.run_loggerplex_server'
+    TENSORPLEX_SCRIPT = 'surreal.session.run_tensorplex_server'
+
     def __init__(self, *,
                  cluster_name,
                  session_config,
@@ -36,14 +44,15 @@ class TmuxCluster(object):
                     '--explore strat3 --id 22'  # or simply a long string
                 ]
         """
-        self.config = Config(session_config)
+        self.config = Config(session_config).extend(BASE_SESSION_CONFIG)
+        # self.max_num_agents = self.config.tensorplex.num_agents
         self.agent_cmd = self._get_python_cmd(agent_script)
         self.learner_cmd = self._get_python_cmd(learner_script)
         if evaluator_script is None:
             self.evaluator_cmd = None
         else:
             self.evaluator_cmd = self._get_python_cmd(evaluator_script)
-        self.redis_session = 'redis-' + cluster_name
+        self.infras_session = 'infras-' + cluster_name
         self.agent_session = 'agent-' + cluster_name
         self.learner_session = 'learner-' + cluster_name
         self._tmux = TmuxRunner(
@@ -53,7 +62,7 @@ class TmuxCluster(object):
         )
 
     def _get_python_cmd(self, python_script):
-        if ' python ' in python_script:
+        if python_script.startswith('python'):
             return python_script  # already a command
         if not python_script.endswith('.py') and '/' in python_script:
             raise ValueError('Ill-formed python script ' + python_script +
@@ -87,11 +96,11 @@ class TmuxCluster(object):
         return agent_names, agent_args
 
     def _session_group(self, group):
-        assert group in ['agent', 'learner', 'redis']
+        assert group in ['agent', 'learner', 'infras']
         return {
             'agent': self.agent_session,
             'learner': self.learner_session,
-            'redis': self.redis_session
+            'infras': self.infras_session
         }[group]
 
     def is_launched(self, group):
@@ -100,19 +109,47 @@ class TmuxCluster(object):
     def running_agents(self):
         return self._tmux.list_window_names(self.agent_session)
 
+    # def _check_max_agent_limit(self):
+    #     assert len(self.running_agents()) <= self.max_num_agents, \
+    #         'Cannot run more than {} agents, specified in session_config' \
+    #             .format(self.max_num_agents)
+
+    def _get_tensorplex_cmd(self, script):
+        script = self._get_python_cmd(script)
+        # dump config to JSON as command line arg
+        return script + ' ' + shlex.quote(json.dumps(self.config))
+
     def launch(self, agent_names, agent_args):
-        # Redis session
-        if not self.is_launched('redis'):
+        # Infrastructure session
+        if not self.is_launched('infras'):
             for window_name, port in [
                 (self.config.replay.name, self.config.replay.port),
                 (self.config.ps.name, self.config.ps.port),
-                ('tensorplex', self.config.tensorplex.port),
+                ('plex', self.config.tensorplex.port),
             ]:
                 self._tmux.run(
-                    session_name=self.redis_session,
-                    window_name=window_name,
+                    session_name=self.infras_session,
+                    window_name='redis-'+window_name,
                     cmd='redis-server --port {} --protected-mode no'.format(port)
                 )
+            self._tmux.run(
+                session_name=self.infras_session,
+                window_name='loggerplex',
+                cmd=self._get_tensorplex_cmd(self.LOGGERPLEX_SCRIPT)
+            )
+            self._tmux.run(
+                session_name=self.infras_session,
+                window_name='tensorplex',
+                cmd=self._get_tensorplex_cmd(self.TENSORPLEX_SCRIPT)
+            )
+            self._tmux.run(
+                session_name=self.infras_session,
+                window_name='tensorboard',
+                cmd='tensorboard --logdir {} --port {}'.format(
+                    self.config.tensorplex.folder,
+                    self.config.tensorplex.tb_port
+                )
+            )
         # Learner session
         if not self.is_launched('learner'):
             self._tmux.run(
@@ -126,7 +163,6 @@ class TmuxCluster(object):
                     window_name='evaluator',
                     cmd=self.evaluator_cmd
                 )
-            # TODO launch tensorboard
         # Agent session
         if not self.is_launched('agent'):
             self.add_agents(agent_names, agent_args)
@@ -156,7 +192,7 @@ class TmuxCluster(object):
     def _iterate_all_windows(self):
         for sess in [self.agent_session,
                      self.learner_session,
-                     self.redis_session]:
+                     self.infras_session]:
             for win in self._tmux.list_window_names(sess):
                 yield sess, win
 
@@ -200,12 +236,8 @@ class TmuxCluster(object):
                 outdict['{}:{}'.format(sess, win)] = err
         return outdict
 
-    @property
-    def num_agents(self):
-        return len(self.agent_names)
-
     def killall(self):
         self._tmux.kill(self.agent_session)
         self._tmux.kill(self.learner_session)
-        self._tmux.kill(self.redis_session)
+        self._tmux.kill(self.infras_session)
 

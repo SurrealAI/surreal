@@ -37,11 +37,14 @@ BASE_SESSION_CONFIG = {
         'port': '_int_',
     },
     'tensorplex': {
+        'folder': '_str_',
         'host': '_str_',
         'port': '_int_',
-        'folder': '_str_',
-        'overwrite': False,
-        'debug': False,
+        'tb_port': '_int_',  # tensorboard port
+        'log_overwrite': False,
+        'log_debug': False,
+        'num_agents': '_int_',
+        'agent_bin_size': 8,
     },
 }
 
@@ -56,9 +59,11 @@ LOCAL_SESSION_CONFIG = {
         'port': 6380,
     },
     'tensorplex': {
+        'folder': '_str_',
         'host': 'localhost',
         'port': 6381,
-        'folder': '_str_',
+        'tb_port': 8060,
+        'num_agents': '_int_',
     },
 }
 

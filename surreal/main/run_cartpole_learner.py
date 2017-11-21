@@ -13,11 +13,6 @@ for server in ['replay', 'ps', 'tensorplex']:
     ).flushall()
 
 
-def debug_td_error(td_error):
-    raw_loss = U.huber_loss_per_element(td_error)
-    print(U.to_scalar(torch.mean(raw_loss)))
-
-
 replay = UniformReplay(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
@@ -28,8 +23,12 @@ dqn = DQNLearner(
     env_config=cartpole_env_config,
     session_config=cartpole_session_config
 )
+
+tensorplex = dqn.tensorplex
 for i, batch in enumerate(replay.sample_iterator()):
     td_error = dqn.learn(batch)
-    debug_td_error(td_error)
+    if i % 20 == 0:
+        mean_td_error = U.to_scalar(torch.mean(torch.abs(td_error)))
+        tensorplex.add_scalar('mean_td_error', mean_td_error, i)
     dqn.push_parameters(i, message='batch '+str(i))
 

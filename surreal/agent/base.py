@@ -2,10 +2,9 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from surreal.session import (extend_config,
+from surreal.session import (Loggerplex, AgentTensorplex, extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed import RedisClient, ParameterServer
-from tensorplex.loggerplex import LoggerplexClient
 
 
 class AgentMode(U.StringEnum):
@@ -30,14 +29,17 @@ class Agent(metaclass=U.AutoInitializeMeta):
         U.assert_type(agent_id, int)
         self.agent_name = 'agent-{}'.format(agent_id)
         self.agent_mode = AgentMode[agent_mode]
-        self.log = LoggerplexClient(
-            client_id=self.agent_name,
-            host=self.session_config.tensorplex.host,
-            port=self.session_config.tensorplex.port
-        )
         self._client = RedisClient(
             host=self.session_config.ps.host,
             port=self.session_config.ps.port
+        )
+        self.log = Loggerplex(
+            name=self.agent_name,
+            session_config=self.session_config
+        )
+        self.tensorplex = AgentTensorplex(
+            agent_id=agent_id,
+            session_config=self.session_config
         )
 
     def _initialize(self):

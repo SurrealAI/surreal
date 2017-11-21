@@ -7,9 +7,8 @@ from surreal.distributed import RedisClient
 from surreal.distributed.obs_fetch_queue import ObsFetchQueue
 from surreal.distributed.exp_queue import ExpQueue
 from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
-from surreal.session import (Config, extend_config,
+from surreal.session import (Loggerplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
-from tensorplex.loggerplex import LoggerplexClient
 from .aggregator import torch_aggregate
 
 
@@ -65,10 +64,9 @@ class Replay(metaclass=U.AutoInitializeMeta):
             host=self.session_config.replay.host,
             port=self.session_config.replay.port
         )
-        self.log = LoggerplexClient(
-            client_id='replay',
-            host=self.session_config.tensorplex.host,
-            port=self.session_config.tensorplex.port
+        self.log = Loggerplex(
+            name='replay',
+            session_config=self.session_config
         )
         self._exp_queue = ExpQueue(
             redis_client=self._client,

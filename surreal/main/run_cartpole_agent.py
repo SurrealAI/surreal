@@ -30,6 +30,8 @@ q_agent = QAgent(
     agent_mode=AgentMode.training,
 )
 
+tensorplex = q_agent.tensorplex
+
 info_print = PeriodicTracker(100)
 
 obs, info = env.reset()
@@ -40,6 +42,12 @@ for T in itertools.count():
     if done:
         # print(q_agent.pull_parameter_info())
         obs, info = env.reset()
+        eps_rewards = env.get_episode_rewards()
+        num_eps = len(env.get_episode_rewards())
+        tensorplex.add_scalar('reward', eps_rewards[-1], num_eps)
+        avg_speed = 1 / (float(np.mean(env.get_episode_times()[-10:])) + 1e-6)
+        tensorplex.add_scalar('iter_per_s', avg_speed, num_eps)
+
         if info_print.track_increment():
             # book-keeping, TODO should be done in Evaluator
             info_table = []

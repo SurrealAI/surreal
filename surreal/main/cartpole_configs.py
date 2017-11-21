@@ -55,7 +55,8 @@ cartpole_env_config = {
 
 cartpole_session_config = Config({
     'tensorplex': {
-        'folder': '~/Temp/cartpole'
+        'folder': '~/Temp/cartpole',
+        'num_agents': 16,
     }
 })
 

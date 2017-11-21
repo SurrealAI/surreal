@@ -5,7 +5,7 @@ import surreal.utils as U
 from surreal.session import (extend_config,
                      BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed import RedisClient, ParameterServer
-from tensorplex.loggerplex import LoggerplexClient
+from surreal.session import StatsTensorplex, Loggerplex
 
 
 class Learner(metaclass=U.AutoInitializeMeta):
@@ -28,10 +28,13 @@ class Learner(metaclass=U.AutoInitializeMeta):
             host=self.session_config.ps.host,
             port=self.session_config.ps.port
         )
-        self.log = LoggerplexClient(
-            client_id='learner',
-            host=self.session_config.tensorplex.host,
-            port=self.session_config.tensorplex.port
+        self.log = Loggerplex(
+            name='learner',
+            session_config=self.session_config
+        )
+        self.tensorplex = StatsTensorplex(
+            section_name='learning',
+            session_config=self.session_config
         )
 
     def _initialize(self):
