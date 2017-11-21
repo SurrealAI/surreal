@@ -45,7 +45,6 @@ class TmuxCluster(object):
                 ]
         """
         self.config = Config(session_config).extend(BASE_SESSION_CONFIG)
-        # self.max_num_agents = self.config.tensorplex.num_agents
         self.agent_cmd = self._get_python_cmd(agent_script)
         self.learner_cmd = self._get_python_cmd(learner_script)
         if evaluator_script is None:
@@ -106,13 +105,8 @@ class TmuxCluster(object):
     def is_launched(self, group):
         return self._session_group(group) in self._tmux.list_session_names()
 
-    def running_agents(self):
+    def get_running_agents(self):
         return self._tmux.list_window_names(self.agent_session)
-
-    # def _check_max_agent_limit(self):
-    #     assert len(self.running_agents()) <= self.max_num_agents, \
-    #         'Cannot run more than {} agents, specified in session_config' \
-    #             .format(self.max_num_agents)
 
     def _get_tensorplex_cmd(self, script):
         script = self._get_python_cmd(script)
@@ -172,7 +166,7 @@ class TmuxCluster(object):
             agent_names, agent_args
         )
         # should not duplicate agent name
-        assert not (set(self.running_agents()) & set(agent_names)), \
+        assert not (set(self.get_running_agents()) & set(agent_names)), \
             'some agents already running, cannot launch duplicates.'
         for agent_name, args in zip(agent_names, agent_args):
             self._tmux.run(

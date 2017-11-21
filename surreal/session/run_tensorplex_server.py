@@ -4,7 +4,7 @@ Only 1 command line arg: JSON string of session_config
 import os
 import sys
 import json
-from tensorplex import TensorplexServer, NumberedGroup
+from tensorplex import TensorplexServer
 from surreal.session.config import Config
 from surreal.session.tensorplex_adapter import (
     AGENT_GROUP_NAME, NONAGENT_GROUP_NAME
@@ -20,9 +20,8 @@ config = config.tensorplex
 tensorplex = TensorplexServer(
     config.folder,
     normal_groups=[NONAGENT_GROUP_NAME],
-    numbered_groups=[NumberedGroup(name=AGENT_GROUP_NAME,
-                                   N=config.num_agents,
-                                   bin_size=config.agent_bin_size)]
+    indexed_groups=[AGENT_GROUP_NAME],
+    index_bin_sizes=[config.agent_bin_size],
 )
 tensorplex.start_server(
     host=config.host,

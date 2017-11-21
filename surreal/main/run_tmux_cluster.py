@@ -21,7 +21,7 @@ def get_stdout(group, window, history):
         print('='*20, win, '='*20)
         print(out)
 
-i=5
+i=0
 if i==0:
     N = range(0, 5)
     cluster.launch(
