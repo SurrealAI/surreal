@@ -140,7 +140,7 @@ class TmuxCluster(object):
                 session_name=self.infras_session,
                 window_name='tensorboard',
                 cmd='tensorboard --logdir {} --port {}'.format(
-                    self.config.tensorplex.folder,
+                    self.config.folder,
                     self.config.tensorplex.tb_port
                 )
             )
@@ -190,6 +190,15 @@ class TmuxCluster(object):
             for win in self._tmux.list_window_names(sess):
                 yield sess, win
 
+    def list_windows(self):
+        windict = OrderedDict()
+        for sess, win in self._iterate_all_windows():
+            if sess in windict:
+                windict[sess].append(win)
+            else:
+                windict[sess] = [win]
+        return windict
+
     def get_stdout(self, group=None, window=None, history=0):
         """
         Args:
@@ -218,6 +227,22 @@ class TmuxCluster(object):
             outdict['{}:{}'.format(sess, win)] = '\n'.join(stdout)
         return outdict
 
+    def print_stdout(self, group=None, window=None, history=0, sep='='):
+        """
+        Args:
+            group:
+            window:
+            history:
+            sep: separator symbol "=" in "====== <win name> ======"
+        """
+        for win, out in self.get_stdout(
+                group=group,
+                window=window,
+                history=history
+        ).items():
+            print(sep*20, win, sep*20)
+            print(out)
+
     def check_error(self):
         """
         Returns:
@@ -229,6 +254,15 @@ class TmuxCluster(object):
             if err:
                 outdict['{}:{}'.format(sess, win)] = err
         return outdict
+
+    def print_error(self, sep='='):
+        errdict = self.check_error()
+        if len(errdict) == 0:
+            print('No error found in cluster.')
+        else:
+            for win, out in errdict.items():
+                print(sep*20, win, sep*20)
+                print(out)
 
     def killall(self):
         self._tmux.kill(self.agent_session)

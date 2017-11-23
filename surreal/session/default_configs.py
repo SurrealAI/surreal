@@ -26,6 +26,8 @@ BASE_ENV_CONFIG = {
 
 # ======================== Session side ========================
 BASE_SESSION_CONFIG = {
+    'folder': '_str_',
+
     'replay': {
         'name': 'replay',
         'host': '_str_',
@@ -37,7 +39,6 @@ BASE_SESSION_CONFIG = {
         'port': '_int_',
     },
     'tensorplex': {
-        'folder': '_str_',
         'host': '_str_',
         'port': '_int_',
         'tb_port': '_int_',  # tensorboard port
@@ -51,6 +52,8 @@ BASE_SESSION_CONFIG = {
 
 
 LOCAL_SESSION_CONFIG = {
+    'folder': '_str_',
+
     'replay': {
         'host': 'localhost',
         'port': 6379,
@@ -60,10 +63,9 @@ LOCAL_SESSION_CONFIG = {
         'port': 6380,
     },
     'tensorplex': {
-        'folder': '_str_',
         'host': 'localhost',
         'port': 6381,
-        'tb_port': 8060,
+        'tb_port': 6006,
         'interval_episodes': 10,
         'average_episodes': 10,
     },

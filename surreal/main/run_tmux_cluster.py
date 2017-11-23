@@ -14,26 +14,17 @@ cluster = TmuxCluster(
     dry_run=0,
 )
 
-def get_stdout(group, window, history):
-    for win, out in cluster.get_stdout(
-            group=group,
-            window=window,
-            history=history
-    ).items():
-        print('='*20, win, '='*20)
-        print(out)
-
 i=0
 
 if i==0:
-    N = range(0, 35)
+    N = range(0, 16)
     cluster.launch(
         agent_names=['yo'+str(i) for i in N],
         agent_args=[str(i) for i in N],
     )
 elif i==1:
-    get_stdout('infras', None, 0)
-    get_stdout('agent', 'yo2', 40)
+    cluster.print_stdout('infras', None, 0)
+    cluster.print_stdout('agent', 'yo2', 40)
 elif i==2:
     N = range(5, 35)
     cluster.add_agents(
@@ -48,6 +39,4 @@ elif i==4:
     cluster.killall()
     U.f_remove('~/Temp/cartpole')
 elif i==5:
-    for win, out in cluster.check_error().items():
-        print('='*20, win, '='*20)
-        print(out)
+    cluster.print_error()

@@ -11,11 +11,12 @@ from surreal.session.default_configs import BASE_SESSION_CONFIG
 
 config = Config(json.loads(sys.argv[1]))
 config.extend(BASE_SESSION_CONFIG)
+folder = config.folder
 config = config.tensorplex
 
 
 loggerplex = LoggerplexServer(
-    os.path.join(config.folder, 'log'),
+    os.path.join(folder, 'log'),
     overwrite=config.log_overwrite,
     debug=config.log_debug
 )

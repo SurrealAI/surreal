@@ -29,6 +29,21 @@ def assert_type(x, expected_type, message=''):
     )
 
 
+def pprint(*objs, h='', **kwargs):
+    """
+    Args:
+      *objs: objects to be pretty-printed
+      h: header string
+      **kwargs: other kwargs to pass on to ``pprint()``
+    """
+    if h:
+        print('=' * 20, h, '=' * 20)
+    for obj in objs:
+        print(pprint.pformat(obj, indent=4, **kwargs))
+    if h:
+        print('=' * (42 + len(h)))
+
+
 class _GetItemEnumMeta(EnumMeta):
     """
     Hijack the __getitem__ method from metaclass, because subclass cannot
