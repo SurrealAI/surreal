@@ -5,6 +5,7 @@ import time
 import json
 import shlex
 from collections import OrderedDict
+import surreal.utils as U
 
 
 class TmuxCluster(object):
@@ -74,8 +75,8 @@ class TmuxCluster(object):
             return 'python -u -m ' + python_script
 
     def _get_agent_info(self, agent_names, agent_args_):
-        assert isinstance(agent_names, list)
-        assert isinstance(agent_args_, list)
+        U.assert_type(agent_names, list)
+        U.assert_type(agent_args_, list)
         agent_names = [str(_name) for _name in agent_names]
         assert len(agent_names) == len(set(agent_names)), \
             'must not duplicate agent names'
@@ -190,6 +191,20 @@ class TmuxCluster(object):
             for win in self._tmux.list_window_names(sess):
                 yield sess, win
 
+    def _iterated_filtered_windows(self, group=None, window=None):
+        if group is None:
+            assert window is None, \
+                'when group is specified, window should be left as None'
+            yield from self._iterate_all_windows()
+        else:
+            sess = self._session_group(group)
+            if window is None:
+                for win in self._tmux.list_window_names(sess):
+                    yield sess, win
+            else:
+                window = str(window)
+                yield sess, window  # just one iteration
+
     def list_windows(self):
         windict = OrderedDict()
         for sess, win in self._iterate_all_windows():
@@ -202,28 +217,17 @@ class TmuxCluster(object):
     def get_stdout(self, group=None, window=None, history=0):
         """
         Args:
-            group: [agent, learner, tensorplex] None for all
+            group: [agent, learner, infras] None for all
             window: get specific window. None for all windows.
                 If group is None, window must also be None.
         Returns:
             OrderedDict({"session:window": "pane stdout"})
             pane stdout captures only the visible part unless you specify history
         """
-        if group is None:
-            assert window is None
-        else:
-            group = self._session_group(group)
-        if window:
-            window = str(window)
-
         outdict = OrderedDict()
-        for sess, win in self._iterate_all_windows():
-            if group and group != sess:
-                continue
-            if window and window != win:
-                continue
+        for sess, win in self._iterated_filtered_windows(group, window):
             stdout = self._tmux.get_stdout(sess, win, history=history)
-            assert isinstance(stdout, list)  # list of lines
+            U.assert_type(stdout, list)  # internal
             outdict['{}:{}'.format(sess, win)] = '\n'.join(stdout)
         return outdict
 
@@ -243,22 +247,31 @@ class TmuxCluster(object):
             print(sep*20, win, sep*20)
             print(out)
 
-    def check_error(self):
+    def check_error(self, group=None, window=None):
         """
+        For group and window semantics, refer to `get_stdout`
+
         Returns:
             OrderedDict({"session:window": "error-message"})
         """
         outdict = OrderedDict()
-        for sess, win in self._iterate_all_windows():
+        for sess, win in self._iterated_filtered_windows(group, window):
             err = self._tmux.check_error(sess, win, history=100)
             if err:
                 outdict['{}:{}'.format(sess, win)] = err
         return outdict
 
-    def print_error(self, sep='='):
-        errdict = self.check_error()
+    def print_error(self, group=None, window=None, sep='='):
+        errdict = self.check_error(group, window)
         if len(errdict) == 0:
-            print('No error found in cluster.')
+            if group is None and window is None:
+                print('No error found in cluster.')
+            elif window is None:
+                print('No error found in group "{}" (tmux session "{}").'
+                      .format(group, self._session_group(group)))
+            else:
+                print('No error found in "{}:{}" window'
+                      .format(self._session_group(group), window))
         else:
             for win, out in errdict.items():
                 print(sep*20, win, sep*20)

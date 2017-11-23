@@ -110,7 +110,7 @@ class TmuxRunner(object):
         """
         window = self.get_window(session_name, window_name)
         if window is None:
-            return None
+            raise ValueError('window "{}" does not exist'.format(window_name))
         pane = window.attached_pane
         cmd = ['capture-pane', '-p']
         if history != 0:
@@ -131,8 +131,6 @@ class TmuxRunner(object):
             None: if the window doesn't exist
         """
         stdout = self.get_stdout(session_name, window_name, history=history)
-        if stdout is None:
-            return None
         for i, line in enumerate(stdout):
             if line.startswith('Traceback (most recent call last)'):
                 for j in range(i+1, len(stdout)):

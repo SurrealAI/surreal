@@ -90,33 +90,33 @@ def ls():
     return _get_global_cluster().list_windows()
 
 
-def launch(agent_names, agent_args):
+def launch_(agent_names, agent_args):
     _get_global_cluster().launch(
         agent_names=agent_names,
         agent_args=agent_args
     )
 
 
-def launchn(n1, n2=None):
+def launch(n1, n2=None):
     _get_global_cluster().launch(**numbered_agents(n1, n2))
 
 
-def add(agent_names, agent_args):
+def add_(agent_names, agent_args):
     _get_global_cluster().add_agents(
         agent_names=agent_names,
         agent_args=agent_args
     )
 
 
-def addn(n1, n2=None):
+def add(n1, n2=None):
     _get_global_cluster().add_agents(**numbered_agents(n1, n2))
 
 
-def kill(agent_names):
+def kill_(agent_names):
     _get_global_cluster().kill_agents(agent_names)
 
 
-def killn(n1, n2=None):
+def kill(n1, n2=None):
     _get_global_cluster().kill_agents(numbered_agents(n1, n2)['agent_names'])
 
 
@@ -136,8 +136,8 @@ def killall(clean=True):
         print('Experiment folder "{}" removed.'.format(folder))
 
 
-def error():
-    _get_global_cluster().print_error()
+def error(group=None, window=None):
+    _get_global_cluster().print_error(group, window)
 
 
 def stdout(group=None, window=None, history=0):
