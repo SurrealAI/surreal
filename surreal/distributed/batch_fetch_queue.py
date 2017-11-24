@@ -42,7 +42,7 @@ class _EnqueueThread(U.StoppableThread):
                     break
 
 
-class ObsFetchQueue(object):
+class BatchFetchQueue(object):
     def __init__(self, redis_client, maxsize):
         self._queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)

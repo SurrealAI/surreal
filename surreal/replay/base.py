@@ -3,10 +3,8 @@ import threading
 import time
 
 import surreal.utils as U
-from surreal.distributed import RedisClient
-from surreal.distributed.obs_fetch_queue import ObsFetchQueue
-from surreal.distributed.exp_queue import ExpQueue
-from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
+from surreal.distributed import (RedisClient, BatchFetchQueue, ExpQueue,
+                                 incr_ref_count, decr_ref_count)
 from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from .aggregator import torch_aggregate
@@ -109,7 +107,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
             queue_name=self.session_config.replay.name,
             maxsize=self.session_config.replay.local_exp_queue_size,
         )
-        self._obs_fetch_queue = ObsFetchQueue(
+        self._batch_fetch_queue = BatchFetchQueue(
             redis_client=self._client,
             maxsize=self.session_config.replay.local_batch_queue_size,
         )
@@ -211,7 +209,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
     def _wrapped_sample_before_fetch(self):
         """
         Returns:
-            List of exp_dicts with obs_pointers, fed to the ObsFetchQueue
+            List of exp_dicts with obs_pointers, fed to the BatchFetchQueue
             None if start_sample_condition not met
         """
         if self._start_sample_condition():
@@ -268,7 +266,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         self._job_queue.start_thread()
         self._exp_queue.start_enqueue_thread()
         self._exp_queue.start_dequeue_thread(self.insert)
-        self._obs_fetch_queue.start_enqueue_thread(self._sample_before_fetch)
+        self._batch_fetch_queue.start_enqueue_thread(self._sample_before_fetch)
         if self._has_tensorplex:
             self.start_tensorplex_thread()
 
@@ -276,7 +274,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         self._job_queue.stop_thread()
         self._exp_queue.stop_enqueue_thread()
         self._exp_queue.stop_dequeue_thread()
-        self._obs_fetch_queue.stop_enqueue_thread()
+        self._batch_fetch_queue.stop_enqueue_thread()
         if self._has_tensorplex:
             self.stop_tensorplex_thread()
 
@@ -317,7 +315,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         return t
 
     def sample(self):
-        exp_list = self._obs_fetch_queue.dequeue()
+        exp_list = self._batch_fetch_queue.dequeue()
         return self._aggregate_batch(exp_list)
 
     def sample_iterator(self, stop_condition=None):
