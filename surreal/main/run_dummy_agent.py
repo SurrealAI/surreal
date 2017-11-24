@@ -15,8 +15,8 @@ sender = ExpSender(
     client,
     'replay',
     pointers_only=True,
-    save_exp_on_redis=True,
-    obs_cache_size=5
+    remote_save_exp=True,
+    local_obs_cache_size=5
 )
 
 ag = DummyAgent(0)

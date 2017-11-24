@@ -155,6 +155,8 @@ class RedisClient(object):
             values = [values]
         self._client.lpush(queue_name, *values)
 
+    def queue_size(self, queue_name):
+        return self._client.llen(queue_name)
 
     def start_dequeue_thread(self, queue_name, handler):
         """

@@ -20,7 +20,7 @@ C = EasyDict(C)
 
 client = RedisClient()
 client.flushall()
-sender = ExpSender(client, 'replay', obs_cache_size=5)
+sender = ExpSender(client, 'replay', local_obs_cache_size=5)
 
 env = wrap_deepmind(make_atari('Pong'))
 env = EpisodeMonitor(env, filename=None)

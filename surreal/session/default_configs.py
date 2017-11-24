@@ -5,7 +5,6 @@ BASE_LEARN_CONFIG = {
     'model': '_dict_',
     'algo': '_dict_',
     'replay': {
-        'name': 'replay',
         'batch_size': '_int_'
     }
 }
@@ -32,7 +31,15 @@ BASE_SESSION_CONFIG = {
         'name': 'replay',
         'host': '_str_',
         'port': '_int_',
+        'local_batch_queue_size': '_int_',  # max batches to pre-sample
+        'remote_exp_queue_size': '_int_',  # max size of Redis exp queue
+        'local_exp_queue_size': '_int_',  # max number of exps to pre-fetch
         'tensorboard_display': True,  # display replay stats on Tensorboard
+    },
+    'sender': {
+        'pointers_only': True,
+        'remote_save_exp': False,  # store Exp tuples on Redis or not
+        'local_obs_cache_size': '_int_',  # to avoid sending duplicate obs
     },
     'ps': {
         'name': 'ps',
@@ -58,6 +65,12 @@ LOCAL_SESSION_CONFIG = {
     'replay': {
         'host': 'localhost',
         'port': 6379,
+        'local_batch_queue_size': 10,  # max batches to pre-sample
+        'remote_exp_queue_size': 10000,  # max size of Redis exp queue
+        'local_exp_queue_size': 10000,  # max number of exps to pre-fetch
+    },
+    'sender': {
+        'local_obs_cache_size': 10000,  # to avoid sending duplicate obs
     },
     'ps': {
         'host': 'localhost',

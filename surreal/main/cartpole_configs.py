@@ -33,12 +33,6 @@ cartpole_learn_config = {
         'memory_size': 100000,
         'sampling_start_size': 1000,
     },
-    'sender': {
-        'pointers_only': True,
-        'save_exp_on_redis': False,
-        'max_redis_queue_size': 100000,
-        'obs_cache_size': 100000,
-    }
 }
 
 
@@ -59,6 +53,11 @@ cartpole_session_config = Config({
         'tensorboard_port': 6006,
         'average_episodes': 50,
         'interval_episodes': 50
+    },
+    'sender': {
+        'pointers_only': True,
+        'remote_save_exp': False,
+        'local_obs_cache_size': 100000,
     }
 })
 

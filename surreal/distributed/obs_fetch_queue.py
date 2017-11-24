@@ -85,3 +85,6 @@ class ObsFetchQueue(object):
         Called by the neural network, draw the next batch of experiences
         """
         return self._queue.get(block=True, timeout=None)
+
+    def queue_size(self):
+        return self._queue.qsize()

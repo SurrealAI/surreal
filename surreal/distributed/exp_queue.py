@@ -25,7 +25,7 @@ class ExpQueue(object):
                  queue_name,
                  maxsize=100000):
         self._queue = queue.Queue(maxsize=maxsize)
-        assert isinstance(redis_client, RedisClient)
+        U.assert_type(redis_client, RedisClient)
         self.queue_name = queue_name
         self._client = redis_client
         self._dequeue_thread = None
@@ -61,4 +61,14 @@ class ExpQueue(object):
         self._dequeue_thread.stop()
         self._dequeue_thread = None
 
+    def local_queue_size(self):
+        """
+        Size of the local exp fetch queue.
+        """
+        return self._queue.qsize()
 
+    def remote_queue_size(self):
+        """
+        LLEN of the replay exp queue on Redis
+        """
+        return self._client.queue_size(self.queue_name)

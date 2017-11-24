@@ -16,7 +16,6 @@ else:
 env = GymAdapter(gym.make('CartPole-v0'))
 env = ExpSenderWrapper(
     env,
-    learn_config=cartpole_learn_config,
     session_config=cartpole_session_config
 )
 if 1:
