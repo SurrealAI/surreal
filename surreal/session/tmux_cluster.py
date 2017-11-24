@@ -16,7 +16,7 @@ class TmuxCluster(object):
     3. Redis tensorplex/loggerplex server
     4. Loggerplex (distributed logging server script)
     5. Tensorplex (distributed tensorplex server script)
-    6. Tensorboard, `tensorboard --logdir . --port <tb_port>`
+    6. Tensorboard, `tensorboard --logdir . --port <tensorboard_port>`
     7. Learner
     8. Evaluator (=None to skip evaluation)
     9. Army of agents
@@ -142,7 +142,7 @@ class TmuxCluster(object):
                 window_name='tensorboard',
                 cmd='tensorboard --logdir {} --port {}'.format(
                     self.config.folder,
-                    self.config.tensorplex.tb_port
+                    self.config.tensorplex.tensorboard_port
                 )
             )
         # Learner session

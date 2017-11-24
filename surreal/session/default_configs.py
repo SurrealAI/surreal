@@ -32,6 +32,7 @@ BASE_SESSION_CONFIG = {
         'name': 'replay',
         'host': '_str_',
         'port': '_int_',
+        'tensorboard_display': True,  # display replay stats on Tensorboard
     },
     'ps': {
         'name': 'ps',
@@ -41,7 +42,7 @@ BASE_SESSION_CONFIG = {
     'tensorplex': {
         'host': '_str_',
         'port': '_int_',
-        'tb_port': '_int_',  # tensorboard port
+        'tensorboard_port': '_int_',  # tensorboard port
         'log_overwrite': False,
         'log_debug': False,
         'agent_bin_size': 8,
@@ -65,7 +66,7 @@ LOCAL_SESSION_CONFIG = {
     'tensorplex': {
         'host': 'localhost',
         'port': 6381,
-        'tb_port': 6006,
+        'tensorboard_port': 6006,
         'interval_episodes': 10,
         'average_episodes': 10,
     },
