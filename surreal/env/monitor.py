@@ -3,7 +3,8 @@ import json
 import numpy as np
 from tabulate import tabulate
 from collections import OrderedDict
-from surreal.session import PeriodicTracker, AgentTensorplex
+from surreal.session import PeriodicTracker, AgentTensorplex, StatsTensorplex
+from surreal.agent import AgentMode
 import surreal.utils as U
 from .wrapper import Wrapper
 
@@ -113,6 +114,7 @@ class ConsoleMonitor(EpisodeMonitor):
 class TensorplexMonitor(EpisodeMonitor):
     def __init__(self, env,
                  agent_id,
+                 agent_mode,
                  session_config,
                  separate_plots=True):
         """
@@ -120,7 +122,8 @@ class TensorplexMonitor(EpisodeMonitor):
 
         Args:
             env:
-            agent_id: int
+            agent_id: int.
+            agent_mode: agent.base.AgentMode
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
@@ -129,10 +132,19 @@ class TensorplexMonitor(EpisodeMonitor):
         """
         super().__init__(env)
         U.assert_type(agent_id, int)
-        self.tensorplex = AgentTensorplex(
-            agent_id=agent_id,
-            session_config=session_config
-        )
+        agent_mode = AgentMode[agent_mode]
+        if agent_mode == AgentMode.training:
+            self.tensorplex = AgentTensorplex(
+                agent_id=agent_id,
+                session_config=session_config
+            )
+        else:
+            # evaluator mode TODO multiple evaluators
+            # TODO eval determinsitic vs stochastic
+            self.tensorplex = StatsTensorplex(
+                section_name='eval',
+                session_config=session_config
+            )
         interval = session_config['tensorplex']['interval_episodes']
         self._periodic = PeriodicTracker(interval)
         self._avg = session_config['tensorplex']['average_episodes']

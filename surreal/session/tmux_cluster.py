@@ -21,6 +21,7 @@ class TmuxCluster(object):
     8. Evaluator (=None to skip evaluation)
     9. Army of agents
     """
+    # TODO support multiple eval threads
     LOGGERPLEX_SCRIPT = 'surreal.session.run_loggerplex_server'
     TENSORPLEX_SCRIPT = 'surreal.session.run_tensorplex_server'
 
@@ -155,7 +156,7 @@ class TmuxCluster(object):
             if self.evaluator_cmd is not None:
                 self._tmux.run(
                     session_name=self.learner_session,
-                    window_name='evaluator',
+                    window_name='eval',
                     cmd=self.evaluator_cmd
                 )
         # Agent session
