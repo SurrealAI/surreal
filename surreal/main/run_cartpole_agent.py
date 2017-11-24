@@ -20,10 +20,9 @@ env = ExpSenderWrapper(
     session_config=cartpole_session_config
 )
 if 1:
-    env = TensorplexMonitor(
+    env = TrainingTensorplexMonitor(
         env,
         agent_id=agent_id,
-        agent_mode=agent_mode,
         session_config=cartpole_session_config,
         separate_plots=True
     )

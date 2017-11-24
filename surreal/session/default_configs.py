@@ -55,6 +55,7 @@ BASE_SESSION_CONFIG = {
         'agent_bin_size': 8,
         'agent_update_interval': '_int_',  # record every N episodes
         'eval_update_interval': '_int_',
+        'eval_throttle_sleep': '_int_',  # throttle eval by sleep n seconds
     },
 }
 
@@ -80,8 +81,9 @@ LOCAL_SESSION_CONFIG = {
         'host': 'localhost',
         'port': 6381,
         'tensorboard_port': 6006,
-        'agent_update_interval': 10,  # record every N episodes
-        'eval_update_interval': 100,
+        'agent_update_interval': 20,  # record every N episodes
+        'eval_update_interval': 20,
+        'eval_throttle_sleep': 30,  # throttle eval by sleep n seconds
     },
 }
 

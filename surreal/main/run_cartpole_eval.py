@@ -17,35 +17,31 @@ agent_mode = AgentMode[args.mode]
 assert agent_mode != AgentMode.training
 
 if agent_mode == AgentMode.eval_deterministic:
-    agent_id = 'deterministic'
+    eval_id = 'deterministic'
 else:
-    agent_id = 'stochastic-{}'.format(args.id)
-
-env = GymAdapter(gym.make('CartPole-v0'))
-env = TensorplexMonitor(
-    env,
-    agent_id=agent_id,
-    agent_mode=agent_mode,
-    session_config=cartpole_session_config,
-    separate_plots=False,
-)
+    eval_id = 'stochastic-{}'.format(args.id)
 
 q_agent = QAgent(
     learn_config=cartpole_learn_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config,
-    agent_id=agent_id,
+    agent_id=eval_id,
     agent_mode=agent_mode,
 )
 
+env = GymAdapter(gym.make('CartPole-v0'))
+env = EvalTensorplexMonitor(
+    env,
+    eval_id=eval_id,
+    pull_parameters=q_agent.pull_parameters,
+    session_config=cartpole_session_config,
+)
 
-q_agent.pull_parameters()
 obs, info = env.reset()
 while True:
     action = q_agent.act(U.to_float_tensor(obs))
     obs, reward, done, info = env.step(action)
     if done:
-        q_agent.pull_parameters()
         obs, info = env.reset()
         # print(q_agent.pull_parameter_info())
     #     eps_rewards = env.get_episode_rewards()

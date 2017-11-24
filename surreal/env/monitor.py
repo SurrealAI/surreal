@@ -111,46 +111,30 @@ class ConsoleMonitor(EpisodeMonitor):
         return ob, r, done, info
 
 
-class TensorplexMonitor(EpisodeMonitor):
+class TrainingTensorplexMonitor(EpisodeMonitor):
     def __init__(self, env,
                  agent_id,
-                 agent_mode,
                  session_config,
-                 separate_plots=None):
+                 separate_plots=True):
         """
         Display "reward" and "step_per_s" curves on Tensorboard
 
         Args:
             env:
             agent_id: int.
-            agent_mode: agent.base.AgentMode, eval mode invokes EvalTensorplex
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
             separate_plots: True to separate plots into sections on Tensorboard,
                 False to keep all plots in the same section.
-                Set as None to use defaults:
-                    True under training mode, False under eval mode.
         """
         super().__init__(env)
-        agent_mode = AgentMode[agent_mode]
-        if agent_mode == AgentMode.training:
-            U.assert_type(agent_id, int)
-            self.tensorplex = AgentTensorplex(
-                agent_id=agent_id,
-                session_config=session_config
-            )
-            interval = session_config['tensorplex']['agent_update_interval']
-            if separate_plots is None:
-                separate_plots = True
-        else:
-            self.tensorplex = EvalTensorplex(
-                eval_id=str(agent_id),
-                session_config=session_config
-            )
-            interval = session_config['tensorplex']['eval_update_interval']
-            if separate_plots is None:
-                separate_plots = False
+        U.assert_type(agent_id, int)
+        self.tensorplex = AgentTensorplex(
+            agent_id=agent_id,
+            session_config=session_config
+        )
+        interval = session_config['tensorplex']['agent_update_interval']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval
         self._separate_plots = separate_plots
@@ -174,4 +158,60 @@ class TensorplexMonitor(EpisodeMonitor):
                 scalar_values,
                 global_step=self.num_episodes
             )
+        return ob, r, done, info
+
+
+class EvalTensorplexMonitor(EpisodeMonitor):
+    def __init__(self, env,
+                 eval_id,
+                 pull_parameters,
+                 session_config,
+                 separate_plots=False):
+        """
+        Display "reward" and "step_per_s" curves on Tensorboard
+
+        Args:
+            env:
+            eval_id:
+            pull_parameters: lambda function that pulls from parameter server
+            session_config: to construct AgentTensorplex
+            - interval: log to Tensorplex every N episodes.
+            - average_episodes: average rewards/speed over the last N episodes
+            separate_plots: True to separate plots into sections on Tensorboard,
+                False to keep all plots in the same section.
+        """
+        super().__init__(env)
+        self.tensorplex = EvalTensorplex(
+            eval_id=str(eval_id),
+            session_config=session_config
+        )
+        interval = session_config['tensorplex']['eval_update_interval']
+        self._periodic = PeriodicTracker(interval)
+        self._avg = interval
+        self._separate_plots = separate_plots
+        self._throttle_sleep = \
+            session_config['tensorplex']['eval_throttle_sleep']
+        self._pull_parameters = pull_parameters
+
+    def _get_tag(self, tag):
+        if self._separate_plots:
+            return ':' + tag  # see Tensorplex tag semantics
+        else:
+            return tag
+
+    def _step(self, action):
+        ob, r, done, info = super()._step(action)
+        if done and self._periodic.track_increment():
+            scalar_values = {
+                self._get_tag('reward'):
+                    np.mean(self.episode_rewards[-self._avg:]),
+                self._get_tag('step_per_s'):
+                    self.step_per_sec(self._avg),
+            }
+            self.tensorplex.add_scalars(
+                scalar_values,
+                global_step=self.num_episodes
+            )
+            time.sleep(self._throttle_sleep)
+            self._pull_parameters()
         return ob, r, done, info

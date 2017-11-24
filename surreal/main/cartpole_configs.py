@@ -34,7 +34,7 @@ cartpole_learn_config = {
         'sampling_start_size': 1000,
     },
     'eval': {
-        'eps': 0.01
+        'eps': 0.05  # 5% random action under eval_stochastic mode
     }
 }
 
@@ -55,7 +55,7 @@ cartpole_session_config = Config({
     'tensorplex': {
         'tensorboard_port': 6006,
         'agent_update_interval': 50,  # record every N episodes
-        'eval_update_interval': 200,
+        'eval_update_interval': 20,
     },
     'sender': {
         'pointers_only': True,

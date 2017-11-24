@@ -138,7 +138,8 @@ class TmuxRunner(object):
             if line.startswith('Traceback (most recent call last)'):
                 for j in range(i+1, len(stdout)):
                     if _exception_re.match(stdout[j]):
-                        errlines.extend(stdout[i:j+1])
+                        AFTER_CONTEXT = 2
+                        errlines.extend(stdout[i:j+1+AFTER_CONTEXT])
                         i = j
                         break
             i += 1
