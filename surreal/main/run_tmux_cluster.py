@@ -10,7 +10,7 @@ cluster = TmuxCluster(
     session_config=cartpole_session_config,
     agent_script='surreal.main.run_cartpole_agent',
     learner_script='surreal.main.run_cartpole_learner',
-    evaluator_script=None,
+    eval_script=None,
     dry_run=0,
 )
 

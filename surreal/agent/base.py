@@ -2,8 +2,8 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from surreal.session import (Loggerplex, AgentTensorplex, extend_config,
-                     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
+from surreal.session import (Loggerplex, AgentTensorplex, EvalTensorplex,
+     extend_config, BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
 from surreal.distributed import RedisClient, ParameterServer
 
 
@@ -26,19 +26,26 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self.learn_config = extend_config(learn_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        U.assert_type(agent_id, int)
-        self.agent_name = 'agent-{}'.format(agent_id)
         self.agent_mode = AgentMode[agent_mode]
+        if self.agent_mode == AgentMode.training:
+            U.assert_type(agent_id, int)
+            logger_name = 'agent-{}'.format(agent_id)
+            self.tensorplex = AgentTensorplex(
+                agent_id=agent_id,
+                session_config=self.session_config
+            )
+        else:
+            logger_name = 'eval-{}'.format(agent_id)
+            self.tensorplex = EvalTensorplex(
+                eval_id=str(agent_id),
+                session_config=self.session_config
+            )
         self._client = RedisClient(
             host=self.session_config.ps.host,
             port=self.session_config.ps.port
         )
         self.log = Loggerplex(
-            name=self.agent_name,
-            session_config=self.session_config
-        )
-        self.tensorplex = AgentTensorplex(
-            agent_id=agent_id,
+            name=logger_name,
             session_config=self.session_config
         )
 

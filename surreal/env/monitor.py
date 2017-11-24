@@ -3,7 +3,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 from collections import OrderedDict
-from surreal.session import PeriodicTracker, AgentTensorplex, StatsTensorplex
+from surreal.session import PeriodicTracker, AgentTensorplex, EvalTensorplex
 from surreal.agent import AgentMode
 import surreal.utils as U
 from .wrapper import Wrapper
@@ -71,19 +71,19 @@ class EpisodeMonitor(Wrapper):
 
 class ConsoleMonitor(EpisodeMonitor):
     def __init__(self, env,
-                 interval_episodes=10,
-                 average_episodes=10,
+                 update_interval=10,
+                 average_over=10,
                  extra_rows=None):
         """
         Args:
-            interval_episodes: print every N episodes
-            average_episodes: average rewards/speed over the last N episodes
+            update_interval: print every N episodes
+            average_over: average rewards/speed over the last N episodes
             extra_rows: an OrderedDict {'row caption': function(total_steps, num_episodes)}
                 to generate extra rows to the printed table.
         """
         super().__init__(env)
-        self._periodic = PeriodicTracker(interval_episodes)
-        self._avg = average_episodes
+        self._periodic = PeriodicTracker(update_interval)
+        self._avg = average_over
         if extra_rows is None:
             self._extra_rows = OrderedDict()
         else:
@@ -116,38 +116,43 @@ class TensorplexMonitor(EpisodeMonitor):
                  agent_id,
                  agent_mode,
                  session_config,
-                 separate_plots=True):
+                 separate_plots=None):
         """
         Display "reward" and "step_per_s" curves on Tensorboard
 
         Args:
             env:
             agent_id: int.
-            agent_mode: agent.base.AgentMode
+            agent_mode: agent.base.AgentMode, eval mode invokes EvalTensorplex
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
             separate_plots: True to separate plots into sections on Tensorboard,
-                False to keep all plots in the same "agent" section.
+                False to keep all plots in the same section.
+                Set as None to use defaults:
+                    True under training mode, False under eval mode.
         """
         super().__init__(env)
-        U.assert_type(agent_id, int)
         agent_mode = AgentMode[agent_mode]
         if agent_mode == AgentMode.training:
+            U.assert_type(agent_id, int)
             self.tensorplex = AgentTensorplex(
                 agent_id=agent_id,
                 session_config=session_config
             )
+            interval = session_config['tensorplex']['agent_update_interval']
+            if separate_plots is None:
+                separate_plots = True
         else:
-            # evaluator mode TODO multiple evaluators
-            # TODO eval determinsitic vs stochastic
-            self.tensorplex = StatsTensorplex(
-                section_name='eval',
+            self.tensorplex = EvalTensorplex(
+                eval_id=str(agent_id),
                 session_config=session_config
             )
-        interval = session_config['tensorplex']['interval_episodes']
+            interval = session_config['tensorplex']['eval_update_interval']
+            if separate_plots is None:
+                separate_plots = False
         self._periodic = PeriodicTracker(interval)
-        self._avg = session_config['tensorplex']['average_episodes']
+        self._avg = interval
         self._separate_plots = separate_plots
 
     def _get_tag(self, tag):

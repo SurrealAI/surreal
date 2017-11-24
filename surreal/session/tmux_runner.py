@@ -6,7 +6,7 @@ import re
 import time
 
 # matches "ZeroDivisionError: divided by zero"
-_exception_re = re.compile('[a-zA-Z_]+: .+')
+_exception_re = re.compile('([a-zA-Z_0-9\.]+: .+)|(AssertionError.*)')
 
 
 class TmuxRunner(object):
@@ -131,13 +131,21 @@ class TmuxRunner(object):
             None: if the window doesn't exist
         """
         stdout = self.get_stdout(session_name, window_name, history=history)
-        for i, line in enumerate(stdout):
+        errlines = []
+        i = 0
+        while i < len(stdout):
+            line = stdout[i]
             if line.startswith('Traceback (most recent call last)'):
                 for j in range(i+1, len(stdout)):
                     if _exception_re.match(stdout[j]):
+                        errlines.extend(stdout[i:j+1])
+                        i = j
                         break
-                return '\n'.join(stdout[i:j+1])
-        return False
+            i += 1
+        if errlines:
+            return '\n'.join(errlines)
+        else:
+            return None
 
     def print_records(self):
         pprint.pprint(self.records, indent=4)

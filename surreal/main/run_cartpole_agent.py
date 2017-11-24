@@ -34,8 +34,8 @@ if 1:
 
     env = ConsoleMonitor(
         env,
-        interval_episodes=cartpole_session_config.tensorplex.interval_episodes,
-        average_episodes=cartpole_session_config.tensorplex.average_episodes,
+        update_interval=10,
+        average_over=10,
         extra_rows=OrderedDict(
             Exploration=show_exploration
         )

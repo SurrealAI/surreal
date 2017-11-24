@@ -6,9 +6,7 @@ import sys
 import json
 from tensorplex import TensorplexServer
 from surreal.session.config import Config
-from surreal.session.tensorplex_adapter import (
-    AGENT_GROUP_NAME, NONAGENT_GROUP_NAME
-)
+from surreal.session.tensorplex_adapter import *
 from surreal.session.default_configs import BASE_SESSION_CONFIG
 
 
@@ -18,12 +16,14 @@ folder = config.folder
 config = config.tensorplex
 
 
-tensorplex = TensorplexServer(
-    folder,
-    normal_groups=[NONAGENT_GROUP_NAME],
-    indexed_groups=[AGENT_GROUP_NAME],
-    index_bin_sizes=[config.agent_bin_size],
+tensorplex = TensorplexServer(folder)
+
+(tensorplex
+    .register_normal_group(STATS_GROUP_NAME)
+    .register_indexed_group(AGENT_GROUP_NAME, config.agent_bin_size)
+    .register_combined_group(EVAL_GROUP_NAME, lambda tag: 'all')
 )
+
 tensorplex.start_server(
     host=config.host,
     port=config.port,

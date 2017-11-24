@@ -38,19 +38,38 @@ def numbered_agents(n1, n2=None):
     }
 
 
+def numbered_evals(n):
+    """
+    Command line args spec: please see `surreal.main.run_cartpole_eval`
+    """
+    spec = {
+        'eval_names': ['eval_d'],  # tmux window name
+        'eval_args': ['eval_deterministic']
+    }
+    for i in range(n):
+        spec['eval_names'].append('eval_s-{}'.format(i))
+        spec['eval_args'].append('eval_stochastic --id {}'.format(i))
+    return spec
+
+
 def ls():
     return _get_global_var().list_windows()
 
 
-def launch_(agent_names, agent_args):
+def launch_(agent_names, agent_args, eval_names=None, eval_args=None):
     _get_global_var().launch(
         agent_names=agent_names,
-        agent_args=agent_args
+        agent_args=agent_args,
+        eval_names=eval_names,
+        eval_args=eval_args
     )
 
 
-def launch(n1, n2=None):
-    _get_global_var().launch(**numbered_agents(n1, n2))
+def launch(n1, n2=None, *, eval=1):
+    _get_global_var().launch(
+        **numbered_agents(n1, n2),
+        **numbered_evals(eval),
+    )
 
 
 def add_(agent_names, agent_args):

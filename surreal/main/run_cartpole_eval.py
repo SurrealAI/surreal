@@ -6,9 +6,20 @@ from surreal.agent.q_agent import QAgent
 from surreal.env import *
 from surreal.session import *
 from surreal.main.cartpole_configs import *
+import surreal.utils as U
 
-agent_id = 0
-agent_mode = AgentMode.eval_deterministic
+args = U.ArgParser()
+args.add('mode', type=str)
+args.add('--id', type=int, default=0)
+args = args.parse()
+
+agent_mode = AgentMode[args.mode]
+assert agent_mode != AgentMode.training
+
+if agent_mode == AgentMode.eval_deterministic:
+    agent_id = 'deterministic'
+else:
+    agent_id = 'stochastic-{}'.format(args.id)
 
 env = GymAdapter(gym.make('CartPole-v0'))
 env = TensorplexMonitor(

@@ -33,6 +33,9 @@ cartpole_learn_config = {
         'memory_size': 100000,
         'sampling_start_size': 1000,
     },
+    'eval': {
+        'eps': 0.01
+    }
 }
 
 
@@ -51,8 +54,8 @@ cartpole_session_config = Config({
     'folder': '~/Temp/cartpole',
     'tensorplex': {
         'tensorboard_port': 6006,
-        'average_episodes': 50,
-        'interval_episodes': 50
+        'agent_update_interval': 50,  # record every N episodes
+        'eval_update_interval': 200,
     },
     'sender': {
         'pointers_only': True,

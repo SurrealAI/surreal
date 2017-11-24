@@ -53,8 +53,8 @@ BASE_SESSION_CONFIG = {
         'log_overwrite': False,
         'log_debug': False,
         'agent_bin_size': 8,
-        'interval_episodes': '_int_',
-        'average_episodes': '_int_',
+        'agent_update_interval': '_int_',  # record every N episodes
+        'eval_update_interval': '_int_',
     },
 }
 
@@ -80,8 +80,8 @@ LOCAL_SESSION_CONFIG = {
         'host': 'localhost',
         'port': 6381,
         'tensorboard_port': 6006,
-        'interval_episodes': 10,
-        'average_episodes': 10,
+        'agent_update_interval': 10,  # record every N episodes
+        'eval_update_interval': 100,
     },
 }
 

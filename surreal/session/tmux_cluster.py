@@ -30,7 +30,7 @@ class TmuxCluster(object):
                  session_config,
                  agent_script,
                  learner_script,
-                 evaluator_script,
+                 eval_script,
                  start_dir='.',
                  dry_run=False
                  ):
@@ -49,10 +49,10 @@ class TmuxCluster(object):
         self.config = Config(session_config).extend(BASE_SESSION_CONFIG)
         self.agent_cmd = self._get_python_cmd(agent_script)
         self.learner_cmd = self._get_python_cmd(learner_script)
-        if evaluator_script is None:
-            self.evaluator_cmd = None
+        if eval_script is None:
+            self.eval_cmd = None
         else:
-            self.evaluator_cmd = self._get_python_cmd(evaluator_script)
+            self.eval_cmd = self._get_python_cmd(eval_script)
         self.infras_session = 'infras-' + cluster_name
         self.agent_session = 'agent-' + cluster_name
         self.learner_session = 'learner-' + cluster_name
@@ -110,12 +110,21 @@ class TmuxCluster(object):
     def get_running_agents(self):
         return self._tmux.list_window_names(self.agent_session)
 
+    def get_running_evals(self):
+        return [win for win
+                in self._tmux.list_window_names(self.learner_session)
+                if not win.startswith('learner')]
+
     def _get_tensorplex_cmd(self, script):
         script = self._get_python_cmd(script)
         # dump config to JSON as command line arg
         return script + ' ' + shlex.quote(json.dumps(self.config))
 
-    def launch(self, agent_names, agent_args):
+    def launch(self,
+               agent_names,
+               agent_args,
+               eval_names=None,
+               eval_args=None):
         # Infrastructure session
         if not self.is_launched('infras'):
             for window_name, port in [
@@ -153,12 +162,8 @@ class TmuxCluster(object):
                 window_name='learner',
                 cmd=self.learner_cmd
             )
-            if self.evaluator_cmd is not None:
-                self._tmux.run(
-                    session_name=self.learner_session,
-                    window_name='eval',
-                    cmd=self.evaluator_cmd
-                )
+            if self.eval_cmd is not None:
+                self.add_evals(eval_names, eval_args)
         # Agent session
         if not self.is_launched('agent'):
             self.add_agents(agent_names, agent_args)
@@ -182,6 +187,28 @@ class TmuxCluster(object):
         for name in agent_names:
             self._tmux.kill(
                 session_name=self.agent_session,
+                window_name=str(name)
+            )
+
+    def add_evals(self, eval_names, eval_args):
+        eval_names, eval_args = self._get_agent_info(
+            eval_names, eval_args
+        )
+        # should not duplicate agent name
+        assert not (set(self.get_running_evals()) & set(eval_names)), \
+            'some evaluators already running, cannot launch duplicates.'
+        for eval_name, args in zip(eval_names, eval_args):
+            self._tmux.run(
+                session_name=self.learner_session,
+                window_name=eval_name,
+                cmd=self.eval_cmd + ' ' + args
+            )
+
+    def kill_evals(self, eval_names):
+        assert self.is_launched('learner'), 'evaluators not yet launched'
+        for name in eval_names:
+            self._tmux.kill(
+                session_name=self.learner_session,
                 window_name=str(name)
             )
 
