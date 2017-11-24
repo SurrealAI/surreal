@@ -147,14 +147,14 @@ class TensorplexMonitor(EpisodeMonitor):
     def _step(self, action):
         ob, r, done, info = super()._step(action)
         if done and self._periodic.track_increment():
-            self.tensorplex.add_scalar(
-                self._get_tag('reward'),
-                np.mean(self.episode_rewards[-self._avg:]),
-                self.num_episodes
-            )
-            self.tensorplex.add_scalar(
-                self._get_tag('step_per_s'),
-                self.step_per_sec(self._avg),
-                self.num_episodes
+            scalar_values = {
+                self._get_tag('reward'):
+                    np.mean(self.episode_rewards[-self._avg:]),
+                self._get_tag('step_per_s'):
+                    self.step_per_sec(self._avg),
+            }
+            self.tensorplex.add_scalars(
+                scalar_values,
+                global_step=self.num_episodes
             )
         return ob, r, done, info
