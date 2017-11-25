@@ -284,7 +284,12 @@ class TmuxCluster(object):
         """
         outdict = OrderedDict()
         for sess, win in self._iterated_filtered_windows(group, window):
-            err = self._tmux.check_error(sess, win, history=100)
+            err = self._tmux.check_error(
+                session_name=sess,
+                window_name=win,
+                history=200,
+                after_context=1
+            )
             if err:
                 outdict['{}:{}'.format(sess, win)] = err
         return outdict

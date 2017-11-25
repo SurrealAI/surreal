@@ -1,12 +1,7 @@
-import gym
-import sys
-from collections import OrderedDict
-from surreal.agent.base import AgentMode
+import surreal.utils as U
 from surreal.agent.q_agent import QAgent
 from surreal.env import *
-from surreal.session import *
-from surreal.main.cartpole_configs import *
-import surreal.utils as U
+from surreal.main.dqn_cartpole.configs import *
 
 args = U.ArgParser()
 args.add('mode', type=str)

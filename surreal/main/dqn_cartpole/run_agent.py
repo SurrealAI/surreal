@@ -1,12 +1,9 @@
-import gym
 import sys
-from collections import OrderedDict
-from surreal.agent.base import AgentMode
+
 from surreal.agent.q_agent import QAgent
 from surreal.env import *
+from surreal.main.dqn_cartpole.configs import *
 from surreal.session import *
-from surreal.main.cartpole_configs import *
-
 
 if len(sys.argv) == 2:
     agent_id = int(sys.argv[1])

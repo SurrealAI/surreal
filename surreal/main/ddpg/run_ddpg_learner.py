@@ -1,7 +1,5 @@
-from tabulate import tabulate
-
 from surreal.learner.ddpg import DDPGLearner
-from surreal.main.halfcheetah_configs import *
+from surreal.main.ddpg.halfcheetah_configs import *
 from surreal.replay import *
 
 RedisClient().flushall()  # DEBUG ONLY

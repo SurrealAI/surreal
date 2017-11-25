@@ -1,14 +1,10 @@
-import gym
-from tabulate import tabulate
+import time
 
-from surreal.agent.base import AgentMode
 from surreal.agent.ddpg_agent import DDPGAgent
 from surreal.env import *
+from surreal.main.ddpg.halfcheetah_configs import *
 from surreal.replay import *
 from surreal.session import *
-from surreal.main.halfcheetah_configs import *
-
-import time
 
 env = gym.make('HalfCheetah-v1')
 env._max_episode_steps = 100

@@ -1,9 +1,9 @@
 import torch
-from surreal.learner.dqn import DQNLearner
-from surreal.replay import *
-from surreal.main.cartpole_configs import *
-from surreal.session import *
 
+from surreal.learner.dqn import DQNLearner
+from surreal.main.dqn_cartpole.configs import *
+from surreal.replay import *
+from surreal.session import *
 
 C = Config(cartpole_session_config)
 for server in ['replay', 'ps', 'tensorplex']:

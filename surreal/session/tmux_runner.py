@@ -117,7 +117,8 @@ class TmuxRunner(object):
             cmd += ['-S', str(-abs(history))]
         return pane.cmd(*cmd).stdout
 
-    def check_error(self, session_name, window_name, history=0):
+    def check_error(self, session_name, window_name,
+                    history=0, before_context=0, after_context=0):
         """
         Implements a very crude and not very reliable way to detect exception.
 
@@ -138,8 +139,9 @@ class TmuxRunner(object):
             if line.startswith('Traceback (most recent call last)'):
                 for j in range(i+1, len(stdout)):
                     if _exception_re.match(stdout[j]):
-                        AFTER_CONTEXT = 2
-                        errlines.extend(stdout[i:j+1+AFTER_CONTEXT])
+                        start = max(0, i-before_context)
+                        end = j + 1 + after_context
+                        errlines.extend(stdout[start:end])
                         i = j
                         break
             i += 1

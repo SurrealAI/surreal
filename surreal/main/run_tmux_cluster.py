@@ -1,16 +1,13 @@
 import surreal.utils as U
+from surreal.main.dqn_cartpole.configs import cartpole_session_config
 from surreal.session import TmuxCluster
-from surreal.main.cartpole_configs import cartpole_session_config
-from collections import OrderedDict
-import pprint
-
 
 cluster = TmuxCluster(
     cluster_name='cartpole',
     session_config=cartpole_session_config,
-    agent_script='surreal.main.run_cartpole_agent',
-    learner_script='surreal.main.run_cartpole_learner',
-    eval_script=None,
+    agent_script='surreal.main.dqn_cartpole.run_agent',
+    learner_script='surreal.main.dqn_cartpole.run_learner',
+    eval_script='surreal.main.dqn_cartpole.run_eval',
     dry_run=0,
 )
 
