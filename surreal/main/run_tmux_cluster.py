@@ -1,10 +1,10 @@
 import surreal.utils as U
-from surreal.main.dqn_cartpole.configs import cartpole_session_config
+from surreal.main.dqn_cartpole.configs import session_config
 from surreal.session import TmuxCluster
 
 cluster = TmuxCluster(
     cluster_name='cartpole',
-    session_config=cartpole_session_config,
+    session_config=session_config,
     agent_script='surreal.main.dqn_cartpole.run_agent',
     learner_script='surreal.main.dqn_cartpole.run_learner',
     eval_script='surreal.main.dqn_cartpole.run_eval',

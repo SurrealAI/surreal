@@ -1,7 +1,7 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
-cartpole_learn_config = {
+learn_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],
@@ -39,7 +39,7 @@ cartpole_learn_config = {
 }
 
 
-cartpole_env_config = {
+env_config = {
     'action_spec': {
         'dim': [2],
         'type': 'discrete'
@@ -50,7 +50,7 @@ cartpole_env_config = {
 }
 
 
-cartpole_session_config = Config({
+session_config = Config({
     'folder': '~/Temp/cartpole',
     'tensorplex': {
         'tensorboard_port': 6006,
@@ -64,4 +64,4 @@ cartpole_session_config = Config({
     }
 })
 
-cartpole_session_config.extend(LOCAL_SESSION_CONFIG)
+session_config.extend(LOCAL_SESSION_CONFIG)

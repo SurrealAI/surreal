@@ -5,8 +5,6 @@ import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
 
-from tensorboardX import SummaryWriter
-
 
 class DDPGLearner(Learner):
 
@@ -43,9 +41,7 @@ class DDPGLearner(Learner):
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
-
         self.train_iteration = 0
-        self.writer = SummaryWriter()
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
 
@@ -87,15 +83,16 @@ class DDPGLearner(Learner):
         #     p.grad.data.clamp_(-5.0, 5.0)
         self.actor_optim.step()
 
-        # emit summaries
-        if self.writer:
-            self.writer.add_scalar('actor_loss', actor_loss.data[0], self.train_iteration)
-            self.writer.add_scalar('critic_loss', critic_loss.data[0], self.train_iteration)
-            self.writer.add_scalar('action_norm', actions.norm(2, 1).mean().data[0], self.train_iteration)
-            self.writer.add_scalar('rewards', rewards.mean().data[0], self.train_iteration)
-            self.writer.add_scalar('Q_target', y.mean().data[0], self.train_iteration)
-            self.writer.add_scalar('Q_policy', y_policy.mean().data[0], self.train_iteration)
-
+        self.tensorplex.add_scalars({
+                'actor_loss': actor_loss.data[0],
+                'critic_loss': critic_loss.data[0],
+                'action_norm': actions.norm(2, 1).mean().data[0],
+                'rewards': rewards.mean().data[0],
+                'Q_target': y.mean().data[0],
+                'Q_policy': y_policy.mean().data[0],
+            },
+            global_step=self.train_iteration
+        )
         # soft update target networks
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)

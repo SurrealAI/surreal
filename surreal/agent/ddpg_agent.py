@@ -14,9 +14,15 @@ class DDPGAgent(Agent):
                  learn_config,
                  env_config,
                  session_config,
+                 agent_id,
                  agent_mode):
-        super().__init__(learn_config, env_config, session_config, agent_mode)
-
+        super().__init__(
+            learn_config=learn_config,
+            env_config=env_config,
+            session_config=session_config,
+            agent_id=agent_id,
+            agent_mode=agent_mode,
+        )
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
 
@@ -24,7 +30,6 @@ class DDPGAgent(Agent):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
         )
-
         # Ornstein-Uhlenbeck noise for exploration
         self.use_ou_noise = False
         self.noise = torch.zeros(1, self.action_dim)

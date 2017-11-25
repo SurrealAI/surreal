@@ -72,14 +72,14 @@ def launch(n1, n2=None, *, eval=1):
     )
 
 
-def add_(agent_names, agent_args):
+def add_agents_(agent_names, agent_args):
     _get_global_var().add_agents(
         agent_names=agent_names,
         agent_args=agent_args
     )
 
 
-def add(n1, n2=None):
+def add_agents(n1, n2=None):
     _get_global_var().add_agents(**numbered_agents(n1, n2))
 
 

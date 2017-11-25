@@ -17,9 +17,9 @@ else:
     eval_id = 'stochastic-{}'.format(args.id)
 
 q_agent = QAgent(
-    learn_config=cartpole_learn_config,
-    env_config=cartpole_env_config,
-    session_config=cartpole_session_config,
+    learn_config=learn_config,
+    env_config=env_config,
+    session_config=session_config,
     agent_id=eval_id,
     agent_mode=agent_mode,
 )
@@ -29,7 +29,7 @@ env = EvalTensorplexMonitor(
     env,
     eval_id=eval_id,
     pull_parameters=q_agent.pull_parameters,
-    session_config=cartpole_session_config,
+    session_config=session_config,
 )
 
 obs, info = env.reset()

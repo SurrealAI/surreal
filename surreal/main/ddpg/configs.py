@@ -1,7 +1,7 @@
-from surreal.session import LOCAL_SESSION_CONFIG
+from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
-halfcheetah_learn_config = {
+learn_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],
@@ -33,24 +33,35 @@ halfcheetah_learn_config = {
         'memory_size': 100000,
         'sampling_start_size': 1000,
     },
-    'sender': {
-        'pointers_only': True,
-        'save_exp_on_redis': False,
-        'max_redis_queue_size': 100000,
-        'obs_cache_size': 100000,
+    'eval': {
+        'eps': 0.05  # 5% random action under eval_stochastic mode
     }
 }
 
 
-halfcheetah_env_config = {
+env_config = {
     'action_spec': {
-        'dim': [6,],
+        'dim': [6],
         'type': 'continuous'
     },
     'obs_spec': {
-        'dim': [17,],
+        'dim': [17],
     }
 }
 
 
-halfcheetah_session_config = LOCAL_SESSION_CONFIG
+session_config = Config({
+    'folder': '~/Temp/halfcheetah',
+    'tensorplex': {
+        'tensorboard_port': 6006,
+        'agent_update_interval': 50,  # record every N episodes
+        'eval_update_interval': 20,
+    },
+    'sender': {
+        'pointers_only': True,
+        'remote_save_exp': False,
+        'local_obs_cache_size': 100000,
+    }
+})
+
+session_config.extend(LOCAL_SESSION_CONFIG)

@@ -1,7 +1,6 @@
 import torch
-
-from surreal.learner.dqn import DQNLearner
-from surreal.main.dqn_cartpole.configs import *
+from surreal.learner.ddpg import DDPGLearner
+from surreal.main.ddpg.configs import *
 from surreal.replay import *
 from surreal.session import *
 
@@ -18,17 +17,14 @@ replay = UniformReplay(
     env_config=env_config,
     session_config=session_config
 )
-dqn = DQNLearner(
+learner = DDPGLearner(
     learn_config=learn_config,
     env_config=env_config,
     session_config=session_config
 )
 
-tensorplex = dqn.tensorplex
+tensorplex = learner.tensorplex
 for i, batch in enumerate(replay.sample_iterator()):
-    td_error = dqn.learn(batch)
-    if i % 20 == 0:
-        mean_td_error = U.to_scalar(torch.mean(torch.abs(td_error)))
-        tensorplex.add_scalar('mean_td_error', mean_td_error, i)
-    dqn.push_parameters(i, message='batch '+str(i))
+    learner.learn(batch)
+    learner.push_parameters(i, message='batch '+str(i))
 
