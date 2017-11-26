@@ -12,4 +12,3 @@ run_learner_main(
     session_config=session_config,
     clear_redis=True
 )
-
