@@ -96,7 +96,7 @@ class ConsoleMonitor(EpisodeMonitor):
         ob, r, done, info = super()._step(action)
         if done and self._periodic.track_increment():
             info_table = []
-            avg_reward = np.mean(self.episode_rewards[-self._avg:])
+            avg_reward = U.mean(self.episode_rewards[-self._avg:])
             info_table.append(['Last {} rewards'.format(self._avg),
                                U.fformat(avg_reward, 3)])
             avg_speed = self.step_per_sec(self._avg)
@@ -134,7 +134,7 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
             agent_id=agent_id,
             session_config=session_config
         )
-        interval = session_config['tensorplex']['agent_update_interval']
+        interval = session_config['tensorplex']['update_schedule']['training_env']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval
         self._separate_plots = separate_plots
@@ -150,7 +150,7 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
         if done and self._periodic.track_increment():
             scalar_values = {
                 self._get_tag('reward'):
-                    np.mean(self.episode_rewards[-self._avg:]),
+                    U.mean(self.episode_rewards[-self._avg:]),
                 self._get_tag('step_per_s'):
                     self.step_per_sec(self._avg),
             }
@@ -185,12 +185,12 @@ class EvalTensorplexMonitor(EpisodeMonitor):
             eval_id=str(eval_id),
             session_config=session_config
         )
-        interval = session_config['tensorplex']['eval_update_interval']
+        interval = session_config['tensorplex']['update_schedule']['eval_env']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval
         self._separate_plots = separate_plots
         self._throttle_sleep = \
-            session_config['tensorplex']['eval_throttle_sleep']
+            session_config['tensorplex']['update_schedule']['eval_env_sleep']
         self._pull_parameters = pull_parameters
 
     def _get_tag(self, tag):
@@ -204,7 +204,7 @@ class EvalTensorplexMonitor(EpisodeMonitor):
         if done and self._periodic.track_increment():
             scalar_values = {
                 self._get_tag('reward'):
-                    np.mean(self.episode_rewards[-self._avg:]),
+                    U.mean(self.episode_rewards[-self._avg:]),
                 self._get_tag('step_per_s'):
                     self.step_per_sec(self._avg),
             }

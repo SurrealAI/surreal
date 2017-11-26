@@ -2,8 +2,11 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from surreal.session import (Loggerplex, AgentTensorplex, EvalTensorplex,
-     extend_config, BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
+from surreal.session import (
+    Loggerplex, AgentTensorplex, EvalTensorplex,
+    PeriodicTracker, PeriodicTensorplex, extend_config,
+    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+)
 from surreal.distributed import RedisClient, ParameterServer
 
 
@@ -40,6 +43,13 @@ class Agent(metaclass=U.AutoInitializeMeta):
                 eval_id=str(agent_id),
                 session_config=self.session_config
             )
+        self._periodic_tensorplex = PeriodicTensorplex(
+            tensorplex=self.tensorplex,
+            period=self.session_config.tensorplex.update_schedule.agent,
+            is_average=True,
+            keep_full_history=False
+        )
+
         self._client = RedisClient(
             host=self.session_config.ps.host,
             port=self.session_config.ps.port
@@ -100,6 +110,9 @@ class Agent(metaclass=U.AutoInitializeMeta):
         Update agent by pulling parameters from parameter server.
         """
         return self._parameter_server.pull_info()
+
+    def update_tensorplex(self, tag_value_dict, global_step=None):
+        self._periodic_tensorplex.update(tag_value_dict, global_step)
 
     def default_config(self):
         """

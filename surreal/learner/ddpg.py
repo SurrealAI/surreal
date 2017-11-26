@@ -41,7 +41,7 @@ class DDPGLearner(Learner):
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
-        self.train_iteration = 0
+        # self.train_iteration = 0
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
 
@@ -83,21 +83,17 @@ class DDPGLearner(Learner):
         #     p.grad.data.clamp_(-5.0, 5.0)
         self.actor_optim.step()
 
-        self.tensorplex.add_scalars({
-                'actor_loss': actor_loss.data[0],
-                'critic_loss': critic_loss.data[0],
-                'action_norm': actions.norm(2, 1).mean().data[0],
-                'rewards': rewards.mean().data[0],
-                'Q_target': y.mean().data[0],
-                'Q_policy': y_policy.mean().data[0],
-            },
-            global_step=self.train_iteration
-        )
+        self.update_tensorplex({
+            'actor_loss': actor_loss.data[0],
+            'critic_loss': critic_loss.data[0],
+            'action_norm': actions.norm(2, 1).mean().data[0],
+            'rewards': rewards.mean().data[0],
+            'Q_target': y.mean().data[0],
+            'Q_policy': y_policy.mean().data[0],
+        })
         # soft update target networks
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
-
-        self.train_iteration += 1
 
     def learn(self, batch):
         self._optimize(

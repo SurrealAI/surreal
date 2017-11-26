@@ -3,7 +3,7 @@ Utils to create suites of interactive commands.
 Use global variables to keep track of the instance.
 """
 # convenient imports for initializing Jupyter
-import os, sys, json, time, re, random, inspect
+import os, sys, json, time, re, random, inspect, pickle
 from collections import *
 from time import sleep
 import numpy as np
@@ -14,7 +14,11 @@ import matplotlib.pyplot as plt
 import seaborn
 import math
 import surreal.utils as U
-pp = U.pprint
+
+
+pp = U.print_
+ploads = pickle.loads
+pdumps = pickle.dumps
 
 
 _SUITE = {}

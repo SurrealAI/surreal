@@ -53,9 +53,15 @@ BASE_SESSION_CONFIG = {
         'log_overwrite': False,
         'log_debug': False,
         'agent_bin_size': 8,
-        'agent_update_interval': '_int_',  # record every N episodes
-        'eval_update_interval': '_int_',
-        'eval_throttle_sleep': '_int_',  # throttle eval by sleep n seconds
+        'update_schedule': {
+            # for TensorplexWrapper:
+            'training_env': '_int_',  # env record every N episodes
+            'eval_env': '_int_',
+            'eval_env_sleep': '_int_',  # throttle eval by sleep n seconds
+            # for manual updates:
+            'agent': '_int_',  # agent.update_tensorplex()
+            'learner': '_int_',  # learner.update_tensorplex()
+        }
     },
 }
 
@@ -81,9 +87,15 @@ LOCAL_SESSION_CONFIG = {
         'host': 'localhost',
         'port': 6381,
         'tensorboard_port': 6006,
-        'agent_update_interval': 20,  # record every N episodes
-        'eval_update_interval': 20,
-        'eval_throttle_sleep': 30,  # throttle eval by sleep n seconds
+        'update_schedule': {
+            # for TensorplexWrapper:
+            'training_env': 20,  # env record every N episodes
+            'eval_env': 20,
+            'eval_env_sleep': 30,  # throttle eval by sleep n seconds
+            # for manual updates:
+            'agent': 20,  # agent.update_tensorplex()
+            'learner': 20,  # learner.update_tensorplex()
+        }
     },
 }
 

@@ -2,8 +2,10 @@
 Template class for all learners
 """
 import surreal.utils as U
-from surreal.session import (extend_config,
-                     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
+from surreal.session import (
+    extend_config, PeriodicTracker, PeriodicTensorplex,
+    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+)
 from surreal.distributed import RedisClient, ParameterServer
 from surreal.session import StatsTensorplex, Loggerplex
 
@@ -35,6 +37,12 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self.tensorplex = StatsTensorplex(
             section_name='learning',
             session_config=self.session_config
+        )
+        self._periodic_tensorplex = PeriodicTensorplex(
+            tensorplex=self.tensorplex,
+            period=self.session_config.tensorplex.update_schedule.learner,
+            is_average=True,
+            keep_full_history=False
         )
 
     def _initialize(self):
@@ -96,3 +104,11 @@ class Learner(metaclass=U.AutoInitializeMeta):
             message: optional message, must be pickleable.
         """
         self._parameter_server.push(iteration, message=message)
+
+    def update_tensorplex(self, tag_value_dict, global_step=None):
+        """
+        Args:
+            tag_value_dict:
+            global_step: None to use internal tracker value
+        """
+        self._periodic_tensorplex.update(tag_value_dict, global_step)

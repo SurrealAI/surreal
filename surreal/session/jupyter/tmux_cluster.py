@@ -44,11 +44,11 @@ def numbered_evals(n):
     """
     spec = {
         'eval_names': ['eval_d'],  # tmux window name
-        'eval_args': ['eval_deterministic']
+        'eval_args': ['--mode eval_deterministic']
     }
     for i in range(n):
         spec['eval_names'].append('eval_s-{}'.format(i))
-        spec['eval_args'].append('eval_stochastic --id {}'.format(i))
+        spec['eval_args'].append(['--mode eval_stochastic', '--id', i])
     return spec
 
 

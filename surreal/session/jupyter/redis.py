@@ -234,3 +234,5 @@ def _create_interactive_methods(global_dict):
             sig = str(inspect.signature(old_method)).replace('(self, ', '(')
             _method.__doc__ = 'signature: ' + sig + '\n' + doc
         global_dict[new_name] = _method
+    # special methods
+    global_dict['ploadsget'] = lambda key: ploads(get(key))
