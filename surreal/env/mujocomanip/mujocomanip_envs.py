@@ -1,4 +1,4 @@
-from MujocoManip.environment import *
+from MujocoManip import *
 from surreal.env.base import Env
 from surreal.env.mujocomanip.object_builder import build_from_config
 
