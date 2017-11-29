@@ -2,10 +2,12 @@
 A template class that defines base agent APIs
 """
 import surreal.utils as U
-from surreal.session import (extend_config,
-                     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG)
+from surreal.session import (
+    Loggerplex, AgentTensorplex, EvalTensorplex,
+    PeriodicTracker, PeriodicTensorplex, extend_config,
+    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+)
 from surreal.distributed import RedisClient, ParameterServer
-from tensorplex.loggerplex import LoggerplexClient
 
 
 class AgentMode(U.StringEnum):
@@ -27,16 +29,34 @@ class Agent(metaclass=U.AutoInitializeMeta):
         self.learn_config = extend_config(learn_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        self.agent_name = 'agent-{}'.format(agent_id)
         self.agent_mode = AgentMode[agent_mode]
-        self.log = LoggerplexClient(
-            client_id=self.agent_name,
-            host=self.session_config.tensorboard.host,
-            port=self.session_config.tensorboard.port
+        if self.agent_mode == AgentMode.training:
+            U.assert_type(agent_id, int)
+            logger_name = 'agent-{}'.format(agent_id)
+            self.tensorplex = AgentTensorplex(
+                agent_id=agent_id,
+                session_config=self.session_config
+            )
+        else:
+            logger_name = 'eval-{}'.format(agent_id)
+            self.tensorplex = EvalTensorplex(
+                eval_id=str(agent_id),
+                session_config=self.session_config
+            )
+        self._periodic_tensorplex = PeriodicTensorplex(
+            tensorplex=self.tensorplex,
+            period=self.session_config.tensorplex.update_schedule.agent,
+            is_average=True,
+            keep_full_history=False
         )
+
         self._client = RedisClient(
             host=self.session_config.ps.host,
             port=self.session_config.ps.port
+        )
+        self.log = Loggerplex(
+            name=logger_name,
+            session_config=self.session_config
         )
 
     def _initialize(self):
@@ -90,6 +110,9 @@ class Agent(metaclass=U.AutoInitializeMeta):
         Update agent by pulling parameters from parameter server.
         """
         return self._parameter_server.pull_info()
+
+    def update_tensorplex(self, tag_value_dict, global_step=None):
+        self._periodic_tensorplex.update(tag_value_dict, global_step)
 
     def default_config(self):
         """

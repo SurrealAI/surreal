@@ -20,7 +20,7 @@ C = EasyDict(C)
 
 client = RedisClient()
 client.flushall()
-sender = ExpSender(client, 'replay', obs_cache_size=5)
+sender = ExpSender(client, 'replay', local_obs_cache_size=5)
 
 env = wrap_deepmind(make_atari('Pong'))
 env = EpisodeMonitor(env, filename=None)
@@ -92,7 +92,7 @@ for T in itertools.count():
             info_table.append(['Last 10 rewards', U.fformat(avg_reward, 3)])
             info_table.append(['Exploration',
                                str(int(100 * exploration.value(T)))+'%'])
-            avg_speed = 1 / (float(np.mean(env.get_episode_times()[-10:])) + 1e-6)
+            avg_speed = 1 / (float(np.mean(env.get_episode_duration()[-10:])) + 1e-6)
             info_table.append(['Speed iter/s', U.fformat(avg_speed, 1)])
             info_table.append(['Total steps', env.get_total_steps()])
             info_table.append(['Episodes', len(env.get_episode_rewards())])

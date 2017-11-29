@@ -1,7 +1,7 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
-cartpole_learn_config = {
+learn_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],
@@ -33,16 +33,13 @@ cartpole_learn_config = {
         'memory_size': 100000,
         'sampling_start_size': 1000,
     },
-    'sender': {
-        'pointers_only': True,
-        'save_exp_on_redis': False,
-        'max_redis_queue_size': 100000,
-        'obs_cache_size': 100000,
+    'eval': {
+        'eps': 0.05  # 5% random action under eval_stochastic mode
     }
 }
 
 
-cartpole_env_config = {
+env_config = {
     'action_spec': {
         'dim': [2],
         'type': 'discrete'
@@ -53,10 +50,18 @@ cartpole_env_config = {
 }
 
 
-cartpole_session_config = Config({
-    'tensorboard': {
-        'folder': '~/Temp/cartpole'
+session_config = Config({
+    'folder': '~/Temp/cartpole',
+    'tensorplex': {
+        'tensorboard_port': 6006,
+        'agent_update_interval': 50,  # record every N episodes
+        'eval_update_interval': 20,
+    },
+    'sender': {
+        'pointers_only': True,
+        'remote_save_exp': False,
+        'local_obs_cache_size': 100000,
     }
 })
 
-cartpole_session_config.extend(LOCAL_SESSION_CONFIG)
+session_config.extend(LOCAL_SESSION_CONFIG)

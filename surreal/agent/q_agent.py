@@ -32,10 +32,13 @@ class QAgent(Agent):
 
     def act(self, obs):
         assert torch.is_tensor(obs)
-        eps = self.exploration.value(self.T)
+        if self.agent_mode == AgentMode.training:
+            eps = self.exploration.value(self.T)
+        else:
+            eps = self.learn_config.eval.eps
         self.T += 1
         if (self.agent_mode == AgentMode.eval_deterministic
-            or random.random() > eps):
+                or random.random() > eps):
             obs = obs[None]  # vectorize
             obs = Variable(obs, volatile=True)
             q_values = self.q_func(obs)
@@ -55,6 +58,9 @@ class QAgent(Agent):
                 'fc_hidden_sizes': '_list_',
                 'dueling': '_bool_'
             },
+            'eval': {
+                'eps': '_float_'
+            }
         }
 
     def get_exploration_schedule(self):

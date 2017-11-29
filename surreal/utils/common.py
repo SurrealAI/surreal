@@ -5,6 +5,7 @@ import collections
 import functools
 import argparse
 import re
+import pprint
 from easydict import EasyDict
 from enum import Enum, EnumMeta
 
@@ -27,6 +28,22 @@ def assert_type(x, expected_type, message=''):
             _get_qualified_type_name(type(x))
         )
     )
+    return True
+
+
+def print_(*objs, h='', **kwargs):
+    """
+    Args:
+      *objs: objects to be pretty-printed
+      h: header string
+      **kwargs: other kwargs to pass on to ``pprint()``
+    """
+    if h:
+        print('=' * 20, h, '=' * 20)
+    for obj in objs:
+        print(pprint.pformat(obj, indent=4, **kwargs))
+    if h:
+        print('=' * (42 + len(h)))
 
 
 class _GetItemEnumMeta(EnumMeta):
@@ -92,6 +109,10 @@ def fformat(float_num, precision):
             .format(float_num)
             .rstrip('0')
             .rstrip('.'))
+
+
+def mean(numbers):
+    return float(sum(numbers)) / max(len(numbers), 1)
 
 
 def is_sequence(obj):

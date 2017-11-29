@@ -1,10 +1,17 @@
+from tensorplex import TensorplexClient
+import surreal.utils as U
+from collections import deque
+import itertools
+
+
 class PeriodicTracker(object):
     def __init__(self, period, init_value=0, init_endpoint=0):
         """
         first: if True, triggers at the first time
         """
-        assert isinstance(period, int)
-        assert isinstance(init_value, int)
+        U.assert_type(period, int)
+        assert period > 0
+        U.assert_type(init_value, int)
         self.period = period
         self.value = init_value
         self._endpoint = init_endpoint
@@ -21,7 +28,7 @@ class PeriodicTracker(object):
         """
         Returns: True if we enter the next period
         """
-        assert isinstance(incr, int)
+        U.assert_type(incr, int)
         self.value += incr
         return self._update_endpoint()
 
@@ -29,12 +36,12 @@ class PeriodicTracker(object):
         """
         Returns: True if we enter the next period
         """
-        assert isinstance(value, int)
+        U.assert_type(value, int)
         self.value = value
         return self._update_endpoint()
 
 
-class RunningAvg(object):
+class RunningAverage(object):
     def __init__(self, gamma, init_value=None):
         """Keep a running estimate of a quantity. This is a bit like mean
         but more sensitive to recent changes.
@@ -68,3 +75,67 @@ class RunningAvg(object):
         return self._value
 
 
+class PeriodicTensorplex(object):
+    def __init__(self,
+                 tensorplex,
+                 period,
+                 is_average=True,
+                 keep_full_history=False):
+        """
+        Args:
+            tensorplex: TensorplexClient object
+            period: when you call `update()`, it will only send to Tensorplex
+                at the specified period.
+            is_average: if True, send the averaged value over the last `period`.
+            keep_full_history: if False, only keep the last `period` of history.
+        """
+        if tensorplex is not None:  # None to turn off tensorplex
+            U.assert_type(tensorplex, TensorplexClient)
+        U.assert_type(period, int)
+        assert period > 0
+        self._tplex = tensorplex
+        self._period = period
+        self._is_average = is_average
+        self._keep_full_history = keep_full_history
+        self._tracker = PeriodicTracker(period)
+        self._history = {}
+        self._max_deque_size = None if keep_full_history else period
+
+    def update(self, tag_value_dict, global_step=None):
+        """
+
+        Args:
+            tag_value_dict:
+            global_step: None to use the internal counter
+
+        Returns:
+            - None if period incomplete
+            - dict of {tag: current_value (averaged)} at each period
+        """
+        for tag, value in tag_value_dict.items():
+            if tag in self._history:
+                self._history[tag].append(value)
+            else:
+                self._history[tag] = deque([value], maxlen=self._max_deque_size)
+        if self._tracker.track_increment():
+            current_values = {}
+            for tag, history in self._history.items():
+                if self._is_average:
+                    history = itertools.islice(
+                        history,
+                        max(len(history) - self._period, 0),
+                        len(history)
+                    )  # simulate history[-period:] for deque
+                    avg_value = U.mean(list(history))
+                else:
+                    avg_value = float(history[-1]) if len(history) > 0 else 0.0
+                current_values[tag] = avg_value
+            if self._tplex is not None:
+                if global_step is None:
+                    global_step = self._tracker.value
+                self._tplex.add_scalars(current_values, global_step)
+            return current_values
+
+    def get_history(self):
+        return {tag: list(history)
+                for tag, history in self._history.items()}

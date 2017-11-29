@@ -1,43 +1,38 @@
 import random
 from .base import Replay
-from .aggregator import torch_aggregate
 
 
 class PrioritizedReplay(Replay):
-    def __init__(self, *,
-                 redis_client,
-                 batch_size,
-                 obs_spec,
-                 action_spec,
-                 memory_size,
-                 sampling_start_size,
-                 **kwargs):
-        """
-        Args:
-          memory_size: Max number of experience to store in the buffer.
-            When the buffer overflows the old memories are dropped.
-          sampling_start_size: min number of exp above which we will start sampling
-        """
+    def __init__(self,
+                 learn_config,
+                 env_config,
+                 session_config):
         super().__init__(
-            redis_client=redis_client,
-            batch_size=batch_size,
-            obs_spec=obs_spec,
-            action_spec=action_spec,
-            **kwargs
+            learn_config=learn_config,
+            env_config=env_config,
+            session_config=session_config
         )
-        self._maxsize = memory_size
-        self._sampling_start_size = sampling_start_size
-        self._next_idx = 0
+        pass
+
+    def default_config(self):
+        conf = super().default_config()
+        conf.update({
+        })
+        return conf
 
     def _insert(self, exp_dict):
-        raise NotImplementedError
+        evicted = []
+        return evicted
 
-    def _sample(self, batch_size, batch_i):
-        raise NotImplementedError
+    def _sample(self, batch_size):
+        return []
 
-    def _evict(self, *args, **kwargs):
+    def _evict(self, evict_size):
         return []
 
     def _start_sample_condition(self):
-        raise NotImplementedError
+        pass
+
+    def __len__(self):
+        pass
 

@@ -10,7 +10,7 @@ ag.initialize()
 env = DummyEnv(ag.dummy_matrix, sleep=.3)
 
 client = RedisClient()
-sender = ExpSender(client, 'replay', obs_cache_size=5)
+sender = ExpSender(client, 'replay', local_obs_cache_size=5)
 
 
 last_obs = ag.dummy_matrix

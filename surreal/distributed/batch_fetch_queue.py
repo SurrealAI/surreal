@@ -42,7 +42,7 @@ class _EnqueueThread(U.StoppableThread):
                     break
 
 
-class ObsFetchQueue(object):
+class BatchFetchQueue(object):
     def __init__(self, redis_client, maxsize):
         self._queue = queue.Queue(maxsize=maxsize)
         assert isinstance(redis_client, RedisClient)
@@ -85,3 +85,6 @@ class ObsFetchQueue(object):
         Called by the neural network, draw the next batch of experiences
         """
         return self._queue.get(block=True, timeout=None)
+
+    def queue_size(self):
+        return self._queue.qsize()

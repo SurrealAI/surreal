@@ -3,13 +3,10 @@ import threading
 import time
 
 import surreal.utils as U
-from surreal.distributed import RedisClient
-from surreal.distributed.obs_fetch_queue import ObsFetchQueue
-from surreal.distributed.exp_queue import ExpQueue
-from surreal.distributed.obs_ref_count import incr_ref_count, decr_ref_count
-from surreal.session import (Config, extend_config,
+from surreal.distributed import (RedisClient, BatchFetchQueue, ExpQueue,
+                                 incr_ref_count, decr_ref_count)
+from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
-from tensorplex.loggerplex import LoggerplexClient
 from .aggregator import torch_aggregate
 
 
@@ -18,26 +15,63 @@ class _EvictThread(U.StoppableThread):
                  evict_func,
                  evict_args,
                  evict_kwargs,
-                 sleep_interval=1.):
+                 update_interval=1.):
         """
         Args:
             evict_func: call evict from Replay object
             evict_args: passed to evict_func
             evict_kwargs: passed to evict_func
-            sleep_interval:
+            update_interval:
         """
+        super().__init__()
         self._evict_func = evict_func
         self._evict_args = evict_args
         self._evict_kwargs = evict_kwargs
-        self._sleep_interval = sleep_interval
-        super().__init__()
+        self._update_interval = update_interval
 
     def run(self):
         while True:
             if self.is_stopped():
                 break
             self._evict_func(*self._evict_args, **self._evict_kwargs)
-            time.sleep(self._sleep_interval)
+            time.sleep(self._update_interval)
+
+
+class _TensorplexThread(U.StoppableThread):
+    """
+    Monitor the sizes of remote queue (LLEN of redis exp queue) and local fetch
+    queue. The size will be displayed on Tensorboard as a percentage of max
+    size. The increase or decrease of the queue size indicates the relative
+    speed of consumer and producer processes, which can help us diagnose the
+    system bottleneck.
+    The thread is activated by session_config.replay.tensorboard_display=True
+    """
+    def __init__(self,
+                 exp_queue,
+                 session_config,
+                 tensorplex,
+                 update_interval=1.):
+        super().__init__()
+        self._exp_queue = exp_queue
+        self._local_max_size = session_config.replay.local_exp_queue_size
+        self._tensorplex = tensorplex
+        self._remote_max_size = session_config.replay.remote_exp_queue_size
+        self._update_interval = update_interval
+        self._init_time = time.time()
+
+    def run(self):
+        while True:
+            if self.is_stopped():
+                break
+            time.sleep(self._update_interval)
+            local_percent = (1. * self._exp_queue.local_queue_size()
+                             / self._local_max_size)
+            remote_percent = (1. * self._exp_queue.remote_queue_size()
+                             / self._remote_max_size)
+            self._tensorplex.add_scalars({
+                'local_exp_queue': local_percent,
+                'remote_exp_queue': remote_percent
+            }, global_step=int(time.time() - self._init_time))
 
 
 class Replay(metaclass=U.AutoInitializeMeta):
@@ -46,15 +80,10 @@ class Replay(metaclass=U.AutoInitializeMeta):
                  env_config,
                  session_config):
         """
-
-        Args:
-            redis_client:
-            batch_size:
-            name:
-            fetch_queue_size: max number of pre-fetch minibatches
-            exp_queue_size: limit so that Replay doesn't pull exp faster than
-                it can insert.
         """
+        # Note that there're 2 replay configs:
+        # one in learner_config that controls algorithmic part of the replay logic
+        # one in session_config that controls system settings
         self.replay_config = Config(learn_config).replay
         self.replay_config.extend(self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
@@ -65,21 +94,26 @@ class Replay(metaclass=U.AutoInitializeMeta):
             host=self.session_config.replay.host,
             port=self.session_config.replay.port
         )
-        self.log = LoggerplexClient(
-            client_id='replay',
-            host=self.session_config.tensorboard.host,
-            port=self.session_config.tensorboard.port
+        self.log = Loggerplex(
+            name='replay',
+            session_config=self.session_config
+        )
+        self.tensorplex = StatsTensorplex(
+            section_name='replay',
+            session_config=self.session_config
         )
         self._exp_queue = ExpQueue(
             redis_client=self._client,
-            queue_name=self.replay_config.name,
-            maxsize=self.replay_config.exp_queue_size,
+            queue_name=self.session_config.replay.name,
+            maxsize=self.session_config.replay.local_exp_queue_size,
         )
-        self._obs_fetch_queue = ObsFetchQueue(
+        self._batch_fetch_queue = BatchFetchQueue(
             redis_client=self._client,
-            maxsize=self.replay_config.fetch_queue_size,
+            maxsize=self.session_config.replay.local_batch_queue_size,
         )
         self._evict_thread = None
+        self._tensorplex_thread = None
+        self._has_tensorplex = self.session_config.replay.tensorboard_display
         self._job_queue = U.JobQueue()
 
     def _initialize(self):
@@ -91,10 +125,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
             dict of default configs, will be placed in learn_config['replay']
         """
         return {
-            'name': 'replay',
             'batch_size': '_int_',
-            'fetch_queue_size': 10,
-            'exp_queue_size': 10000
         }
 
     def _insert(self, exp_dict):
@@ -178,7 +209,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
     def _wrapped_sample_before_fetch(self):
         """
         Returns:
-            List of exp_dicts with obs_pointers, fed to the ObsFetchQueue
+            List of exp_dicts with obs_pointers, fed to the BatchFetchQueue
             None if start_sample_condition not met
         """
         if self._start_sample_condition():
@@ -235,22 +266,26 @@ class Replay(metaclass=U.AutoInitializeMeta):
         self._job_queue.start_thread()
         self._exp_queue.start_enqueue_thread()
         self._exp_queue.start_dequeue_thread(self.insert)
-        self._obs_fetch_queue.start_enqueue_thread(self._sample_before_fetch)
+        self._batch_fetch_queue.start_enqueue_thread(self._sample_before_fetch)
+        if self._has_tensorplex:
+            self.start_tensorplex_thread()
 
     def stop_queue_threads(self):
         self._job_queue.stop_thread()
         self._exp_queue.stop_enqueue_thread()
         self._exp_queue.stop_dequeue_thread()
-        self._obs_fetch_queue.stop_enqueue_thread()
+        self._batch_fetch_queue.stop_enqueue_thread()
+        if self._has_tensorplex:
+            self.stop_tensorplex_thread()
 
-    def start_evict_thread(self, *args, sleep_interval=1., **kwargs):
+    def start_evict_thread(self, *args, update_interval=1., **kwargs):
         if self._evict_thread is not None:
-            raise RuntimeError('evict_thread already running')
+            raise RuntimeError('evict thread already running')
         self._evict_thread = _EvictThread(
             evict_func=self.evict,
             evict_args=args,
             evict_kwargs=kwargs,
-            sleep_interval=sleep_interval
+            update_interval=update_interval
         )
         self._evict_thread.start()
         return self._evict_thread
@@ -261,8 +296,26 @@ class Replay(metaclass=U.AutoInitializeMeta):
         self._evict_thread = None
         return t
 
+    def start_tensorplex_thread(self, update_interval=1.):
+        if self._tensorplex_thread is not None:
+            raise RuntimeError('tensorplex thread already running')
+        self._tensorplex_thread = _TensorplexThread(
+            exp_queue=self._exp_queue,
+            session_config=self.session_config,
+            tensorplex=self.tensorplex,
+            update_interval=update_interval
+        )
+        self._tensorplex_thread.start()
+        return self._tensorplex_thread
+
+    def stop_tensorplex_thread(self):
+        t = self._tensorplex_thread
+        t.stop()
+        self._tensorplex_thread = None
+        return t
+
     def sample(self):
-        exp_list = self._obs_fetch_queue.dequeue()
+        exp_list = self._batch_fetch_queue.dequeue()
         return self._aggregate_batch(exp_list)
 
     def sample_iterator(self, stop_condition=None):

@@ -86,7 +86,10 @@ class DQNLearner(Learner):
         if self.target_update_tracker.track_increment(batch_size):
             # Update target network periodically.
             self._update_target()
-        return td_errors
+        mean_td_error = U.to_scalar(torch.mean(torch.abs(td_errors)))
+        self.update_tensorplex({
+            'td_error': mean_td_error
+        })
 
     def default_config(self):
         return {
