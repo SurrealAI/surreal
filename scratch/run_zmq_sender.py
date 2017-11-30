@@ -6,7 +6,7 @@ from scratch.dummy_agent import *
 sender = ExpSender(
     host='127.0.0.1',
     port=8001,
-    flush_iteration=20
+    flush_iteration=5
 )
 
 done = False

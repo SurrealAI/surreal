@@ -43,7 +43,11 @@ class ExpSender(object):
             flush_iteration: how many send() calls before we flush the buffer
         """
         U.assert_type(flush_iteration, int)
-        self._client = ZmqPusherClient(host=host, port=port)
+        self._client = ZmqPusherClient(
+            host=host,
+            port=port,
+            is_pyobj=False,
+        )
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 

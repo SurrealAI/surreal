@@ -37,7 +37,7 @@ def exp_tuple_handler(exp_tuple):
 queue = ExpQueue(
     port=8001,
     max_size=5,
-    exp_tuple_handler=exp_tuple_handler
+    exp_handler=exp_tuple_handler
 )
 queue.start_enqueue_thread()
 t = queue.start_dequeue_thread()

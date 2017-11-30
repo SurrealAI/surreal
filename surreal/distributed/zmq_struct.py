@@ -3,45 +3,100 @@ import threading
 import surreal.utils as U
 
 
+def _get_serializer(is_pyobj):
+    if is_pyobj:
+        return U.serialize
+    else:
+        return lambda x: x
+
+def _get_deserializer(is_pyobj):
+    if is_pyobj:
+        return U.deserialize
+    else:
+        return lambda x: x
+
+
 class ZmqPusherClient(object):
-    def __init__(self, host, port):
+    def __init__(self, host, port, is_pyobj=True):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUSH)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         self.socket.connect("tcp://{}:{}".format(host, port))
+        self._serialize = _get_serializer(is_pyobj)
 
-    def push(self, binary):
-        self.socket.send(binary)
-
-    def push_pyobj(self, obj):
-        self.socket.send(U.serialize(obj))
+    def push(self, obj):
+        self.socket.send(self._serialize(obj))
 
 
 class DummyPusherClient(object):  # debugging only
-    def __init__(self, host, port):
+    def __init__(self, host, port, is_pyobj=True):
         pass
 
-    def push(self, binary):
-        print('PUSHED')
-
-    def push_pyobj(self, obj):
-        print('PUSHED PYOBJ')
+    def push(self, obj):
+        print('PUSHED OBJ')
 
 # ZmqPusherClient = DummyPusherClient
 
 
 class ZmqPullerServer(object):
-    def __init__(self, port):
+    def __init__(self, port, is_pyobj=True):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self._deserialize = _get_deserializer(is_pyobj)
 
     def pull(self):
-        return self.socket.recv()
+        return self._deserialize(self.socket.recv())
 
-    def pull_pyobj(self):
-        return U.deserialize(self.socket.recv())
+
+class ZmqServer(object):
+    """
+    Simple REQ-REP server
+    """
+    def __init__(self, port, handler, is_pyobj=True):
+        """
+        Args:
+            port:
+            handler: takes the request (pyobj) and sends the response
+        """
+        context = zmq.Context()
+        self.socket = context.socket(zmq.REP)
+        self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self._handler = handler
+        self._thread = None
+        self._serialize = _get_serializer(is_pyobj)
+        self._deserialize = _get_deserializer(is_pyobj)
+
+    def _serve_loop(self):
+        while True:
+            request = self._deserialize(self.socket.recv())
+            response = self._handler(request)
+            self.socket.send(self._serialize(response))
+
+    def serve_loop(self, block):
+        if block:
+            self._serve_loop()
+        else:
+            if self._thread:
+                raise RuntimeError('loop already running')
+            self._thread = threading.Thread(target=self._serve_loop)
+            self._thread.daemon = True
+            self._thread.start()
+            return self._thread
+
+
+class ZmqClient(object):
+    def __init__(self, host, port, is_pyobj=True):
+        context = zmq.Context()
+        self.socket = context.socket(zmq.REQ)
+        self.socket.bind("tcp://{}:{}".format(host, port))
+        self._serialize = _get_serializer(is_pyobj)
+        self._deserialize = _get_deserializer(is_pyobj)
+
+    def request(self, request):
+        self.socket.send(self._serialize(request))
+        return self._deserialize(self.socket.recv())
 
 
 class ZmqQueue(object):
@@ -51,8 +106,8 @@ class ZmqQueue(object):
     def __init__(self,
                  port,
                  max_size,
-                 start_thread=True,
-                 is_pyobj=True):
+                 is_pyobj=True,
+                 start_thread=True):
         """
 
         Args:
@@ -61,10 +116,9 @@ class ZmqQueue(object):
             start_thread:
             is_pyobj: pull and convert to python object
         """
-        self._puller = ZmqPullerServer(port=port)
+        self._puller = ZmqPullerServer(port=port, is_pyobj=is_pyobj)
         self._queue = U.FlushQueue(max_size=max_size)
         # start
-        self._to_pyobj = is_pyobj
         self._enqueue_thread = None
         if start_thread:
             self.start_enqueue_thread()
@@ -79,12 +133,8 @@ class ZmqQueue(object):
 
     def _run_enqueue(self):
         while True:
-            if self._to_pyobj:
-                obj = self._puller.pull_pyobj()
-            else:
-                obj = self._puller.pull()
-            self._queue.put(obj)
-            del obj  # clear the last obj's ref count
+            self._queue.put(self._puller.pull())
+            # del obj  # clear the last obj's ref count
 
     def get(self):
         return self._queue.get(block=True, timeout=None)
@@ -94,52 +144,3 @@ class ZmqQueue(object):
 
     __len__ = size
 
-
-"""
-class ZmqQueueClient(object):
-    def __init__(self,
-                 host,
-                 port,
-                 batch_interval,
-                 use_pickle=True,
-                 start_thread=True):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.PUSH)
-        self.socket.set_hwm(100)
-        self.socket.connect("tcp://{}:{}".format(host, port))
-        self._use_pickle = use_pickle
-        self._batch_interval = batch_interval
-        if self._use_pickle:
-            self._send = self.socket.send_pyobj
-        else:
-            self._send = self.socket.send
-        self._batch_buffer = []
-        self._batch_lock = threading.Lock()
-
-        self.batch_thread = None
-        if self._batch_interval > 0 and start_thread:
-            self.start_batch_thread()
-
-    def start_batch_thread(self):
-        if self.batch_thread is not None:
-            raise ValueError('batch_thread already running')
-        self.batch_thread = threading.Thread(target=self._run_batch)
-        self.batch_thread.daemon = True
-        self.batch_thread.start()
-        return self.batch_thread
-
-    def _run_batch(self):
-        while True:
-            if self._batch_buffer:
-                with self._batch_lock:
-                    self._send(self._batch_buffer)
-                    self._batch_buffer.clear()
-            time.sleep(self._batch_interval)
-
-    def enqueue(self, obj):
-        if self._batch_interval == 0:  # no batching
-            self._send(obj)
-        else:
-            with self._batch_lock:
-                self._batch_buffer.append(obj)
-"""
