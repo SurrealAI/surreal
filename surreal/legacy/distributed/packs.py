@@ -1,0 +1,108 @@
+"""
+Defines packs that will be sent to Redis
+"""
+import inspect
+import pickle
+import surreal.utils as U
+
+
+class RedisMissingValue(Exception):
+    pass
+
+
+class Pack(object):
+    pointer_prefix = ''  # override this in subclasses
+
+    def __init__(self, data, serializer=None):
+        """
+        Args:
+            data
+            serializer: defaults to pickle.dumps
+        """
+        self._data = data
+        if serializer is None:
+            self._serializer = pickle.dumps
+        else:
+            self._serializer = serializer
+
+    def serialize(self):
+        """
+        Returns:
+            hask_key, binarized_data
+        """
+        binary = self._serializer(self._data)
+        pointer = '{}:{}'.format(self.pointer_prefix, U.binary_hash(binary))
+        return pointer, binary
+
+    @staticmethod
+    def deserialize(binary, deserializer=None):
+        """
+        Returns:
+            deserialized data
+        """
+        if deserializer is None:
+            deserializer = pickle.loads
+        if binary is None:
+            raise RedisMissingValue()
+        return deserializer(binary)
+
+    @property
+    def data(self):
+        return self._data
+
+
+class ExpPack(Pack):
+    pointer_prefix = 'exp'
+
+    def serialize(self):
+        """
+        Also insert exp_pointer (i.e. hash of this exp dict before serialize)
+        """
+        pointer, binary = super().serialize()
+        dat = self._data.copy()
+        dat['exp_pointer'] = pointer
+        return pointer, self._serializer(dat)
+
+    def get_key(self):
+        return 'exp:' + super().get_key()
+
+
+class ExpPointerPack(ExpPack):
+    """
+    Only obs_pointers are sent. Actual obs will be downloaded later.
+    """
+    def __init__(self, obs_pointers, action, reward, done, info):
+        assert isinstance(obs_pointers, list)
+        assert isinstance(reward, (float, int))
+        assert isinstance(info, dict)
+        super().__init__({
+            'obs_pointers': obs_pointers,
+            'action': action,
+            'reward': reward,
+            'done': done,
+            'info': info
+        })
+
+
+class ExpFullPack(ExpPack):
+    """
+    Send the full exp tuple with full obs. Useful for on-policy learning.
+    """
+    def __init__(self, obs, action, reward, done, info):
+        assert isinstance(obs, list)
+        assert isinstance(reward, (float, int))
+        assert isinstance(info, dict)
+        super().__init__({
+            'obs': obs,
+            'action': action,
+            'reward': reward,
+            'done': done,
+            'info': info
+        })
+
+
+class ObsPack(Pack):
+    pointer_prefix = 'obs'
+
+    def get_key(self):
+        return 'obs:' + super().get_key()
