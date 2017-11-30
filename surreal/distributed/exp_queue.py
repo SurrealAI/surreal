@@ -56,9 +56,7 @@ class ExpQueue(object):
         """
         if self._dequeue_thread is not None:
             raise ValueError('Dequeue thread is already running')
-        self._dequeue_thread = threading.Thread(target=self._dequeue_loop)
-        self._dequeue_thread.daemon = True
-        self._dequeue_thread.start()
+        self._dequeue_thread = U.start_thread(self._dequeue_loop)
         return self._dequeue_thread
 
     def size(self):

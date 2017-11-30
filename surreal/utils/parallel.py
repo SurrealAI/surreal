@@ -2,7 +2,21 @@ import queue
 import collections
 import threading
 import time
-queue.Queue
+
+
+def start_thread(func, daemon=True, args=None, kwargs=None):
+    if args is None:
+        args = ()
+    if kwargs is None:
+        kwargs = {}
+    t = threading.Thread(
+        target=func,
+        args=args,
+        kwargs=kwargs,
+        daemon=daemon,
+    )
+    t.start()
+    return t
 
 
 class StoppableThread(threading.Thread):

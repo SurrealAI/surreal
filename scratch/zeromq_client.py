@@ -1,14 +1,13 @@
 import zmq
 import time
 import pprint
+from surreal.distributed import *
 
-def result_collector():
-    context = zmq.Context()
-    results_receiver = context.socket(zmq.PULL)
-    results_receiver.bind("tcp://127.0.0.1:5557")
-    collecter_data = {}
-    for x in range(1000):
-        result = results_receiver.recv_json()
-        pprint.pprint(collecter_data)
 
-result_collector()
+client = ZmqClient(
+    host='127.0.0.1',
+    port=8001,
+)
+for i in range(10):
+    time.sleep(0.2)
+    print(client.request('yo'+str(i)))

@@ -1,38 +1,10 @@
-import itertools
 import threading
 import time
-
 import surreal.utils as U
 from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from .aggregator import torch_aggregate
-
-
-class _EvictThread(U.StoppableThread):
-    def __init__(self,
-                 evict_func,
-                 evict_args,
-                 evict_kwargs,
-                 update_interval=1.):
-        """
-        Args:
-            evict_func: call evict from Replay object
-            evict_args: passed to evict_func
-            evict_kwargs: passed to evict_func
-            update_interval:
-        """
-        super().__init__()
-        self._evict_func = evict_func
-        self._evict_args = evict_args
-        self._evict_kwargs = evict_kwargs
-        self._update_interval = update_interval
-
-    def run(self):
-        while True:
-            if self.is_stopped():
-                break
-            self._evict_func(*self._evict_args, **self._evict_kwargs)
-            time.sleep(self._update_interval)
+from surreal.distributed import ExpQueue, ZmqServer
 
 
 class _TensorplexThread(U.StoppableThread):
@@ -72,7 +44,118 @@ class _TensorplexThread(U.StoppableThread):
             }, global_step=int(time.time() - self._init_time))
 
 
-class Replay(metaclass=U.AutoInitializeMeta):
+class ReplayCore(metaclass=U.AutoInitializeMeta):
+    def __init__(self, *,
+                 puller_port,
+                 sampler_port,
+                 exp_queue_max_size,
+                 evict_interval):
+        """
+        Args:
+            puller_port: server, pull from agent side
+            sampler_port: server, send to learner side
+            exp_queue_max_size
+            evict_interval: in seconds, 0 to disable evict
+        """
+        self._exp_queue = ExpQueue(
+            port=puller_port,
+            max_size=exp_queue_max_size,
+            exp_handler=self.insert,
+        )
+        self._sampler_server = ZmqServer(
+            port=sampler_port,
+            handler=self._sample_request_handler,
+            is_pyobj=True
+        )
+        self._evict_interval = evict_interval
+        self._evict_thread = None
+        # self._sample_condition = threading.Condition()
+
+    def _initialize(self):
+        self._exp_queue.start_dequeue_thread()
+        self._exp_queue.start_enqueue_thread()
+        self._sampler_server.serve_loop(block=False)
+        if self._evict_interval:
+            self.start_evict_thread()
+
+    def insert(self, exp_tuple):
+        """
+        Add a new experience to the replay.
+        Includes passive evict logic if memory capacity is exceeded.
+
+        Args:
+            exp_tuple: ExpTuple([obs], action, reward, done, info)
+        """
+        raise NotImplementedError
+
+    def sample(self, batch_size):
+        """
+        This function is called in _sample_handler for learner side Zmq request
+
+        Args:
+            batch_size:
+
+        Returns:
+            a list of exp_tuples
+        """
+        raise NotImplementedError
+
+    def evict(self):
+        """
+        Actively evict old experiences.
+        """
+        pass
+
+    def start_sample_condition(self):
+        """
+        Tells the thread to start sampling only when this condition is met.
+        For example, only when the replay memory has > 10K experiences.
+
+        Returns:
+            bool: whether to start sampling or not
+        """
+        raise NotImplementedError
+
+    def aggregate_batch(self, exp_list):
+        """
+        Will be called in `next_batch()` method to produce the actual inputs
+        to the neural network training loop.
+
+        Args:
+            exp_list: list of ExpTuple (from `_sample()`)
+                [obs, reward, action, done, info]
+
+        Returns:
+            batched Tensors, batched action/reward vectors, etc.
+        """
+        raise NotImplementedError
+
+    # ======================== internal methods ========================
+    def _sample_request_handler(self, batch_size):
+        """
+        Handle requests to the learner
+        https://stackoverflow.com/questions/29082268/python-time-sleep-vs-event-wait
+        Since we don't have external notify, we'd better just use sleep
+        """
+        U.assert_type(batch_size, int)
+        while not self.start_sample_condition():
+            time.sleep(0.01)
+        return self.aggregate_batch(self.sample(batch_size))
+
+    def _evict_loop(self):
+        assert self._evict_interval
+        while True:
+            time.sleep(self._evict_interval)
+            self.evict()
+
+    def start_evict_thread(self):
+        if self._evict_thread is not None:
+            raise RuntimeError('evict thread already running')
+        self._evict_thread = U.start_thread(self._evict_loop)
+        return self._evict_thread
+
+
+class Replay(ReplayCore):
     def __init__(self,
                  learn_config,
                  env_config,
@@ -175,7 +258,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         """
         raise NotImplementedError
 
-    def _aggregate_batch(self, exp_list):
+    def aggregate_batch(self, exp_list):
         """
         Will be called in `next_batch()` method to produce the actual inputs
         to the neural network training loop.
@@ -314,7 +397,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
 
     def sample(self):
         exp_list = self._batch_fetch_queue.dequeue()
-        return self._aggregate_batch(exp_list)
+        return self.aggregate_batch(exp_list)
 
     def sample_iterator(self, stop_condition=None):
         """

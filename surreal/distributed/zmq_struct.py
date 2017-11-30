@@ -18,6 +18,8 @@ def _get_deserializer(is_pyobj):
 
 class ZmqPusherClient(object):
     def __init__(self, host, port, is_pyobj=True):
+        if host == 'localhost':
+            host = '127.0.0.1'
         context = zmq.Context()
         self.socket = context.socket(zmq.PUSH)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
@@ -80,17 +82,17 @@ class ZmqServer(object):
         else:
             if self._thread:
                 raise RuntimeError('loop already running')
-            self._thread = threading.Thread(target=self._serve_loop)
-            self._thread.daemon = True
-            self._thread.start()
+            self._thread = U.start_thread(self._serve_loop)
             return self._thread
 
 
 class ZmqClient(object):
     def __init__(self, host, port, is_pyobj=True):
+        if host == 'localhost':
+            host = '127.0.0.1'
         context = zmq.Context()
         self.socket = context.socket(zmq.REQ)
-        self.socket.bind("tcp://{}:{}".format(host, port))
+        self.socket.connect("tcp://{}:{}".format(host, port))
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
 
@@ -126,9 +128,7 @@ class ZmqQueue(object):
     def start_enqueue_thread(self):
         if self._enqueue_thread is not None:
             raise RuntimeError('enqueue_thread already started')
-        self._enqueue_thread = threading.Thread(target=self._run_enqueue)
-        self._enqueue_thread.daemon = True
-        self._enqueue_thread.start()
+        self._enqueue_thread = U.start_thread(self._run_enqueue)
         return self._enqueue_thread
 
     def _run_enqueue(self):
