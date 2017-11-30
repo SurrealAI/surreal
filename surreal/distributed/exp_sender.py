@@ -20,15 +20,13 @@ class ExpBuffer(object):
         for ob in obs:
             hsh = U.pyobj_hash(ob)
             ob_hashes.append(hsh)
-            if hsh in self.ob_storage:
-                self.ob_storage[hsh][1] += 1
-            else:
-                self.ob_storage[hsh] = [ob, 1]
-        self.exp_tuples.append((ob_hashes, *other_info))
+            if hsh not in self.ob_storage:
+                self.ob_storage[hsh] = ob
+        self.exp_tuples.append([ob_hashes, *other_info])
 
     def flush(self):
-        binary = U.serialize([self.exp_tuples, self.ob_storage])
-        # U.print_('SIZE', len(binary))
+        binary = U.serialize((self.exp_tuples, self.ob_storage))
+        # U.print_('SIZE', len(binary), 'Exp', self.exp_tuples, 'ob', self.ob_storage)
         self.exp_tuples = []
         self.ob_storage = {}
         return binary

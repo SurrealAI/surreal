@@ -52,19 +52,19 @@ class ZmqQueue(object):
                  port,
                  max_size,
                  start_thread=True,
-                 to_pyobj=True):
+                 is_pyobj=True):
         """
 
         Args:
             port:
             max_size:
             start_thread:
-            to_pyobj: pull and convert to python object
+            is_pyobj: pull and convert to python object
         """
         self._puller = ZmqPullerServer(port=port)
         self._queue = U.FlushQueue(max_size=max_size)
         # start
-        self._to_pyobj = to_pyobj
+        self._to_pyobj = is_pyobj
         self._enqueue_thread = None
         if start_thread:
             self.start_enqueue_thread()
@@ -84,9 +84,15 @@ class ZmqQueue(object):
             else:
                 obj = self._puller.pull()
             self._queue.put(obj)
+            del obj  # clear the last obj's ref count
 
-    def dequeue(self, timeout=None):
-        return self._queue.get(block=True, timeout=timeout)
+    def get(self):
+        return self._queue.get(block=True, timeout=None)
+
+    def size(self):
+        return len(self._queue)
+
+    __len__ = size
 
 
 """

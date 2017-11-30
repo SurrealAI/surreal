@@ -156,5 +156,8 @@ class FlushQueue(object):
         '''
         return self.get(block=False)
 
-    def __len__(self):
+    def size(self):
         return len(self.queue)
+
+    __len__ = size
+

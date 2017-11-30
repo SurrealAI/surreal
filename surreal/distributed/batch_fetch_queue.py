@@ -4,7 +4,6 @@ import time
 import surreal.utils as U
 import threading
 from .obs_fetcher import ObsFetcher
-from .obs_ref_count import decr_ref_count
 
 
 class _EnqueueThread(U.StoppableThread):

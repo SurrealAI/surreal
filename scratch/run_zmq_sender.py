@@ -6,7 +6,7 @@ from scratch.dummy_agent import *
 sender = ExpSender(
     host='127.0.0.1',
     port=8001,
-    flush_iteration=5
+    flush_iteration=20
 )
 
 done = False
@@ -17,7 +17,7 @@ env = DummyEnv(ag.dummy_matrix, sleep=.01)
 
 
 last_obs = ag.dummy_matrix
-for i in range(100):
+for i in range(20):
     a = i % 10
     obs, reward, done, info = env.step(a)
     info['td-error'] = reward/10.

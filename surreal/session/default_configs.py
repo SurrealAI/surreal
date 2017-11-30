@@ -28,7 +28,6 @@ BASE_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'name': 'replay',
         'host': '_str_',
         'port': '_int_',
         'local_batch_queue_size': '_int_',  # max batches to pre-sample
@@ -37,12 +36,10 @@ BASE_SESSION_CONFIG = {
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
     'sender': {
-        'pointers_only': True,
-        'remote_save_exp': False,  # store Exp tuples on Redis or not
-        'local_obs_cache_size': '_int_',  # to avoid sending duplicate obs
+        'flush_iteration': '_int_',
+        'flush_time': '_int_',
     },
     'ps': {
-        'name': 'ps',
         'host': '_str_',
         'port': '_int_',
     },
@@ -77,7 +74,8 @@ LOCAL_SESSION_CONFIG = {
         'local_exp_queue_size': 10000,  # max number of exps to pre-fetch
     },
     'sender': {
-        'local_obs_cache_size': 10000,  # to avoid sending duplicate obs
+        'flush_iteration': '_int_',
+        'flush_time': 0,
     },
     'ps': {
         'host': 'localhost',
