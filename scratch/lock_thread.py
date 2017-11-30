@@ -1,34 +1,38 @@
 import surreal.utils as U
 from time import sleep
 import threading
+import multiprocessing
 
-lock = threading.Lock()
-job_queue = U.JobQueue(wait_for_result=1)
+lock1 = threading.Lock()
+lock2 = multiprocessing.Lock()
+lock1 = multiprocessing.Lock()
 
 def compute(s, i):
-    print(s)
+    print(s, i)
     return s+str(len(s)*10 + i)
 
 def f():
-    for i in range(40):
-        print(job_queue.process(compute, 'ff', i))
-        sleep(0.5)
+    with lock1:
+        for i in range(5):
+            compute('yo', 3)
+            sleep(0.2)
 
 def g():
-    for i in range(20):
-        print(job_queue.process(compute, 'ggg', i))
-        sleep(1)
+    with lock1:
+        for i in range(5):
+            compute('bar', 7)
+            sleep(.2)
 
-job_queue.start_thread()
 
-t=threading.Thread(target=f)
+MULTI = multiprocessing.Process
+MULTI = threading.Thread
+
+t=MULTI(target=f)
 t.start()
-t2=threading.Thread(target=g)
+t2=MULTI(target=g)
 t2.start()
-sleep(10)
-job_queue.stop_thread()
 
-# t.join()
-# t2.join()
+t.join()
+t2.join()
 
 # print(job_queue.result_deque())
