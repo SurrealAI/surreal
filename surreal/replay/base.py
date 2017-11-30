@@ -3,8 +3,6 @@ import threading
 import time
 
 import surreal.utils as U
-from surreal.distributed import (RedisClient, BatchFetchQueue, ExpQueue,
-                                 incr_ref_count, decr_ref_count)
 from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from .aggregator import torch_aggregate

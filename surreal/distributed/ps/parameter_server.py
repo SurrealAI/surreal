@@ -6,7 +6,6 @@ Evaluator: pulls param info from "psinfo" and do diagnostics.
 """
 import time
 import pickle
-from surreal.distributed import RedisClient
 import surreal.utils as U
 from .module_dict import ModuleDict
 

@@ -3,7 +3,6 @@ import itertools
 import time
 import surreal.utils as U
 import threading
-from .redis_client import RedisClient
 from .obs_fetcher import ObsFetcher
 from .obs_ref_count import decr_ref_count
 

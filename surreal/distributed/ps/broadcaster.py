@@ -4,7 +4,6 @@ parameter server.
 """
 import time
 import pickle
-from surreal.distributed import RedisClient
 import surreal.utils as U
 
 

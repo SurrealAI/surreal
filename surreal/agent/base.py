@@ -7,7 +7,6 @@ from surreal.session import (
     PeriodicTracker, PeriodicTensorplex, extend_config,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
 )
-from surreal.distributed import RedisClient, ParameterServer
 
 
 class AgentMode(U.StringEnum):

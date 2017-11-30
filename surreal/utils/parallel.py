@@ -1,6 +1,8 @@
 import queue
 import collections
 import threading
+import time
+queue.Queue
 
 
 class StoppableThread(threading.Thread):
@@ -78,3 +80,81 @@ class JobQueue(object):
         t.stop()
         self._thread = None
         return t
+
+
+class FlushQueue(object):
+    """
+    Handles a continuous stream of incoming data. When max capacity is reached,
+    flush out the oldest data that didn't have time to be processed.
+    Adapted from python's queue.Queue source code.
+    """
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self.queue = collections.deque(maxlen=max_size)
+
+        # mutex must be held whenever the queue is mutating.  All methods
+        # that acquire mutex must release it before returning.  mutex
+        # is shared between the three conditions, so acquiring and
+        # releasing the conditions also acquires and releases mutex.
+        self._mutex = threading.Lock()
+
+        # Notify not_empty whenever an item is added to the queue; a
+        # thread waiting to get is notified then.
+        self._not_empty = threading.Condition(self._mutex)
+
+    def put(self, item):
+        '''
+        Put an item into the queue.
+
+        If optional args 'block' is true and 'timeout' is None (the default),
+        block if necessary until a free slot is available. If 'timeout' is
+        a non-negative number, it blocks at most 'timeout' seconds and raises
+        the Full exception if no free slot was available within that time.
+        Otherwise ('block' is false), put an item on the queue if a free slot
+        is immediately available, else raise the Full exception ('timeout'
+        is ignored in that case).
+        '''
+        with self._not_empty:
+            self.queue.append(item)
+            self._not_empty.notify()
+
+    def get(self, block=True, timeout=None):
+        '''
+        Remove and return an item from the queue.
+
+        If optional args 'block' is true and 'timeout' is None (the default),
+        block if necessary until an item is available. If 'timeout' is
+        a non-negative number, it blocks at most 'timeout' seconds and raises
+        the Empty exception if no item was available within that time.
+        Otherwise ('block' is false), return an item if one is immediately
+        available, else raise the Empty exception ('timeout' is ignored
+        in that case).
+        '''
+        with self._not_empty:
+            if not block:
+                if not len(self):
+                    raise queue.Empty
+            elif timeout is None:
+                while not len(self):
+                    self._not_empty.wait()
+            elif timeout < 0:
+                raise ValueError("'timeout' must be a non-negative number")
+            else:
+                endtime = time.time() + timeout
+                while not len(self):
+                    remaining = endtime - time.time()
+                    if remaining <= 0.0:
+                        raise queue.Empty
+                    self._not_empty.wait(remaining)
+            return self.queue.popleft()
+
+    def get_nowait(self):
+        '''Remove and return an item from the queue without blocking.
+
+        Only get an item if one is immediately available. Otherwise
+        raise the Empty exception.
+        '''
+        return self.get(block=False)
+
+    def __len__(self):
+        return len(self.queue)

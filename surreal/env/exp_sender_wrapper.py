@@ -1,5 +1,4 @@
 from .wrapper import Wrapper
-from surreal.distributed import ExpSender, RedisClient
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 
 

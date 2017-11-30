@@ -6,7 +6,6 @@ from surreal.session import (
     extend_config, PeriodicTracker, PeriodicTensorplex,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
 )
-from surreal.distributed import RedisClient, ParameterServer
 from surreal.session import StatsTensorplex, Loggerplex
 
 

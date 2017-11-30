@@ -1,7 +1,5 @@
-import queue
+from .zmq_struct import ZmqQueue
 import surreal.utils as U
-from .redis_client import RedisClient
-from .packs import ExpPack
 
 
 class _DequeueThread(U.StoppableThread):
