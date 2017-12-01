@@ -9,6 +9,7 @@ def _get_serializer(is_pyobj):
     else:
         return lambda x: x
 
+
 def _get_deserializer(is_pyobj):
     if is_pyobj:
         return U.deserialize
@@ -16,7 +17,7 @@ def _get_deserializer(is_pyobj):
         return lambda x: x
 
 
-class ZmqPusherClient(object):
+class ZmqPushClient(object):
     def __init__(self, host, port, is_pyobj=True):
         if host == 'localhost':
             host = '127.0.0.1'
@@ -30,17 +31,7 @@ class ZmqPusherClient(object):
         self.socket.send(self._serialize(obj))
 
 
-class DummyPusherClient(object):  # debugging only
-    def __init__(self, host, port, is_pyobj=True):
-        pass
-
-    def push(self, obj):
-        print('PUSHED OBJ')
-
-# ZmqPusherClient = DummyPusherClient
-
-
-class ZmqPullerServer(object):
+class ZmqPullServer(object):
     def __init__(self, port, is_pyobj=True):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
@@ -101,6 +92,63 @@ class ZmqClient(object):
         return self._deserialize(self.socket.recv())
 
 
+class ZmqPublishServer(object):
+    """
+    PUB-SUB pattern: PUB server
+    """
+    def __init__(self, port, is_pyobj=True):
+        """
+        Args:
+            port:
+        """
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PUB)
+        self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self._thread = None
+        self._serialize = _get_serializer(is_pyobj)
+
+    def publish(self, data, topic=''):
+        topic = U.str2bytes(topic)
+        data = self._serialize(data)
+        self.socket.send_multipart([topic, data])
+
+
+class ZmqSubscribeClient(object):
+    """
+    Simple REQ-REP server
+    """
+    def __init__(self, host, port, handler, topic='', is_pyobj=True):
+        """
+        Args:
+            port:
+            handler: processes the data received from SUB
+        """
+        context = zmq.Context()
+        self.socket = context.socket(zmq.SUB)
+        if host == 'localhost':
+            host = '127.0.0.1'
+        self.socket.connect("tcp://{}:{}".format(host, port))
+        topic = U.str2bytes(topic)
+        self.socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self._handler = handler
+        self._thread = None
+        self._deserialize = _get_deserializer(is_pyobj)
+
+    def _listen_loop(self):
+        while True:
+            _, data = self.socket.recv_multipart()
+            self._handler(self._deserialize(data))
+
+    def listen_loop(self, block):
+        if block:
+            self._listen_loop()
+        else:
+            if self._thread:
+                raise RuntimeError('loop already running')
+            self._thread = U.start_thread(self._listen_loop)
+            return self._thread
+
+
 class ZmqQueue(object):
     """
     Replay side
@@ -118,7 +166,7 @@ class ZmqQueue(object):
             start_thread:
             is_pyobj: pull and convert to python object
         """
-        self._puller = ZmqPullerServer(port=port, is_pyobj=is_pyobj)
+        self._puller = ZmqPullServer(port=port, is_pyobj=is_pyobj)
         self._queue = U.FlushQueue(max_size=max_size)
         # start
         self._enqueue_thread = None
