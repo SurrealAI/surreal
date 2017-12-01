@@ -9,6 +9,12 @@ env = gym.make('HalfCheetah-v1')
 # env._max_episode_steps = 100
 env = GymAdapter(env)
 
+env = ConsoleMonitor(
+    env,
+    update_interval=10,
+    average_over=10,
+)
+
 run_eval_main(
     agent_class=DDPGAgent,
     env=env,
