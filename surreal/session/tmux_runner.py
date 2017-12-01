@@ -6,7 +6,8 @@ import re
 import time
 
 # matches "ZeroDivisionError: divided by zero"
-_exception_re = re.compile('([a-zA-Z_0-9\.]+: .+)|(AssertionError.*)')
+_exception_re = re.compile('([a-zA-Z_0-9\.]+: .+)|'
+                           '([a-zA-Z]+(Error|Exception).*)')
 
 
 class TmuxRunner(object):

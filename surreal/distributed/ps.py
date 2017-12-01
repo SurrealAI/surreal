@@ -56,12 +56,19 @@ class ParameterServer(object):
     PS subscribes to upstream (learner) and REPs to downstream (agent)
     """
     def __init__(self,
-                 learner_host,
-                 learner_port,
+                 publish_host,
+                 publish_port,
                  agent_port):
+        """
+
+        Args:
+            publish_host: learner side publisher server
+            publish_port:
+            agent_port: PS server that responds to agent fetch_parameter requests
+        """
         self._subscriber = ZmqSubscribeClient(
-            host=learner_host,
-            port=learner_port,
+            host=publish_host,
+            port=publish_port,
             handler=self._set_storage,
             topic='ps',
             is_pyobj=True
@@ -94,7 +101,7 @@ class ParameterServer(object):
             return self.param_info
         elif request.startswith('parameter'):
             if self.parameters is None:
-                return None, None
+                return None, ''
             _, last_hash = request.split(':', 1)
             current_hash = self.param_info['hash']
             if last_hash == current_hash:  # param not changed

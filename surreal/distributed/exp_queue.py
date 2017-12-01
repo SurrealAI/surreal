@@ -15,6 +15,7 @@ class ExpQueue(object):
                  max_size,
                  exp_handler):
         assert callable(exp_handler)
+        self.max_size = max_size
         self._queue = ZmqQueue(
             port=port,
             max_size=max_size,
@@ -63,6 +64,10 @@ class ExpQueue(object):
         return len(self._queue)
 
     __len__ = size
+
+    def occupancy(self):
+        "ratio of current size / max size"
+        return 1. * self.size() / self.max_size
 
     def weakref_keys(self):
         return list(self._weakref_map.keys())

@@ -42,7 +42,7 @@ def torch_aggregate(exp_list, obs_spec, action_spec):
         actions = Variable(torch.LongTensor(actions).unsqueeze(1))
     else:
         raise NotImplementedError('action_spec unsupported '+str(action_spec))
-    return EasyDict(
+    return dict(
         obs=_obs_concat(obs0),
         obs_next=_obs_concat(obs1),
         actions=actions,
