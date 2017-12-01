@@ -26,6 +26,7 @@ DEFAULT_PUSHER_CONFIG =  {
     'reward_touch_object_factor':0.001,
     'reward_align_direction_factor':0.001,
     'win_rel_tolerance': 1e-2,
+    'gripper': 'TwoFingerGripper',
     'obs_spec': {
         'dim': [37],
     }
@@ -41,6 +42,7 @@ DEFAULT_STACKER_CONFIG = {
     'reward_action_norm_factor': -0.1,
     'reward_objective_factor': 0.1,
     'win_rel_tolerance': 1e-2,
+    'gripper': 'TwoFingerGripper',
     'obs_spec': {
         'dim': ['_int_'], # 9 * len(mujoco_objects_spec) + 28
     }

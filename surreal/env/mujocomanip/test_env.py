@@ -8,6 +8,7 @@ env_config = DEFAULT_PUSHER_CONFIG
 env_config.display = True
 object_config = XML_BALL_CONFIG
 env_config.mujoco_object_spec = object_config
+env_config.gripper = "RobotiqGripper"
 env = SurrealSawyerPushEnv(env_config)
 
 obs,info = env.reset()
