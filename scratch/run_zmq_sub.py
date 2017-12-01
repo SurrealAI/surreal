@@ -22,5 +22,5 @@ client2 = ZmqSubscribeClient(
     handler=handler_foo,
     topic='foo',
 )
-client2.listen_loop(False)
-client.listen_loop(True)
+client2.run_loop(False)
+client.run_loop(True)

@@ -20,10 +20,10 @@ class ModuleDict(object):
     def dumps(self):
         bin_dict = {k: m.parameters_to_binary()
                     for k, m in self._module_dict.items()}
-        return pickle.dumps(bin_dict)
+        return U.serialize(bin_dict)
 
     def loads(self, binary):
-        bin_dict = pickle.loads(binary)
+        bin_dict = U.deserialize(binary)
         for k, m in self._module_dict.items():
             m.parameters_from_binary(bin_dict[k])
 

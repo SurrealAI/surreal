@@ -11,5 +11,5 @@ server = ZmqServer(
     port=8001,
     handler=handler,
 )
-server.serve_loop(block=True)
+server.run_loop(block=True)
 

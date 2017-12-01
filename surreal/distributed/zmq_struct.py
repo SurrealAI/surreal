@@ -61,19 +61,19 @@ class ZmqServer(object):
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
 
-    def _serve_loop(self):
+    def _run_loop(self):
         while True:
             request = self._deserialize(self.socket.recv())
             response = self._handler(request)
             self.socket.send(self._serialize(response))
 
-    def serve_loop(self, block):
+    def run_loop(self, block):
         if block:
-            self._serve_loop()
+            self._run_loop()
         else:
             if self._thread:
                 raise RuntimeError('loop already running')
-            self._thread = U.start_thread(self._serve_loop)
+            self._thread = U.start_thread(self._run_loop)
             return self._thread
 
 
@@ -103,11 +103,12 @@ class ZmqPublishServer(object):
         """
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
+        self.socket.set_hwm(1)  # aggressively drop late messages
         self.socket.bind("tcp://127.0.0.1:{}".format(port))
         self._thread = None
         self._serialize = _get_serializer(is_pyobj)
 
-    def publish(self, data, topic=''):
+    def publish(self, data, topic):
         topic = U.str2bytes(topic)
         data = self._serialize(data)
         self.socket.send_multipart([topic, data])
@@ -117,7 +118,7 @@ class ZmqSubscribeClient(object):
     """
     Simple REQ-REP server
     """
-    def __init__(self, host, port, handler, topic='', is_pyobj=True):
+    def __init__(self, host, port, handler, topic, is_pyobj=True):
         """
         Args:
             port:
@@ -127,6 +128,7 @@ class ZmqSubscribeClient(object):
         self.socket = context.socket(zmq.SUB)
         if host == 'localhost':
             host = '127.0.0.1'
+        self.socket.set_hwm(1)  # aggressively drop late messages
         self.socket.connect("tcp://{}:{}".format(host, port))
         topic = U.str2bytes(topic)
         self.socket.setsockopt(zmq.SUBSCRIBE, topic)
@@ -134,18 +136,18 @@ class ZmqSubscribeClient(object):
         self._thread = None
         self._deserialize = _get_deserializer(is_pyobj)
 
-    def _listen_loop(self):
+    def _run_loop(self):
         while True:
             _, data = self.socket.recv_multipart()
             self._handler(self._deserialize(data))
 
-    def listen_loop(self, block):
+    def run_loop(self, block):
         if block:
-            self._listen_loop()
+            self._run_loop()
         else:
             if self._thread:
                 raise RuntimeError('loop already running')
-            self._thread = U.start_thread(self._listen_loop)
+            self._thread = U.start_thread(self._run_loop)
             return self._thread
 
 
