@@ -1,7 +1,6 @@
 from surreal.learner.dqn import DQNLearner
 from surreal.main.dqn_cartpole.configs import *
 from surreal.main.basic_boilerplate import run_learner_main
-from surreal.replay import UniformReplay
 
 
 run_learner_main(
