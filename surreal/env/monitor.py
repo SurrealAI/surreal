@@ -164,7 +164,7 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
 class EvalTensorplexMonitor(EpisodeMonitor):
     def __init__(self, env,
                  eval_id,
-                 pull_parameters,
+                 fetch_parameter,
                  session_config,
                  separate_plots=False):
         """
@@ -173,7 +173,7 @@ class EvalTensorplexMonitor(EpisodeMonitor):
         Args:
             env:
             eval_id:
-            pull_parameters: lambda function that pulls from parameter server
+            fetch_parameter: lambda function that pulls from parameter server
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
@@ -191,7 +191,7 @@ class EvalTensorplexMonitor(EpisodeMonitor):
         self._separate_plots = separate_plots
         self._throttle_sleep = \
             session_config['tensorplex']['update_schedule']['eval_env_sleep']
-        self._pull_parameters = pull_parameters
+        self._fetch_parameter = fetch_parameter
 
     def _get_tag(self, tag):
         if self._separate_plots:
@@ -213,5 +213,5 @@ class EvalTensorplexMonitor(EpisodeMonitor):
                 global_step=self.num_episodes
             )
             time.sleep(self._throttle_sleep)
-            self._pull_parameters()
+            self._fetch_parameter()
         return ob, r, done, info

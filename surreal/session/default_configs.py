@@ -28,31 +28,31 @@ BASE_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'name': 'replay',
-        'host': '_str_',
+        'host': '_str_',  # upstream from agents' pusher
         'port': '_int_',
-        'local_batch_queue_size': '_int_',  # max batches to pre-sample
-        'remote_exp_queue_size': '_int_',  # max size of Redis exp queue
-        'local_exp_queue_size': '_int_',  # max number of exps to pre-fetch
+        'sampler_host': '_str_',  # downstream to Learner request
+        'sampler_port': '_int_',
+        'max_puller_queue': '_int_',  # replay side: pull queue size
+        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
+        'evict_interval': '_float_',  # in seconds
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
     'sender': {
-        'pointers_only': True,
-        'remote_save_exp': False,  # store Exp tuples on Redis or not
-        'local_obs_cache_size': '_int_',  # to avoid sending duplicate obs
+        'flush_iteration': '_int_',
+        'flush_time': '_int_',
     },
     'ps': {
-        'name': 'ps',
-        'host': '_str_',
+        'host': '_str_',  # downstream to agent requests
         'port': '_int_',
+        'publish_host': '_str',  # upstream from learner
+        'publish_port': '_int_'
     },
     'tensorplex': {
         'host': '_str_',
         'port': '_int_',
         'tensorboard_port': '_int_',  # tensorboard port
-        'log_overwrite': False,
-        'log_debug': False,
         'agent_bin_size': 8,
+        'max_processes': 4,
         'update_schedule': {
             # for TensorplexWrapper:
             'training_env': '_int_',  # env record every N episodes
@@ -63,6 +63,14 @@ BASE_SESSION_CONFIG = {
             'learner': '_int_',  # learner.update_tensorplex()
         }
     },
+    'loggerplex': {
+        'host': '_str_',
+        'port': '_int_',
+        'overwrite': False,
+        'level': 'info',
+        'show_level': True,
+        'time_format': 'hms'
+    },
 }
 
 
@@ -70,22 +78,28 @@ LOCAL_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'host': 'localhost',
-        'port': 6379,
-        'local_batch_queue_size': 10,  # max batches to pre-sample
-        'remote_exp_queue_size': 10000,  # max size of Redis exp queue
-        'local_exp_queue_size': 10000,  # max number of exps to pre-fetch
+        'host': 'localhost',  # upstream from agents' pusher
+        'port': 7001,
+        'sampler_host': 'localhost',  # downstream to Learner request
+        'sampler_port': 7002,
+        'max_puller_queue': 10000,  # replay side: pull queue size
+        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
+        'evict_interval': 0.,  # in seconds
+        'tensorboard_display': True,  # display replay stats on Tensorboard
     },
     'sender': {
-        'local_obs_cache_size': 10000,  # to avoid sending duplicate obs
+        'flush_iteration': '_int_',
+        'flush_time': 0,
     },
     'ps': {
-        'host': 'localhost',
-        'port': 6380,
+        'host': 'localhost',  # downstream to agent requests
+        'port': 7003,
+        'publish_host': 'localhost',  # upstream from learner
+        'publish_port': 7004
     },
     'tensorplex': {
         'host': 'localhost',
-        'port': 6381,
+        'port': 7005,
         'tensorboard_port': 6006,
         'update_schedule': {
             # for TensorplexWrapper:
@@ -96,6 +110,10 @@ LOCAL_SESSION_CONFIG = {
             'agent': 20,  # agent.update_tensorplex()
             'learner': 20,  # learner.update_tensorplex()
         }
+    },
+    'loggerplex': {
+        'host': 'localhost',
+        'port': 7006,
     },
 }
 

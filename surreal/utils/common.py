@@ -8,6 +8,7 @@ import re
 import pprint
 from easydict import EasyDict
 from enum import Enum, EnumMeta
+import time
 
 
 def _get_qualified_type_name(type_):
@@ -169,6 +170,17 @@ def _get_bound_args(func, *args, **kwargs):
     arginfo = inspect.signature(func).bind(*args, **kwargs)
     arginfo.apply_defaults()
     return arginfo.arguments
+
+
+class Timer(object):
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.time()
+        self.interval = self.end - self.start
+        print('elapsed', self.interval)
 
 
 class SaveInitArgsMeta(type):
