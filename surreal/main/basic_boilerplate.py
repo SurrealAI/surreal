@@ -84,6 +84,7 @@ def run_eval_main(*,
     args = U.ArgParser()
     args.add('--mode', type=str, required=True)
     args.add('--id', type=int, default=0)
+    args.add('--render', action='store_true', default=False)
     args = args.parse()
 
     agent_mode = AgentMode[args.mode]
@@ -116,6 +117,8 @@ def run_eval_main(*,
     obs, info = env.reset()
     while True:
         action = agent.act(U.to_float_tensor(obs))
+        if args.render:
+            env.render()
         obs, reward, done, info = env.step(action)
         if done:
             obs, info = env.reset()
