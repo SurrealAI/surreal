@@ -91,7 +91,7 @@ def run_eval_main(*,
     assert agent_mode != AgentMode.training
 
     if agent_mode == AgentMode.eval_deterministic:
-        eval_id = 'deterministic'
+        eval_id = 'deterministic-{}'.format(args.id)
     else:
         eval_id = 'stochastic-{}'.format(args.id)
 
