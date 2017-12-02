@@ -23,7 +23,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -103,7 +102,15 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# IDE
+# Mac
+.DS_Store
+
+# MuJoCo License key
+mjkey.txt
+
+.mujocomanip_temp_model.xml
+
+# Python IDE
 .idea
 
 # Locally generated files
