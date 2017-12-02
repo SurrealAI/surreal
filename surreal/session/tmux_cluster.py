@@ -11,27 +11,28 @@ import surreal.utils as U
 class TmuxCluster(object):
     """
     Launch the following in order:
-    1. Redis replay server
-    2. Redis parameter server
-    3. Redis tensorplex/loggerplex server
-    4. Loggerplex (distributed logging server script)
-    5. Tensorplex (distributed tensorplex server script)
-    6. Tensorboard, `tensorboard --logdir . --port <tensorboard_port>`
-    7. Learner
-    8. Evaluator (=None to skip evaluation)
-    9. Army of agents
+    1. Loggerplex (distributed logging server script)
+    2. Tensorplex (distributed tensorplex server script)
+    3. Tensorboard, `tensorboard --logdir . --port <tensorboard_port>`
+    4. Parameter server (standalone script)
+    5. Replay server
+    6. Learner
+    7. Evaluator (=None to skip evaluation)
+    8. Army of agents
     """
-    # TODO support multiple eval threads
     LOGGERPLEX_SCRIPT = 'surreal.session.run_loggerplex_server'
     TENSORPLEX_SCRIPT = 'surreal.session.run_tensorplex_server'
+    PS_SCRIPT = 'surreal.session.run_parameter_server'
 
-    def __init__(self, *,
+    def __init__(self,
                  cluster_name,
                  session_config,
                  agent_script,
                  learner_script,
+                 replay_script,
                  eval_script,
                  start_dir='.',
+                 preamble_cmd=None,
                  dry_run=False
                  ):
         """
@@ -49,6 +50,7 @@ class TmuxCluster(object):
         self.config = Config(session_config).extend(BASE_SESSION_CONFIG)
         self.agent_cmd = self._get_python_cmd(agent_script)
         self.learner_cmd = self._get_python_cmd(learner_script)
+        self.replay_cmd = self._get_python_cmd(replay_script)
         if eval_script is None:
             self.eval_cmd = None
         else:
@@ -58,6 +60,7 @@ class TmuxCluster(object):
         self.learner_session = 'learner-' + cluster_name
         self._tmux = TmuxRunner(
             start_dir=start_dir,
+            preamble_cmd=preamble_cmd,
             verbose=True,
             dry_run=dry_run
         )
@@ -115,7 +118,7 @@ class TmuxCluster(object):
                 in self._tmux.list_window_names(self.learner_session)
                 if not win.startswith('learner')]
 
-    def _get_tensorplex_cmd(self, script):
+    def _get_cmd_with_json(self, script):
         script = self._get_python_cmd(script)
         # dump config to JSON as command line arg
         return script + ' ' + shlex.quote(json.dumps(self.config))
@@ -127,25 +130,15 @@ class TmuxCluster(object):
                eval_args=None):
         # Infrastructure session
         if not self.is_launched('infras'):
-            for window_name, port in [
-                (self.config.replay.name, self.config.replay.port),
-                (self.config.ps.name, self.config.ps.port),
-                ('plex', self.config.tensorplex.port),
-            ]:
-                self._tmux.run(
-                    session_name=self.infras_session,
-                    window_name='redis-'+window_name,
-                    cmd='redis-server --port {} --protected-mode no'.format(port)
-                )
             self._tmux.run(
                 session_name=self.infras_session,
                 window_name='loggerplex',
-                cmd=self._get_tensorplex_cmd(self.LOGGERPLEX_SCRIPT)
+                cmd=self._get_cmd_with_json(self.LOGGERPLEX_SCRIPT)
             )
             self._tmux.run(
                 session_name=self.infras_session,
                 window_name='tensorplex',
-                cmd=self._get_tensorplex_cmd(self.TENSORPLEX_SCRIPT)
+                cmd=self._get_cmd_with_json(self.TENSORPLEX_SCRIPT)
             )
             self._tmux.run(
                 session_name=self.infras_session,
@@ -155,8 +148,18 @@ class TmuxCluster(object):
                     self.config.tensorplex.tensorboard_port
                 )
             )
+            self._tmux.run(
+                session_name=self.infras_session,
+                window_name='ps',
+                cmd=self._get_cmd_with_json(self.PS_SCRIPT)
+            )
         # Learner session
         if not self.is_launched('learner'):
+            self._tmux.run(
+                session_name=self.learner_session,
+                window_name='replay',
+                cmd=self.replay_cmd
+            )
             self._tmux.run(
                 session_name=self.learner_session,
                 window_name='learner',

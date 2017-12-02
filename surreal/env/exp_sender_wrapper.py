@@ -1,6 +1,6 @@
 from .wrapper import Wrapper
-from surreal.distributed import ExpSender, RedisClient
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
+from surreal.distributed.exp_sender import ExpSender
 
 
 class ExpSenderWrapper(Wrapper):
@@ -11,17 +11,10 @@ class ExpSenderWrapper(Wrapper):
         """
         super().__init__(env)
         config = Config(session_config).extend(BASE_SESSION_CONFIG)
-        self._client = RedisClient(
-            host=session_config.replay.host,
-            port=session_config.replay.port
-        )
         self.sender = ExpSender(
-            self._client,
-            queue_name=config.replay.name,
-            pointers_only=config.sender.pointers_only,
-            remote_exp_queue_size=config.replay.remote_exp_queue_size,
-            remote_save_exp=config.sender.remote_save_exp,
-            local_obs_cache_size=config.sender.local_obs_cache_size,
+            host=config.replay.host,
+            port=config.replay.port,
+            flush_iteration=config.sender.flush_iteration,
         )
         self._obs = None  # obs of the current time step
 

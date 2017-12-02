@@ -30,7 +30,7 @@ learn_config = {
     },
     'replay': {
         'batch_size': 256,
-        'memory_size': 100000,
+        'memory_size': 1000000,
         'sampling_start_size': 1000,
     },
     'eval': {
@@ -53,14 +53,18 @@ env_config = {
 session_config = Config({
     'folder': '~/Temp/halfcheetah',
     'tensorplex': {
-        'tensorboard_port': 6006,
-        'agent_update_interval': 50,  # record every N episodes
-        'eval_update_interval': 20,
+        'update_schedule': {
+            # for TensorplexWrapper:
+            'training_env': 20,  # env record every N episodes
+            'eval_env': 5,
+            'eval_env_sleep': 30,  # throttle eval by sleep n seconds
+            # for manual updates:
+            'agent': 50,  # agent.update_tensorplex()
+            'learner': 20,  # learner.update_tensorplex()
+        }
     },
     'sender': {
-        'pointers_only': True,
-        'remote_save_exp': False,
-        'local_obs_cache_size': 100000,
+        'flush_iteration': 100,
     }
 })
 

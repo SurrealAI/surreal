@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-# env/
 build/
 develop-eggs/
 dist/
@@ -52,6 +51,8 @@ coverage.xml
 
 # Django stuff:
 *.log
+.static_storage/
+.media/
 local_settings.py
 
 # Flask stuff:
@@ -79,13 +80,14 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
-# dotenv
+# Environments
 .env
-
-# virtualenv
 .venv
+env/
 venv/
-# ENV/
+ENV/
+env.bak/
+venv.bak/
 
 # Spyder project settings
 .spyderproject
@@ -100,10 +102,18 @@ venv/
 # mypy
 .mypy_cache/
 
-# mac
+# Mac
 .DS_Store
 
-# mujoco-key
+# MuJoCo License key
 mjkey.txt
 
 .mujocomanip_temp_model.xml
+
+# Python IDE
+.idea
+
+# Locally generated files
+dump.rdb
+*.local.ipynb
+runs/

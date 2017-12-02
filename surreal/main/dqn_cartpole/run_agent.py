@@ -25,6 +25,6 @@ run_agent_main(
     learn_config=learn_config,
     env_config=env_config,
     session_config=session_config,
-    pull_parameter_mode='step',
+    fetch_parameter_mode='step',
 )
 

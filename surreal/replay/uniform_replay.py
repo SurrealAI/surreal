@@ -30,22 +30,20 @@ class UniformReplay(Replay):
         })
         return conf
 
-    def _insert(self, exp_dict):
-        evicted = []
+    def insert(self, exp_tuple):
         if self._next_idx >= len(self._memory):
-            self._memory.append(exp_dict)
+            self._memory.append(exp_tuple)
         else:
-            evicted.append(self._memory[self._next_idx])
-            self._memory[self._next_idx] = exp_dict
+            self._memory[self._next_idx] = exp_tuple
         self._next_idx = (self._next_idx + 1) % self.memory_size
-        return evicted
 
-    def _sample(self, batch_size):
+    def sample(self, batch_size):
         indices = [random.randint(0, len(self._memory) - 1)
                    for _ in range(batch_size)]
         return [self._memory[i] for i in indices]
 
-    def _evict(self, evict_size):
+    def evict(self):
+        raise NotImplementedError  # TODO
         if evict_size > len(self._memory):
             evicted = self._memory
             self._memory = []
@@ -65,7 +63,7 @@ class UniformReplay(Replay):
         assert len(evicted) == evict_size
         return evicted
 
-    def _start_sample_condition(self):
+    def start_sample_condition(self):
         return len(self) > self.replay_config.sampling_start_size
 
     def __len__(self):

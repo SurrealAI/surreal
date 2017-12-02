@@ -6,6 +6,34 @@ import base64
 import hashlib
 
 
+_SERIALIZER = pickle.dumps
+_DESERIALIZER = pickle.loads
+
+
+def set_global_serializer(serializer, deserializer):
+    """
+    Call at the start of a script
+    """
+    assert callable(serializer) and callable(deserializer)
+    global _SERIALIZER, _DESERIALIZER
+    _SERIALIZER = serializer
+    _DESERIALIZER = deserializer
+
+
+def serialize(obj):
+    """
+    We can improve this function if we *really* need more memory efficiency
+    """
+    return _SERIALIZER(obj)
+
+
+def deserialize(binary):
+    """
+    We can improve this function if we *really* need more memory efficiency
+    """
+    return _DESERIALIZER(binary)
+
+
 def binary_hash(binary):
     """
     Low collision hash of any binary string
@@ -16,21 +44,12 @@ def binary_hash(binary):
     s = hashlib.md5(binary).digest()
     s = base64.b64encode(s)[:16]
     s = s.decode('utf-8')
-    return s.replace('/','_')
+    # return s.replace('/','_')
+    return s
 
 
-def np_serialize(obj):
-    """
-    We can improve this function if we *really* need more memory efficiency
-    """
-    return pickle.dumps(obj)
-
-
-def np_deserialize(binary):
-    """
-    We can improve this function if we *really* need more memory efficiency
-    """
-    return pickle.loads(binary)
+def pyobj_hash(obj):
+    return binary_hash(serialize(obj))
 
 
 def bytes2str(bytestring):

@@ -6,15 +6,30 @@ import re
 import time
 
 # matches "ZeroDivisionError: divided by zero"
-_exception_re = re.compile('([a-zA-Z_0-9\.]+: .+)|(AssertionError.*)')
+_exception_re = re.compile('([a-zA-Z_0-9\.]+: .+)|'
+                           '([a-zA-Z]+(Error|Exception).*)')
 
 
 class TmuxRunner(object):
-    def __init__(self, start_dir=None, verbose=True, dry_run=False):
+    def __init__(self,
+                 start_dir=None,
+                 preamble_cmd=None,
+                 verbose=True,
+                 dry_run=False):
+        """
+
+        Args:
+            start_dir:
+            preamble_cmd: execute before every run(), can be overriden in run arg
+                can be either a string or a list of strings to execute in order
+            verbose:
+            dry_run:
+        """
         self._server = libtmux.Server()
         self._start_dir = os.path.expanduser(start_dir)
         self._verbose = verbose
         self._dry_run = dry_run
+        self._preamble_cmd = preamble_cmd
         # two-level dict of session:window:cmd
         self.records = {}
         if self._dry_run:
@@ -37,10 +52,13 @@ class TmuxRunner(object):
         except LibTmuxException:
             return None
 
-    def run(self, session_name, window_name, cmd, start_dir=None):
+    def run(self, session_name, window_name, cmd,
+            preamble_cmd=None, start_dir=None):
         self._vprint('{}:{}\t>>\t{}'.format(session_name, window_name, cmd))
         if self._dry_run:
             return
+        if not preamble_cmd:
+            preamble_cmd = self._preamble_cmd
 
         if start_dir is None:
             start_dir = self._start_dir
@@ -61,6 +79,12 @@ class TmuxRunner(object):
                 window = session.new_window(window_name,
                                             start_directory=start_dir)
         pane = window.attached_pane
+        if preamble_cmd:
+            if isinstance(preamble_cmd, list):
+                for p in preamble_cmd:
+                    pane.send_keys(p)
+            else:
+                pane.send_keys(preamble_cmd)
         pane.send_keys(cmd)
         # add session/window/cmd info to records
         if session_name in self.records:

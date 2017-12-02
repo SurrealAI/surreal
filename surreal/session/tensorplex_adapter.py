@@ -15,8 +15,8 @@ class Loggerplex(LoggerplexClient):
         C = Config(session_config).extend(BASE_SESSION_CONFIG)
         super().__init__(
             name,
-            host=C.tensorplex.host,
-            port=C.tensorplex.port
+            host=C.loggerplex.host,
+            port=C.loggerplex.port
         )
 
 

@@ -15,10 +15,6 @@ class DummyEnv(Env):
         self.sleep = sleep
         super().__init__()
 
-    def initialize(self):
-        """Initialize environment at the beginning of episode"""
-        pass
-
     def step(self, action):
         """Make a step in the environment
 
