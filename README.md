@@ -494,3 +494,6 @@ TODO
 python surreal/main/run_cartpole_learner.py
 python surreal/main/run_cartpole_agent.py
 ```
+
+## MujocoManipulation
+Follow the instructions in [MujocoManipulation](https://github.com/StanfordVL/MujocoManipulation)
