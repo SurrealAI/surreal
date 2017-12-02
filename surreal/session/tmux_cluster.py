@@ -24,7 +24,7 @@ class TmuxCluster(object):
     TENSORPLEX_SCRIPT = 'surreal.session.run_tensorplex_server'
     PS_SCRIPT = 'surreal.session.run_parameter_server'
 
-    def __init__(self, *,
+    def __init__(self,
                  cluster_name,
                  session_config,
                  agent_script,
@@ -32,6 +32,7 @@ class TmuxCluster(object):
                  replay_script,
                  eval_script,
                  start_dir='.',
+                 preamble_cmd=None,
                  dry_run=False
                  ):
         """
@@ -59,6 +60,7 @@ class TmuxCluster(object):
         self.learner_session = 'learner-' + cluster_name
         self._tmux = TmuxRunner(
             start_dir=start_dir,
+            preamble_cmd=preamble_cmd,
             verbose=True,
             dry_run=dry_run
         )

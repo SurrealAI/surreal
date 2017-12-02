@@ -56,7 +56,7 @@ session_config = Config({
         'update_schedule': {
             # for TensorplexWrapper:
             'training_env': 20,  # env record every N episodes
-            'eval_env': 20,
+            'eval_env': 5,
             'eval_env_sleep': 30,  # throttle eval by sleep n seconds
             # for manual updates:
             'agent': 50,  # agent.update_tensorplex()

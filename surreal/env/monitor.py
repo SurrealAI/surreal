@@ -192,6 +192,7 @@ class EvalTensorplexMonitor(EpisodeMonitor):
         self._throttle_sleep = \
             session_config['tensorplex']['update_schedule']['eval_env_sleep']
         self._fetch_parameter = fetch_parameter
+        self._fetch_parameter()  # if this eval is late to the party
 
     def _get_tag(self, tag):
         if self._separate_plots:
