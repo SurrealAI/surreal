@@ -179,7 +179,7 @@ class Learner(LearnerCore):
             session_config=self.session_config
         )
         self.tensorplex = StatsTensorplex(
-            section_name='learning',
+            section_name='learner',
             session_config=self.session_config
         )
         self._periodic_tensorplex = PeriodicTensorplex(

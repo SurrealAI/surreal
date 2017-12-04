@@ -188,5 +188,6 @@ class Replay(ReplayCore):
         while True:
             time.sleep(1.)
             self.tensorplex.add_scalars({
-                'exp_queue': self._exp_queue.occupancy()
+                'queue_occupancy': self._exp_queue.occupancy(),
+                'num_of_experiences': len(self),
             }, global_step=int(time.time() - init_time))

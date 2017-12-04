@@ -64,6 +64,7 @@ def run_agent_main(*,
     while True:
         action = agent.act(U.to_float_tensor(obs))
         obs, reward, done, info = env.step(action)
+        #time.sleep(0.1)
         if _fetch_mode == 'step' and pull_tracker.track_increment():
             is_fetched = agent.fetch_parameter()
         if done:
