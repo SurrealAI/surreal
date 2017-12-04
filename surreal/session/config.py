@@ -179,6 +179,10 @@ class Config(dict):
 
     __setitem__ = __setattr__
 
+    def update(self, other):
+        for k, v in other.items():
+            setattr(self, k, v)
+
     def __getattr__(self, key):
         try:
             return super().__getattribute__(key)

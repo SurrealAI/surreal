@@ -117,3 +117,6 @@ mjkey.txt
 dump.rdb
 *.local.ipynb
 runs/
+temp*
+debug_*
+*.swp

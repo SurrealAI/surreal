@@ -131,16 +131,18 @@ class Replay(ReplayCore):
         # Note that there're 2 replay configs:
         # one in learner_config that controls algorithmic part of the replay logic
         # one in session_config that controls system settings
-        self.replay_config = Config(learn_config).replay
+        self.learn_config = Config(learn_config)
+        self.replay_config = self.learn_config.replay
         self.replay_config.extend(self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
+        self.replay_config.update(self.session_config.replay)
 
         super().__init__(
-            puller_port=self.session_config.replay.port,
-            sampler_port=self.session_config.replay.sampler_port,
-            max_puller_queue=self.session_config.replay.max_puller_queue,
-            evict_interval=self.session_config.replay.evict_interval
+            puller_port=self.replay_config.port,
+            sampler_port=self.replay_config.sampler_port,
+            max_puller_queue=self.replay_config.max_puller_queue,
+            evict_interval=self.replay_config.evict_interval
         )
         self.log = Loggerplex(
             name='replay',
@@ -151,7 +153,7 @@ class Replay(ReplayCore):
             session_config=self.session_config
         )
         self._tensorplex_thread = None
-        self._has_tensorplex = self.session_config.replay.tensorboard_display
+        self._has_tensorplex = self.replay_config.tensorboard_display
         self._job_queue = U.JobQueue()
 
     def start_threads(self):

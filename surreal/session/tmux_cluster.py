@@ -73,10 +73,10 @@ class TmuxCluster(object):
                              ' should be either pkg1.pkg2.myscript or '
                              'pkg1/pkg2/myscript.py')
         if python_script.endswith('.py'):
-            return 'source activate surreal; python -u ' + python_script
+            return 'python -u ' + python_script
         else:
             # python -m surreal.main.run_cartpole
-            return 'source activate surreal; python -u -m ' + python_script
+            return 'python -u -m ' + python_script
 
     def _get_agent_info(self, agent_names, agent_args_):
         U.assert_type(agent_names, list)
