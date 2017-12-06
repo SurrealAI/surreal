@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import surreal.utils as U
 
 
-class Torso(nn.Module):
+class TorsoBuilder(nn.Module):
 
     def __init__(self,
                  input_spec,
@@ -12,7 +12,7 @@ class Torso(nn.Module):
                  mlp_spec=None,
                  rnn_spec=None):
 
-        super(Torso, self).__init__()
+        super(TorsoBuilder, self).__init__()
 
         if conv_spec:
             assert len(input_spec['dims']) == 3, 'torso requires 3-dimensional inputs to conv layers.'

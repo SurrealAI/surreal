@@ -3,27 +3,50 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Head(nn.Module):
+class HeadBuilder(nn.Module):
 
     def __init__(self,
-                 input_spec,
-                 output_spec=None):
+                 output_spec):
 
-        if type == 'discrete':
-            raise NotImplementedError
+        super(HeadBuilder, self).__init__()
+        self._dims = output_spec.dim
+        self._type = output_spec.type
+        self._head = None
 
-        elif type == 'continuous':
-            raise NotImplementedError
+    def forward(self, obs):
 
-        elif type == 'gaussian':
-            raise NotImplementedError
+        in_dim = obs.size(1)
+        out_dim = self._dims[0]
 
-        elif type == 'scalar':
-            raise NotImplementedError
+        if self._head is None:
 
-        elif type == 'distributional':
-            raise NotImplementedError
+            if self._type == 'discrete':
+                self._head = nn.Linear(in_dim, out_dim)
 
+            elif self._type == 'continuous':
+                self._head = nn.Linear(in_dim, out_dim)
+
+            elif self._type == 'gaussian':
+                self._head = {
+                    'mean': nn.Linear(in_dim, out_dim),
+                    'std': nn.Linear(in_dim, out_dim)
+                }
+
+            elif self._type == 'scalar':
+                self._head = nn.Linear(in_dim, 1)
+
+            elif self._type == 'distributional':
+                raise NotImplementedError
+
+            else:
+                raise ValueError('Unknown head type: {}'.format(type))
+
+        if isinstance(self._head, dict):
+            out = dict()
+            for k, m in self._head.items():
+                out[k] = m(obs)
         else:
-            raise ValueError('Unknown head type: {}'.format(type))
+            out = self._head(obs)
+
+        return out
 
