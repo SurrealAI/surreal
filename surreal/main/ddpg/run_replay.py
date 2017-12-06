@@ -5,7 +5,7 @@ from surreal.replay import UniformReplay
 
 run_replay_main(
     replay_class=UniformReplay,
-    learn_config=learn_config,
+    learn_config=learner_config,
     env_config=env_config,
     session_config=session_config,
 )

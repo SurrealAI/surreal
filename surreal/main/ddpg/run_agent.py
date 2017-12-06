@@ -16,7 +16,7 @@ env = ConsoleMonitor(
 run_agent_main(
     agent_class=DDPGAgent,
     env=env,
-    learn_config=learn_config,
+    learn_config=learner_config,
     env_config=env_config,
     session_config=session_config,
     fetch_parameter_mode='episode',

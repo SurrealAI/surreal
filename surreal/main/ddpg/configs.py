@@ -1,15 +1,23 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
-learn_config = {
+learner_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],
-        'dueling': False
+        'dueling': False,
+        'conv_spec': {
+            'out_channels': [64, 64],
+            'kernel_sizes': [3, 5],
+            'use_batch_norm': False
+        },
+        'mlp_spec': {
+            'sizes': [128],
+            'use_dropout': False
+        }
     },
     'algo': {
         'lr': 1e-3,
-        # 'train_freq': 1,
         'optimizer': 'Adam',
         'grad_norm_clipping': 10,
         'gamma': .99,
@@ -45,13 +53,14 @@ env_config = {
         'type': 'continuous'
     },
     'obs_spec': {
+        'dims': [17],
         'dim': [17],
     }
 }
 
 
 session_config = Config({
-    'folder': '~/Temp/halfcheetah',
+    'folder': '/tmp/halfcheetah',
     'tensorplex': {
         'update_schedule': {
             # for TensorplexWrapper:
