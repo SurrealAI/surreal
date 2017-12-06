@@ -18,7 +18,7 @@ class AgentMode(U.StringEnum):
 
 class Agent(metaclass=U.AutoInitializeMeta):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config,
                  agent_id,
@@ -26,7 +26,7 @@ class Agent(metaclass=U.AutoInitializeMeta):
         """
         Write all logs to self.log
         """
-        self.learn_config = extend_config(learn_config, self.default_config())
+        self.learner_config = extend_config(learner_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         self.agent_mode = AgentMode[agent_mode]

@@ -18,7 +18,7 @@ env = ConsoleMonitor(
 run_eval_main(
     agent_class=DDPGAgent,
     env=env,
-    learn_config=learner_config,
+    learner_config=learner_config,
     env_config=env_config,
     session_config=session_config,
 )

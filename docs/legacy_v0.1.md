@@ -152,7 +152,7 @@ All Surreal experiments boil down to 3 configs. The default base configs can be 
 
 Let's take DQN as example:
 
-#### 1. learn_config
+#### 1. learner_config
 
 Anything related to agent, model, training hyperparameters, and replay buffer. Typically have the following sub-dict:
 
@@ -193,7 +193,7 @@ Override the following methods:
 
 - `act(obs)`: returns an action upon seeing the observation.
 - `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. The dict must be consistent with `learner.module_dict()` for the parameter server to work correctly. 
-- `default_config()`: specify the agent's defaults for `learn_config`. 
+- `default_config()`: specify the agent's defaults for `learner_config`. 
 - `close()`: clean up
 
 Public entry API:
@@ -232,7 +232,7 @@ Override the following methods:
     - rewards
     - dones
 - `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. Because the values are broadcasted to Redis, the `module_dict` must be consistent with `agent.module_dict()` for the parameter server to work correctly. 
-- `default_config()`: specify the learner's defaults for `learn_config`. 
+- `default_config()`: specify the learner's defaults for `learner_config`. 
 - `save(file_path)`: saves the learned parameters to `file_path`. TODO: save() should be triggered by a remote notification from the evaluator, because the learner process doesn't do book-keeping. 
 
 Public entry API:
@@ -258,7 +258,7 @@ Override the following methods:
 
 Public entry API:
 
-- `sample()`: returns `batch_exp`. Note that `batch_size` is specified in `learn_config` at initialization, so we don't pass it again as an arg.
+- `sample()`: returns `batch_exp`. Note that `batch_size` is specified in `learner_config` at initialization, so we don't pass it again as an arg.
 - `sample_iterator()`: infinite iterator that wraps around `sample()`.
 - `evict(*args, **kwargs)`: active eviction. 
 - `insert(exp_dict)`: not typically called by hand. `insert()` runs in the background. 
@@ -289,7 +289,7 @@ Wraps any Gym env into a Surreal-compatible env. Note that you still have to mak
 
 Encapsulates the `ExpSender` that sends experience dicts to the replay server. Each `env.step()` call will connect to the network. 
 
-The wrapper takes `learn_config` and `session_config`. Make sure the `learn_config` dict includes a section of `"sender"`: 
+The wrapper takes `learner_config` and `session_config`. Make sure the `learner_config` dict includes a section of `"sender"`: 
 
 ```python
 {
@@ -342,7 +342,7 @@ TODO
 ## A Tale of Three Configs
 
 ```python
-cartpole_learn_config = {
+cartpole_learner_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],
@@ -412,7 +412,7 @@ cartpole_session_config = {
 ## Agent side main script
 
 1. Create the env from `env_config`.
-2. Wrap it with `env.ExpSenderWrapper`. Redis replay server must be up and running by now. `learn_config` should include a `"sender"` section. 
+2. Wrap it with `env.ExpSenderWrapper`. Redis replay server must be up and running by now. `learner_config` should include a `"sender"` section. 
 3. Create the agent from all 3 configs and set to `AgentMode.training`.
 4. Start env loop. 
 
@@ -420,13 +420,13 @@ cartpole_session_config = {
 env = GymAdapter(gym.make('CartPole-v0'))
 env = ExpSenderWrapper(
     env,
-    learn_config=cartpole_learn_config,
+    learner_config=cartpole_learner_config,
     session_config=cartpole_session_config
 )
 env = EpisodeMonitor(env)
 
 q_agent = QAgent(
-    learn_config=cartpole_learn_config,
+    learner_config=cartpole_learner_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config,
     agent_mode=AgentMode.training,
@@ -442,7 +442,7 @@ for T in itertools.count():
 
 ## Learner side main script
 
-1. Create the replay data structure from all 3 configs. `learn_config` should include a `"replay"` section.
+1. Create the replay data structure from all 3 configs. `learner_config` should include a `"replay"` section.
 2. Create the learner from all 3 configs.
 3. `replay.sample_iterator()` loop. 
 4. Call `learner.broadcast()` periodically to push the latest parameters to Redis server. 
@@ -450,12 +450,12 @@ for T in itertools.count():
 
 ```python
 replay = UniformReplay(
-    learn_config=cartpole_learn_config,
+    learner_config=cartpole_learner_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config
 )
 dqn = DQNLearner(
-    learn_config=cartpole_learn_config,
+    learner_config=cartpole_learner_config,
     env_config=cartpole_env_config,
     session_config=cartpole_session_config
 )

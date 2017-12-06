@@ -7,13 +7,13 @@ from .base import Learner
 
 
 class DQNLearner(Learner):
-    def __init__(self, learn_config, env_config, session_config):
-        super().__init__(learn_config, env_config, session_config)
+    def __init__(self, learner_config, env_config, session_config):
+        super().__init__(learner_config, env_config, session_config)
         self.q_func, self.action_dim = build_ffqfunc(
-            self.learn_config,
+            self.learner_config,
             self.env_config
         )
-        self.algo = self.learn_config.algo
+        self.algo = self.learner_config.algo
         self.q_target = self.q_func.clone()
         self.optimizer = torch.optim.Adam(
             self.q_func.parameters(),

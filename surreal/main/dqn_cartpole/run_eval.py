@@ -10,7 +10,7 @@ env = GymAdapter(gym.make('CartPole-v0'))
 run_eval_main(
     agent_class=QAgent,
     env=env,
-    learn_config=learn_config,
+    learner_config=learner_config,
     env_config=env_config,
     session_config=session_config,
 )

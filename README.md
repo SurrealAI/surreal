@@ -18,7 +18,7 @@ Override the following methods:
 
 - `act(obs)`: returns an action upon seeing the observation.
 - `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. The dict must be consistent with `learner.module_dict()` for the parameter server to work correctly. 
-- `default_config()`: specify the agent's defaults for `learn_config`. 
+- `default_config()`: specify the agent's defaults for `learner_config`.
 
 Public methods:
 
@@ -63,7 +63,7 @@ env = TrainingTensorplexMonitor(
 )
 
 agent = MyAgent(
-    learn_config=learn_config,
+    learner_config=learner_config,
     env_config=env_config,
     session_config=session_config,
     agent_id=agent_id,
@@ -93,7 +93,7 @@ Override the following methods:
     - rewards
     - dones
 - `module_dict()`: returns a dict of `name -> utils.pytorch.Module`. Because the values are broadcasted (PUBSUB pattern) to the parameter server node, the `module_dict` must be consistent with `agent.module_dict()` for the parameter server to work correctly. 
-- `default_config()`: specify the learner's defaults for `learn_config`. 
+- `default_config()`: specify the learner's defaults for `learner_config`.
 - `save(file_path)`: saves the learned parameters to `file_path`. TODO: save() should be triggered by a remote notification from the evaluator, because the learner process doesn't do book-keeping. 
 
 Public methods:
@@ -112,7 +112,7 @@ Learner main entry:
 
 ```python
 learner = MyLearner(
-    learn_config=learn_config,
+    learner_config=learner_config,
     env_config=env_config,
     session_config=session_config,
 )
@@ -150,7 +150,7 @@ Replay main entry:
 
 ```python
 replay = MyReplay(
-    learn_config=learn_config,
+    learner_config=learner_config,
     env_config=env_config,
     session_config=session_config,
 )
@@ -178,7 +178,7 @@ Wraps any Gym env into a Surreal-compatible env. Note that you still have to mak
 
 Encapsulates the `ExpSender` that sends experience dicts to the replay server. Each `env.step()` call will talk to the network. 
 
-The wrapper takes `learn_config` and `session_config`. Make sure the `session_config` dict includes a section of `"sender"`. To minimize network latency, the sender buffers a number of experience tuples before it sends them together in a larger chunk. The buffer size is `flush_iteration`. 
+The wrapper takes `learner_config` and `session_config`. Make sure the `session_config` dict includes a section of `"sender"`. To minimize network latency, the sender buffers a number of experience tuples before it sends them together in a larger chunk. The buffer size is `flush_iteration`.
 
 ```python
 {  # session_config
@@ -366,7 +366,7 @@ All Surreal experiments boil down to 3 configs. The default base configs can be 
 
 Let's start with DQN:
 
-### 1. learn_config
+### 1. learner_config
 
 Anything related to agent, model, training hyperparameters, and replay buffer. Typically have the following sub-dict:
 

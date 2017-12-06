@@ -12,7 +12,7 @@ from surreal.session import StatsTensorplex, Loggerplex
 
 class Learner(metaclass=U.AutoInitializeMeta):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config):
         """
@@ -23,7 +23,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
                 section "log": {logger configs}
             model: utils.pytorch.Module for the policy network
         """
-        self.learn_config = extend_config(learn_config, self.default_config())
+        self.learner_config = extend_config(learner_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         self._client = RedisClient(

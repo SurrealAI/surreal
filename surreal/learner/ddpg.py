@@ -8,8 +8,8 @@ from .base import Learner
 
 class DDPGLearner(Learner):
 
-    def __init__(self, learn_config, env_config, session_config):
-        super().__init__(learn_config, env_config, session_config)
+    def __init__(self, learner_config, env_config, session_config):
+        super().__init__(learner_config, env_config, session_config)
 
         self.discount_factor = 0.99
         self.tau = 0.01

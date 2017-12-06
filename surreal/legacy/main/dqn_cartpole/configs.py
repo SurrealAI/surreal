@@ -1,7 +1,7 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 
-learn_config = {
+learner_config = {
     'model': {
         'convs': [],
         'fc_hidden_sizes': [128],

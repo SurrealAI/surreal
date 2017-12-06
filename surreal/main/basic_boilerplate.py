@@ -8,7 +8,7 @@ import surreal.utils as U
 def run_agent_main(*,
                    agent_class,
                    env,
-                   learn_config,
+                   learner_config,
                    env_config,
                    session_config,
                    fetch_parameter_mode='episode',
@@ -51,7 +51,7 @@ def run_agent_main(*,
         agent_extra_kwargs = {}
 
     agent = agent_class(
-        learn_config=learn_config,
+        learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
         agent_id=agent_id,
@@ -76,7 +76,7 @@ def run_agent_main(*,
 def run_eval_main(*,
                   agent_class,
                   env,
-                  learn_config,
+                  learner_config,
                   env_config,
                   session_config,
                   agent_extra_kwargs=None):
@@ -100,7 +100,7 @@ def run_eval_main(*,
         agent_extra_kwargs = {}
 
     agent = agent_class(
-        learn_config=learn_config,
+        learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
         agent_id=eval_id,
@@ -127,7 +127,7 @@ def run_eval_main(*,
 
 def run_learner_main(*,
                      learner_class,
-                     learn_config,
+                     learner_config,
                      env_config,
                      session_config,
                      learner_extra_kwargs=None):
@@ -137,7 +137,7 @@ def run_learner_main(*,
         learner_extra_kwargs = {}
 
     learner = learner_class(
-        learn_config=learn_config,
+        learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
         **learner_extra_kwargs
@@ -149,7 +149,7 @@ def run_learner_main(*,
 
 def run_replay_main(*,
                     replay_class,
-                    learn_config,
+                    learner_config,
                     env_config,
                     session_config,
                     replay_extra_kwargs=None):
@@ -157,7 +157,7 @@ def run_replay_main(*,
     if replay_extra_kwargs is None:
         replay_extra_kwargs = {}
     replay = replay_class(
-        learn_config=learn_config,
+        learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
         **replay_extra_kwargs

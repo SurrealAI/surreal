@@ -12,13 +12,13 @@ class FIFOReplay(Replay):
     - flush_iteration: to a small number
     """
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config):
         """
         """
         super().__init__(
-            learn_config=learn_config,
+            learner_config=learner_config,
             env_config=env_config,
             session_config=session_config
         )

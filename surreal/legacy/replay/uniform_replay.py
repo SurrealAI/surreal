@@ -4,7 +4,7 @@ from .base import Replay
 
 class UniformReplay(Replay):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config):
         """
@@ -14,7 +14,7 @@ class UniformReplay(Replay):
           sampling_start_size: min number of exp above which we will start sampling
         """
         super().__init__(
-            learn_config=learn_config,
+            learner_config=learner_config,
             env_config=env_config,
             session_config=session_config
         )

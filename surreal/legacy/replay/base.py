@@ -76,7 +76,7 @@ class _TensorplexThread(U.StoppableThread):
 
 class Replay(metaclass=U.AutoInitializeMeta):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config):
         """
@@ -84,7 +84,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
         # Note that there're 2 replay configs:
         # one in learner_config that controls algorithmic part of the replay logic
         # one in session_config that controls system settings
-        self.replay_config = Config(learn_config).replay
+        self.replay_config = Config(learner_config).replay
         self.replay_config.extend(self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
@@ -122,7 +122,7 @@ class Replay(metaclass=U.AutoInitializeMeta):
     def default_config(self):
         """
         Returns:
-            dict of default configs, will be placed in learn_config['replay']
+            dict of default configs, will be placed in learner_config['replay']
         """
         return {
             'batch_size': '_int_',

@@ -153,7 +153,7 @@ class LearnerCore(metaclass=U.AutoInitializeMeta):
 
 class Learner(LearnerCore):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config):
         """
@@ -164,14 +164,14 @@ class Learner(LearnerCore):
                 section "log": {logger configs}
             model: utils.pytorch.Module for the policy network
         """
-        self.learn_config = extend_config(learn_config, self.default_config())
+        self.learner_config = extend_config(learner_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         super().__init__(
             sampler_host=self.session_config.replay.sampler_host,
             sampler_port=self.session_config.replay.sampler_port,
             ps_publish_port=self.session_config.ps.publish_port,
-            batch_size=self.learn_config.replay.batch_size,
+            batch_size=self.learner_config.replay.batch_size,
             max_prefetch_batch_queue=self.session_config.replay.max_prefetch_batch_queue
         )
         self.log = Loggerplex(

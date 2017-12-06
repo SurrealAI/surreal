@@ -11,20 +11,20 @@ from .base import Agent, AgentMode
 
 class QAgent(Agent):
     def __init__(self,
-                 learn_config,
+                 learner_config,
                  env_config,
                  session_config,
                  agent_id,
                  agent_mode):
         super().__init__(
-            learn_config=learn_config,
+            learner_config=learner_config,
             env_config=env_config,
             session_config=session_config,
             agent_id=agent_id,
             agent_mode=agent_mode,
         )
         self.q_func, self.action_dim = build_ffqfunc(
-            self.learn_config,
+            self.learner_config,
             self.env_config
         )
         self.exploration = self.get_exploration_schedule()
@@ -35,7 +35,7 @@ class QAgent(Agent):
         if self.agent_mode == AgentMode.training:
             eps = self.exploration.value(self.T)
         else:
-            eps = self.learn_config.eval.eps
+            eps = self.learner_config.eval.eps
         self.T += 1
         if (self.agent_mode == AgentMode.eval_deterministic
                 or random.random() > eps):
@@ -64,7 +64,7 @@ class QAgent(Agent):
         }
 
     def get_exploration_schedule(self):
-        C = self.learn_config.algo.exploration
+        C = self.learner_config.algo.exploration
         if C.schedule.lower() == 'linear':
             return U.LinearSchedule(
                 initial_p=1.0,
