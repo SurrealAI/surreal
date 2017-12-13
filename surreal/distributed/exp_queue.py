@@ -2,11 +2,7 @@ import sys
 import weakref
 import surreal.utils as U
 import threading
-from collections import namedtuple
 from .zmq_struct import ZmqQueue
-
-
-ExpTuple = namedtuple('ExpTuple', 'obs action reward done info')
 
 
 class ExpQueue(object):
@@ -33,21 +29,14 @@ class ExpQueue(object):
 
     def _dequeue_loop(self):  # blocking
         while True:
-            exp_tuples, ob_storage = self._queue.get()
-            exp_tuple, ob_list = None, None
-            for exp_tuple in exp_tuples:
-                # deflate exp_tuple
-                ob_list = exp_tuple[0]
-                U.assert_type(ob_list, list)
-                for i, ob_hash in enumerate(ob_list):
-                    if ob_hash in self._weakref_map:
-                        ob_list[i] = self._weakref_map[ob_hash]
-                    else:
-                        ob_list[i] = ob_storage[ob_hash]
-                        self._weakref_map[ob_hash] = ob_list[i]
-                self._exp_handler(ExpTuple(*exp_tuple))
+            exp_list, ob_storage = self._queue.get()
+            assert isinstance(exp_list, list)
+            assert isinstance(ob_storage, dict)
+            for exp in exp_list:
+                exp_deflated = self._retrieve_storage(exp, ob_storage)
+                self._exp_handler(exp_deflated)
             # clean up ref counts
-            del exp_tuples, ob_storage, exp_tuple, ob_list
+            del exp_list, ob_storage, exp, exp_deflated
 
     def start_dequeue_thread(self):
         """
@@ -59,6 +48,32 @@ class ExpQueue(object):
             raise ValueError('Dequeue thread is already running')
         self._dequeue_thread = U.start_thread(self._dequeue_loop)
         return self._dequeue_thread
+
+    def _retrieve_storage(self, exp, storage):
+        """
+        Args:
+            exp: a nested dict or list
+                Only dict keys that end with `_hash` will be retrieved.
+                The processed key will see `_hash` removed
+            storage: chunk of storage sent with the exps
+        """
+        if isinstance(exp, list):
+            for i, e in enumerate(exp):
+                exp[i] = self._retrieve_storage(e, storage)
+        elif isinstance(exp, dict):
+            for key in list(exp.keys()):  # copy keys
+                if key.endswith('_hash'):
+                    new_key = key[:-len('_hash')]  # delete suffix
+                    exp[new_key] = self._retrieve_storage(exp[key], storage)
+                    del exp[key]
+        elif isinstance(exp, str):
+            exphash = exp
+            if exphash in self._weakref_map:
+                return self._weakref_map[exphash]
+            else:
+                self._weakref_map[exphash] = storage[exphash]
+                return storage[exphash]
+        return exp
 
     def size(self):
         return len(self._queue)

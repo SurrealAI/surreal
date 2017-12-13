@@ -29,12 +29,12 @@ def torch_aggregate(exp_list, obs_spec, action_spec):
     U.assert_type(obs_spec, dict)
     U.assert_type(action_spec, dict)
     obs0, actions, rewards, obs1, dones = [], [], [], [], []
-    for exp in exp_list:  # ExpTuple type
-        obs0.append(np.array(exp.obs[0], copy=False))
-        actions.append(exp.action)
-        rewards.append(exp.reward)
-        obs1.append(np.array(exp.obs[1], copy=False))
-        dones.append(float(exp.done))
+    for exp in exp_list:  # dict
+        obs0.append(np.array(exp['obs'][0], copy=False))
+        actions.append(exp['action'])
+        rewards.append(exp['reward'])
+        obs1.append(np.array(exp['obs'][1], copy=False))
+        dones.append(float(exp['done']))
     action_type = ActionType[action_spec['type']]
     if action_type == ActionType.continuous:
         actions = _obs_concat(actions)

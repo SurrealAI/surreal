@@ -30,11 +30,11 @@ class UniformReplay(Replay):
         })
         return conf
 
-    def insert(self, exp_tuple):
+    def insert(self, exp_dict):
         if self._next_idx >= len(self._memory):
-            self._memory.append(exp_tuple)
+            self._memory.append(exp_dict)
         else:
-            self._memory[self._next_idx] = exp_tuple
+            self._memory[self._next_idx] = exp_dict
         self._next_idx = (self._next_idx + 1) % self.memory_size
 
     def sample(self, batch_size):

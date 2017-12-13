@@ -41,13 +41,13 @@ class ReplayCore(object):
             self.start_evict_thread()
         self._sampler_server.run_loop(block=True)
 
-    def insert(self, exp_tuple):
+    def insert(self, exp_dict):
         """
         Add a new experience to the replay.
         Includes passive evict logic if memory capacity is exceeded.
 
         Args:
-            exp_tuple: ExpTuple([obs], action, reward, done, info)
+            exp_dict: {[obs], action, reward, done, info}
         """
         raise NotImplementedError
 
@@ -85,8 +85,8 @@ class ReplayCore(object):
         to the neural network training loop.
 
         Args:
-            exp_list: list of ExpTuple (from `_sample()`)
-                [obs, reward, action, done, info]
+            exp_list: list of exp dicts (from `_sample()`)
+                {obs, reward, action, done, info}
 
         Returns:
             batched Tensors, batched action/reward vectors, etc.

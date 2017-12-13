@@ -9,30 +9,49 @@ from .zmq_struct import ZmqPushClient
 
 class ExpBuffer(object):
     def __init__(self):
-        # ([obs], reward, done, info)
-        self.exp_tuples = []
-        # {obs_hash: [obs, ref_count]}
+        self.exp_list = []  # list of exp dicts
         self.ob_storage = {}
 
-    def add(self, obs, *other_info):
-        U.assert_type(obs, list)
-        ob_hashes = []
-        for ob in obs:
-            hsh = U.pyobj_hash(ob)
-            ob_hashes.append(hsh)
-            if hsh not in self.ob_storage:
-                self.ob_storage[hsh] = ob
-        self.exp_tuples.append([ob_hashes, *other_info])
+    def add(self, hash_dict, nonhash_dict):
+        """
+        Args:
+            hash_dict: {obs_hash: [ .. can be nested .. ]}
+            nonhash_dict: {reward: -1.2, done: True, ...}
+        """
+        U.assert_type(hash_dict, dict)
+        U.assert_type(nonhash_dict, dict)
+        exp = {}
+        for key, values in hash_dict.items():
+            assert not key.endswith('_hash'), 'do not manually append `_hash`'
+            exp[key + '_hash'] = self._hash_nested(values)
+        exp.update(nonhash_dict)
+        self.exp_list.append(exp)
 
     def flush(self):
-        binary = U.serialize((self.exp_tuples, self.ob_storage))
+        binary = U.serialize((self.exp_list, self.ob_storage))
         # U.print_('SIZE', len(binary), 'Exp', self.exp_tuples, 'ob', self.ob_storage)
-        self.exp_tuples = []
+        self.exp_list = []
         self.ob_storage = {}
         return binary
 
+    def _hash_nested(self, values):
+        if isinstance(values, list):
+            return [self._hash_nested(v) for v in values]
+        elif isinstance(values, dict):
+            return {k: self._hash_nested(v) for k, v in values.items()}
+        else:  # values is a single object
+            obj = values
+            hsh = U.pyobj_hash(obj)
+            if hsh not in self.ob_storage:
+                self.ob_storage[hsh] = obj
+            return hsh
+
 
 class ExpSender(object):
+    """
+    `send()` logic can be overwritten to support more complicated agent experiences,
+    such as multiagent, self-play, etc.
+    """
     def __init__(self, *,
                  host,
                  port,
@@ -54,8 +73,17 @@ class ExpSender(object):
     def send(self, obs, action, reward, done, info):
         """
         """
-        U.assert_type(obs, list)
-        self._exp_buffer.add(obs, action, reward, done, info)
+        self._exp_buffer.add(
+            hash_dict={
+                'obs': obs
+            },
+            nonhash_dict={
+                'action': action,
+                'reward': reward,
+                'done': done,
+                'info': info
+            }
+        )
         if self._flush_tracker.track_increment():
             exp_binary = self._exp_buffer.flush()
             self._client.push(exp_binary)

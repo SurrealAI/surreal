@@ -51,6 +51,6 @@ U.print_(dict(queue._weakref_map))
 while mem:
     p = mem.pop()
     print('popped', p)
-    print(sys.getrefcount(p[0][0]), sys.getrefcount(p[0][1]))
+    print(sys.getrefcount(p['obs'][0]), sys.getrefcount(p['obs'][1]))
     del p
     print(queue.weakref_size(), queue.weakref_keys())
