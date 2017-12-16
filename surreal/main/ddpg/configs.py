@@ -3,9 +3,9 @@ from surreal.session import Config, LOCAL_SESSION_CONFIG
 
 learner_config = {
     'model': {
-        # 'convs': [],
-        # 'fc_hidden_sizes': [128],
-        # 'dueling': False,
+        'convs': [],
+        'fc_hidden_sizes': [128],
+        'dueling': False,
         'conv_spec': {
             'out_channels': [64, 64],
             'kernel_sizes': [3, 5],
@@ -35,6 +35,7 @@ learner_config = {
             'beta_anneal_iters': None,
             'eps': 1e-6
         },
+        'n_step': 5,
     },
     'replay': {
         'batch_size': 256,

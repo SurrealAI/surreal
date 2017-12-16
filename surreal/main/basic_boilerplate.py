@@ -36,9 +36,10 @@ def run_agent_main(*,
 
     agent_mode = AgentMode.training
 
-    env = ExpSenderWrapper(
+    env = ExpSenderWrapperSSAR(
         env,
-        session_config=session_config
+        learner_config=learner_config,
+        session_config=session_config,
     )
     env = TrainingTensorplexMonitor(
         env,

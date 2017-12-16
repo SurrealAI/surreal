@@ -47,7 +47,7 @@ class ExpBuffer(object):
             return hsh
 
 
-class ExpSender(object):
+class ExpSenderBase(object):
     """
     `send()` logic can be overwritten to support more complicated agent experiences,
     such as multiagent, self-play, etc.
@@ -70,19 +70,13 @@ class ExpSender(object):
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 
-    def send(self, obs, action, reward, done, info):
+    def send(self, hash_dict, nonhash_dict):
         """
+            TODO: Jim should add some comment on how hash_dict and nonhash_dict works
         """
         self._exp_buffer.add(
-            hash_dict={
-                'obs': obs
-            },
-            nonhash_dict={
-                'action': action,
-                'reward': reward,
-                'done': done,
-                'info': info
-            }
+            hash_dict=hash_dict, 
+            nonhash_dict=nonhash_dict,
         )
         if self._flush_tracker.track_increment():
             exp_binary = self._exp_buffer.flush()
@@ -90,3 +84,28 @@ class ExpSender(object):
             return U.binary_hash(exp_binary)
         else:
             return None
+
+class ExpSender(ExpSenderBase):
+    # I suggest deprecating this class and make every exp sender wrapper use the same ExpSenderBase
+    # So custom logic of sending experience goes with the wrapper that can be defined by environment
+    # and exp_sender is just a infrastructure layer
+    # Currently I am keeping it for backward compatibility 
+    """
+    `send()` logic can be overwritten to support more complicated agent experiences,
+    such as multiagent, self-play, etc.
+    """
+    def send(self, obs, action, reward, done, info):
+        """
+            Pack observations into compressed format
+            Keep others in normal format
+        """
+        hash_dict = {
+            'obs': obs
+        }
+        nonhash_dict = {
+            'action': action,
+            'reward': reward,
+            'done': done,
+            'info': info
+        }
+        return super().send(hash_dict, nonhash_dict)
