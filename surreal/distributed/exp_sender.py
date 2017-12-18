@@ -84,28 +84,3 @@ class ExpSender(object):
             return U.binary_hash(exp_binary)
         else:
             return None
-
-# class ExpSender(ExpSenderBase):
-#     # I suggest deprecating this class and make every exp sender wrapper use the same ExpSenderBase
-#     # So custom logic of sending experience goes with the wrapper that can be defined by environment
-#     # and exp_sender is just a infrastructure layer
-#     # Currently I am keeping it for backward compatibility 
-#     """
-#     `send()` logic can be overwritten to support more complicated agent experiences,
-#     such as multiagent, self-play, etc.
-#     """
-#     def send(self, obs, action, reward, done, info):
-#         """
-#             Pack observations into compressed format
-#             Keep others in normal format
-#         """
-#         hash_dict = {
-#             'obs': obs
-#         }
-#         nonhash_dict = {
-#             'action': action,
-#             'reward': reward,
-#             'done': done,
-#             'info': info
-#         }
-#         return super().send(hash_dict, nonhash_dict)
