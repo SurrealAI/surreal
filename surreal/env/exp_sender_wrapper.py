@@ -3,12 +3,22 @@ from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEA
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
 
+def expSenderWrapperFactory(env, learner_config, session_config):
+    # TODO: initialize config in a unified place 
+    session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
+    learner_config = Config(learner_config).extend(BASE_LEARN_CONFIG)
+    if learner_config.algo.experience == 'SSAR':
+        return ExpSenderWrapperSSAR(env, learner_config, session_config)
+    if learner_config.algo.experience == 'SSARNStep':
+        return ExpSenderWrapperSSARNStep(env, learner_config, session_config)
+
 class ExpSenderWrapperSSAR(Wrapper):
     def __init__(self, env, learner_config, session_config):
         """
         Default sender configs are in BASE_SESSION_CONFIG['sender']
         """
         super().__init__(env)
+        # TODO: initialize config in a unified place 
         self.session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
         self.learner_config = Config(learner_config).extend(BASE_LEARN_CONFIG)
         self.sender = ExpSender(

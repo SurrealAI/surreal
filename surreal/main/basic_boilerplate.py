@@ -35,12 +35,9 @@ def run_agent_main(*,
         _fetch_interval = int(n)
 
     agent_mode = AgentMode.training
-
-    env = ExpSenderWrapperSSARNStep(
-        env,
-        learner_config=learner_config,
-        session_config=session_config,
-    )
+    
+    env = expSenderWrapperFactory(env, learner_config, session_config)
+    
     env = TrainingTensorplexMonitor(
         env,
         agent_id=agent_id,
