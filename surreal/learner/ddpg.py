@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
-
+import numpy as np
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
+from .aggregator import torch_aggregate
 
 
 class DDPGLearner(Learner):
@@ -94,6 +95,13 @@ class DDPGLearner(Learner):
         # soft update target networks
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
+
+    def preprocess_batch(self, raw_batch):
+        return torch_aggregate(
+            raw_batch,
+            obs_spec=self.env_config.obs_spec,
+            action_spec=self.env_config.action_spec,
+        )
 
     def learn(self, batch):
         self._optimize(

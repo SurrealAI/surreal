@@ -2,8 +2,6 @@ import time
 import numpy as np
 import random
 from .base import Replay
-from .aggregator import torch_aggregate
-
 
 class DummyReplay(Replay):
     def __init__(self, *args, sampling_start_size, **kwargs):
@@ -49,12 +47,3 @@ class DummyReplay(Replay):
 
     def _start_sample_condition(self):
         return len(self._memory) > self._sampling_start_size
-
-    # def aggregate_batch(self, exp_list):
-        # aggreg = {}
-        # for key in exp_list[0]:
-        #     aggreg[key] = []
-        # for exp in exp_list:
-        #     for key in exp:
-        #         aggreg[key].append(exp[key])
-        # return aggreg

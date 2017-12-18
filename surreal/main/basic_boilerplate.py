@@ -36,7 +36,7 @@ def run_agent_main(*,
 
     agent_mode = AgentMode.training
 
-    env = ExpSenderWrapperSSAR(
+    env = ExpSenderWrapperSSARNStep(
         env,
         learner_config=learner_config,
         session_config=session_config,
