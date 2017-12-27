@@ -18,4 +18,11 @@ class SurrealSawyerStackEnv(SawyerStackEnv, Env):
     def _reset(self):
         return super()._reset(), {}
 
+class SurrealSawyerGraspEnv(SawyerGraspEnv, Env):
+    def __init__(self, config):
+        mujoco_object = build_from_config(config.mujoco_object_spec)
+        super().__init__(mujoco_object=mujoco_object, **config)
+
+    def _reset(self):
+        return super()._reset(), {}
 # TODO: add error checks for stuff like action spec

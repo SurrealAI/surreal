@@ -4,12 +4,9 @@ from surreal.env.mujocomanip.mujocomanip_envs import *
 import copy
 import numpy as np
 
-env_config = DEFAULT_PUSHER_CONFIG
+env_config = DEFAULT_GRASPER_CONFIG
 env_config.display = True
-object_config = XML_BALL_CONFIG
-env_config.mujoco_object_spec = object_config
-env_config.gripper = "RobotiqGripper"
-env = SurrealSawyerPushEnv(env_config)
+env = SurrealSawyerGraspEnv(env_config)
 
 obs,info = env.reset()
 while True:

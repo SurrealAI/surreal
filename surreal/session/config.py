@@ -230,6 +230,9 @@ class Config(dict):
         U.assert_type(default_config, dict)
         return _fill_default_config(self, default_config, [])
 
+    def copy(self):
+        return Config(self.to_dict())
+
 
 def extend_config(config, default_config):
     """
