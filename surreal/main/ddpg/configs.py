@@ -36,7 +36,7 @@ learner_config = {
             'eps': 1e-6
         },
         'n_step': 5,
-        'experience': 'SSARNStep',
+        'experience': 'ExpSenderWrapperSSARNStep',
     },
     'replay': {
         'batch_size': 256,

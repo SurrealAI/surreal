@@ -4,7 +4,7 @@ Template class for all learners
 import surreal.utils as U
 from surreal.session import (
     extend_config, PeriodicTracker, PeriodicTensorplex,
-    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
 from surreal.session import StatsTensorplex, Loggerplex
 from surreal.distributed import ZmqClient, ParameterPublisher
@@ -109,7 +109,7 @@ class LearnerCore(metaclass=U.AutoInitializeMeta):
         Returns:
             a dict of defaults.
         """
-        return BASE_LEARN_CONFIG
+        return BASE_LEARNER_CONFIG
 
     def preprocess_batch(self, raw_batch):
         """
@@ -206,7 +206,7 @@ class Learner(LearnerCore):
         Returns:
             a dict of defaults.
         """
-        return BASE_LEARN_CONFIG
+        return BASE_LEARNER_CONFIG
 
     def update_tensorplex(self, tag_value_dict, global_step=None):
         """

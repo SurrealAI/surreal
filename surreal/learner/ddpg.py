@@ -4,7 +4,7 @@ import numpy as np
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
-from .aggregator import torch_aggregate
+from .aggregator import aggregatorFactory
 
 
 class DDPGLearner(Learner):
@@ -39,6 +39,8 @@ class DDPGLearner(Learner):
             self.model.actor.parameters(),
             lr=1e-4
         )
+
+        self.aggregator = aggregatorFactory('SSARConcat')(self.env_config.obs_spec, self.env_config.action_spec)
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
@@ -97,11 +99,7 @@ class DDPGLearner(Learner):
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
 
     def preprocess_batch(self, raw_batch):
-        return torch_aggregate(
-            raw_batch,
-            obs_spec=self.env_config.obs_spec,
-            action_spec=self.env_config.action_spec,
-        )
+        return self.aggregator.aggregate(raw_batch)
 
     def learn(self, batch):
         self._optimize(

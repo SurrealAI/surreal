@@ -1,18 +1,30 @@
 from .wrapper import Wrapper
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
 
-def expSenderWrapperFactory(env, learner_config, session_config):
-    # TODO: initialize config in a unified place 
-    session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
-    learner_config = Config(learner_config).extend(BASE_LEARN_CONFIG)
-    if learner_config.algo.experience == 'SSAR':
-        return ExpSenderWrapperSSAR(env, learner_config, session_config)
-    if learner_config.algo.experience == 'SSARNStep':
-        return ExpSenderWrapperSSARNStep(env, learner_config, session_config)
 
-class ExpSenderWrapperSSAR(Wrapper):
+exp_sender_wrapper_registry = {}
+
+def register_exp_sender_wrapper(target_class):
+    exp_sender_wrapper_registry[target_class.__name__] = target_class
+
+def expSenderWrapperFactory(env, learner_config, session_config):
+    session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
+    learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
+    return exp_sender_wrapper_registry[learner_config.algo.experience](env, learner_config, session_config)
+
+class ExpSenderWrapperMeta(type):
+    def __new__(meta, name, bases, class_dict):
+        cls = type.__new__(meta, name, bases, class_dict)
+        register_exp_sender_wrapper(cls)
+        return cls
+
+# https://effectivepython.com/2015/02/02/register-class-existence-with-metaclasses/
+class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
+    pass
+
+class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
     def __init__(self, env, learner_config, session_config):
         """
         Default sender configs are in BASE_SESSION_CONFIG['sender']
@@ -20,7 +32,7 @@ class ExpSenderWrapperSSAR(Wrapper):
         super().__init__(env)
         # TODO: initialize config in a unified place 
         self.session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
-        self.learner_config = Config(learner_config).extend(BASE_LEARN_CONFIG)
+        self.learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
         self.sender = ExpSender(
             host=self.session_config.replay.host,
             port=self.session_config.replay.port,

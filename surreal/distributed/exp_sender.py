@@ -73,6 +73,8 @@ class ExpSender(object):
     def send(self, hash_dict, nonhash_dict):
         """
             TODO: Jim should add some comment on how hash_dict and nonhash_dict works
+            hash_dict: Large/Heavy data that should be deduplicated by the caching mekanism
+            nonhash_dict: Small data that we can afford to keep copies of 
         """
         self._exp_buffer.add(
             hash_dict=hash_dict, 

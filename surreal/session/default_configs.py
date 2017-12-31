@@ -1,9 +1,13 @@
 from .config import extend_config
 
 # ======================== Agent-Learner side ========================
-BASE_LEARN_CONFIG = {
+BASE_LEARNER_CONFIG = {
     'model': '_dict_',
-    'algo': '_dict_',
+    'algo': {
+        'experience': 'ExpSenderWrapperSSARNStep',
+        'n_step': '1',
+        'gamma': '_float_',
+    },
     'replay': {
         'batch_size': '_int_'
     }
