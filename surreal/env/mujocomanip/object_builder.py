@@ -9,6 +9,6 @@ def build_from_config(config):
         return DefaultBallObject()
     if config.type == 'box':
         return BoxObject(size=config.size, rgba=config.rgba)
-    if config.type == 'randombox':
-        return RandomBoxObject(size_max=config.size_max, size_min=size_min, seed=config.seed)
+    if config.type == 'random_box':
+        return RandomBoxObject(size_max=config.size_max, size_min=config.size_min, seed=int(config.seed))
     raise ValueError('mujoco object type "{}" not recognized'.format(config.type))
