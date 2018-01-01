@@ -5,7 +5,7 @@ import surreal.utils as U
 from surreal.session import (
     Loggerplex, AgentTensorplex, EvalTensorplex,
     PeriodicTracker, PeriodicTensorplex, extend_config,
-    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARN_CONFIG
+    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
 from surreal.distributed import ParameterClient
 
@@ -126,4 +126,4 @@ class Agent(AgentCore):
         Returns:
             a dict of defaults.
         """
-        return BASE_LEARN_CONFIG
+        return BASE_LEARNER_CONFIG

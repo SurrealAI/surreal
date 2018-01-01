@@ -70,19 +70,15 @@ class ExpSender(object):
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 
-    def send(self, obs, action, reward, done, info):
+    def send(self, hash_dict, nonhash_dict):
         """
+            TODO: Jim should add some comment on how hash_dict and nonhash_dict works
+            hash_dict: Large/Heavy data that should be deduplicated by the caching mekanism
+            nonhash_dict: Small data that we can afford to keep copies of 
         """
         self._exp_buffer.add(
-            hash_dict={
-                'obs': obs
-            },
-            nonhash_dict={
-                'action': action,
-                'reward': reward,
-                'done': done,
-                'info': info
-            }
+            hash_dict=hash_dict, 
+            nonhash_dict=nonhash_dict,
         )
         if self._flush_tracker.track_increment():
             exp_binary = self._exp_buffer.flush()

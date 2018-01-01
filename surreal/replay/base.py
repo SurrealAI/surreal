@@ -3,7 +3,6 @@ import time
 import surreal.utils as U
 from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
-from .aggregator import torch_aggregate
 from surreal.distributed import ExpQueue, ZmqServer
 
 
@@ -79,19 +78,6 @@ class ReplayCore(object):
         """
         raise NotImplementedError
 
-    def aggregate_batch(self, exp_list):
-        """
-        Will be called in `next_batch()` method to produce the actual inputs
-        to the neural network training loop.
-
-        Args:
-            exp_list: list of exp dicts (from `_sample()`)
-                {obs, reward, action, done, info}
-
-        Returns:
-            batched Tensors, batched action/reward vectors, etc.
-        """
-        raise NotImplementedError
 
     def __len__(self):
         raise NotImplementedError
@@ -106,7 +92,7 @@ class ReplayCore(object):
         U.assert_type(batch_size, int)
         while not self.start_sample_condition():
             time.sleep(0.01)
-        return self.aggregate_batch(self.sample(batch_size))
+        return self.sample(batch_size)
 
     def _evict_loop(self):
         assert self._evict_interval
@@ -170,12 +156,6 @@ class Replay(ReplayCore):
             'batch_size': '_int_',
         }
 
-    def aggregate_batch(self, exp_list):
-        return torch_aggregate(
-            exp_list,
-            obs_spec=self.env_config.obs_spec,
-            action_spec=self.env_config.action_spec,
-        )
 
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
