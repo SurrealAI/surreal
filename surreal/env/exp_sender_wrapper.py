@@ -9,11 +9,9 @@ exp_sender_wrapper_registry = {}
 def register_exp_sender_wrapper(target_class):
     exp_sender_wrapper_registry[target_class.__name__] = target_class
 
-def expSenderWrapperFactory(env, learner_config, session_config):
-    session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
-    learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
-    return exp_sender_wrapper_registry[learner_config.algo.experience](env, learner_config, session_config)
-
+def expSenderWrapperFactory(name):
+    return exp_sender_wrapper_registry[name]
+    
 class ExpSenderWrapperMeta(type):
     def __new__(meta, name, bases, class_dict):
         cls = type.__new__(meta, name, bases, class_dict)

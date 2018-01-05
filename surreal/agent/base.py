@@ -15,8 +15,21 @@ class AgentMode(U.StringEnum):
     eval_stochastic = ()
     eval_deterministic = ()
 
+agent_registry = {}
 
-class AgentCore(metaclass=U.AutoInitializeMeta):
+def register_agent(target_class):
+    agent_registry[target_class.__name__] = target_class
+
+def agentFactory(agent_name):
+    return agent_registry[agent_name]
+
+class AgentMeta(U.AutoInitializeMeta):
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        register_agent(cls)
+        return cls
+
+class AgentCore(metaclass=AgentMeta):
     def __init__(self, ps_host, ps_port, agent_mode):
         """
         Write all logs to self.log

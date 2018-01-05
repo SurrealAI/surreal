@@ -69,7 +69,21 @@ class PrefetchBatchQueue(object):
         return self._queue.qsize()
 
 
-class LearnerCore(metaclass=U.AutoInitializeMeta):
+learner_registry = {}
+
+def register_learner(target_class):
+    learner_registry[target_class.__name__] = target_class
+
+def learnerFactory(learner_name):
+    return learner_registry[learner_name]
+
+class LearnerMeta(U.AutoInitializeMeta):
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        register_learner(cls)
+        return cls
+
+class LearnerCore(metaclass=LearnerMeta):
     def __init__(self, *,
                  sampler_host,
                  sampler_port,

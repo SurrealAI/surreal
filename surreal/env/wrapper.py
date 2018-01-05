@@ -1,5 +1,15 @@
 import gym
-from .base import Env
+from .base import Env, ActionType, ObsType
+import dm_control
+from dm_control.rl.environment import StepType
+import numpy as np
+import surreal.utils as U
+from operator import mul
+import functools
+
+class SpecFormat(U.StringEnum):
+    SURREAL_CLASSIC = ()
+    DM_CONTROL = ()
 
 
 class Wrapper(Env):
@@ -52,6 +62,12 @@ class Wrapper(Env):
 
     def __repr__(self):
         return str(self)
+
+    def action_spec(self):
+        return self.env.action_spec()
+
+    def observation_spec(self):
+        return self.env.observation_spec()
 
     @property
     def unwrapped(self):
@@ -112,3 +128,92 @@ class GymAdapter(Wrapper):
     def _reset(self):
         obs = self.env.reset()
         return obs, {}
+
+    def observation_spec(self):
+        gym_spec = self.env.observation_space
+        if isinstance(gym_spec, gym.spaces.Box):
+            return {
+                'type': 'continuous',
+                'dim': gym_spec.shape
+            }
+        else:
+            raise ValueError('Discrete observation currently not supported')
+        # TODO: migrate everything to dm_format
+
+    def action_spec(self):
+        gym_spec = self.env.action_spec
+        if isinstance(gym_spec, gym.spaces.Box):
+            return {
+                'type': 'continuous',
+                'dim': gym_spec.shape
+            }
+        else:
+            raise ValueError('Discrete observation currently not supported')
+        # TODO: migrate everything to dm_format
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+class DMControlAdapter(Wrapper):
+    def __init__(self, env):
+        # dm_control envs don't have metadata
+        env.metadata = {}
+        super().__init__(env)
+        assert isinstance(env, dm_control.rl.control.Environment)
+
+    def _step(self, action):
+        ts = self.env.step(action)
+        reward = ts.reward
+        if reward is None:
+            # TODO: note that reward is none
+            reward = 0
+        return ts.observation, reward, ts.step_type == StepType.LAST, {}
+
+    def _reset(self):
+        ts = self.env.reset()
+        return ts.observation, {}
+
+    def _close(self):
+        self.env.close()
+
+    @property
+    def spec_format(self):
+        return SpecFormat.DM_CONTROL
+
+    def observation_spec(self):
+        return self.env.observation_spec()
+
+    def action_spec(self):
+        return self.env.action_spec()
+
+    # TODO:Render
+
+def flatten_obs(obs):
+    return np.concatenate([v.flatten() for k, v in obs.items()])
+
+class ObservationConcatenationWrapper(Wrapper):
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return flatten_obs(obs), reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return flatten_obs(obs), info
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+    def observation_spec(self):
+        return {
+            'type': 'continuous',
+            'dim': [sum([functools.reduce(mul, x.shape) for k, x in self.env.observation_spec().items()])],
+        }
+
+    def action_spec(self):
+        return {
+            'type': ActionType.continuous,
+            'dim': self.env.action_spec().shape,
+        }
+    # TODO: what about upper/lower bound information

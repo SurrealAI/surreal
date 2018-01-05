@@ -4,26 +4,35 @@ from .config import extend_config
 BASE_LEARNER_CONFIG = {
     'model': '_dict_',
     'algo': {
+        # Agent class to instantiate
+        'agent_class': '_str_',
+        # Learner class to instantiate
+        'learner_class': '_str_',
         'experience': 'ExpSenderWrapperSSARNStep',
-        'n_step': '1',
+        'n_step': 1,
         'gamma': '_float_',
     },
     'replay': {
-        'batch_size': '_int_'
+        # The replay class to instantiate
+        'replay_class': '_str_',
+        'batch_size': '_int_',
     }
 }
 
 
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
-    'action_spec': {
-        'dim': '_list_',
-        'type': '_enum[continuous, discrete]_'
-    },
-    'obs_spec': {
-        'dim': '_list_',
-        'type': ''  # TODO uint8 format
-    }
+    'env_name' : '_str_',
+    'action_spec': {},
+    'obs_spec': {},
+    # 'action_spec': {
+    #     'dim': '_list_',
+    #     'type': '_enum[continuous, discrete]_'
+    # },
+    # 'obs_spec': {
+    #     'dim': '_list_',
+    #     'type': ''  # TODO uint8 format
+    # },
 }
 
 
@@ -75,6 +84,9 @@ BASE_SESSION_CONFIG = {
         'show_level': True,
         'time_format': 'hms'
     },
+    'agent': {
+        'fetch_parameter_mode': '_str_',
+    }
 }
 
 
@@ -118,6 +130,11 @@ LOCAL_SESSION_CONFIG = {
     'loggerplex': {
         'host': 'localhost',
         'port': 7006,
+    },
+    'agent': {
+        # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
+        # every episode, every n episodes, every step, every n steps
+        'fetch_parameter_mode': 'episode'
     },
 }
 
