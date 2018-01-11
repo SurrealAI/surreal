@@ -75,3 +75,37 @@ class SSARConcat(AggregatorBase):
             rewards=Variable(torch.FloatTensor(rewards).unsqueeze(1)),
             dones=Variable(torch.FloatTensor(dones).unsqueeze(1)),
         )
+
+class StackN(AggregatorBase):
+    def __init__(self, obs_spec, action_spec):
+        U.assert_type(obs_spec, dict)
+        U.assert_type(action_spec, dict)
+        self.action_type = ActionType[action_spec['type']]
+        self.action_spec = action_spec
+        self.obs_spec = obs_spec
+
+    def aggregate(self, exp_list):
+        """
+        returns observation_array, action_array, reward_array, done_array
+        discards info
+        """
+        observation_arrs, action_arrs, reward_arrs, done_arrs = [], [], [], []
+        for exp in exp_list:
+            observation_arr, action_arr, reward_arr, done_arr = self.clean_up_raw_exp(exp)
+            observation_arrs.append(observation_arr)
+            action_arrs.append(action_arr)
+            reward_arrs.append(reward_arr)
+            done_arrs.append(done_arr)
+        return dict(observations=np.stack(observation_arrs), 
+                    actions=np.stack(action_arrs), 
+                    rewards=np.stack(reward_arrs), 
+                    dones=np.stack(done_arrs)
+                    )
+
+    def clean_up_raw_exp(self, experience):
+        n_step = experience['n_step']
+        observation_arr = np.stack([experience[str(i)] for i in range(n_step)])
+        action_arr = np.stack(experience['action_arr'])
+        reward_arr = np.array(experience['reward_arr'])
+        done_arr = np.array(experience['done_arr'])
+        return observation_arr, action_arr, reward_arr, done_arr

@@ -40,7 +40,7 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        self.aggregator = aggregatorFactory('SSARConcat')(self.env_config.obs_spec, self.env_config.action_spec)
+        self.aggregator = aggregatorFactory('StackN')(self.env_config.obs_spec, self.env_config.action_spec)
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
@@ -102,6 +102,10 @@ class DDPGLearner(Learner):
         return self.aggregator.aggregate(raw_batch)
 
     def learn(self, batch):
+        """TODO: the optimize will crash"""
+        """Currently the batch object contains the data in our desired format"""
+        for k in batch:
+            print(k, type(batch[k]), batch[k].shape)
         self._optimize(
             batch.obs,
             batch.actions,
