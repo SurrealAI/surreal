@@ -1,5 +1,9 @@
 To run dm_control on the cloud, we need the following operations
 
+* Install Xdummy
+# Install the Xdummy driver
+sudo apt-get install xserver-xorg-video-dummy
+
 * Running the X server
 # Running xorg server
 # https://xpra.org/trac/wiki/Xdummy
@@ -7,7 +11,7 @@ To run dm_control on the cloud, we need the following operations
 mkdir ~/.fakeX/
 touch ~/.fakeX/10.log
 wget -O ~/.fakeX/xorg.conf http://xpra.org/xorg.conf
-Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ~/.fakeX/10.log -config ~/.fakeX/xorg.conf -verbose :10
+Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ~/.fakeX/10.log -config ~/.fakeX/xorg.conf :10
 
 # TODO: make the process a daemon
 
