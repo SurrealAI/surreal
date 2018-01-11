@@ -144,8 +144,8 @@ def run_learner_main(*,
         learner_extra_kwargs = {}
 
     env, env_config = make(env_config)
-    del env
-
+    del env # Does not work for dm_control as they don't clean up
+    
     learner_class = learnerFactory(learner_config.algo.learner_class)
     learner = learner_class(
         learner_config=learner_config,

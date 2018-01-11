@@ -74,6 +74,11 @@ class ExpSenderWrapperSSARNStep(ExpSenderWrapperSSAR):
         self.gamma = self.learner_config.algo.gamma
         self.last_n = deque()
 
+    def _reset(self):
+        self._obs, info = self.env.reset()
+        self.last_n.clear()
+        return self._obs, info
+
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
         self.last_n.append([[self._obs, obs_next], action, reward, done, info])
