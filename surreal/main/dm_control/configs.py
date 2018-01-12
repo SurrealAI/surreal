@@ -43,7 +43,7 @@ learner_config = {
 
 
 env_config = {
-    'env_name': 'dm_control:reacher-easy',
+    'env_name': 'dm_control:cheetah-run',
 }
 
 

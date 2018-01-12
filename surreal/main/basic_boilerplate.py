@@ -124,12 +124,20 @@ def run_eval_main(*,
         session_config=session_config,
     )
 
+
     obs, info = env.reset()
     while True:
         action = agent.act(U.to_float_tensor(obs))
         if args.render:
             env.render()
+        # obs, reward, done, info = env.step(action)
+        import numpy as np
+        action = np.random.randn(6)
         obs, reward, done, info = env.step(action)
+        print('action', action)
+        print('obs', obs)
+        print('reward', reward)
+        print('done', done)
         if done:
             obs, info = env.reset()
 
