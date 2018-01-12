@@ -15,7 +15,7 @@ learner_config = {
         'optimizer': 'Adam',
         # 'grad_norm_clipping': 10,
         'gamma': .99,
-        'exploration_sigma':  1. / 32.,
+        'exploration_sigma':  1. / 16.,
         # 'target_network_update_freq': 250 * 64,
         # 'double_q': True,
         # 'exploration': {
