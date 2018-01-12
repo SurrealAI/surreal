@@ -10,7 +10,7 @@ learner_config = {
     'algo': {
         'agent_class': 'DDPGAgent',
         'learner_class': 'DDPGLearner',
-        'lr': 5e-3,
+        'lr': 1e-4,
         # 'train_freq': 1,
         'optimizer': 'Adam',
         'grad_norm_clipping': 10,

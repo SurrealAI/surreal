@@ -6,6 +6,8 @@ import numpy as np
 import surreal.utils as U
 from operator import mul
 import functools
+import pygame
+import sys
 
 class SpecFormat(U.StringEnum):
     SURREAL_CLASSIC = ()
@@ -160,6 +162,7 @@ class DMControlAdapter(Wrapper):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
+        self.screen = None
         assert isinstance(env, dm_control.rl.control.Environment)
 
     def _step(self, action):
@@ -187,7 +190,21 @@ class DMControlAdapter(Wrapper):
     def action_spec(self):
         return self.env.action_spec()
 
-    # TODO:Render
+    def render(self, *args, width=480, height=480, camera_id=1, **kwargs):
+        # safe for multiple calls
+        pygame.init()
+        if not self.screen:
+            self.screen = pygame.display.set_mode((width, height))
+        else:
+            c_width, c_height = self.screen.get_size()
+            if c_width != width or c_height != height:
+                self.screen = pygame.display.set_mode((width, height))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: sys.exit()
+
+        im = self.env.physics.render(width=width, height=height, camera_id=1).transpose((1,0,2))
+        pygame.pixelcopy.array_to_surface(self.screen, im)
+        pygame.display.update()
 
 def flatten_obs(obs):
     return np.concatenate([v.flatten() for k, v in obs.items()])
