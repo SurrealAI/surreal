@@ -170,6 +170,7 @@ class DMControlAdapter(Wrapper):
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none
+            print('None reward')
             reward = 0
         return ts.observation, reward, ts.step_type == StepType.LAST, {}
 
