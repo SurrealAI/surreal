@@ -36,6 +36,8 @@ class DDPGAgent(Agent):
 
         self.logsig = -1.0
 
+        self.noise_sigma = self.learner_config.exploration_sigma * self.agent_id
+
     def act(self, obs):
 
         assert torch.is_tensor(obs)
@@ -43,7 +45,7 @@ class DDPGAgent(Agent):
         action = self.model.actor(obs)
 
         if self.agent_mode is not AgentMode.eval_deterministic:
-            std = float(np.exp(self.logsig))
+            std = self.noise_sigma
             noise_random = torch.zeros(1, self.action_dim).normal_(std=std)
             if self.use_ou_noise:
                 self.noise = self.noise + noise_random

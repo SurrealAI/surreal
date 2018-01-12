@@ -13,22 +13,23 @@ learner_config = {
         'lr': 1e-4,
         # 'train_freq': 1,
         'optimizer': 'Adam',
-        'grad_norm_clipping': 10,
+        # 'grad_norm_clipping': 10,
         'gamma': .99,
-        'target_network_update_freq': 250 * 64,
-        'double_q': True,
-        'exploration': {
-            'schedule': 'linear',
-            'steps': 30000,
-            'final_eps': 0.01,
-        },
-        'prioritized': {
-            'enabled': False,
-            'alpha': 0.6,
-            'beta0': 0.4,
-            'beta_anneal_iters': None,
-            'eps': 1e-6
-        },
+        'exploration_sigma':  1. / 32.,
+        # 'target_network_update_freq': 250 * 64,
+        # 'double_q': True,
+        # 'exploration': {
+        #     'schedule': 'linear',
+        #     'steps': 30000,
+        #     'final_eps': 0.01,
+        # },
+        # 'prioritized': {
+        #     'enabled': False,
+        #     'alpha': 0.6,
+        #     'beta0': 0.4,
+        #     'beta_anneal_iters': None,
+        #     'eps': 1e-6
+        # },
     },
     'replay': {
         'replay_class': 'UniformReplay',
@@ -37,7 +38,7 @@ learner_config = {
         'sampling_start_size': 1000,
     },
     'eval': {
-        'eps': 0.05  # 5% random action under eval_stochastic mode
+        # 'eps': 0.05  # 5% random action under eval_stochastic mode
     }
 }
 
