@@ -10,7 +10,7 @@ learner_config = {
     'algo': {
         'agent_class': 'DDPGAgent',
         'learner_class': 'DDPGLearner',
-        'lr': 1e-3,
+        'lr': 5e-3,
         # 'train_freq': 1,
         'optimizer': 'Adam',
         'grad_norm_clipping': 10,
@@ -43,7 +43,7 @@ learner_config = {
 
 
 env_config = {
-    'env_name': 'dm_control:reacher-easy',
+    'env_name': 'dm_control:cheetah-run',
 }
 
 

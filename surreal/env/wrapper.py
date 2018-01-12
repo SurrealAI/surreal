@@ -141,7 +141,7 @@ class GymAdapter(Wrapper):
         # TODO: migrate everything to dm_format
 
     def action_spec(self):
-        gym_spec = self.env.action_spec
+        gym_spec = self.env.action_space
         if isinstance(gym_spec, gym.spaces.Box):
             return {
                 'type': 'continuous',
