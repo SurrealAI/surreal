@@ -37,7 +37,7 @@ class DDPGAgent(Agent):
         self.logsig = -1.0
 
         if agent_mode == AgentMode.training:
-            self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1)
+            self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1e-4)
             print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
