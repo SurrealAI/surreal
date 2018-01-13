@@ -15,7 +15,7 @@ learner_config = {
         'optimizer': 'Adam',
         # 'grad_norm_clipping': 10,
         'gamma': .99,
-        'exploration_sigma':  1. / 16.,
+        'exploration_sigma':  1. / 40.,
         # 'target_network_update_freq': 250 * 64,
         # 'double_q': True,
         # 'exploration': {
@@ -44,7 +44,8 @@ learner_config = {
 
 
 env_config = {
-    'env_name': 'dm_control:cheetah-run',
+    # 'env_name': 'dm_control:cheetah-run',
+    'env_name': 'gym:HalfCheetah-v1',
 }
 
 

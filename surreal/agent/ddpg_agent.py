@@ -36,9 +36,9 @@ class DDPGAgent(Agent):
 
         self.logsig = -1.0
 
-        if agent_mode == AgentMode.training:
-            self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1e-4)
-            print('noise_sigma', self.noise_sigma)
+        # if agent_mode == AgentMode.training:
+        #     self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1e-4)
+        #     print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
 
@@ -47,13 +47,14 @@ class DDPGAgent(Agent):
         action = self.model.actor(obs)
 
         if self.agent_mode is not AgentMode.eval_deterministic:
-            std = self.noise_sigma
+            # std = self.noise_sigma
+            std = np.exp(self.logsig)
             noise_random = torch.zeros(1, self.action_dim).normal_(std=std)
             if self.use_ou_noise:
                 self.noise = self.noise + noise_random
             else:
                 self.noise = noise_random
-            # self.noise.clamp_(-0.2, 0.2)
+            self.noise.clamp_(-0.2, 0.2)
 
         action.data.add_(self.noise).clamp_(-1, 1)
         return action.data.numpy().squeeze()
