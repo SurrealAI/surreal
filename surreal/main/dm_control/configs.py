@@ -10,12 +10,13 @@ learner_config = {
     'algo': {
         'agent_class': 'DDPGAgent',
         'learner_class': 'DDPGLearner',
-        'lr': 1e-4,
+        'lr': 1e-3,
         # 'train_freq': 1,
         'optimizer': 'Adam',
         # 'grad_norm_clipping': 10,
         'gamma': .99,
         'exploration_sigma':  1. / 40.,
+        'train_max_episode_steps': 100,
         # 'target_network_update_freq': 250 * 64,
         # 'double_q': True,
         # 'exploration': {
@@ -33,8 +34,8 @@ learner_config = {
     },
     'replay': {
         'replay_class': 'UniformReplay',
-        'batch_size': 64,
-        'memory_size': 100000,
+        'batch_size': 256,
+        'memory_size': 1000000,
         'sampling_start_size': 1000,
     },
     'eval': {

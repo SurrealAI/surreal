@@ -21,6 +21,7 @@ def make(env_config):
 
 def make_gym(env_name, env_config):
     env = gym.make(env_name)
+    env._max_episode_steps = 100
     env = GymAdapter(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
