@@ -71,8 +71,8 @@ class DDPGLearner(Learner):
         self.model.critic.zero_grad()
         critic_loss = self.critic_criterion(y_policy, y)
         critic_loss.backward()
-        for p in self.model.critic.parameters():
-            p.grad.data.clamp_(-1.0, 1.0)
+        # for p in self.model.critic.parameters():
+        #     p.grad.data.clamp_(-1.0, 1.0)
         self.critic_optim.step()
 
         # actor update
@@ -82,8 +82,8 @@ class DDPGLearner(Learner):
             self.model.forward_actor(obs.detach())
         ).mean()
         actor_loss.backward()
-        for p in self.model.actor.parameters():
-            p.grad.data.clamp_(-1.0, 1.0)
+        # for p in self.model.actor.parameters():
+        #     p.grad.data.clamp_(-1.0, 1.0)
         self.actor_optim.step()
 
         self.update_tensorplex({
