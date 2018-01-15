@@ -23,7 +23,7 @@ Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ~/.fake
 
 
 # Set the DISPLAY variable
-The Xserver can be accessed by setting "DISPLAY=:10"
+The Xserver can be accessed by setting "DISPLAY=:10"  
 This script sets the DISPLAY variable for the current shell and writes to .bashrc for all future logins.
 ```
 export DISPLAY=:10
@@ -33,6 +33,7 @@ echo 'export DISPLAY=:10' >> ~/.bashrc
 ```
 
 # Compile latest glfw from source 
+An issues we will meet was fixed after the latest release in 2016
 ```
 # See https://github.com/glfw/glfw/issues/1004
 sugo apt-get remove libglfw3
