@@ -28,7 +28,7 @@ This script sets the DISPLAY variable for the current shell and writes to .bashr
 ```
 export DISPLAY=:10
 echo '' >> ~/.bashrc 
-echo '# Set display variable for X server'
+echo '# Set display variable for X server' >> ~/.bashrc
 echo 'export DISPLAY=:10' >> ~/.bashrc 
 ```
 
