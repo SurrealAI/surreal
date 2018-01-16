@@ -203,7 +203,7 @@ class DMControlAdapter(Wrapper):
         for event in pygame.event.get():
             if event.type == pygame.QUIT: sys.exit()
 
-        im = self.env.physics.render(width=width, height=height, camera_id=1).transpose((1,0,2))
+        im = self.env.physics.render(width=width, height=height, camera_id=camera_id).transpose((1,0,2))
         pygame.pixelcopy.array_to_surface(self.screen, im)
         pygame.display.update()
 

@@ -45,8 +45,8 @@ learner_config = {
 
 
 env_config = {
-    # 'env_name': 'dm_control:cheetah-run',
-    'env_name': 'gym:HalfCheetah-v1',
+    'env_name': 'dm_control:cheetah-run',
+    # 'env_name': 'gym:HalfCheetah-v1',
 }
 
 
