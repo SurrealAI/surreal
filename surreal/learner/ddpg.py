@@ -4,7 +4,7 @@ import numpy as np
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
-from .aggregator import aggregatorFactory
+from .aggregator import StackNAggregator
 
 
 class DDPGLearner(Learner):
@@ -40,7 +40,7 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        self.aggregator = aggregatorFactory('StackN')(self.env_config.obs_spec, self.env_config.action_spec)
+        self.aggregator = StackNAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
@@ -98,10 +98,8 @@ class DDPGLearner(Learner):
         U.soft_update(self.model_target.actor, self.model.actor, self.tau)
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
 
-    def preprocess_batch(self, raw_batch):
-        return self.aggregator.aggregate(raw_batch)
-
     def learn(self, batch):
+        batch = self.aggregator.aggregate(batch)
         """TODO: the optimize will crash"""
         """Currently the batch object contains the data in our desired format"""
         for k in batch:

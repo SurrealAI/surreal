@@ -8,35 +8,11 @@ import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.env import ActionType
 
-
-aggreagator_registry = {}
-
 def _obs_concat(obs_list):
     # convert uint8 to float32, if any
     return Variable(U.to_float_tensor(np.stack(obs_list)))
 
-
-def register_aggregator(target_class):
-    aggreagator_registry[target_class.__name__] = target_class
-
-def aggregatorFactory(aggregator_name):
-    return aggreagator_registry[aggregator_name]
-
-class AggregatorMeta(type):
-    def __new__(meta, name, bases, class_dict):
-        cls = type.__new__(meta, name, bases, class_dict)
-        register_aggregator(cls)
-        return cls
-
-# https://effectivepython.com/2015/02/02/register-class-existence-with-metaclasses/
-class AggregatorBase(metaclass=AggregatorMeta):
-    def __init__(self, obs_spec, action_spec):
-        raise NotImplementedError
-
-    def aggregate(self, exp_list):
-        raise NotImplementedError
-
-class SSARConcat(AggregatorBase):
+class SSARConcatAggregator():
     def __init__(self, obs_spec, action_spec):
         U.assert_type(obs_spec, dict)
         U.assert_type(action_spec, dict)
@@ -76,7 +52,7 @@ class SSARConcat(AggregatorBase):
             dones=Variable(torch.FloatTensor(dones).unsqueeze(1)),
         )
 
-class StackN(AggregatorBase):
+class StackNAggregator():
     def __init__(self, obs_spec, action_spec):
         U.assert_type(obs_spec, dict)
         U.assert_type(action_spec, dict)
