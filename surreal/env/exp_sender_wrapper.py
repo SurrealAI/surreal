@@ -126,6 +126,7 @@ class ExpSenderWrapperStackN(ExpSenderWrapperMultiStep):
         super().__init__(env, learner_config, session_config)
         self._obs = None  # obs of the current time step
         self.n_step = self.learner_config.algo.n_step
+        self.stride = self.learner_config.algo.stride # Stride for moving window
         self.last_n = deque()
 
     def _reset(self):
@@ -136,10 +137,10 @@ class ExpSenderWrapperStackN(ExpSenderWrapperMultiStep):
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
         self.last_n.append([self._obs, action, reward, done, info])
-        if len(self.last_n) == self.n_step:
+        if done or len(self.last_n) == self.n_step:
             self.send(self.last_n)
-            # TODO: allow configuring behavior here
-            self.last_n.popleft()
+            for i in range(self.stride):
+                self.last_n.popleft()
         return obs_next, reward, done, info
 
 

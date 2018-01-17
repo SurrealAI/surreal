@@ -37,6 +37,7 @@ learner_config = {
         },
         'n_step': 5,
         'experience': 'ExpSenderWrapperStackN',
+        'stride': 1,
     },
     'replay': {
         'batch_size': 256,
