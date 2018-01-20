@@ -36,7 +36,8 @@ learner_config = {
             'eps': 1e-6
         },
         'n_step': 5,
-        'experience': 'ExpSenderWrapperStackN',
+        # 'experience': 'ExpSenderWrapperStackN',
+        'experience': 'ExpSenderWrapperSSARNStep',
         'stride': 1,
     },
     'replay': {

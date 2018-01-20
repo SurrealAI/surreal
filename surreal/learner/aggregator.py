@@ -44,7 +44,7 @@ class SSARConcatAggregator():
             actions = Variable(torch.LongTensor(actions).unsqueeze(1))
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        return dict(
+        return EasyDict(
             obs=_obs_concat(obs0),
             obs_next=_obs_concat(obs1),
             actions=actions,
@@ -85,3 +85,50 @@ class StackNAggregator():
         reward_arr = np.array(experience['reward_arr'])
         done_arr = np.array(experience['done_arr'])
         return observation_arr, action_arr, reward_arr, done_arr
+
+# May be slower than SSARConcatAggregator+ExpSenderWrapperSSARNStep but cleaner 
+# since things are done on 
+class NstepReturnAggregator(StackNAggregator):
+    def __init__(self, obs_spec, action_spec, gamma):
+        U.assert_type(obs_spec, dict)
+        U.assert_type(action_spec, dict)
+        self.action_type = ActionType[action_spec['type']]
+        self.action_spec = action_spec
+        self.obs_spec = obs_spec
+        self.gamma = gamma
+    
+    def aggregate(self, exp_list):
+        # TODO add support for more diverse obs_spec and action_spec
+        """
+
+        Args:
+            exp_list:
+        
+        Returns:
+            aggregated experience
+        """
+        
+        obs0, actions, rewards, obs1, dones = [], [], [], [], []
+        for exp in exp_list:  # dict
+            n_step = exp['n_step']
+            obs0.append(np.array(exp['obs_arr'][0], copy=False))
+            actions.append(exp['action_arr'][0])
+            cum_reward = 0
+            for i, r in enumerate(exp['reward_arr']):
+                cum_reward += pow(self.gamma, i) * r
+            rewards.append(cum_reward)
+            obs1.append(np.array(exp['obs_next'], copy=False))
+            dones.append(float(exp['done_arr'][n_step - 1]))
+        if self.action_type == ActionType.continuous:
+            actions = _obs_concat(actions)
+        elif self.action_type == ActionType.discrete:
+            actions = Variable(torch.LongTensor(actions).unsqueeze(1))
+        else:
+            raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
+        return EasyDict(
+            obs=_obs_concat(obs0),
+            obs_next=_obs_concat(obs1),
+            actions=actions,
+            rewards=Variable(torch.FloatTensor(rewards).unsqueeze(1)),
+            dones=Variable(torch.FloatTensor(dones).unsqueeze(1)),
+        )

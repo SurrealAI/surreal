@@ -39,7 +39,7 @@ class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
 
 class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
     def __init__(self, env, learner_config, session_config):
-        super.__init__(env, learner_config, session_config)
+        super().__init__(env, learner_config, session_config)
         self._obs = None  # obs of the current time step
 
     def _reset(self):
@@ -85,29 +85,34 @@ class ExpSenderWrapperSSARNStep(ExpSenderWrapperSSAR):
 
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
-        self.last_n.append([[self._obs, obs_next], action, reward, done, info])
         for i, exp_list in enumerate(self.last_n):
             # Update Next Observation and done to be from the final of n_steps and reward to be weighted sum
             exp_list[0][1] = obs_next
-            exp_list[2] += pow(self.gamma, self.n_step - i) * reward
+            exp_list[2] += pow(self.gamma, self.n_step - i - 1) * reward
             exp_list[3] = done
+        self.last_n.append([[self._obs, obs_next], action, reward, done, info])
         if len(self.last_n) == self.n_step:
             self.send(self.last_n.popleft())
         self._obs = obs_next
         return obs_next, reward, done, info
 
 class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
-    def send(self, data):
-        action_arr, reward_arr, done_arr, info_arr = [], [], [], []
+    def send(self, data, obs_next):
+        obs_arr, action_arr, reward_arr, done_arr, info_arr = [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
         for index, (obs, action, reward, done, info) in enumerate(data):
             # Store observations in a deduplicated way
-            hash_dict[str(index)] = obs
+            obs_arr.append(obs)
             action_arr.append(action)
             reward_arr.append(reward)
             done_arr.append(done)
             info_arr.append(info)
+
+        hash_dict = {
+            'obs_arr': obs_arr,
+            'obs_next': obs_next,
+        }
         nonhash_dict = {
             'action_arr': action_arr,
             'reward_arr': reward_arr,
@@ -137,10 +142,12 @@ class ExpSenderWrapperStackN(ExpSenderWrapperMultiStep):
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
         self.last_n.append([self._obs, action, reward, done, info])
-        if done or len(self.last_n) == self.n_step:
-            self.send(self.last_n)
+        if len(self.last_n) == self.n_step:
+            self.send(self.last_n, obs_next)
             for i in range(self.stride):
-                self.last_n.popleft()
+                if len(self.last_n) > 0:
+                    self.last_n.popleft()
+        self._obs = obs_next
         return obs_next, reward, done, info
 
 
@@ -162,6 +169,7 @@ class ExpSenderWrapperTrajectory(ExpSenderWrapperMultiStep):
         obs_next, reward, done, info = self.env.step(action)
         self.trajectory.append([self._obs, action, reward, done, info])
         if done:
-            self.send(self.trajectory)
+            self.send(self.trajectory, None)
             self.trajectory.clear()
+        self._obs = obs_next
         return obs_next, reward, done, info

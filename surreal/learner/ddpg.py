@@ -4,16 +4,17 @@ import numpy as np
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
-from .aggregator import StackNAggregator
-
+from .aggregator import NstepReturnAggregator, SSARConcatAggregator
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 
 class DDPGLearner(Learner):
 
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
-
-        self.discount_factor = 0.99
+        learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
         self.tau = 0.01
+        self.discount_factor = learner_config.algo.gamma
+        self.n_step = learner_config.algo.n_step
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -40,7 +41,8 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        self.aggregator = StackNAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+        # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        self.aggregator = SSARConcatAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
@@ -58,8 +60,11 @@ class DDPGLearner(Learner):
         # obs_next.volatile = False
         next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
         # next_Q_target.volatile = False
-        y = rewards + self.discount_factor * next_Q_target * (1.0 - done)
+        y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
         y = y.detach()
+
+        # print('next_Q_target', next_Q_target)
+        # print('y', y)
 
         # compute Q(s_t, a_t)
         y_policy = self.model.forward_critic(
@@ -99,11 +104,19 @@ class DDPGLearner(Learner):
         U.soft_update(self.model_target.critic, self.model.critic, self.tau)
 
     def learn(self, batch):
+        # for i in range(len(batch)):
+        #     exp = batch[i]
+        #     k = 0
+        #     batch[i] = {
+        #         'obs': [exp['obs_arr'][k], exp['obs_arr'][k + 1]],
+        #         'action': exp['action_arr'][0],
+        #         'reward': exp['reward_arr'][0],
+        #         'done': exp['done_arr'][0],
+        #         'info': exp['info_arr'][0]
+        #     }
         batch = self.aggregator.aggregate(batch)
-        """TODO: the optimize will crash"""
-        """Currently the batch object contains the data in our desired format"""
-        for k in batch:
-            print(k, type(batch[k]), batch[k].shape)
+        # for k in batch:
+        #     print(k, type(batch[k]), batch[k].shape)
         self._optimize(
             batch.obs,
             batch.actions,
