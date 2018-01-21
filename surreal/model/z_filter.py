@@ -4,14 +4,7 @@ from torch.autograd import Variable
 import surreal.utils as U
 import numpy as np
 
-def to_tensor(np_array, cuda=True):
-    if cuda:
-        return torch.from_numpy(np_array).cuda()
-    else:
-        return torch.from_numpy(np_array)
-
-
-class ZFilter(nn.Module):
+class ZFilter(U.Module):
     recurrent = False
     def __init__(self, in_size, eps=1e-2):
         """
@@ -37,10 +30,11 @@ class ZFilter(nn.Module):
         self.train()
 
     # update internal state for whitening
+    # Accepts batched input
     def z_update(self, x):
-        self.running_sum += torch.mean(x.data, dim=0)
-        self.running_sumsq += torch.mean(x.data * x.data, dim=0)
-        self.count += to_tensor(np.array([len(x)]), cuda=self.use_cuda).float()
+        self.running_sum += torch.sum(x.data, dim=0)
+        self.running_sumsq += torch.sum(x.data * x.data, dim=0)
+        self.count += U.to_float_tensor(np.array([len(x)]))
 
     # define forward prop operations in terms of layers
     def forward(self, inputs):
@@ -55,3 +49,16 @@ class ZFilter(nn.Module):
             self.z_update(inputs)
 
         return normed
+
+
+    def running_mean(self):
+        return (self.running_sum / self.count).numpy()
+
+    def running_std(self):
+        return (torch.max((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), torch.Tensor([self.eps]))).pow(0.5).numpy()
+
+    def running_square(self):
+        return (self.running_sumsq / self.count).numpy()
+
+
+

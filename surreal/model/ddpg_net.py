@@ -12,7 +12,7 @@ class DDPGModel(U.Module):
     def __init__(self,
                  obs_dim,
                  action_dim,
-                 use_z_filter=True):
+                 use_z_filter):
         super(DDPGModel, self).__init__()
 
         # hyperparameters
@@ -45,3 +45,9 @@ class DDPGModel(U.Module):
         action = self.forward_actor(obs)
         value = self.forward_critic(obs, action)
         return (action, value)
+
+    def z_update(self, obs):
+        if self.use_z_filter:
+            self.z_filter.z_update(obs)
+        else:
+            raise ValueError('Z_update called when network is set to not use z_filter')

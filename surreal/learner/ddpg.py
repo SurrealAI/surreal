@@ -5,16 +5,18 @@ import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
 from .aggregator import NstepReturnAggregator, SSARConcatAggregator
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 
 class DDPGLearner(Learner):
 
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
-        learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
-        self.tau = 0.01
-        self.discount_factor = learner_config.algo.gamma
-        self.n_step = learner_config.algo.n_step
+
+        self.target_update_init()
+
+        self.discount_factor = self.learner_config.algo.gamma
+        self.n_step = self.learner_config.algo.n_step
+        self.use_z_filter = self.learner_config.algo.use_z_filter
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -22,11 +24,13 @@ class DDPGLearner(Learner):
         self.model = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
+            use_z_filter=self.use_z_filter,
         )
 
         self.model_target = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
+            use_z_filter=self.use_z_filter,
         )
 
         self.critic_criterion = nn.MSELoss()
@@ -41,8 +45,8 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-        self.aggregator = SSARConcatAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        # self.aggregator = SSARConcatAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
@@ -52,6 +56,9 @@ class DDPGLearner(Learner):
 
         assert actions.max().data[0] <= 1.0
         assert actions.min().data[0] >= -1.0
+
+        if self.use_z_filter:
+            self.model.z_update(obs)
 
         # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
         # obs_next.volatile = True
@@ -91,17 +98,23 @@ class DDPGLearner(Learner):
         #     p.grad.data.clamp_(-5.0, 5.0)
         self.actor_optim.step()
 
-        self.update_tensorplex({
+        tensorplex_update_dict = {
             'actor_loss': actor_loss.data[0],
             'critic_loss': critic_loss.data[0],
             'action_norm': actions.norm(2, 1).mean().data[0],
             'rewards': rewards.mean().data[0],
             'Q_target': y.mean().data[0],
             'Q_policy': y_policy.mean().data[0],
-        })
-        # soft update target networks
-        U.soft_update(self.model_target.actor, self.model.actor, self.tau)
-        U.soft_update(self.model_target.critic, self.model.critic, self.tau)
+        }
+        if self.use_z_filter:
+            tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
+            tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
+            tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]
+
+        self.update_tensorplex(tensorplex_update_dict)
+
+        # (possibly) update target networks
+        self.target_update()
 
     def learn(self, batch):
         # for i in range(len(batch)):
@@ -129,3 +142,25 @@ class DDPGLearner(Learner):
         return {
             'ddpg': self.model,
         }
+
+    def target_update_init(self):
+        target_update_config = self.learner_config.algo.target_update
+        self.target_update_type = target_update_config.type
+
+        if self.target_update_type == 'soft':
+            self.target_update_tau = target_update_config.tau
+        elif self.target_update_type == 'hard':
+            self.target_update_counter = 0
+            self.target_update_interval = target_update_config.interval
+        else:
+            raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
+
+    def target_update(self):
+        if self.target_update_type == 'soft':
+            U.soft_update(self.model_target.actor, self.model.actor, self.target_update_tau)
+            U.soft_update(self.model_target.critic, self.model.critic, self.target_update_tau)
+        elif self.target_update_type == 'hard':
+            self.target_update_counter += 1
+            if self.target_update_counter % self.target_update_interval == 0:
+                U.hard_update(self.model_target.actor, self.model.actor)
+                U.hard_update(self.model_target.critic, self.model.critic)

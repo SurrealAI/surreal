@@ -7,6 +7,9 @@ from surreal.utils.serializer import binary_hash
 from collections import OrderedDict
 import numpy as np
 import threading
+from io import BytesIO
+
+
 
 
 def _net_or_parameters(net):
@@ -172,24 +175,24 @@ class Module(torch.nn.Module, SaveInitArgs):
         return net
 
     def parameters_to_binary(self):
-        params = [param.data for param in self.parameters()]
-        flattened = flatten_tensors(params)
-        return flattened.cpu().numpy().tostring()
-
-    def parameters_hash(self):
-        return binary_hash(self.parameters_to_binary())
+        """
+            TODO: Not working since pytorch coes not support saving to byteio
+            # https://github.com/pytorch/pytorch/issues/1567
+        """
+        state_dict = self.state_dict()
+        output = BytesIO()
+        torch.save(state_dict, output)
+        value = output.getvalue()
+        output.close()
+        return value
+    
+    # Currently unused
+    # def parameters_hash(self):
+    #     return binary_hash(self.parameters_to_binary())
 
     def parameters_from_binary(self, binary):
-        """
-        Assumes np.float32
-        """
-        buffer = np.fromstring(binary, dtype=np.float32)
-        buffer = torch.from_numpy(buffer)
-        params = [param.data for param in self.parameters()]
-        new_params = unflatten_tensors(buffer, params)
-        with self._forward_lock:
-            for p, n in zip(params, new_params):
-                p.copy_(n)
+        input_data = BytesIO(binary)
+        self.load_state_dict(torch.load(input_data))
 
     def clone(self, no_grad=True):
         """
