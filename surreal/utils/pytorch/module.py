@@ -44,11 +44,13 @@ def net_copy(net1, net2):
     net2.load_state_dict(net1.state_dict())
 
 
-def net_clip_grad_value(net, clip):
+def net_clip_grad_value(net, clip_value):
     for param in _net_or_parameters(net):
         if param.grad is None:
             continue
-        param.grad.data.clamp_(clip)
+        if clip_value < 0:
+            raise ValueError('{} is not a valid gradient clip value.'.format(clip_value))
+        param.grad.data.clamp_(-float(clip_value), float(clip_value))
     return net
 
 

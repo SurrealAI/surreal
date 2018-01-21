@@ -19,7 +19,8 @@ learner_config = {
     'algo': {
         'lr': 1e-3,
         'optimizer': 'Adam',
-        'grad_norm_clipping': 10,
+        'clip_actor_gradient': True,
+        'actor_gradient_clip_value': 1.,
         'gamma': .99,
         'target_update': {
             'type': 'soft',
@@ -30,12 +31,12 @@ learner_config = {
         # 'target_network_update_freq': 250 * 64,
         'use_z_filter': False,
         'exploration': {
-            # 'noise_type': 'normal',
-            # 'sigma': 0.37,
-            'noise_type': 'ou_noise',
-            'theta': 0.15,
-            'sigma': 0.3,
-            'dt': 5e-2,
+            'noise_type': 'normal',
+            'sigma': 0.37,
+            # 'noise_type': 'ou_noise',
+            # 'theta': 0.15,
+            # 'sigma': 0.3,
+            # 'dt': 5e-2,
         },
         'n_step': 5,
         'experience': 'ExpSenderWrapperStackN',

@@ -18,6 +18,10 @@ class DDPGLearner(Learner):
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
 
+        self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
+        if self.clip_actor_gradient:
+            self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
 
@@ -94,6 +98,8 @@ class DDPGLearner(Learner):
             self.model.forward_actor(obs.detach())
         ).mean()
         actor_loss.backward()
+        if self.clip_actor_gradient:
+            self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
         # for p in self.model.actor.parameters():
         #     p.grad.data.clamp_(-5.0, 5.0)
         self.actor_optim.step()
