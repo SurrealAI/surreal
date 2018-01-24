@@ -122,6 +122,10 @@ class ReplayCore(object, metaclass=ReplayMeta):
 
 
 class Replay(ReplayCore):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize the replay server.
+    """
     def __init__(self,
                  learner_config,
                  env_config,

@@ -90,6 +90,13 @@ class AgentCore(metaclass=AgentMeta):
 
 
 class Agent(AgentCore):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize custom agents.
+
+        TODO: Extend the initilization to allow custom non-config per-agent settings.
+            To be used to have a heterogeneous agent population
+    """
     def __init__(self,
                  learner_config,
                  env_config,

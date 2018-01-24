@@ -178,6 +178,10 @@ class LearnerCore(metaclass=LearnerMeta):
 
 
 class Learner(LearnerCore):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize the learner.
+    """
     def __init__(self,
                  learner_config,
                  env_config,
