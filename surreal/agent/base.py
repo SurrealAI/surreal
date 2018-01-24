@@ -130,4 +130,8 @@ class Agent(AgentCore):
         return BASE_LEARNER_CONFIG
 
     def reset(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states after an episode has ended. 
+        """
         pass

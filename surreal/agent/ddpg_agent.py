@@ -39,6 +39,10 @@ class DDPGAgent(Agent):
 
 
     def init_noise(self):
+        """
+            initializes exploration noise
+            and populates self.noise, a callable that returns noise of dimension same as action
+        """
         if self.agent_mode is AgentMode.eval_deterministic:
             return
         self.noise_type = self.learner_config.algo.exploration.noise_type

@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import surreal.utils as U
-from surreal.model.ddpg_net import DDPGModel
 from .base import Learner
-from .aggregator import NstepReturnAggregator, SSARConcatAggregator
+from .aggregator import SSARAggregator, NstepReturnAggregator, MultistepAggregator
+from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
+from surreal.utils.pytorch import GpuVariable as Variable
+import surreal.utils as U
 
 class DDPGLearner(Learner):
 
@@ -49,14 +50,20 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-        # self.aggregator = SSARConcatAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+        # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+
 
         U.hard_update(self.model_target.actor, self.model.actor)
         U.hard_update(self.model_target.critic, self.model.critic)
         # self.train_iteration = 0
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
+        obs = Variable(obs)
+        actions = Variable(actions)
+        rewards = Variable(rewards)
+        obs_next = Variable(obs_next)
+        done = Variable(done)
 
         assert actions.max().data[0] <= 1.0
         assert actions.min().data[0] >= -1.0
@@ -123,19 +130,7 @@ class DDPGLearner(Learner):
         self.target_update()
 
     def learn(self, batch):
-        # for i in range(len(batch)):
-        #     exp = batch[i]
-        #     k = 0
-        #     batch[i] = {
-        #         'obs': [exp['obs_arr'][k], exp['obs_arr'][k + 1]],
-        #         'action': exp['action_arr'][0],
-        #         'reward': exp['reward_arr'][0],
-        #         'done': exp['done_arr'][0],
-        #         'info': exp['info_arr'][0]
-        #     }
         batch = self.aggregator.aggregate(batch)
-        # for k in batch:
-        #     print(k, type(batch[k]), batch[k].shape)
         self._optimize(
             batch.obs,
             batch.actions,

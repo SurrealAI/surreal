@@ -39,8 +39,8 @@ learner_config = {
             # 'dt': 5e-2,
         },
         'n_step': 5,
-        'experience': 'ExpSenderWrapperStackN',
-        # 'experience': 'ExpSenderWrapperSSARNStep',
+        'experience': 'ExpSenderWrapperMultiStepMovingWindow',
+        # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
         'stride': 1,
     },
     'replay': {

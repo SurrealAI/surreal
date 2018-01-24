@@ -5,6 +5,10 @@ import surreal.utils as U
 import numpy as np
 
 class ZFilter(U.Module):
+    """
+        Keeps historical average and std of inputs
+        Whitens data and clamps to +/- 5 std
+    """
     recurrent = False
     def __init__(self, in_size, eps=1e-2):
         """
@@ -26,12 +30,11 @@ class ZFilter(U.Module):
         # Not Implemented
         self.use_cuda = False
 
-        # mode
-        self.train()
-
-    # update internal state for whitening
-    # Accepts batched input
     def z_update(self, x):
+        """
+            Count x into historical average
+            Accepts batched input
+        """
         self.running_sum += torch.sum(x.data, dim=0)
         self.running_sumsq += torch.sum(x.data * x.data, dim=0)
         self.count += U.to_float_tensor(np.array([len(x)]))

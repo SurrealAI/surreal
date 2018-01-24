@@ -176,25 +176,28 @@ class Module(torch.nn.Module, SaveInitArgs):
         net.load_state_dict(save_dict['torch'])
         return net
 
-    def parameters_to_binary(self):
-        """
-            TODO: Not working since pytorch coes not support saving to byteio
-            # https://github.com/pytorch/pytorch/issues/1567
-        """
-        state_dict = self.state_dict()
-        output = BytesIO()
-        torch.save(state_dict, output)
-        value = output.getvalue()
-        output.close()
-        return value
-    
-    # Currently unused
+    # Note: Currently unused and these code will not serialize everything needed to 
+    # replicate module state. They will only serialize parameters.
+    # 
+    # def parameters_to_binary(self):
+    #     params = [param.data for param in self.parameters()]
+    #     flattened = flatten_tensors(params)
+    #     return flattened.cpu().numpy().tostring()
+
     # def parameters_hash(self):
     #     return binary_hash(self.parameters_to_binary())
 
-    def parameters_from_binary(self, binary):
-        input_data = BytesIO(binary)
-        self.load_state_dict(torch.load(input_data))
+    # def parameters_from_binary(self, binary):
+    #     """
+    #     Assumes np.float32
+    #     """
+    #     buffer = np.fromstring(binary, dtype=np.float32)
+    #     buffer = torch.from_numpy(buffer)
+    #     params = [param.data for param in self.parameters()]
+    #     new_params = unflatten_tensors(buffer, params)
+    #     with self._forward_lock:
+    #         for p, n in zip(params, new_params):
+    #             p.copy_(n)
 
     def clone(self, no_grad=True):
         """

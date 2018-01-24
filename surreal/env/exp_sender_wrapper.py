@@ -1,5 +1,5 @@
 from .wrapper import Wrapper
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
 
@@ -25,6 +25,9 @@ class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
     def __init__(self, env, learner_config, session_config):
         """
         Default sender configs are in BASE_SESSION_CONFIG['sender']
+        They contain communication level information
+        
+        Algorithm specific experience generation parameters should live in learner_config
         """
         super().__init__(env)
         # TODO: initialize config in a unified place 
@@ -38,6 +41,16 @@ class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
         
 
 class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
+    """
+        Sends experience in format
+        {   
+            'obs': [state, next state]
+            'action': action,
+            'reward': reward,
+            'done': done,
+            'info': info
+        }
+    """
     def __init__(self, env, learner_config, session_config):
         super().__init__(env, learner_config, session_config)
         self._obs = None  # obs of the current time step
@@ -68,11 +81,24 @@ class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
 # Naming may need some change here. 
 # The unit of experience is in format state state action reward.
 # N-step is supported
-class ExpSenderWrapperSSARNStep(ExpSenderWrapperSSAR):
+class ExpSenderWrapperSSARNStepBoostrap(ExpSenderWrapperSSAR):
+    """
+        Sends observations in format
+        {   
+            'obs': [state, next_state]
+            'action': action,
+            'reward': reward,
+            'done': done,
+            'info': info
+        }
+        but next_state is n_steps after state and reward is cumulated reward over n_steps
+        Used for n_step reward computations.
+
+        Requires:
+            @self.learner_config.algo.n_step: number of steps to cumulate over
+            @self.learner_config.algo.gamma: discount factor
+    """
     def __init__(self, env, learner_config, session_config):
-        """
-        Default sender configs are in BASE_SESSION_CONFIG['sender']
-        """
         super().__init__(env, learner_config, session_config)
         self.n_step = self.learner_config.algo.n_step
         self.gamma = self.learner_config.algo.gamma
@@ -97,6 +123,18 @@ class ExpSenderWrapperSSARNStep(ExpSenderWrapperSSAR):
         return obs_next, reward, done, info
 
 class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
+    """
+        Base class for all classes that send experience in format
+        {   
+            'obs_arr': [state_1, ..., state_n]
+            'obs_next': [state_{n + 1}]
+            'action_arr': [action_1, ...],
+            'reward_arr': [reward_1, ...],
+            'done_arr': [done_1, ...],
+            'info_arr': [info_1, ...],
+            'n_step': n, length of all arrays,
+        }
+    """
     def send(self, data, obs_next):
         obs_arr, action_arr, reward_arr, done_arr, info_arr = [], [], [], [], []
         hash_dict = {}
@@ -123,15 +161,31 @@ class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
         self.sender.send(hash_dict, nonhash_dict)
 
 
-class ExpSenderWrapperStackN(ExpSenderWrapperMultiStep):
+class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
     """
-    Sends obs * n, action * n, reward * n, done, info
+        Base class for all classes that send experience in format
+        {   
+            'obs_arr': [state_1, ..., state_n]
+            'obs_next': [state_{n + 1}]
+            'action_arr': [action_1, ...],
+            'reward_arr': [reward_1, ...],
+            'done_arr': [done_1, ...],
+            'info_arr': [info_1, ...],
+            'n_step': n
+        }
+
+        Requires:
+            @self.learner_config.algo.n_step: n, number of steps per experience
+            @self.learner_config.algo.stride: after sending experience [state_i, ...]
+            the next experience is [state_{i + stride}]
     """
     def __init__(self, env, learner_config, session_config):
         super().__init__(env, learner_config, session_config)
         self._obs = None  # obs of the current time step
         self.n_step = self.learner_config.algo.n_step
         self.stride = self.learner_config.algo.stride # Stride for moving window
+        if self.stride < 1:
+            raise ConfigError('stride {} for experience generation cannot be less than 1'.format(self.learner_config.algo.stride))
         self.last_n = deque()
 
     def _reset(self):
@@ -151,9 +205,20 @@ class ExpSenderWrapperStackN(ExpSenderWrapperMultiStep):
         return obs_next, reward, done, info
 
 
-class ExpSenderWrapperTrajectory(ExpSenderWrapperMultiStep):
+class ExpSenderWrapperMultiStepEpisode(ExpSenderWrapperMultiStep):
     """
-    Sends obs * n, action * n, reward * n, done, info
+        Base class for all classes that send experience in format
+        {   
+            'obs_arr': [state_1, ..., state_T]
+            'obs_next': [None]
+            'action_arr': [action_1, ...],
+            'reward_arr': [reward_1, ...],
+            'done_arr': [done_1, ...],
+            'info_arr': [info_1, ...],
+            'n_step': T
+        }
+
+        T is episode length
     """
     def __init__(self, env, learner_config, session_config):
         super().__init__(env, learner_config, session_config)
