@@ -36,7 +36,9 @@ echo 'export DISPLAY=:10' >> ~/.bashrc
 An issues we will meet was fixed after the latest release in 2016
 ```
 # See https://github.com/glfw/glfw/issues/1004
+sudo apt-get install libglfw3
 sudo apt-get remove libglfw3
+# So we have all depencencies
 cd ~
 git clone https://github.com/glfw/glfw.git
 cd glfw
