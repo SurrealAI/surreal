@@ -76,6 +76,7 @@ class AgentCore(metaclass=U.AutoInitializeMeta):
         self.agent_mode = AgentMode[agent_mode]
 
 
+
 class Agent(AgentCore):
     def __init__(self,
                  learner_config,
@@ -127,3 +128,10 @@ class Agent(AgentCore):
             a dict of defaults.
         """
         return BASE_LEARNER_CONFIG
+
+    def reset(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states after an episode has ended. 
+        """
+        pass

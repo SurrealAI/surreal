@@ -121,6 +121,7 @@ def run_eval_main(*,
         obs, reward, done, info = env.step(action)
         if done:
             obs, info = env.reset()
+            agent.reset()
 
 
 def run_learner_main(*,
