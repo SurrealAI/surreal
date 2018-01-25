@@ -420,6 +420,10 @@ pip install -e Tensorplex/
 ## MujocoManipulation
 Follow the instructions in [MujocoManipulation](https://github.com/StanfordVL/MujocoManipulation)
 
+## Issues
+Conda 4.4.something may have some problem working with tmux. 4.3.29 runs fine. 
+Fix: Run conda install conda=4.3.29
+
 ## Docker and Kubernetes
 
 TODO

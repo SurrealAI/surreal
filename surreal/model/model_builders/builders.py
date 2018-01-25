@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import surreal.utils as U
 
-
-class ActorNetwork(nn.Module):
+class ActorNetwork(U.Module):
 
     def __init__(self, D_obs, D_act):
         super(ActorNetwork, self).__init__()
@@ -18,7 +18,7 @@ class ActorNetwork(nn.Module):
         return action
 
 
-class CriticNetwork(nn.Module):
+class CriticNetwork(U.Module):
 
     def __init__(self, D_obs, D_act):
         super(CriticNetwork, self).__init__()

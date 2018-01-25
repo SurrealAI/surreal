@@ -7,6 +7,9 @@ from surreal.utils.serializer import binary_hash
 from collections import OrderedDict
 import numpy as np
 import threading
+from io import BytesIO
+
+
 
 
 def _net_or_parameters(net):
@@ -41,11 +44,13 @@ def net_copy(net1, net2):
     net2.load_state_dict(net1.state_dict())
 
 
-def net_clip_grad_value(net, clip):
+def net_clip_grad_value(net, clip_value):
     for param in _net_or_parameters(net):
         if param.grad is None:
             continue
-        param.grad.data.clamp_(clip)
+        if clip_value < 0:
+            raise ValueError('{} is not a valid gradient clip value.'.format(clip_value))
+        param.grad.data.clamp_(-float(clip_value), float(clip_value))
     return net
 
 
@@ -171,25 +176,28 @@ class Module(torch.nn.Module, SaveInitArgs):
         net.load_state_dict(save_dict['torch'])
         return net
 
-    def parameters_to_binary(self):
-        params = [param.data for param in self.parameters()]
-        flattened = flatten_tensors(params)
-        return flattened.cpu().numpy().tostring()
+    # Note: Currently unused and these code will not serialize everything needed to 
+    # replicate module state. They will only serialize parameters.
+    # 
+    # def parameters_to_binary(self):
+    #     params = [param.data for param in self.parameters()]
+    #     flattened = flatten_tensors(params)
+    #     return flattened.cpu().numpy().tostring()
 
-    def parameters_hash(self):
-        return binary_hash(self.parameters_to_binary())
+    # def parameters_hash(self):
+    #     return binary_hash(self.parameters_to_binary())
 
-    def parameters_from_binary(self, binary):
-        """
-        Assumes np.float32
-        """
-        buffer = np.fromstring(binary, dtype=np.float32)
-        buffer = torch.from_numpy(buffer)
-        params = [param.data for param in self.parameters()]
-        new_params = unflatten_tensors(buffer, params)
-        with self._forward_lock:
-            for p, n in zip(params, new_params):
-                p.copy_(n)
+    # def parameters_from_binary(self, binary):
+    #     """
+    #     Assumes np.float32
+    #     """
+    #     buffer = np.fromstring(binary, dtype=np.float32)
+    #     buffer = torch.from_numpy(buffer)
+    #     params = [param.data for param in self.parameters()]
+    #     new_params = unflatten_tensors(buffer, params)
+    #     with self._forward_lock:
+    #         for p, n in zip(params, new_params):
+    #             p.copy_(n)
 
     def clone(self, no_grad=True):
         """

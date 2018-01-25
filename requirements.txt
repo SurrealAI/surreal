@@ -8,3 +8,4 @@ redis
 seaborn
 tabulate
 tqdm
+opencv-python

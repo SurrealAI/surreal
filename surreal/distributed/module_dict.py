@@ -18,12 +18,12 @@ class ModuleDict(object):
         self._module_dict = module_dict
 
     def dumps(self):
-        bin_dict = {k: m.parameters_to_binary()
+        bin_dict = {k: m.state_dict()
                     for k, m in self._module_dict.items()}
         return U.serialize(bin_dict)
 
     def loads(self, binary):
         bin_dict = U.deserialize(binary)
         for k, m in self._module_dict.items():
-            m.parameters_from_binary(bin_dict[k])
+            m.load_state_dict(bin_dict[k])
 

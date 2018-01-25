@@ -89,6 +89,7 @@ class AgentCore(metaclass=AgentMeta):
         self.agent_mode = AgentMode[agent_mode]
 
 
+
 class Agent(AgentCore):
     """
         Important: When extending this class, make sure to follow the init method signature so that 
@@ -147,3 +148,10 @@ class Agent(AgentCore):
             a dict of defaults.
         """
         return BASE_LEARNER_CONFIG
+
+    def reset(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states after an episode has ended. 
+        """
+        pass
