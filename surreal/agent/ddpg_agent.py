@@ -56,6 +56,10 @@ class DDPGAgent(Agent):
         else:
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
 
+        # if agent_mode == AgentMode.training:
+        #     self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1e-4)
+        #     print('noise_sigma', self.noise_sigma)
+
     def act(self, obs):
 
         assert torch.is_tensor(obs)

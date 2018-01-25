@@ -1,28 +1,34 @@
-import sys
-import inspect
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
-
+from surreal.agent import agentFactory
+from surreal.learner import learnerFactory
+from surreal.replay import replayFactory
 
 def run_agent_main(*,
-                   agent_class,
-                   env,
                    learner_config,
                    env_config,
                    session_config,
-                   fetch_parameter_mode='episode',
                    agent_extra_kwargs=None):
-    """
-    Args:
-        fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
-            every episode, every n episodes, every step, every n steps
-    """
     args = U.ArgParser()
+    # Ignored. For compatibility, to be fixed
+    args.add('ignored', type=str)
     args.add('id', type=int)
     args = args.parse()
     agent_id = args.id
 
+    env, env_config = make(env_config)
+
+    env = ConsoleMonitor(
+        env,
+        update_interval=10,
+        average_over=10,
+        extra_rows=OrderedDict(
+            # Exploration=show_exploration
+        )
+    )
+
+    fetch_parameter_mode = session_config.agent.fetch_parameter_mode
     if fetch_parameter_mode.startswith('episode'):
         _fetch_mode = 'episode'
     elif fetch_parameter_mode.startswith('step'):
@@ -36,8 +42,8 @@ def run_agent_main(*,
 
     agent_mode = AgentMode.training
     
-    env = expSenderWrapperFactory(env, learner_config, session_config)
-    
+    expSenderWrapper = expSenderWrapperFactory(learner_config.algo.experience)
+    env = expSenderWrapper(env, learner_config, session_config)    
     env = TrainingTensorplexMonitor(
         env,
         agent_id=agent_id,
@@ -48,6 +54,7 @@ def run_agent_main(*,
     if agent_extra_kwargs is None:
         agent_extra_kwargs = {}
 
+    agent_class = agentFactory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -72,19 +79,20 @@ def run_agent_main(*,
 
 
 def run_eval_main(*,
-                  agent_class,
-                  env,
                   learner_config,
                   env_config,
                   session_config,
                   agent_extra_kwargs=None):
-    assert inspect.isclass(agent_class)
 
     args = U.ArgParser()
+    # Ignored. To be fixed
+    args.add('ignored', type=str)
     args.add('--mode', type=str, required=True)
     args.add('--id', type=int, default=0)
     args.add('--render', action='store_true', default=False)
     args = args.parse()
+
+    env, env_config = make(env_config)
 
     agent_mode = AgentMode[args.mode]
     assert agent_mode != AgentMode.training
@@ -97,6 +105,7 @@ def run_eval_main(*,
     if agent_extra_kwargs is None:
         agent_extra_kwargs = {}
 
+    agent_class = agentFactory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -113,28 +122,37 @@ def run_eval_main(*,
         session_config=session_config,
     )
 
+
     obs, info = env.reset()
     while True:
         action = agent.act(U.to_float_tensor(obs))
         if args.render:
             env.render()
+        # import numpy as np
+        # action = np.random.randn(6)
         obs, reward, done, info = env.step(action)
+        # print('action', action)
+        # print('obs', obs)
+        # print('reward', reward)
+        # print('done', done)
         if done:
             obs, info = env.reset()
             agent.reset()
 
 
 def run_learner_main(*,
-                     learner_class,
                      learner_config,
                      env_config,
                      session_config,
                      learner_extra_kwargs=None):
-    assert inspect.isclass(learner_class)
 
     if learner_extra_kwargs is None:
         learner_extra_kwargs = {}
 
+    env, env_config = make(env_config)
+    del env # Does not work for dm_control as they don't clean up
+    
+    learner_class = learnerFactory(learner_config.algo.learner_class)
     learner = learner_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -147,19 +165,21 @@ def run_learner_main(*,
 
 
 def run_replay_main(*,
-                    replay_class,
                     learner_config,
                     env_config,
                     session_config,
                     replay_extra_kwargs=None):
-    assert inspect.isclass(replay_class)
     if replay_extra_kwargs is None:
         replay_extra_kwargs = {}
+
+    env, env_config = make(env_config)
+    del env
+
+    replay_class = replayFactory(learner_config.replay.replay_class)
     replay = replay_class(
         learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
-        **replay_extra_kwargs
-    )
+        **replay_extra_kwargs)
     replay.start_threads()  # block forever
 

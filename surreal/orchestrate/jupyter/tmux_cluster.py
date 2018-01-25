@@ -4,7 +4,7 @@ To set up remote port forwarding for Jupyter and tensorboard:
 http://amber-md.github.io/pytraj/latest/tutorials/remote_jupyter_notebook
 """
 from .interactive_util import *
-from surreal.session import TmuxCluster
+from surreal.orchestrate import TmuxCluster
 
 
 set_cluster_var, _get_global_var = create_interactive_suite(

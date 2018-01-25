@@ -95,7 +95,7 @@ class DDPGLearner(Learner):
         critic_loss = self.critic_criterion(y_policy, y)
         critic_loss.backward()
         # for p in self.model.critic.parameters():
-        #     p.grad.data.clamp_(-5.0, 5.0)
+        #     p.grad.data.clamp_(-1.0, 1.0)
         self.critic_optim.step()
 
         # actor update
@@ -108,7 +108,7 @@ class DDPGLearner(Learner):
         if self.clip_actor_gradient:
             self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
         # for p in self.model.actor.parameters():
-        #     p.grad.data.clamp_(-5.0, 5.0)
+        #     p.grad.data.clamp_(-1.0, 1.0)
         self.actor_optim.step()
 
         tensorplex_update_dict = {
