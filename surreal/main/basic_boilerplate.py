@@ -1,5 +1,3 @@
-import sys
-import inspect
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
