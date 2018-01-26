@@ -34,6 +34,14 @@ sudo cp Surreal/installation/xorg.service /etc/systemd/system/
 sudo systemctl enable xorg
 ```
 
+* Set the DISPLAY variable
+```
+export DISPLAY=:10
+echo '' >> ~/.bashrc 
+echo '# Set display variable for X server' >> ~/.bashrc
+echo 'export DISPLAY=:10' >> ~/.bashrc 
+```
+
 * Set up mujoco
 ```
 mkdir ~/.mujoco
