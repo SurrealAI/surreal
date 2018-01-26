@@ -10,3 +10,4 @@ tabulate
 tqdm
 opencv-python
 pyyaml
+pygame
