@@ -17,6 +17,8 @@ learner_config = {
         }
     },
     'algo': {
+        'agent_class': 'DDPGAgent',
+        'learner_class': 'DDPGLearner',
         'lr': 1e-3,
         'optimizer': 'Adam',
         'clip_actor_gradient': True,
@@ -44,6 +46,7 @@ learner_config = {
         'stride': 1,
     },
     'replay': {
+        'replay_class': 'UniformReplay',
         'batch_size': 64,
         'memory_size': 1000000,
         'sampling_start_size': 1000,
@@ -55,14 +58,7 @@ learner_config = {
 
 
 env_config = {
-    'action_spec': {
-        'dim': [6],
-        'type': 'continuous'
-    },
-    'obs_spec': {
-        'dims': [17],
-        'dim': [17],
-    }
+    'env_name': 'dm_control:cheetah-run',
 }
 
 
