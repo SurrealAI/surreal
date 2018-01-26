@@ -3,6 +3,12 @@ This is an installation guide written under Ubuntu 16.
 # Create VM
 Create a Ubuntu 16 VM with custom boot disk image surreal-dev-base-cpu-image. Then go to [user setup](#user-setup)
 
+(Optionally) add 
+```
+sudo mount -t nfs surreal-shared-fs-vm:/data /mnt
+```
+to the startup script
+
 # Install system Dependencies
 
 * Ubuntu:
