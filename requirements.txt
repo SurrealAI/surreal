@@ -11,3 +11,4 @@ tqdm
 opencv-python
 pyyaml
 pygame
+tensorflow
