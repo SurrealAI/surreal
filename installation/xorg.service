@@ -1,0 +1,10 @@
+[Unit]
+Description=XDummy Server
+
+[Service]
+ExecStart=/usr/bin/Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile /etc/fakeX/10.log -config /etc/fakeX/xorg.conf :10
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
