@@ -50,8 +50,8 @@ class DDPGLearner(Learner):
             lr=1e-4
         )
 
-        # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-        self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        # self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
 
         U.hard_update(self.model_target.actor, self.model.actor)
