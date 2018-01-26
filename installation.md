@@ -1,5 +1,8 @@
 This is an installation guide written under Ubuntu 16. 
 
+# Create VM
+Create a Ubuntu 16 VM with custom boot disk image surreal-dev-base-cpu-image. Then go to [user setup](#user-setup)
+
 # Install system Dependencies
 
 * Ubuntu:
@@ -47,6 +50,7 @@ sudo rm mjpro131_linux.zip
 ```
 And then add the mjkey.txt
 
+<a name="user-setup"></a>
 # If you are using images, start from here
 
 # User level setup
