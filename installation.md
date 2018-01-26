@@ -26,9 +26,10 @@ make && sudo make install
 
 * Set up X11
 ```
-sudo mkdir /fakeX
-sudo cp Surreal/installation/xorg.conf /fakeX/
-sudo touch /fakeX/10.log
+git clone https://github.com/StanfordVL/Surreal.git
+sudo mkdir /etc/fakeX
+sudo cp Surreal/installation/xorg.conf /etc/fakeX/
+sudo touch /etc/fakeX/10.log
 sudo cp Surreal/installation/xorg.service /etc/systemd/system/
 sudo systemctl enable xorg
 ```
@@ -45,6 +46,8 @@ sudo unzip mjpro131_linux.zip
 sudo rm mjpro131_linux.zip
 ```
 And then add the mjkey.txt
+
+# If you are using images, start from here
 
 # User level setup
 * Set the DISPLAY variable
@@ -70,7 +73,8 @@ echo "Put your liscense file (mjkey.txt) under ~/.mujoco/mjkey.txt"
 
 * Surreal-dev users, please use
 ```
-ln -s /etc/mujoco ~/.mujoco
+cd ~
+ln -s /etc/mujoco .mujoco
 ```
 
 
@@ -94,7 +98,7 @@ git clone https://github.com/StanfordVL/Tensorplex.git
 * Create a new virtual env for surreal
 ```
 cd ~
-conda create -n surreal python=3.5 -f Surreal/installation/surreal-all-spec-file.txt
+conda create --name surreal python=3.5 --file Surreal/installation/surreal-all-spec-file.txt
 source activate surreal
 pip install -r Surreal/installation/surreal-all-requirements.txt
 python -m ipykernel install --user --name surreal
