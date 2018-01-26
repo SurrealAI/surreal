@@ -5,7 +5,6 @@
 https://repo.continuum.io/pkgs/main/linux-64/ca-certificates-2017.08.26-h1d4fec5_0.tar.bz2
 https://repo.continuum.io/pkgs/main/linux-64/certifi-2017.11.5-py35h9749603_0.tar.bz2
 https://repo.continuum.io/pkgs/main/linux-64/cffi-1.11.4-py35h9745a5d_0.tar.bz2
-https://repo.continuum.io/pkgs/free/linux-64/cudatoolkit-8.0-3.tar.bz2
 https://repo.continuum.io/pkgs/main/linux-64/freetype-2.8-hab7d2ae_1.tar.bz2
 https://repo.continuum.io/pkgs/main/linux-64/intel-openmp-2018.0.0-hc7b2577_8.tar.bz2
 https://repo.continuum.io/pkgs/main/linux-64/jpeg-9b-h024ee3a_2.tar.bz2
