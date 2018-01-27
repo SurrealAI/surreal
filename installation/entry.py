@@ -8,7 +8,8 @@ import errno
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cmd', type=str, nargs='+', help='run arbitrary command')
-parser.add_argument('--bash', type=str, default='', help='bash script')
+parser.add_argument('--sh', type=str, default='', help='shell script')
+parser.add_argument('--bash', action='store_true', help='start interactive bash')
 parser.add_argument('--py', type=str, default='', help='python script')
 
 args = parser.parse_args()
@@ -30,19 +31,29 @@ def init():
     os.system('/usr/bin/Xorg -noreset +extension GLX '
               '+extension RANDR +extension RENDER -logfile /etc/fakeX/10.log '
               '-config /etc/fakeX/xorg.conf :10 > /dev/null 2>&1 &')
-    assert os.path.exists('/code/mjkey.txt'), 'missing Mujoco `mjkey.txt`'
-    f_copy('/code/mjkey.txt', '/root/.mujoco/')
+    if os.path.exists('/code/mjkey.txt'):
+        f_copy('/code/mjkey.txt', '/root/.mujoco/')
+    else:
+        print('WARNING: missing Mujoco `mjkey.txt`')
+    if os.path.exists('/mylibs/surreal'):
+        # pip install surreal will move to Dockerfile if we release the image
+        # here is only for dev, surreal is reinstalled every time
+        os.system('pip install -e /mylibs/surreal')
+    if os.path.exists('/mylibs/tensorplex'):
+        os.system('pip install -e /mylibs/tensorplex')
 
 
 init()
 
 
-if args.cmd:
+if args.bash:
+    os.system('bash')
+elif args.cmd:
     os.system(' '.join(args.cmd))
 elif args.py:
     assert args.py.endswith('.py')
-    os.system('python ' + args.py)
-elif args.bash:
+    os.system('python -u ' + args.py)
+elif args.sh:
     os.system('/bin/bash ' + args.bash)
 else:
     print('No args given to /mylibs/entry.py')
