@@ -2,10 +2,14 @@ FROM ubuntu:16.04
 
 LABEL author="Stanford Surreal team"
 
-RUN apt-get update && apt-get -y install xserver-xorg-video-dummy cmake libglfw3 xorg-dev unzip bzip2 curl git libglew1.13 wget
-
 RUN mkdir /mylibs
 WORKDIR /mylibs
+
+RUN apt-get update
+RUN apt-get install -y expect
+COPY keyboard_configuration.exp .
+RUN expect keyboard_configuration.exp
+RUN yes | apt-get -y install xserver-xorg-video-dummy cmake libglfw3 xorg-dev unzip bzip2 curl git libglew1.13 wget
 
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
 	&& bash Miniconda3-latest-Linux-x86_64.sh -p /mylibs/miniconda -b
