@@ -1,4 +1,3 @@
-tensorplex
 easydict
 gym
 libtmux
@@ -13,4 +12,3 @@ pygame
 pyzmq
 tensorflow
 tensorboardX
-
