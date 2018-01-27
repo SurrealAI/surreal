@@ -4,8 +4,10 @@ import pprint
 from surreal.distributed import *
 
 
+print('client starts')
 client = ZmqClient(
-    host='127.0.0.1',
+    # host='server',
+    host='localhost',
     port=8001,
 )
 for i in range(10):
