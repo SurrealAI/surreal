@@ -36,7 +36,7 @@ class ZmqPullServer(object):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
-        self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self.socket.bind("tcp://*:{}".format(port))
         self._deserialize = _get_deserializer(is_pyobj)
 
     def pull(self):
@@ -55,7 +55,7 @@ class ZmqServer(object):
         """
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)
-        self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self.socket.bind("tcp://*:{}".format(port))
         self._handler = handler
         self._thread = None
         self._serialize = _get_serializer(is_pyobj)
@@ -104,7 +104,7 @@ class ZmqPublishServer(object):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
         self.socket.set_hwm(1)  # aggressively drop late messages
-        self.socket.bind("tcp://127.0.0.1:{}".format(port))
+        self.socket.bind("tcp://*:{}".format(port))
         self._thread = None
         self._serialize = _get_serializer(is_pyobj)
 
