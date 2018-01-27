@@ -1,7 +1,7 @@
 URL='stanfordvl/surreal-cpu'
 
 test:
-	docker run -ti --privileged -v `pwd`/:/code $(URL) --cmd 'python /code/test.py'
+	docker run -ti --privileged -v `pwd`/:/code $(URL) --py /code/test.py
 
 push:
 	docker push $(URL):`cat VERSION`
