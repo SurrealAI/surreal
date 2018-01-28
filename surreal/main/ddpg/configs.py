@@ -36,6 +36,7 @@ learner_config = {
             'eps': 1e-6
         },
         'n_step': 5,
+        'regularization': 0.0,
         'experience': 'ExpSenderWrapperSSARNStep',
     },
     'replay': {

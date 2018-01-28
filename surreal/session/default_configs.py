@@ -7,6 +7,7 @@ BASE_LEARNER_CONFIG = {
         'experience': 'ExpSenderWrapperSSARNStep',
         'n_step': '1',
         'gamma': '_float_',
+        'regularization': 0.0
     },
     'replay': {
         'batch_size': '_int_'

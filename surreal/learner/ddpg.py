@@ -32,12 +32,14 @@ class DDPGLearner(Learner):
 
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
-            lr=1e-3
+            lr=1e-3,
+            weight_decay=self.learner_config.algo.regularization # Weight regularization term
         )
 
         self.actor_optim = torch.optim.Adam(
             self.model.actor.parameters(),
-            lr=1e-4
+            lr=1e-4,
+            weight_decay=self.learner_config.algo.regularization # Weight regularization term
         )
 
         self.aggregator = aggregatorFactory('SSARConcat')(self.env_config.obs_spec, self.env_config.action_spec)
