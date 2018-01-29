@@ -16,7 +16,7 @@ from surreal.main_scripts.tensorplex_server_main import tensorplex_parser_setup,
 from surreal.main_scripts.tensorboard_wrapper_main import tensorboard_parser_setup, run_tensorboardwrapper_main
 from surreal.main_scripts.loggerplex_server_main import loggerplex_parser_setup, run_loggerplexserver_main
 from surreal.session import Config, BASE_LEARNER_CONFIG, BASE_ENV_CONFIG, BASE_SESSION_CONFIG
-
+from easydict import EasyDict
 
 """
     def *_parser_setup(parser):
@@ -36,7 +36,7 @@ def setup_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('config', help='file name of the config')
-    parser.add_argument('--config-command', type=str, default="" help='commands to give to config.py')
+    parser.add_argument('--config-command', type=str, default="", help='commands to give to config.py')
     
     subparsers = parser.add_subparsers(help='process type', dest='subcommand_name')
 
@@ -76,7 +76,7 @@ def setup_parser():
 
     return parser
 
-def validate_config_module(config_module):
+def validate_config(config_module):
     """
         Validates that the config module provides the proper files
     """
@@ -101,15 +101,16 @@ def load_config(pathname, config_command):
 
     sys.path.append(directory)
     config_module = importlib.import_module(basename)
-    configs = config_module.generate(shlex.split(config_command))
 
-    validate_config_module(config_module)
+    learner_config, env_config, session_config = config_module.generate(shlex.split(config_command))
+    configs = EasyDict({'learner_config': learner_config, 'env_config': env_config, 'session_config': session_config})
+    validate_config(configs)
 
-    config_module.learner_config = Config(config_module.learner_config).extend(BASE_LEARNER_CONFIG)
-    config_module.env_config = Config(config_module.env_config).extend(BASE_ENV_CONFIG)
-    config_module.session_config = Config(config_module.session_config).extend(BASE_SESSION_CONFIG)
+    configs.learner_config = Config(configs.learner_config).extend(BASE_LEARNER_CONFIG)
+    configs.env_config = Config(configs.env_config).extend(BASE_ENV_CONFIG)
+    configs.session_config = Config(configs.session_config).extend(BASE_SESSION_CONFIG)
 
-    return config_module
+    return configs
 
 def main():
     parser = setup_parser()

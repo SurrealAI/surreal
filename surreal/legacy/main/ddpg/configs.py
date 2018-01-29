@@ -3,7 +3,8 @@ import argparse
 
 def generate(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', help='name of the environment')
+    parser.add_argument('env', type='str', help='name of the environment')
+    parser.add_argument('savefile', type='str', help='place to save the experiment result file')
 
     args = parser.parse(argv)
 
@@ -69,7 +70,7 @@ def generate(argv):
 
 
     session_config = Config({
-        'folder': '/home/jirenz/fs/ddpg-cartpole-swingup',
+        'folder': parser.savefile,
         'tensorplex': {
             'update_schedule': {
                 # for TensorplexWrapper:

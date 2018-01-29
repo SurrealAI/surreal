@@ -25,6 +25,7 @@ class TmuxCluster(object):
                  config_path,
                  start_dir='.',
                  preamble_cmd=None,
+                 cluster_config_cmd=None,
                  dry_run=False,
                  ):
         """
@@ -39,9 +40,10 @@ class TmuxCluster(object):
                     '--explore strat3 --id 22'  # or simply a long string
                 ]
         """
-        self.all_config = load_config(config_path)
+        self.all_config = load_config(config_path, cluster_config_cmd)
         self.config = self.all_config.session_config
         self.config_path = config_path
+        self.cluster_config_cmd = cluster_config_cmd
 
         self.infras_session = 'infras-' + cluster_name
         self.agent_session = 'agent-' + cluster_name
@@ -54,7 +56,11 @@ class TmuxCluster(object):
         )
 
     def get_command(self, mode):
-        return ' '.join(['python -u -m', 'surreal.main_scripts.runner', self.config_path, mode])
+        command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
+        if self.cluster_config_cmd is not None:
+            command += ['--config-command', shlex.quote(self.cluster_config_cmd)]
+        command += [mode]
+        return ' '.join(command)
 
     def _get_agent_info(self, agent_names, agent_args_):
         U.assert_type(agent_names, list)
