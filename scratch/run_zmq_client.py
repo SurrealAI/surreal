@@ -19,8 +19,8 @@ except:
     pass
 
 if U.host_name().startswith('myhost'):
-    # host='myhost0.serversub.default.svc.cluster.local',
-    host='myhost0.serversub',  # short name is enough
+    # host='myhost0.serversub.default.svc.cluster.local'
+    host='myhost0.serversub'  # short name is enough
 else:
     host = get_minikube_ip()
     print('minikube IP', get_minikube_ip())
