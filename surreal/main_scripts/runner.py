@@ -3,6 +3,7 @@
 """
 
 import argparse
+import shlex
 import sys
 import os.path as path
 import importlib
@@ -35,6 +36,7 @@ def setup_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('config', help='file name of the config')
+    parser.add_argument('--config-command', type=str, default="" help='commands to give to config.py')
     
     subparsers = parser.add_subparsers(help='process type', dest='subcommand_name')
 
@@ -80,7 +82,7 @@ def validate_config_module(config_module):
     """
     pass
 
-def load_config(pathname):
+def load_config(pathname, config_command):
     """
         Load the python module specified in pathname
     """
@@ -99,6 +101,7 @@ def load_config(pathname):
 
     sys.path.append(directory)
     config_module = importlib.import_module(basename)
+    configs = config_module.generate(shlex.split(config_command))
 
     validate_config_module(config_module)
 
@@ -112,7 +115,7 @@ def main():
     parser = setup_parser()
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    config = load_config(args.config, args.config_command)
 
     args.function(args, config)
 
