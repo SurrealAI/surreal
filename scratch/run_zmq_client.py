@@ -1,7 +1,6 @@
 import zmq
 import time
-import pprint
-import socket
+import os
 import subprocess
 from surreal.distributed import *
 import surreal.utils as U
@@ -13,7 +12,10 @@ def get_minikube_ip():
     except:
         return None
 
-print('DNS', socket.getfqdn())
+try:
+    print('My IP', os.environ['MY_POD_IP'])
+except:
+    pass
 
 if U.host_name() == 'minikube':
     host = 'localhost'
@@ -24,8 +26,8 @@ else:
 
 print('client starts')
 client = ZmqClient(
-    host=host,
-    port=8001,
+    host='myhost0.serversub.default.svc.cluster.local',
+    port=80,
 )
 for i in range(3):
     time.sleep(0.2)
