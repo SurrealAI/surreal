@@ -37,3 +37,40 @@ class CriticNetwork(U.Module):
         h2 = F.relu(self.fc_h2(h1))
         value = self.fc_q(h2)
         return value
+
+
+class PPO_ActorNetwork(U.Module):
+
+    def __init__(self, D_obs, D_act):
+        super(ActorNetwork, self).__init__()
+        self.fc_h1 = nn.Linear(D_obs, 64)
+        self.fc_h2 = nn.Linear(64, 64)
+        self.fc_h3 = nn.Linear(64, 64)
+        self.fc_mean = nn.Linear(64, D_act)
+        self.log_var = nn.Parameter(torch.zeros(1, ishp) - 1.0)
+
+    def forward(self, obs):
+        h1 = F.tanh(self.fc_h1(obs))
+        h2 = F.tanh(self.fc_h2(h1))
+        h3 = F.tanh(self.fc_h3(h2))
+        mean = self.fc_mean(h3)
+        std  = torch.exp(self.log_var * 0.5) * Variable(torch.ones(mean.size()))
+        action = torch.cat((mean, std), dim=1)
+        return action
+
+
+class PPO_CriticNetwork(U.Module):
+
+    def __init__(self, D_obs):
+        super(ActorNetwork, self).__init__()
+        self.fc_h1 = nn.Linear(D_obs, 64)
+        self.fc_h2 = nn.Linear(64, 64)
+        self.fc_h3 = nn.Linear(64, 64)
+        self.fc_q  = nn.Linear(64, 1)
+
+    def forward(self, obs):
+        h1 = F.tanh(self.fc_h1(obs))
+        h2 = F.tanh(self.fc_h2(h1))
+        h3 = F.tanh(self.fc_h3(h2))
+        q  = self.fc_q(h3)
+        return q

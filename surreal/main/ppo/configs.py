@@ -12,14 +12,13 @@ learner_config = {
             'use_batch_norm': False
         },
         'mlp_spec': {
-            'sizes': [128],
+            'sizes': [64],
             'use_dropout': False
         }
     },
     'algo': {
-        'agent_class': 'DDPGAgent',
-        'learner_class': 'DDPGLearner',
-        'lr': 1e-3,
+        'agent_class': 'PPOAgent', 
+        'learner_class': 'PPOLearner',
         'optimizer': 'Adam',
         'clip_actor_gradient': True,
         'actor_gradient_clip_value': 1.,
@@ -30,8 +29,8 @@ learner_config = {
             # 'type': 'hard',
             # 'interval': 100,
         },
-        # 'target_network_update_freq': 250 * 64,
         'use_z_filter': False,
+        'norm_adv': False
         'exploration': {
             'noise_type': 'normal',
             'sigma': 0.37,
@@ -40,15 +39,30 @@ learner_config = {
             # 'sigma': 0.3,
             # 'dt': 5e-2,
         },
-        'n_step': 5,
+        'n_step': 10,
         'experience': 'ExpSenderWrapperMultiStepMovingWindow',
-        # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
         'stride': 1,
+        'batch_size': 64,
+        # ppo specific parameters:
+        'method': 'clip',
+        'lam': 0.95, # GAE lambda
+        'lr_policy': 1e-3,
+        'lr_baseline': 1e-3,
+        'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
+        'epoch_policy': 10,
+        'epoch_baseline': 10,
+        'kl_targ': 0.003, # target KL divergence between before and after
+        'kl_cutoff_coeff': 50, # penalty coeff when kl large
+        'clip_epsilon_init': 0.2, # factor of clipped loss
+        'beta_init': 1.0, # original beta
+        'clip_range': (0.05, 0.3), # range of the adapted penalty factor
+        'adj_thres': (0.5, 2.0), # threshold to magnify clip epsilon
+        'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
     },
     'replay': {
         'replay_class': 'UniformReplay',
-        'batch_size': 64,
-        'memory_size': 1000000,
+        'batch_size': 128,
+        'memory_size': 30000,
         'sampling_start_size': 1000,
     },
     'eval': {
@@ -63,7 +77,7 @@ env_config = {
 
 
 session_config = Config({
-    'folder': '/tmp/halfcheetah',
+    'folder': '~/Desktop/Research/tmp/halfcheetah',
     'tensorplex': {
         'update_schedule': {
             # for TensorplexWrapper:
