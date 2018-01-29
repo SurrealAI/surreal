@@ -5,9 +5,9 @@ services:
     ports:
     - "8001:8001"
     volumes:
-    - .:/code
-    - ..:/mylibs/surreal
-    - ../../Tensorplex:/mylibs/tensorplex
+    - ../:/code
+    - ../../:/mylibs/surreal
+    - ../../../Tensorplex:/mylibs/tensorplex
     entrypoint:
     - /mylibs/entry.py
     - --py
@@ -18,9 +18,9 @@ services:
     expose:
     - "8001"
     volumes:
-    - .:/code
-    - ..:/mylibs/surreal
-    - ../../Tensorplex:/mylibs/tensorplex
+    - ../:/code
+    - ../../:/mylibs/surreal
+    - ../../../Tensorplex:/mylibs/tensorplex
     entrypoint:
     - /mylibs/entry.py
     - --py

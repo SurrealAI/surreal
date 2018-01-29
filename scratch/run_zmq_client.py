@@ -1,8 +1,10 @@
 import zmq
 import time
 import pprint
+import socket
 import subprocess
 from surreal.distributed import *
+import surreal.utils as U
 
 
 def get_minikube_ip():
@@ -12,6 +14,7 @@ def get_minikube_ip():
         return None
 
 print(get_minikube_ip())
+print('DNS', socket.getfqdn())
 
 
 print('client starts')

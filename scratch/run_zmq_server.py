@@ -7,6 +7,7 @@ def handler(req):
     return req * 5
 
 
+print('host name', U.host_name())
 print('server starts')
 server = ZmqServer(
     port=8001,
