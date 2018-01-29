@@ -5,7 +5,8 @@ Create a Ubuntu 16 VM with custom boot disk image surreal-dev-base-cpu-image. Th
 
 (Optionally) add 
 ```
-sudo mount -t nfs surreal-shared-fs-vm:/data /mnt
+apt-get -y install nfs-common
+mount -t nfs surreal-shared-fs-vm:/data /mnt
 ```
 to the startup script
 
