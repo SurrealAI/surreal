@@ -42,12 +42,12 @@ class DDPGLearner(Learner):
 
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
-            lr=1e-3
+            lr=self.learner_config.algo.lr
         )
 
         self.actor_optim = torch.optim.Adam(
             self.model.actor.parameters(),
-            lr=1e-4
+            lr=self.learner_config.algo.lr
         )
 
         self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)

@@ -64,7 +64,7 @@ class DDPGAgent(Agent):
 
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action = self.model.actor(obs).data.numpy().squeeze()
+        action = self.model.actor(obs).data.numpy()[0]
 
         if self.agent_mode is not AgentMode.eval_deterministic:
             action += self.noise()
