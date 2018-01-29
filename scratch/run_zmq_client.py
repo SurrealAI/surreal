@@ -13,16 +13,21 @@ def get_minikube_ip():
     except:
         return None
 
-print(get_minikube_ip())
 print('DNS', socket.getfqdn())
+
+if U.host_name() == 'minikube':
+    host = 'localhost'
+else:
+    host = get_minikube_ip()
+    print('minikube IP', get_minikube_ip())
 
 
 print('client starts')
 client = ZmqClient(
-    # host=get_minikube_ip(),
-    host='localhost',
+    host=host,
     port=8001,
 )
-for i in range(10):
+for i in range(3):
     time.sleep(0.2)
     print(client.request('yo'+str(i)))
+print(client.request('end'))
