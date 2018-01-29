@@ -45,7 +45,6 @@ class PPOAgent(Agent):
             action = self.pd.sample(action)
         else:
             action = self.pd.maxprob(action)
-
         action = action.data.numpy().squeeze()
         np.clip(action, -1, 1, out=action)
 

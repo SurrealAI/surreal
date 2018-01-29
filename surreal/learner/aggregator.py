@@ -144,9 +144,10 @@ class NstepReturnAggregator():
             aggregated experience
         """
         
-        obs0, actions, rewards, obs1, dones = [], [], [], [], []
+        obs0, actions, rewards, obs1, dones, num_steps = [], [], [], [], [], []
         for exp in exp_list:  # dict
             n_step = exp['n_step']
+            num_steps.append(n_step)
             obs0.append(np.array(exp['obs_arr'][0], copy=False))
             actions.append(exp['action_arr'][0])
             cum_reward = 0
@@ -167,4 +168,5 @@ class NstepReturnAggregator():
             actions=actions,
             rewards=U.to_float_tensor(rewards).unsqueeze(1),
             dones=U.to_float_tensor(dones).unsqueeze(1),
+            num_steps=U.to_float_tensor(num_steps).unsqueeze(1),
         )

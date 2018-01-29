@@ -71,12 +71,18 @@ class PPOLearner(Learner):
 
         # Experience Aggregator
         self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        
+        # probability distribution. Gaussian only for now
         self.pd = DiagGauss(self.action_dim)
 
-    def _advantage_and_return(self, obs, actions, rewards, obs_next, done):
+
+    def _advantage_and_return(self, obs, actions, rewards, obs_next, done, num_steps):
+        n_samples = obs.size()[0]
+        gamma = torch.ones(n_samples, 1) * self.gamma
+
         values = self.model.critic(obs).detach()
         next_values = self.model.critic(obs_next).detach()
-        returns = rewards + self.gamma * next_value * (1 - done) 
+        returns = rewards + next_value * (1 - done) * torch.pow(gamma, num_steps)
         adv = returns - values
 
         if self.norm_adv:
@@ -96,6 +102,7 @@ class PPOLearner(Learner):
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
         return clip_loss
+
 
     def _clip_update(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
@@ -133,6 +140,7 @@ class PPOLearner(Learner):
             if self.clip_upper > self.clip_epsilon:
                 self.clip_epsilon = self.clip_epsilon * 1.2
 
+
     def _adapt_loss(self, obs, actions, advantages, old_pol):
         prob = self.model.actor(obs)
         logp = self.pd.loglikelihood(actions, prob)
@@ -145,6 +153,7 @@ class PPOLearner(Learner):
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
 
         return loss
+
 
     def _adapt_update(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
@@ -180,6 +189,7 @@ class PPOLearner(Learner):
             if self.beta_lower < self.beta:
                 self.beta = self.beta / 1.5
 
+
     def _value_update(self, obs, returns):
         num_batches = obs.size()[0] // self.batch_size + 1
         for epoch in range(self.epoch_baseline):
@@ -199,13 +209,20 @@ class PPOLearner(Learner):
                 loss.backward()
                 self.critic_optim.step()
 
-    def _optimize(self, obs, actions, rewards, obs_next, done):
-        advantages, returns = self._advantage(obs, actions, rewards, obs_next, done)
+
+    def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
+        advantages, returns = self._advantage(obs, actions, rewards, obs_next, done, num_steps)
+
+        obs = Variable(obs)
+        actions = Variable(actions)
+        advantages = Variable(advantages)
+        returns = Variable(returns)
         if self.method == 'clip': 
             self._clip_update(obs, actions, advantages)
         else:
             self._adapt_update(obs, actions, advantages)
         self._value_update(obs, returns)
+
 
     def learn(self, batch):
         batch = self.aggregator.aggregate(batch)
@@ -214,7 +231,8 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.obs_next,
-            batch.dones
+            batch.dones,
+            batch.num_steps
         )
 
     def module_dict(self):
