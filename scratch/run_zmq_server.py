@@ -17,8 +17,7 @@ def handler(req):
     return reply
 
 
-print('host name', U.host_name(), 'FQDN:', socket.getfqdn())
-print('server starts')
+print('server FQDN', socket.getfqdn())
 server = ZmqServer(
     port=8001,
     handler=handler,

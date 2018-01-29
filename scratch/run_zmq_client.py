@@ -1,5 +1,6 @@
 import zmq
 import time
+import socket
 import os
 import subprocess
 from surreal.distributed import *
@@ -17,17 +18,18 @@ try:
 except:
     pass
 
-if U.host_name() == 'minikube':
-    host = 'localhost'
+if U.host_name().startswith('myhost'):
+    # host='myhost0.serversub.default.svc.cluster.local',
+    host='myhost0.serversub',  # short name is enough
 else:
     host = get_minikube_ip()
     print('minikube IP', get_minikube_ip())
 
 
-print('client starts')
+print('client FQDN', socket.getfqdn())
 client = ZmqClient(
-    host='myhost0.serversub.default.svc.cluster.local',
-    port=80,
+    host=host,
+    port=8001,
 )
 for i in range(3):
     time.sleep(0.2)
