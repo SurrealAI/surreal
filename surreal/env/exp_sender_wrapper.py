@@ -79,7 +79,7 @@ class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
 # Naming may need some change here. 
 # The unit of experience is in format state state action reward.
 # N-step is supported
-class ExpSenderWrapperSSARNStepBoostrap(ExpSenderWrapperSSAR):
+class ExpSenderWrapperSSARNStepBootstrap(ExpSenderWrapperSSAR):
     """
         Sends observations in format
         {   
