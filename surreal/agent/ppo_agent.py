@@ -34,18 +34,17 @@ class PPOAgent(Agent):
             use_z_filter=self.use_z_filter,
         )
 
-        self.pd = DiagGauss(action_dim)
+        self.pd = DiagGauss(self.action_dim)
 
     def act(self, obs):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
 
-        action = self.model.actor(obs)
+        action = self.model.actor(obs).data.numpy()
         if self.agent_mode is not AgentMode.eval_deterministic:
             action = self.pd.sample(action)
         else:
             action = self.pd.maxprob(action)
-        action = action.data.numpy().squeeze()
         np.clip(action, -1, 1, out=action)
 
         return action

@@ -30,7 +30,7 @@ learner_config = {
             # 'interval': 100,
         },
         'use_z_filter': False,
-        'norm_adv': False
+        'norm_adv': False,
         'exploration': {
             'noise_type': 'normal',
             'sigma': 0.37,

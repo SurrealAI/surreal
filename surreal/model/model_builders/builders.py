@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import surreal.utils as U
+from surreal.utils.pytorch import GpuVariable as Variable
 
 class ActorNetwork(U.Module):
 
@@ -42,12 +43,12 @@ class CriticNetwork(U.Module):
 class PPO_ActorNetwork(U.Module):
 
     def __init__(self, D_obs, D_act):
-        super(ActorNetwork, self).__init__()
+        super(PPO_ActorNetwork, self).__init__()
         self.fc_h1 = nn.Linear(D_obs, 64)
         self.fc_h2 = nn.Linear(64, 64)
         self.fc_h3 = nn.Linear(64, 64)
         self.fc_mean = nn.Linear(64, D_act)
-        self.log_var = nn.Parameter(torch.zeros(1, ishp) - 1.0)
+        self.log_var = nn.Parameter(torch.zeros(1, D_act) - 1.0)
 
     def forward(self, obs):
         h1 = F.tanh(self.fc_h1(obs))
@@ -62,7 +63,7 @@ class PPO_ActorNetwork(U.Module):
 class PPO_CriticNetwork(U.Module):
 
     def __init__(self, D_obs):
-        super(ActorNetwork, self).__init__()
+        super(PPO_CriticNetwork, self).__init__()
         self.fc_h1 = nn.Linear(D_obs, 64)
         self.fc_h2 = nn.Linear(64, 64)
         self.fc_h3 = nn.Linear(64, 64)
