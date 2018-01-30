@@ -1,3 +1,4 @@
+from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 
 def make_env(env_config):
@@ -13,6 +14,8 @@ def make_env(env_config):
         return make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
         return make_dm_control(env_name, env_config)
+    elif env_category == 'video_dm_control':
+        return make_video_dm_control(env_name, env_config)
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
 
@@ -39,3 +42,7 @@ def make_dm_control(env_name, env_config):
     env_config.obs_spec = env.observation_spec()
     return env, env_config
 
+def make_video_dm_control(env_name, env_config):
+    env, env_config = make_dm_control(env_name, env_config)
+    env = VideoWrapper(env)
+    return env, env_config
