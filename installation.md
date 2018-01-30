@@ -5,7 +5,8 @@ Create a Ubuntu 16 VM with custom boot disk image surreal-dev-base-cpu-image. Th
 
 (Optionally) add 
 ```
-sudo mount -t nfs surreal-shared-fs-vm:/data /mnt
+apt-get -y install nfs-common
+mount -t nfs surreal-shared-fs-vm:/data /mnt
 ```
 to the startup script
 
@@ -108,9 +109,9 @@ git clone https://github.com/StanfordVL/Tensorplex.git
 * Create a new virtual env for surreal
 ```
 cd ~
-conda create --name surreal python=3.5 --file Surreal/installation/surreal-all-spec-file.txt
+conda create --name surreal python=3.5
 source activate surreal
-pip install -r Surreal/installation/surreal-all-requirements.txt
+pip install -r Surreal/installation/surreal-requirements.txt
 python -m ipykernel install --user --name surreal
 ```
 
