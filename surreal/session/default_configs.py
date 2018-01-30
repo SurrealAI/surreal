@@ -86,6 +86,7 @@ BASE_SESSION_CONFIG = {
     },
     'agent': {
         'fetch_parameter_mode': '_str_',
+        'fetch_parameter_interval': int,
     }
 }
 
@@ -134,7 +135,8 @@ LOCAL_SESSION_CONFIG = {
     'agent': {
         # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
         # every episode, every n episodes, every step, every n steps
-        'fetch_parameter_mode': 'episode'
+        'fetch_parameter_mode': 'episode',
+        'fetch_parameter_interval': 1,
     },
 }
 

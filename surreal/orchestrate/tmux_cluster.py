@@ -25,23 +25,24 @@ class TmuxCluster(object):
                  config_path,
                  start_dir='.',
                  preamble_cmd=None,
+                 config_command=None,
                  dry_run=False,
                  ):
         """
         Args:
-            session_config:
-            agent_args: list of list of command line args OR command strings.
-                Each agent might have a different command line invocation,
-                such as different names and exploration strategies. E.g.
-                [
-                    ['--explore', 'strategy1', '--id', 10],
-                    ['--explore', 'strategy2', '--id', 13, '--anneal', 0.5],
-                    '--explore strat3 --id 22'  # or simply a long string
-                ]
+            @config_path: File system path to a .py config file TODO: Add more documentation for config files.
+            For now look at the example of surreal/main/ddpg_configs.py
+            @start_dir: Tmux initial directory
+            @preamble_cmd: Commands to run in a tmux window before running the surreal process
+            E.g. source activate [name of your virtual env]
+            @config_command: Command to supply to the config file through the runner's --config-command argument
+            Will be escaped by shlex.quote
+            @dry_run: Set for tmux
         """
-        self.all_config = load_config(config_path)
+        self.all_config = load_config(config_path, config_command)
         self.config = self.all_config.session_config
         self.config_path = config_path
+        self.config_command = config_command
 
         self.infras_session = 'infras-' + cluster_name
         self.agent_session = 'agent-' + cluster_name
@@ -54,7 +55,11 @@ class TmuxCluster(object):
         )
 
     def get_command(self, mode):
-        return ' '.join(['python -u -m', 'surreal.main_scripts.runner', self.config_path, mode])
+        command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
+        if self.config_command is not None:
+            command += ['--config-command', shlex.quote(self.config_command)]
+        command += [mode]
+        return ' '.join(command)
 
     def _get_agent_info(self, agent_names, agent_args_):
         U.assert_type(agent_names, list)
