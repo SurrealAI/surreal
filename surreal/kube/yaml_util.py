@@ -5,6 +5,7 @@ import uuid
 import contextlib
 import os
 import os.path as path
+from io import StringIO
 from easydict import EasyDict
 
 
@@ -30,13 +31,22 @@ class YamlList(object):
             fpath:
             pretty: default_flow_style=True for yaml to be human-friendly
         """
-        with open(fpath, 'w') as fp:
+        with open(path.expanduser(fpath), 'w') as fp:
             # must convert back to normal dict; yaml serializes EasyDict object
             yaml.dump_all(
                 [dict(d) for d in self.data_list],
                 fp,
                 default_flow_style=not pretty
             )
+
+    def to_string(self, pretty=True):
+        stream = StringIO()
+        yaml.dump_all(
+            [dict(d) for d in self.data_list],
+            stream,
+            default_flow_style=not pretty
+        )
+        return stream.getvalue()
 
     @contextlib.contextmanager
     def temp_file(self, folder='.'):
@@ -45,7 +55,7 @@ class YamlList(object):
             the temporarily generated path (uuid4)
         """
         temp_fname = 'kube-{}.yml'.format(uuid.uuid4())
-        temp_fpath = path.join(path.expanduser(folder), temp_fname)
+        temp_fpath = path.join(folder, temp_fname)
         self.save(temp_fpath, pretty=False)
         yield temp_fpath
         os.remove(temp_fpath)
@@ -92,12 +102,12 @@ class YamlList(object):
         if context is not None:
             assert isinstance(context, dict)
             context_kwargs.update(context)
-        with open(template_path, 'r') as fp:
+        with open(path.expanduser(template_path), 'r') as fp:
             text = fp.read()
         return cls.from_template_string(text, context=context, **context_kwargs)
 
     def __str__(self):
-        return pprint.pformat(self.data_list, indent=2)
+        return self.to_string(pretty=True)
 
 
 if __name__ == '__main__':
@@ -109,5 +119,6 @@ if __name__ == '__main__':
         os.system('cat ' +fname)
     y.save('yo.yml')
     os.system('cat yo.yml')
+    print(y)
 
     print(y[0].mylist)

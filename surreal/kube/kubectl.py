@@ -9,6 +9,7 @@ import sys
 import shlex
 import subprocess as pc
 from surreal.kube.yaml_util import YamlList
+from surreal.kube.git_snapshot import push_snapshot
 import os
 import os.path as path
 
@@ -26,7 +27,7 @@ def print_err(*args, **kwargs):
 
 
 class Kubectl(object):
-    def __init__(self, surreal_yml='~/.surreal.yml'):
+    def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
         surreal_yml = path.expanduser(surreal_yml)
         assert path.exists(surreal_yml)
         self.config = YamlList.from_file(surreal_yml)[0]
@@ -35,9 +36,14 @@ class Kubectl(object):
             'GIT_TOKEN': self.config.git.token,
             'GIT_SNAPSHOT_BRANCH': self.config.git['snapshot-branch']
         }
+        self.dry_run = dry_run
 
     def run(self, cmd):
-        return run_process('kubectl ' + cmd)
+        if self.dry_run:
+            print('kubectl ' + cmd)
+            return '', '', 0
+        else:
+            return run_process('kubectl ' + cmd)
 
     def run_verbose(self, cmd):
         out, err, retcode = self.run(cmd)
@@ -65,17 +71,31 @@ class Kubectl(object):
                 yaml_file,
                 context=context,
                 **context_kwargs)
+            if self.dry_run:
+                print(yaml_list)
             with yaml_list.temp_file() as temp:
                 self.run_verbose('create -f "{}"'.format(temp))
         else:
             self.run_verbose('create -f "{}"'.format(yaml_file))
 
-    def create_with_git(self, yaml_file):
-        self.create(yaml_file, context=self.git_config)
+    def create_with_git(self, yaml_file, snapshot=True, **context_kwargs):
+        """
+        First create a snapshot of the git repos, upload to github
+        Then create Kube objects with the git info
+        Args:
+            context_kwargs: for extra context
+        """
+        if snapshot:
+            for repo_path in self.config.git.get('snapshot-repos', []):
+                push_snapshot(
+                    snapshot_branch=self.config.git['snapshot-branch'],
+                    repo_path=path.expanduser(repo_path)
+                )
+        self.create(yaml_file, context=self.git_config, **context_kwargs)
 
 
 if __name__ == '__main__':
-    kube = Kubectl()
-    kube.create('~/Dropbox/Portfolio/Kurreal-demo/kpod_gcloud.yml')
+    kube = Kubectl(dry_run=True)
+    kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kpod_gcloud.yml')
 
 

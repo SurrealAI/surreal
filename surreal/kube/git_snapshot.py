@@ -1,8 +1,13 @@
 from git import Repo
+import sys
 import time
 
 
-def push_snapshot(snapshot_branch, repo_path='.'):
+def print_err(*args, **kwargs):
+    print(*args, **kwargs, file=sys.stderr)
+
+
+def push_snapshot(snapshot_branch, repo_path='.', verbose=False):
     """
     Save a snapshot of the current codebase (with uncommitted changes and untracked
     files) to a temporary branch and then push to github.
@@ -27,16 +32,23 @@ def push_snapshot(snapshot_branch, repo_path='.'):
         git.stash('apply')
     git.add('.')
     try:
-        git.commit('-m', 'snapshot save ' + time.strftime('%m/%d/%Y %H:%M:%S'))
+        msg = git.commit('-m', 'snapshot save ' + time.strftime('%m/%d/%Y %H:%M:%S'))
+        if verbose: print(msg)
     except:
-        print('no temporary changes to push')
+        if verbose:
+            print('no temporary changes to push')
     try:
         git.push('-f', 'origin', snapshot_branch)
+        if verbose:
+            remote_url = repo.remotes[0].urls[0]
+            print('successfully pushed to branch {} of {}'.format(
+                snapshot_branch, remote_url))
     except Exception as e:
-        print('push to remote failed', e)
+        print_err('push to remote failed', e)
     git.checkout(work_branch)
     git.cherry_pick('-n', snapshot_branch)
-    print(git.reset('HEAD'))
+    msg = git.reset('HEAD')
+    if verbose: print(msg)
 
 
 def main():
@@ -44,6 +56,7 @@ def main():
     parser = argparse.ArgumentParser('Git snapshot tool')
     parser.add_argument('snapshot_branch', help='name of the snapshot branch')
     parser.add_argument('repo_path', help='location of the git repository')
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
     push_snapshot(**vars(args))
 
