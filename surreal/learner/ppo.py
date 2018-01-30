@@ -8,6 +8,7 @@ from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEA
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 
+
 class PPOLearner(Learner):
 
     def __init__(self, learner_config, env_config, session_config):
@@ -70,19 +71,20 @@ class PPOLearner(Learner):
         )
 
         # Experience Aggregator
-        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.gamma)
         
         # probability distribution. Gaussian only for now
         self.pd = DiagGauss(self.action_dim)
+
 
 
     def _advantage_and_return(self, obs, actions, rewards, obs_next, done, num_steps):
         n_samples = obs.size()[0]
         gamma = torch.ones(n_samples, 1) * self.gamma
 
-        values = self.model.critic(obs).detach()
-        next_values = self.model.critic(obs_next).detach()
-        returns = rewards + next_value * (1 - done) * torch.pow(gamma, num_steps)
+        values = self.model.critic(Variable(obs)).detach().data
+        next_values = self.model.critic(Variable(obs_next)).detach().data
+        returns = rewards + next_values * (1 - done) * torch.pow(gamma, num_steps) # value bootstrap
         adv = returns - values
 
         if self.norm_adv:
@@ -101,7 +103,17 @@ class PPOLearner(Learner):
         surr = -prob_ratio * advantages
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
-        return clip_loss
+        kl = self.pd.kl(fixed_dist, new_prob).mean()
+
+        stats = {
+            "surr_loss": surr.mean().data[0], 
+            "clip_surr_loss": clip_loss.data[0], 
+            "pol_kl": kl.data[0],
+            "entropy": self.pd.entropy(new_prob).data.mean(),
+            'clip_epsilon': self.clip_epsilon
+        }
+
+        return clip_loss, stats
 
 
     def _clip_update(self, obs, actions, advantages):
@@ -109,7 +121,7 @@ class PPOLearner(Learner):
         fixed_prob = self.pd.likelihood(actions, old_prob).detach()
 
         num_batches = obs.size()[0] // self.batch_size + 1
-        for epoch in range(self.epochs_updater):
+        for epoch in range(self.epoch_policy):
             sortinds = np.random.permutation(obs.size()[0])
             sortinds = Variable(torch.from_numpy(sortinds).long())
             for batch in range(num_batches):
@@ -123,7 +135,7 @@ class PPOLearner(Learner):
                 prb_batch = old_prob.index_select(0, sortinds[start:end])
                 fix_batch = fixed_prob.index_select(0, sortinds[start:end])
 
-                loss = self._clip_loss(obs_batch, act_batch, adv_batch, prb_batch, fix_batch)
+                loss, _ = self._clip_loss(obs_batch, act_batch, adv_batch, prb_batch, fix_batch)
                 self.model.actor.zero_grad()
                 loss.backward()
                 self.actor_optim.step()
@@ -139,6 +151,9 @@ class PPOLearner(Learner):
         elif kl.data[0] < self.kl_targ * self.clip_adj_thres[0]:
             if self.clip_upper > self.clip_epsilon:
                 self.clip_epsilon = self.clip_epsilon * 1.2
+        
+        _, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
+        return stats
 
 
     def _adapt_loss(self, obs, actions, advantages, old_pol):
@@ -152,14 +167,22 @@ class PPOLearner(Learner):
         if kl.data[0] - 2.0 * self.kl_targ > 0:
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
 
-        return loss
+        stats = {
+            'adapt_kl_loss': loss.data[0], 
+            'surr_loss': surr.data[0], 
+            'pol_kl': kl.data[0], 
+            'entropy': entropy.data[0],
+            'beta': self.beta
+        }
+
+        return loss, stats
 
 
     def _adapt_update(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
 
         num_batches = obs.size()[0] // self.batch_size + 1
-        for epoch in range(self.epochs_updater):
+        for epoch in range(self.epoch_policy):
             sortinds = np.random.permutation(obs.size()[0])
             sortinds = torch.autograd.Variable(turn_into_cuda(torch.from_numpy(sortinds).long()))
             for batch in range(num_batches):
@@ -189,6 +212,21 @@ class PPOLearner(Learner):
             if self.beta_lower < self.beta:
                 self.beta = self.beta / 1.5
 
+        _, stats = self._adapt_loss(obs, actions, advantages, old_prob)
+        return stats
+
+
+    def _value_loss(self, obs, returns):
+        values = self.model.critic(obs)
+        explained_var = 1 - torch.var(returns - values) / torch.var(returns)
+        loss = (values - returns).pow(2).mean()
+
+        stats = {
+            'value_loss': loss.data[0],
+            'explained_var': explained_var.data[0]
+        }
+
+        return loss, stats
 
     def _value_update(self, obs, returns):
         num_batches = obs.size()[0] // self.batch_size + 1
@@ -203,25 +241,42 @@ class PPOLearner(Learner):
                 obs_batch = obs.index_select(0, sortinds[start:end])
                 ret_batch = returns.index_select(0, sortinds[start:end])
 
-                value_batch = self.model.critic(obs_batch)
-                loss = (value_batch - ret_batch).pow(2).mean()
+                loss, _ = self._value_loss(obs_batch, ret_batch)
                 self.model.critic.zero_grad()
                 loss.backward()
                 self.critic_optim.step()
 
+        _, stats = self._value_loss(obs, returns)
+        return stats
+
+
 
     def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
-        advantages, returns = self._advantage(obs, actions, rewards, obs_next, done, num_steps)
+        advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
 
         obs = Variable(obs)
-        actions = Variable(actions)
+        actions = Variable(actions.squeeze(1))
         advantages = Variable(advantages)
         returns = Variable(returns)
+
         if self.method == 'clip': 
-            self._clip_update(obs, actions, advantages)
+            stats = self._clip_update(obs, actions, advantages)
         else:
-            self._adapt_update(obs, actions, advantages)
-        self._value_update(obs, returns)
+            stats = self._adapt_update(obs, actions, advantages)
+        baseline_stats = self._value_update(obs, returns)
+
+
+        # updating tensorplex
+        for k in baseline_stats:
+            stats[k] = baseline_stats[k]
+        stats['returns'] = returns.mean().data[0]
+
+        if self.use_z_filter:
+            stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
+            stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
+            stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
+        print(stats)
+        self.update_tensorplex(stats)
 
 
     def learn(self, batch):
