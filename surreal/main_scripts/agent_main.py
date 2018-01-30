@@ -22,16 +22,14 @@ def run_agent_main(args, config):
     )
 
     fetch_parameter_mode = session_config.agent.fetch_parameter_mode
-    if fetch_parameter_mode.startswith('episode'):
+    fetch_parameter_interval = session_config.agent.fetch_parameter_interval
+    if fetch_parameter_mode == 'episode':
         _fetch_mode = 'episode'
     elif fetch_parameter_mode.startswith('step'):
         _fetch_mode = 'step'
     else:
-        raise ValueError('invalid pull_parameter_mode.')
-    _fetch_interval = 1
-    if ':' in fetch_parameter_mode:
-        _, n = fetch_parameter_mode.split(':')
-        _fetch_interval = int(n)
+        raise ValueError('invalid fetch_parameter_mode: {}.'.format(fetch_parameter_mode))
+    _fetch_interval = fetch_parameter_interval
 
     agent_mode = AgentMode.training
     
