@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 """
 ENV variables
-- MUJOCO_KEY_PATH: must be specified
-- SURREAL_PATH: default to /mylibs/surreal
-- TENSORPLEX_PATH: default to /mylibs/tensorplex
+- MUJOCO_KEY_PATH: default to /mylibs/surreal-secrets/surreal-secrets
+- SURREAL_PATH: default to /mylibs/surreal/surreal
+- TENSORPLEX_PATH: default to /mylibs/tensorplex/tensorplex
+
+Note that the path is duplicated because gitVolume doesn't allow the same mount path,
+but the git repos are cloned as a subdir.
 """
 import os
 import sys
