@@ -1,12 +1,23 @@
+import os
 import zmq
+import socket
 from surreal.distributed import *
 
 
+print('My IP', os.environ['MY_POD_IP'], 'node', os.environ['MY_NODE_NAME'])
+COUNTER = 0
+
+
 def handler(req):
-    print(req)
-    return req * 5
+    global COUNTER
+    reply = '{}-{}'.format(req, COUNTER)
+    print(reply)
+    if req == 'end':
+        COUNTER += 1
+    return reply
 
 
+print('server FQDN', socket.getfqdn())
 server = ZmqServer(
     port=8001,
     handler=handler,

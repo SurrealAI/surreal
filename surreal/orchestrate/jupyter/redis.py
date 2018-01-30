@@ -1,7 +1,7 @@
 """
 Jupyter interactive redis commands.
 """
-from surreal.session.jupyter.interactive_util import *
+from surreal.orchestrate.jupyter.interactive_util import *
 import redis
 from redis import StrictRedis
 

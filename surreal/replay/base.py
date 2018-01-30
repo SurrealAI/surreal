@@ -6,7 +6,21 @@ from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
 from surreal.distributed import ExpQueue, ZmqServer
 
 
-class ReplayCore(object):
+replay_registry = {}
+
+def register_replay(target_class):
+    replay_registry[target_class.__name__] = target_class
+
+def replayFactory(replay_name):
+    return replay_registry[replay_name]
+
+class ReplayMeta(type):
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        register_replay(cls)
+        return cls
+
+class ReplayCore(object, metaclass=ReplayMeta):
     def __init__(self, *,
                  puller_port,
                  sampler_port,
@@ -108,6 +122,10 @@ class ReplayCore(object):
 
 
 class Replay(ReplayCore):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize the replay server.
+    """
     def __init__(self,
                  learner_config,
                  env_config,

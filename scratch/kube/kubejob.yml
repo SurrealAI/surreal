@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: serversub
+spec:
+  selector:
+    mytype: persistent_component
+  clusterIP: None
+  ports:
+  - port: 8001
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myserver
+  labels:
+    mytype: persistent_component
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  hostname: myhost0
+  subdomain: serversub
+
+  volumes:
+  - name: surreal
+    hostPath:
+      path: "/surreal"
+  - name: tensorplex
+    hostPath:
+      path: "/tensorplex"
+  - name: code
+    hostPath:
+      path: "/code"
+
+  containers:
+  - name: server
+    image: stanfordvl/surreal-cpu
+    imagePullPolicy: Never
+    volumeMounts:
+    - mountPath: /code
+      name: code
+    - mountPath: /mylibs/surreal
+      name: surreal
+    - mountPath: /mylibs/tensorplex
+      name: tensorplex
+    env:
+    - name: MY_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: MY_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: MY_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: MY_POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    args: ["--py", "/code/run_zmq_server.py"]
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myclient-1
+  labels:
+    mygroup: myclient
+    mytype: transient_component
+spec:
+  template:
+    metadata:
+      labels:
+        jobgroup: myclient
+    spec:
+      hostNetwork: false
+      hostname: myhost1
+      subdomain: mysub1
+      restartPolicy: Never
+
+      volumes:
+      - name: surreal
+        hostPath:
+          path: "/surreal"
+      - name: tensorplex
+        hostPath:
+          path: "/tensorplex"
+      - name: code
+        hostPath:
+          path: "/code"
+
+      containers:
+      - name: server
+        image: stanfordvl/surreal-cpu
+        imagePullPolicy: Never
+        volumeMounts:
+        - mountPath: /code
+          name: code
+        - mountPath: /mylibs/surreal
+          name: surreal
+        - mountPath: /mylibs/tensorplex
+          name: tensorplex
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        args: ["--py", "/code/run_zmq_client.py"]
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myclient-2
+  labels:
+    mygroup: myclient
+    mytype: transient_component
+spec:
+  template:
+    metadata:
+      labels:
+        jobgroup: myclient
+    spec:
+      hostNetwork: false
+      restartPolicy: Never
+      hostname: myhost2
+      subdomain: mysub2
+
+      volumes:
+      - name: surreal
+        hostPath:
+          path: "/surreal"
+      - name: tensorplex
+        hostPath:
+          path: "/tensorplex"
+      - name: code
+        hostPath:
+          path: "/code"
+
+      containers:
+      - name: server
+        image: stanfordvl/surreal-cpu
+        imagePullPolicy: Never
+        volumeMounts:
+        - mountPath: /code
+          name: code
+        - mountPath: /mylibs/surreal
+          name: surreal
+        - mountPath: /mylibs/tensorplex
+          name: tensorplex
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        args: ["--py", "/code/run_zmq_client.py"]

@@ -1,0 +1,74 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mydeployserver
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        mylab: zmq
+    spec:
+      hostNetwork: true
+
+      volumes:
+      - name: surreal
+        hostPath:
+          path: "/surreal"
+      - name: tensorplex
+        hostPath:
+          path: "/tensorplex"
+      - name: code
+        hostPath:
+          path: "/code"
+
+      containers:
+      - name: server
+        image: stanfordvl/surreal-cpu
+        imagePullPolicy: Never
+        volumeMounts:
+        - mountPath: /code
+          name: code
+        - mountPath: /mylibs/surreal
+          name: surreal
+        - mountPath: /mylibs/tensorplex
+          name: tensorplex
+        args: ["--py", "/code/run_zmq_server.py"]
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mydeployclient
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        mylab: zmq
+    spec:
+      hostNetwork: true
+
+      volumes:
+      - name: surreal
+        hostPath:
+          path: "/surreal"
+      - name: tensorplex
+        hostPath:
+          path: "/tensorplex"
+      - name: code
+        hostPath:
+          path: "/code"
+
+      containers:
+      - name: client
+        image: stanfordvl/surreal-cpu
+        imagePullPolicy: Never
+        volumeMounts:
+        - mountPath: /code
+          name: code
+        - mountPath: /mylibs/surreal
+          name: surreal
+        - mountPath: /mylibs/tensorplex
+          name: tensorplex
+        args: ["--py", "/code/run_zmq_client.py"]
