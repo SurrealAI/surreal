@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""
+ENV variables
+- MUJOCO_KEY_PATH: must be specified
+- SURREAL_PATH: default to /mylibs/surreal
+- TENSORPLEX_PATH: default to /mylibs/tensorplex
+"""
 import os
 import sys
 import argparse
@@ -31,16 +37,24 @@ def init():
     os.system('/usr/bin/Xorg -noreset +extension GLX '
               '+extension RANDR +extension RENDER -logfile /etc/fakeX/10.log '
               '-config /etc/fakeX/xorg.conf :10 > /dev/null 2>&1 &')
-    if os.path.exists('/code/mjkey.txt'):
-        f_copy('/code/mjkey.txt', '/root/.mujoco/')
+    mujoco_path = os.environ.get('MUJOCO_KEY_PATH', '/mylibs/mjkey.txt')
+    if mujoco_path and os.path.exists(mujoco_path):
+        assert 'mjkey.txt' in mujoco_path
+        f_copy(mujoco_path, '/root/.mujoco/')
     else:
         print('WARNING: missing Mujoco `mjkey.txt`')
-    if os.path.exists('/mylibs/surreal'):
+    surreal_path = os.environ.get('SURREAL_PATH', '/mylibs/surreal')
+    if surreal_path and os.path.exists(surreal_path):
         # pip install surreal will move to Dockerfile if we release the image
         # here is only for dev, surreal is reinstalled every time
-        os.system('pip install -e /mylibs/surreal')
-    if os.path.exists('/mylibs/tensorplex'):
-        os.system('pip install -e /mylibs/tensorplex')
+        os.system('pip install -e ' + surreal_path)
+    else:
+        print('WARNING: `surreal` lib not installed')
+    tensorplex_path = os.environ.get('TENSORPLEX_PATH', '/mylibs/tensorplex')
+    if tensorplex_path and os.path.exists(tensorplex_path):
+        os.system('pip install -e ' + tensorplex_path)
+    else:
+        print('WARNING: `tensorplex` lib not installed')
 
 
 init()

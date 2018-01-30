@@ -25,11 +25,6 @@ RUN cmake -DBUILD_SHARED_LIBS=ON . \
 WORKDIR /
 RUN rm -r /mylibs/glfw
 
-# pytorch
-RUN printf 'y\n' | conda install pytorch-cpu torchvision -c pytorch
-COPY surreal-requirements.txt /mylibs/
-RUN pip install -r /mylibs/surreal-requirements.txt
-
 # mujoco
 RUN mkdir /root/.mujoco
 WORKDIR /root/.mujoco
@@ -39,6 +34,11 @@ RUN wget https://www.roboti.us/download/mjpro150_linux.zip \
 RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
     && unzip mjpro131_linux.zip \
     && rm mjpro131_linux.zip
+
+# pytorch
+RUN printf 'y\n' | conda install pytorch-cpu torchvision -c pytorch
+COPY requirements.txt /mylibs/
+RUN pip install -r /mylibs/requirements.txt
 
 # DM control suite
 RUN pip install git+git://github.com/deepmind/dm_control.git
