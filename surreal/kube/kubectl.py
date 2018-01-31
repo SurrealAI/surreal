@@ -83,8 +83,8 @@ class Kubectl(object):
                     print_err(err)
                     self._loop_start_time = time.time()
                 return False
-            elif not 'AlreadyExists' in err:
-                print_err('create encounters an error that is not AlreadyExists')
+            else:
+                print_err('create encounters an error that is not `being deleted`')
                 self._print_err_return(out, err, retcode)
                 return True
         else:
@@ -107,7 +107,7 @@ class Kubectl(object):
             if self.dry_run:
                 print(file_content(temp))
             else:
-                self.run_event_loop(self._create_loop, temp, poll_interval=3)
+                self.run_event_loop(self._create_loop, temp, poll_interval=5)
 
     def get_secret_file(self, yaml_key):
         """
