@@ -116,7 +116,7 @@ class PPOLearner(Learner):
         return clip_loss, stats
 
 
-    def _clip_update(self, obs, actions, advantages):
+    def _clip_update_iter(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, old_prob).detach()
 
@@ -153,6 +153,32 @@ class PPOLearner(Learner):
                 self.clip_epsilon = self.clip_epsilon * 1.2
         
         _, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
+        return stats
+
+
+    def _clip_update_full(self, obs, actions, advantages):
+        old_prob = self.model.actor(obs).detach()
+        fixed_prob = self.pd.likelihood(actions, old_prob).detach()
+
+        for epoch in range(self.epoch_policy):
+
+            loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
+            self.model.actor.zero_grad()
+            loss.backward()
+            self.actor_optim.step()
+
+            prob = self.model.actor(obs)
+            kl = self.pd.kl(old_prob, prob).mean()
+            if kl.data[0] > 4 * self.kl_targ:
+                break
+
+        if kl.data[0] > self.kl_targ * self.clip_adj_thres[1]:
+            if self.clip_lower < self.clip_epsilon:
+                self.clip_epsilon = self.clip_epsilon / 1.2
+        elif kl.data[0] < self.kl_targ * self.clip_adj_thres[0]:
+            if self.clip_upper > self.clip_epsilon:
+                self.clip_epsilon = self.clip_epsilon * 1.2
+        
         return stats
 
 
@@ -228,7 +254,7 @@ class PPOLearner(Learner):
 
         return loss, stats
 
-    def _value_update(self, obs, returns):
+    def _value_update_iter(self, obs, returns):
         num_batches = obs.size()[0] // self.batch_size + 1
         for epoch in range(self.epoch_baseline):
             sortinds = np.random.permutation(obs.size()[0])
@@ -250,6 +276,16 @@ class PPOLearner(Learner):
         return stats
 
 
+    def _value_update_full(self, obs, returns):
+        for epoch in range(self.epoch_baseline):
+            loss, stats = self._value_loss(obs, returns)
+            self.model.critic.zero_grad()
+            loss.backward()
+            self.critic_optim.step()
+
+        return stats
+
+
 
     def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
         advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
@@ -260,10 +296,10 @@ class PPOLearner(Learner):
         returns = Variable(returns)
 
         if self.method == 'clip': 
-            stats = self._clip_update(obs, actions, advantages)
+            stats = self._clip_update_full(obs, actions, advantages)
         else:
             stats = self._adapt_update(obs, actions, advantages)
-        baseline_stats = self._value_update(obs, returns)
+        baseline_stats = self._value_update_full(obs, returns)
 
 
         # updating tensorplex
@@ -275,7 +311,7 @@ class PPOLearner(Learner):
             stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
             stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
             stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
-        print(stats)
+
         self.update_tensorplex(stats)
 
 
