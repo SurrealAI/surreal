@@ -160,8 +160,29 @@ class JinjaYaml(object):
     """
     Jinja for rendering yaml
     """
+    _env = None
+
     def __init__(self, text):
         self.text = text
+        JinjaYaml._init_jinja_env()
+
+    @staticmethod
+    def _init_jinja_env():
+        """
+        Set custom filters:https://stackoverflow.com/a/47291097/3453033
+        """
+        if JinjaYaml._env is not None:
+            return
+        _env = jinja2.Environment(
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
+        FILTERS = {
+            'to_underscore': lambda s: s.replace('-', '_'),
+            'to_hyphen': lambda s: s.replace('_', '-')
+        }
+        _env.filters.update(FILTERS)
+        JinjaYaml._env = _env
 
     def render(self, context=None, **context_kwargs):
         """
@@ -181,11 +202,7 @@ class JinjaYaml(object):
                 # correctly render multiline in Yaml
                 # remove the first and last single quote, change them to literal double quotes
                 context_kwargs[key] = '"{}"'.format(repr(value)[1:-1])
-        template = jinja2.Template(
-            self.text,
-            trim_blocks=True,
-            lstrip_blocks=True
-        )
+        template = JinjaYaml._env.from_string(self.text)
         return template.render(context_kwargs)
 
     def render_file(self, out_file, context=None, **context_kwargs):

@@ -154,7 +154,7 @@ class SurrealKube(object):
 
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
-    kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kfinal_gcloud.yml',
+    kube.create_with_git('~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
              snapshot=0,
              context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
 
