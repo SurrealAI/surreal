@@ -9,10 +9,11 @@ import sys
 import time
 import subprocess as pc
 import shlex
-from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
-from surreal.kube.git_snapshot import push_snapshot
+import json
 import os
 import os.path as path
+from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
+from surreal.kube.git_snapshot import push_snapshot
 
 
 def run_process(cmd):
@@ -34,6 +35,7 @@ class Kubectl(object):
         self.config = YamlList.from_file(surreal_yml)[0]
         self.dry_run = dry_run
         self._loop_start_time = None
+        self._created_yaml = None  # will be set after create()
 
     def run(self, cmd):
         if self.dry_run:
@@ -49,14 +51,20 @@ class Kubectl(object):
         print_err(err)
         print_err('*' * 20, 'stdout', '*' * 20)
         print_err(out)
+        print_err('*' * 46)
 
-    def run_verbose(self, cmd):
+    def run_verbose(self, cmd, print_out=True, raise_on_error=False):
         out, err, retcode = self.run(cmd)
         if retcode != 0:
-            print_err('Command `{}`'.format(cmd))
             self._print_err_return(out, err, retcode)
+            msg = 'Command `{}` fails'.format(cmd)
+            if raise_on_error:
+                raise RuntimeError(msg)
+            else:
+                print_err(msg)
         elif out:
             print(out)
+        return out, err, retcode
 
     def run_event_loop(self, func, *args, poll_interval=1, **kwargs):
         """
@@ -104,6 +112,7 @@ class Kubectl(object):
                 context=context,
                 **context_kwargs
         ) as temp:
+            self._created_yaml = YamlList.from_file(temp)
             if self.dry_run:
                 print(file_content(temp))
             else:
@@ -118,7 +127,11 @@ class Kubectl(object):
         fpath = self.config[yaml_key]
         return file_content(fpath)
 
-    def create_with_git(self, yaml_file, snapshot=True, context=None):
+    def create_surreal(self,
+                       yaml_file,
+                       snapshot=True,
+                       mujoco=True,
+                       context=None):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
@@ -143,19 +156,112 @@ class Kubectl(object):
         }
         if context is None:
             context = {}
+        if mujoco:
+            git_config['MUJOCO_KEY_TEXT'] = self.get_secret_file('mujoco_key_path')
         git_config.update(context)
         self.create(yaml_file, context=git_config)
 
+    def _get_selectors(self, labels, fields):
+        """
+        Helper for list_resources and list_jsonpath
+        """
+        cmd= ' '
+        if labels:
+            cmd += '--selector ' + shlex.quote(labels)
+        if fields:
+            cmd += ' --field-selector ' + shlex.quote(fields) + ' '
+        return cmd
 
-class SurrealKube(object):
-    def __init__(self):
-        pass
+    def list_resources(self, resource, output_format, labels=None, fields=None):
+        """
+        List all items in the resource with `output_format`
+        JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
+        label selectors: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+
+        Args:
+            resource: pod, service, deployment, etc.
+            output_format: https://kubernetes.io/docs/reference/kubectl/overview/#output-options
+              - custom-columns=<spec>
+              - custom-columns-file=<filename>
+              - json: returns a dict
+              - jsonpath=<template>
+              - jsonpath-file=<filename>
+              - name: list
+              - wide
+              - yaml: returns a dict
+            labels: label selector syntax, comma separated as logical AND. E.g:
+              - equality: mylabel=production
+              - inequality: mylabel!=production
+              - set: mylabel in (group1, group2)
+              - set exclude: mylabel notin (group1, group2)
+              - don't check value, only check key existence: mylabel
+              - don't check value, only check key nonexistence: !mylabel
+            fields: field selector, similar to label selector but operates on the
+              pod fields, such as `status.phase=Running`
+              fields can be found from `kubectl get pod <mypod> -o yaml`
+
+        Returns:
+            dict if output format is yaml or json
+            list if output format is name
+            string from stdout otherwise
+        """
+        cmd = 'get ' + resource
+        cmd += self._get_selectors(labels, fields)
+        if '=' in output_format:
+            # quoting the part after jsonpath=<...>
+            prefix, arg = output_format.split('=', 1)
+            output_format = prefix + '=' + shlex.quote(arg)
+        cmd += '-o ' + output_format
+        out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
+        if output_format == 'yaml':
+            return YamlList.from_string(out)[0]
+        elif output_format == 'json':
+            return json.loads(out)
+        elif output_format == 'name':
+            return out.split('\n')
+        else:
+            return out
+
+    def list_jsonpath(self, resource, jsonpath, labels=None, fields=None):
+        """
+        List all items in the resource with jsonpath
+        https://kubernetes.io/docs/reference/kubectl/jsonpath/
+        This method is an extension of list_resources()
+        Args:
+            resource:
+            jsonpath: make sure you escape dot if resource key string contains dot.
+              key must be enclosed in *single* quote!!
+              e.g. {.metadata.labels['kubernetes\.io/hostname']}
+              you don't have to do the range over items, we take care of it
+            labels: see `list_resources`
+            fields:
+
+        Returns:
+            a list of returned jsonpath values
+        """
+        jsonpath = '{range .items[*]}' + jsonpath + '{"\\n\\n"}{end}'
+        output_format = "jsonpath=" + jsonpath
+        out = self.list_resources(
+            resource=resource,
+            output_format=output_format,
+            labels=labels,
+            fields=fields
+        )
+        return out.split('\n\n')
 
 
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
-    kube.create_with_git('~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
-             snapshot=0,
-             context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
+    if 0:
+        kube.create_surreal('~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
+                 snapshot=0,
+                 context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
+    else:
+        import pprint
+        pprint.pprint(kube.list_jsonpath('nodes', '{.metadata.name}'))
+        pprint.pprint(kube.list_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
+        pprint.pprint(kube.list_resources('nodes', 'name'))
+        y = YamlList(kube.list_resources('nodes', 'yaml'))
+        print(y.to_string())
 
 
