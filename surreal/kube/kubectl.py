@@ -6,8 +6,9 @@ on import. Except for `watch`, other info can simply be parsed from stdout.
 -
 """
 import sys
-import shlex
+import time
 import subprocess as pc
+import shlex
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 import os
@@ -15,9 +16,9 @@ import os.path as path
 
 
 def run_process(cmd):
-    if isinstance(cmd, str):
-        cmd = shlex.split(cmd.strip())
-    proc = pc.Popen(cmd, stdout=pc.PIPE, stderr=pc.PIPE)
+    # if isinstance(cmd, str):  # useful for shell=False
+    #     cmd = shlex.split(cmd.strip())
+    proc = pc.Popen(cmd, stdout=pc.PIPE, stderr=pc.PIPE, shell=True)
     out, err = proc.communicate()
     return out.decode('utf-8'), err.decode('utf-8'), proc.returncode
 
@@ -38,19 +39,50 @@ class Kubectl(object):
             print('kubectl ' + cmd)
             return '', '', 0
         else:
-            return run_process('kubectl ' + cmd)
+            out, err, retcode = run_process('kubectl ' + cmd)
+            return out.strip(), err.strip(), retcode
+
+    def _print_err_return(self, out, err, retcode):
+        print_err('error code:', retcode)
+        print_err('*' * 20, 'stderr', '*' * 20)
+        print_err(err)
+        print_err('*' * 20, 'stdout', '*' * 20)
+        print_err(out)
 
     def run_verbose(self, cmd):
         out, err, retcode = self.run(cmd)
-        out, err = out.strip(), err.strip()
         if retcode != 0:
-            print_err('Kube command error:', retcode)
-            print_err('*' * 20, 'stderr', '*' * 20)
-            print_err(err)
-            print_err('*' * 20, 'stdout', '*' * 20)
-            print_err(out)
+            print_err('Command `{}`'.format(cmd))
+            self._print_err_return(out, err, retcode)
         elif out:
             print(out)
+
+    def run_event_loop(self, func, *args, poll_interval=1, **kwargs):
+        """
+        Run a function repeatedly until it returns True
+        """
+        while True:
+            if func(*args, **kwargs):
+                break
+            time.sleep(poll_interval)
+
+    def _create_loop(self, yaml_file):
+        """
+        Useful for restarting a kube service.
+        Resource might be in the process of deletion. Wait until deletion completes
+        """
+        yaml_file = path.expanduser(yaml_file)
+        out, err, retcode = self.run('create -f "{}"'.format(yaml_file))
+        if retcode:
+            if 'AlreadyExists' in err:
+                return False
+            else:
+                print_err('create encounters an error that is not AlreadyExists')
+                self._print_err_return(out, err, retcode)
+                return True
+        else:
+            print(out)
+            return True
 
     def create(self, yaml_file, context=None, **context_kwargs):
         """
@@ -61,17 +93,14 @@ class Kubectl(object):
             context: see `YamlList`
             **context_kwargs: see `YamlList`
         """
-        if context or context_kwargs:
-            with JinjaYaml.from_file(yaml_file).render_temp_file(
-                    context=context,
-                    **context_kwargs
-            ) as temp:
-                self.run_verbose('create -f "{}"'.format(temp))
-                if self.dry_run:
-                    print(file_content(temp))
-                # input('cont ...')
-        else:
-            self.run_verbose('create -f "{}"'.format(yaml_file))
+        with JinjaYaml.from_file(yaml_file).render_temp_file(
+                context=context,
+                **context_kwargs
+        ) as temp:
+            if self.dry_run:
+                print(file_content(temp))
+            else:
+                self.run_event_loop(self._create_loop, temp, poll_interval=3)
 
     def get_secret_file(self, yaml_key):
         """
@@ -114,7 +143,7 @@ class Kubectl(object):
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
     kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kpod_gcloud.yml',
-             snapshot=False,
+             snapshot=0,
              context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
 
 

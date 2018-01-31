@@ -103,7 +103,7 @@ class YamlList(object):
         Returns:
             the temporarily generated path (uuid4)
         """
-        temp_fname = 'kube-{}.yml'.format(uuid.uuid4())
+        temp_fname = 'temp-{}.yml'.format(uuid.uuid4())
         temp_fpath = path.expanduser(path.join(folder, temp_fname))
         self.save(temp_fpath)
         yield temp_fpath
@@ -231,3 +231,5 @@ if __name__ == '__main__':
                                       'myseq: "{% for n in range(10) %} my{{ n }} {% endfor %}"\n'
                                       'mylist: {{lis|join("$")}}')
     print(y.render(shit='yoyo\ndamn\n\nlol', n=7, lis=[100,99,98]))
+    y = JinjaYaml('shit: 3')
+    print(y.render())
