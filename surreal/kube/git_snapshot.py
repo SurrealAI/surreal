@@ -40,7 +40,7 @@ def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
     try:
         git.push('-f', 'origin', snapshot_branch)
         if verbose:
-            remote_url = repo.remotes[0].urls[0]
+            remote_url = list(list(repo.remotes)[0].urls)[0]
             print('successfully pushed to branch {} of {}'.format(
                 snapshot_branch, remote_url))
     except Exception as e:

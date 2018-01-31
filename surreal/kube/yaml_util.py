@@ -7,6 +7,7 @@ import os
 import os.path as path
 from io import StringIO
 from easydict import EasyDict
+from collections import OrderedDict
 
 
 def recursive_to_dict(easy_dict):
@@ -28,6 +29,31 @@ def recursive_to_dict(easy_dict):
     return d
 
 
+class Quoted(str):
+    """
+    https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data
+    """
+    pass
+
+class Literal(str):
+    """
+    Multi-line literals
+    """
+    pass
+
+def _quoted_presenter(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+yaml.add_representer(Quoted, _quoted_presenter)
+
+def _literal_presenter(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+yaml.add_representer(Literal, _literal_presenter)
+
+def _ordered_dict_presenter(dumper, data):
+    return dumper.represent_dict(data.items())
+yaml.add_representer(OrderedDict, _ordered_dict_presenter)
+
+
 class YamlList(object):
     def __init__(self, data_list):
         """
@@ -43,27 +69,25 @@ class YamlList(object):
         assert isinstance(index, int)
         return self.data_list[index]
 
-    def save(self, fpath, pretty=True):
+    def save(self, fpath):
         """
-
         Args:
-            fpath:
-            pretty: default_flow_style=True for yaml to be human-friendly
+            fpath: yaml path
         """
         with open(path.expanduser(fpath), 'w') as fp:
             # must convert back to normal dict; yaml serializes EasyDict object
             yaml.dump_all(
                 [recursive_to_dict(d) for d in self.data_list],
                 fp,
-                default_flow_style=not pretty
+                default_flow_style=False,
             )
 
-    def to_string(self, pretty=True):
+    def to_string(self):
         stream = StringIO()
         yaml.dump_all(
             [recursive_to_dict(d) for d in self.data_list],
             stream,
-            default_flow_style=not pretty,
+            default_flow_style=False,
             indent=2
         )
         return stream.getvalue()
@@ -76,7 +100,7 @@ class YamlList(object):
         """
         temp_fname = 'kube-{}.yml'.format(uuid.uuid4())
         temp_fpath = path.join(folder, temp_fname)
-        self.save(temp_fpath, pretty=False)
+        self.save(temp_fpath)
         yield temp_fpath
         os.remove(temp_fpath)
 
@@ -127,7 +151,7 @@ class YamlList(object):
         return cls.from_template_string(text, context=context, **context_kwargs)
 
     def __str__(self):
-        return self.to_string(pretty=True)
+        return self.to_string()
 
 
 if __name__ == '__main__':

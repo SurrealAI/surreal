@@ -70,17 +70,21 @@ class Kubectl(object):
                 print(yaml_list)
             with yaml_list.temp_file() as temp:
                 self.run_verbose('create -f "{}"'.format(temp))
+                # input('cont ...')
         else:
             self.run_verbose('create -f "{}"'.format(yaml_file))
 
     def get_secret_file(self, yaml_key):
         """
-        To be passed to Jinja2 engine
+        To be passed to Jinja2 engine.
+        Hack yaml to support multiline key files like Mujoco.
+        https://stackoverflow.com/questions/3790454/in-yaml-how-do-i-break-a-string-over-multiple-lines
         """
         fpath = self.config[yaml_key]
         fpath = path.expanduser(fpath)
         with open(fpath, 'r') as fp:
-            return '"{}"'.format(fp.read())
+            # remove the first and last single quote, change them to literal double quotes
+            return '"{}"'.format(repr(fp.read())[1:-1])
 
     def create_with_git(self, yaml_file, snapshot=True, context=None):
         """
@@ -97,7 +101,8 @@ class Kubectl(object):
                     snapshot_branch=self.config.git.snapshot_branch,
                     repo_path=repo_path
                 )
-        repo_names = [path.basename(path.normpath(p)) for p in repo_paths]
+        repo_names = [path.basename(path.normpath(p)).lower()
+                      for p in repo_paths]
         git_config = {
             'GIT_USER': self.config.git.user,
             'GIT_TOKEN': self.config.git.token,
@@ -111,8 +116,9 @@ class Kubectl(object):
 
 
 if __name__ == '__main__':
-    kube = Kubectl(dry_run=True)
+    kube = Kubectl(dry_run=0)
     kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kpod_gcloud.yml',
+             snapshot=False,
              context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
 
 
