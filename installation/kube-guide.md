@@ -24,7 +24,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 
 # One-time setup
 
-`~/.surreal` config file
+`~/.surreal.yml`
 
 git generate access token
 
