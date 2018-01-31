@@ -223,6 +223,25 @@ class EzDict(dict):
     def __str__(self):
         return str(ezdict_to_dict(self))
 
+    _builtin_keys = dict.keys
+    _builtin_items = dict.items
+    _builtin_values = dict.values
+    _builtin_get = dict.get
+    _builtin_clear = dict.clear
+    _builtin_update = dict.update
+    _builtin_pop = dict.pop
+    _builtin_popitem = dict.popitem
+    _builtin_to_dict = to_dict
+    _builtin_deepcopy = deepcopy
+    _builtin_loads_json = loads_json
+    _builtin_loads_yaml = loads_yaml
+    _builtin_load_json = load_json
+    _builtin_load_yaml = load_yaml
+    _builtin_dumps_json = dumps_json
+    _builtin_dumps_yaml = dumps_yaml
+    _builtin_dump_json = dump_json
+    _builtin_dump_yaml = dump_yaml
+
 
 def ezdict_to_dict(easy_dict):
     """
@@ -251,15 +270,24 @@ def _add_protected_methods():
 _add_protected_methods()
 
 
+def _print_protected_methods():
+    "paste the generated code into EzDict class for PyCharm convenience"
+    for i, (protected, normal) in enumerate(zip(_EzDict_PROTECTED_METHODS,
+                                                _EzDict_NATIVE_METHODS)):
+        if i < 8:
+            normal = 'dict.' + normal
+        print('{} = {}'.format(protected, normal))
+
+
 if __name__ == '__main__':
     import pickle, traceback
+    _print_protected_methods()
     if 1:
         a = EzDict({'keys': EzDict({'items': 100, 'get': 66})})
         b = a.deepcopy()
         b.keys.items = 120
         print(a.keys._builtin_items())
         print(b.keys)
-        print(b.load_json('shit.json'))
         print(b.keys.get)
         # aib = pickle.dumps(b)
         # aib = pickle.loads(aib)
