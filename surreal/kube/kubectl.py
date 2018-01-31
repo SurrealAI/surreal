@@ -33,6 +33,7 @@ class Kubectl(object):
         assert path.exists(surreal_yml)
         self.config = YamlList.from_file(surreal_yml)[0]
         self.dry_run = dry_run
+        self._loop_start_time = None
 
     def run(self, cmd):
         if self.dry_run:
@@ -61,6 +62,7 @@ class Kubectl(object):
         """
         Run a function repeatedly until it returns True
         """
+        self._loop_start_time = time.time()
         while True:
             if func(*args, **kwargs):
                 break
@@ -74,9 +76,14 @@ class Kubectl(object):
         yaml_file = path.expanduser(yaml_file)
         out, err, retcode = self.run('create -f "{}"'.format(yaml_file))
         if retcode:
-            if 'AlreadyExists' in err:
+            # TODO: very hacky check, should run checks on names instead
+            if 'is being deleted' in err:
+                if True or time.time() - self._loop_start_time > 30:
+                    print_err('old resource being deleted, waiting ...')
+                    print_err(err)
+                    self._loop_start_time = time.time()
                 return False
-            else:
+            elif not 'AlreadyExists' in err:
                 print_err('create encounters an error that is not AlreadyExists')
                 self._print_err_return(out, err, retcode)
                 return True
@@ -140,9 +147,14 @@ class Kubectl(object):
         self.create(yaml_file, context=git_config)
 
 
+class SurrealKube(object):
+    def __init__(self):
+        pass
+
+
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
-    kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kpod_gcloud.yml',
+    kube.create_with_git('~/Dropbox/Portfolio/Kurreal-demo/kfinal_gcloud.yml',
              snapshot=0,
              context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
 
