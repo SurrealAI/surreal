@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 """
 ENV variables
-- MUJOCO_KEY_PATH: default to /mylibs/surreal-secrets/surreal-secrets
-- SURREAL_PATH: default to /mylibs/surreal/surreal
-- TENSORPLEX_PATH: default to /mylibs/tensorplex/tensorplex
+- mujoco_key_text: plain text environment value
+- repo_surreal: /mylibs/surreal/surreal
+- repo_tensorplex
+- repo_surreal-secrets
 
-Note that the path is duplicated because gitVolume doesn't allow the same mount path,
-but the git repos are cloned as a subdir.
 """
 import os
 import sys
@@ -40,20 +39,21 @@ def init():
     os.system('/usr/bin/Xorg -noreset +extension GLX '
               '+extension RANDR +extension RENDER -logfile /etc/fakeX/10.log '
               '-config /etc/fakeX/xorg.conf :10 > /dev/null 2>&1 &')
-    mujoco_path = os.environ.get('MUJOCO_KEY_PATH', '/mylibs/mjkey.txt')
-    if mujoco_path and os.path.exists(mujoco_path):
-        assert 'mjkey.txt' in mujoco_path
-        f_copy(mujoco_path, '/root/.mujoco/')
+    mujoco_key = os.environ.get('mujoco_key_text', '')
+    if mujoco_key:
+        with open('/root/.mujoco/mjkey.txt', 'w') as fp:
+            fp.write(mujoco_key)
     else:
         print('WARNING: missing Mujoco `mjkey.txt`')
-    surreal_path = os.environ.get('SURREAL_PATH', '/mylibs/surreal')
+
+    surreal_path = os.environ.get('repo_surreal', '')
     if surreal_path and os.path.exists(surreal_path):
         # pip install surreal will move to Dockerfile if we release the image
         # here is only for dev, surreal is reinstalled every time
         os.system('pip install -e ' + surreal_path)
     else:
         print('WARNING: `surreal` lib not installed')
-    tensorplex_path = os.environ.get('TENSORPLEX_PATH', '/mylibs/tensorplex')
+    tensorplex_path = os.environ.get('repo_tensorplex', '')
     if tensorplex_path and os.path.exists(tensorplex_path):
         os.system('pip install -e ' + tensorplex_path)
     else:

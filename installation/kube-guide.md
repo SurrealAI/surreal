@@ -20,6 +20,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 ```
 
 `minikube-setenv.sh` to communicate with local docker.
+`minikube-mount.sh` to mount hostDir
 
 # One-time setup
 

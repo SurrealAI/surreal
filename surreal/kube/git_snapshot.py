@@ -7,7 +7,7 @@ def print_err(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def push_snapshot(snapshot_branch, repo_path='.', verbose=False):
+def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
     """
     Save a snapshot of the current codebase (with uncommitted changes and untracked
     files) to a temporary branch and then push to github.

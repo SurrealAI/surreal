@@ -9,6 +9,25 @@ from io import StringIO
 from easydict import EasyDict
 
 
+def recursive_to_dict(easy_dict):
+    """
+    Recursively convert back to builtin dict type
+    """
+    d = {}
+    for k, value in easy_dict.items():
+        if isinstance(value, EasyDict):
+            d[k] = recursive_to_dict(value)
+        elif isinstance(value, (list, tuple)):
+            d[k] = type(value)(
+                recursive_to_dict(v)
+                if isinstance(v, EasyDict)
+                else v for v in value
+            )
+        else:
+            d[k] = value
+    return d
+
+
 class YamlList(object):
     def __init__(self, data_list):
         """
@@ -34,7 +53,7 @@ class YamlList(object):
         with open(path.expanduser(fpath), 'w') as fp:
             # must convert back to normal dict; yaml serializes EasyDict object
             yaml.dump_all(
-                [dict(d) for d in self.data_list],
+                [recursive_to_dict(d) for d in self.data_list],
                 fp,
                 default_flow_style=not pretty
             )
@@ -42,9 +61,10 @@ class YamlList(object):
     def to_string(self, pretty=True):
         stream = StringIO()
         yaml.dump_all(
-            [dict(d) for d in self.data_list],
+            [recursive_to_dict(d) for d in self.data_list],
             stream,
-            default_flow_style=not pretty
+            default_flow_style=not pretty,
+            indent=2
         )
         return stream.getvalue()
 
