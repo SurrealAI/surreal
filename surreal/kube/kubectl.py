@@ -8,7 +8,7 @@ on import. Except for `watch`, other info can simply be parsed from stdout.
 import sys
 import shlex
 import subprocess as pc
-from surreal.kube.yaml_util import YamlList
+from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 import os
 import os.path as path
@@ -62,14 +62,13 @@ class Kubectl(object):
             **context_kwargs: see `YamlList`
         """
         if context or context_kwargs:
-            yaml_list = YamlList.from_template_file(
-                yaml_file,
-                context=context,
-                **context_kwargs)
-            if self.dry_run:
-                print(yaml_list)
-            with yaml_list.temp_file() as temp:
+            with JinjaYaml.from_file(yaml_file).render_temp_file(
+                    context=context,
+                    **context_kwargs
+            ) as temp:
                 self.run_verbose('create -f "{}"'.format(temp))
+                if self.dry_run:
+                    print(file_content(temp))
                 # input('cont ...')
         else:
             self.run_verbose('create -f "{}"'.format(yaml_file))
@@ -81,10 +80,7 @@ class Kubectl(object):
         https://stackoverflow.com/questions/3790454/in-yaml-how-do-i-break-a-string-over-multiple-lines
         """
         fpath = self.config[yaml_key]
-        fpath = path.expanduser(fpath)
-        with open(fpath, 'r') as fp:
-            # remove the first and last single quote, change them to literal double quotes
-            return '"{}"'.format(repr(fp.read())[1:-1])
+        return file_content(fpath)
 
     def create_with_git(self, yaml_file, snapshot=True, context=None):
         """

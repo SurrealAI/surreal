@@ -29,6 +29,11 @@ def recursive_to_dict(easy_dict):
     return d
 
 
+def file_content(fpath):
+    with open(path.expanduser(fpath), 'r') as fp:
+        return fp.read()
+
+
 class Quoted(str):
     """
     https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data
@@ -99,14 +104,14 @@ class YamlList(object):
             the temporarily generated path (uuid4)
         """
         temp_fname = 'kube-{}.yml'.format(uuid.uuid4())
-        temp_fpath = path.join(folder, temp_fname)
+        temp_fpath = path.expanduser(path.join(folder, temp_fname))
         self.save(temp_fpath)
         yield temp_fpath
         os.remove(temp_fpath)
 
     @classmethod
     def from_file(cls, fpath):
-        with open(fpath, 'r') as fp:
+        with open(path.expanduser(fpath), 'r') as fp:
             return cls(list(yaml.load_all(fp)))
 
     @classmethod
@@ -125,11 +130,10 @@ class YamlList(object):
             context: a dict of variables to be rendered into Jinja2
             **context_kwargs: same as context
         """
-        if context is not None:
-            assert isinstance(context, dict)
-            context_kwargs.update(context)
-        text = jinja2.Template(text).render(context_kwargs)
-        return cls.from_string(text)
+        return cls.from_string(JinjaYaml(text).render(
+            context=context,
+            **context_kwargs
+        ))
 
     @classmethod
     def from_template_file(cls,
@@ -143,15 +147,73 @@ class YamlList(object):
             context: a dict of variables to be rendered into Jinja2
             **context_kwargs: same as context
         """
-        if context is not None:
-            assert isinstance(context, dict)
-            context_kwargs.update(context)
-        with open(path.expanduser(template_path), 'r') as fp:
-            text = fp.read()
-        return cls.from_template_string(text, context=context, **context_kwargs)
+        return cls.from_string(JinjaYaml.from_file(template_path).render(
+            context=context,
+            **context_kwargs
+        ))
 
     def __str__(self):
         return self.to_string()
+
+
+class JinjaYaml(object):
+    """
+    Jinja for rendering yaml
+    """
+    def __init__(self, text):
+        self.text = text
+
+    def render(self, context=None, **context_kwargs):
+        """
+        Args:
+            template_path: yaml file with Jinja2 syntax
+            context: a dict of variables to be rendered into Jinja2
+            **context_kwargs: same as context
+
+        Returns:
+            rendered text
+        """
+        if context is not None:
+            assert isinstance(context, dict)
+            context_kwargs.update(context)
+        for key, value in context_kwargs.items():
+            if isinstance(value, str) and '\n' in value:
+                # correctly render multiline in Yaml
+                # remove the first and last single quote, change them to literal double quotes
+                context_kwargs[key] = '"{}"'.format(repr(value)[1:-1])
+        template = jinja2.Template(
+            self.text,
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
+        return template.render(context_kwargs)
+
+    def render_file(self, out_file, context=None, **context_kwargs):
+        """
+        Render as Jinja template
+        Args:
+            template_path: yaml file with Jinja2 syntax
+            context: a dict of variables to be rendered into Jinja2
+            **context_kwargs: same as context
+        """
+        with open(path.expanduser(out_file), 'w') as fp:
+            fp.write(self.render(context=context, **context_kwargs))
+
+    @contextlib.contextmanager
+    def render_temp_file(self, folder='.', context=None, **context_kwargs):
+        """
+        Returns:
+            the temporarily generated yaml (uuid4)
+        """
+        temp_fname = 'jinja-{}.yml'.format(uuid.uuid4())
+        temp_fpath = path.expanduser(path.join(folder, temp_fname))
+        self.render_file(temp_fpath, context=context, **context_kwargs)
+        yield temp_fpath
+        os.remove(temp_fpath)
+
+    @classmethod
+    def from_file(cls, template_path):
+        return cls(file_content(template_path))
 
 
 if __name__ == '__main__':
@@ -161,8 +223,11 @@ if __name__ == '__main__':
 
     with y.temp_file() as fname:
         os.system('cat ' +fname)
-    y.save('yo.yml')
-    os.system('cat yo.yml')
     print(y)
-
     print(y[0].mylist)
+    print('='*40)
+
+    y = JinjaYaml('shit: {{ shit  }} \n'
+                                      'myseq: "{% for n in range(10) %} my{{ n }} {% endfor %}"\n'
+                                      'mylist: {{lis|join("$")}}')
+    print(y.render(shit='yoyo\ndamn\n\nlol', n=7, lis=[100,99,98]))
