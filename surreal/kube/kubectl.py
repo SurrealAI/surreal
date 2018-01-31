@@ -172,9 +172,9 @@ class Kubectl(object):
             cmd += ' --field-selector ' + shlex.quote(fields) + ' '
         return cmd
 
-    def list_resources(self, resource, output_format, labels=None, fields=None):
+    def query_resources(self, resource, output_format, labels=None, fields=None):
         """
-        List all items in the resource with `output_format`
+        Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
         label selectors: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 
@@ -222,9 +222,9 @@ class Kubectl(object):
         else:
             return out
 
-    def list_jsonpath(self, resource, jsonpath, labels=None, fields=None):
+    def query_jsonpath(self, resource, jsonpath, labels=None, fields=None):
         """
-        List all items in the resource with jsonpath
+        Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
         This method is an extension of list_resources()
         Args:
@@ -241,7 +241,7 @@ class Kubectl(object):
         """
         jsonpath = '{range .items[*]}' + jsonpath + '{"\\n\\n"}{end}'
         output_format = "jsonpath=" + jsonpath
-        out = self.list_resources(
+        out = self.query_resources(
             resource=resource,
             output_format=output_format,
             labels=labels,
@@ -258,10 +258,11 @@ if __name__ == '__main__':
                  context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
     else:
         import pprint
-        pprint.pprint(kube.list_jsonpath('nodes', '{.metadata.name}'))
-        pprint.pprint(kube.list_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
-        pprint.pprint(kube.list_resources('nodes', 'name'))
-        y = YamlList(kube.list_resources('nodes', 'yaml'))
+        # 3 different ways to get a list of node names
+        pprint.pprint(kube.query_jsonpath('nodes', '{.metadata.name}'))
+        pprint.pprint(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
+        pprint.pprint(kube.query_resources('nodes', 'name'))
+        y = YamlList(kube.query_resources('nodes', 'yaml'))
         print(y.to_string())
 
 
