@@ -75,11 +75,11 @@ class PPO_CriticNetwork(U.Module):
         self.fc_h1 = nn.Linear(D_obs, hid_1)
         self.fc_h2 = nn.Linear(hid_1, hid_2)
         self.fc_h3 = nn.Linear(hid_2, hid_3)
-        self.fc_q  = nn.Linear(hid_3, 1)
+        self.fc_v  = nn.Linear(hid_3, 1)
 
     def forward(self, obs):
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
-        q  = self.fc_q(h3)
-        return q
+        v  = self.fc_v(h3)
+        return v
