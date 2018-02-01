@@ -141,3 +141,25 @@ LOCAL_SESSION_CONFIG = {
 }
 
 LOCAL_SESSION_CONFIG = extend_config(LOCAL_SESSION_CONFIG, BASE_SESSION_CONFIG)
+
+
+KUBE_SESSION_CONFIG = {
+    'folder': '_str_',
+
+    'replay': {
+        'host': '_str_',  # upstream from agents' pusher
+        'sampler_host': '_str_',  # downstream to Learner request
+    },
+    'ps': {
+        'host': '_str_',  # downstream to agent requests
+        'publish_host': '_str_',  # upstream from learner
+    },
+    'tensorplex': {
+        'host': '_str_',
+    },
+    'loggerplex': {
+        'host': '_str_',
+    },
+}
+
+KUBE_SESSION_CONFIG = extend_config(KUBE_SESSION_CONFIG, LOCAL_SESSION_CONFIG)

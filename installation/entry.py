@@ -14,7 +14,7 @@ import glob
 import errno
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cmd', type=str, nargs='+', help='run arbitrary command')
+parser.add_argument('--cmd', type=str, help='run arbitrary command')
 parser.add_argument('--sh', type=str, default='', help='shell script')
 parser.add_argument('--bash', action='store_true', help='start interactive bash')
 parser.add_argument('--py', type=str, default='', help='python script')
@@ -65,9 +65,8 @@ init()
 if args.bash:
     os.system('bash')
 elif args.cmd:
-    os.system(' '.join(args.cmd))
+    os.system(args.cmd)
 elif args.py:
-    assert args.py.endswith('.py')
     os.system('python -u ' + args.py)
 elif args.sh:
     os.system('/bin/bash ' + args.bash)
