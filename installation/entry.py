@@ -4,7 +4,6 @@ ENV variables
 - mujoco_key_text: plain text environment value
 - repo_surreal: /mylibs/surreal/surreal
 - repo_tensorplex
-- repo_surreal-secrets
 
 """
 import os

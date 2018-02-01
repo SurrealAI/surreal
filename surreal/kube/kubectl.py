@@ -253,22 +253,26 @@ class Kubectl(object):
 
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
-    if 0:
-        kube.create_surreal('~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
-                 snapshot=0,
-                 context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
+    if 1:
+        kube.create_surreal(
+            '~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
+            snapshot=1
+        )
     else:
         import pprint
         pp = pprint.pprint
         # 3 different ways to get a list of node names
-        pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
-        pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
-        pp(kube.query_resources('nodes', 'name'))
-        y = kube.query_resources('nodes', 'yaml')
-        pp(y.items[0].metadata)
+        # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
+        # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
+        # pp(kube.query_resources('nodes', 'name'))
+        # y = kube.query_resources('nodes', 'yaml')
+        # print(y.dumps_yaml())
+        # pp(y.items[0].metadata)
         # print(YamlList(y).to_string())
-        print(kube.query_jsonpath('pods', '{.metadata.name}', labels='mytype=transient_component'))
-        print(kube.query_resources('pods', 'name', labels='mytype=persistent_component'))
+        # print(kube.query_jsonpath('pods', '{.metadata.name}', labels='mytype=transient_component'))
+        # print(kube.query_resources('pods', 'name', labels='mytype=persistent_component'))
         y = kube.query_resources('pods', 'yaml')
-        pp(y.items[0].status)
+        for _it in y.items:
+            print(_it.status.phase)
+        # pp(y.items[0].status)
 
