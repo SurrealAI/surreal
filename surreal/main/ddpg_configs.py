@@ -9,8 +9,8 @@ def generate(argv):
     Will be called by `surreal.main_scripts.runner`
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, help='name of the environment')
-    parser.add_argument('--savefile', type=str, help='place to save the experiment result file')
+    parser.add_argument('--env', type=str, required=True, help='name of the environment')
+    parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
     parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
 
     args = parser.parse_args(args=argv)

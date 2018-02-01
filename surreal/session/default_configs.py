@@ -150,6 +150,9 @@ KUBE_SESSION_CONFIG = {
         'host': '_str_',  # upstream from agents' pusher
         'sampler_host': '_str_',  # downstream to Learner request
     },
+    'sender': {
+        'flush_iteration': '_int_',
+    },
     'ps': {
         'host': '_str_',  # downstream to agent requests
         'publish_host': '_str_',  # upstream from learner

@@ -37,7 +37,7 @@ def setup_parser():
 
     parser.add_argument('config', help='file name of the config')
     parser.add_argument('--config-command', type=str, default="", help='commands to give to config.py')
-    
+    parser.add_argument('--service-url', type=str, help='override domain name for parameter server and replay server. (Used when they are on the same machine)')
     subparsers = parser.add_subparsers(help='process type', dest='subcommand_name')
 
     agent_parser = subparsers.add_parser('agent')
@@ -112,11 +112,25 @@ def load_config(pathname, config_command):
 
     return configs
 
+def override_urls(configs, url):
+    """
+        Override all urls
+    """
+    configs.session_config.replay.host = url
+    configs.session_config.replay.sampler_host = url
+    configs.session_config.ps.host = url
+    configs.session_config.ps.publish_host = url
+    configs.tensorplex.host = url
+    configs.loggerplex.host = url
+
 def main():
     parser = setup_parser()
     args = parser.parse_args()
 
     config = load_config(args.config, args.config_command)
+
+    if args.service_url: 
+        override_urls(config, args.service_url)
 
     args.function(args, config)
 
