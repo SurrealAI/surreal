@@ -71,8 +71,6 @@ def setup_parser():
     tensorboard_parser.set_defaults(function=run_tensorboardwrapper_main)
     tensorboard_parser_setup(tensorboard_parser)
 
-    
-
     return parser
 
 def validate_config(config_module):
@@ -85,7 +83,6 @@ def load_config(pathname, config_command):
     """
         Load the python module specified in pathname
     """
-
     pathname = path.expanduser(pathname)
     pathname = path.abspath(pathname)
     
