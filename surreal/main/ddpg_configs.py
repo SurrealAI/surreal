@@ -4,6 +4,10 @@ import argparse
 # TODO：Documentation on config files
 
 def generate(argv):
+    """
+    The function name must be `generate`.
+    Will be called by `surreal.main_scripts.runner`
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, help='name of the environment')
     parser.add_argument('--savefile', type=str, help='place to save the experiment result file')
