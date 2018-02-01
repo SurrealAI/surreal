@@ -14,6 +14,7 @@ import os
 import os.path as path
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
+from surreal.utils.ezdict import EzDict
 
 
 def run_process(cmd):
@@ -57,12 +58,12 @@ class Kubectl(object):
         out, err, retcode = self.run(cmd)
         if retcode != 0:
             self._print_err_return(out, err, retcode)
-            msg = 'Command `{}` fails'.format(cmd)
+            msg = 'Command `kubectl {}` fails'.format(cmd)
             if raise_on_error:
                 raise RuntimeError(msg)
             else:
                 print_err(msg)
-        elif out:
+        elif out and print_out:
             print(out)
         return out, err, retcode
 
@@ -167,7 +168,7 @@ class Kubectl(object):
         """
         cmd= ' '
         if labels:
-            cmd += '--selector ' + shlex.quote(labels)
+            cmd += '--selector ' + shlex.quote(labels) + ' '
         if fields:
             cmd += ' --field-selector ' + shlex.quote(fields) + ' '
         return cmd
@@ -214,9 +215,9 @@ class Kubectl(object):
         cmd += '-o ' + output_format
         out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
         if output_format == 'yaml':
-            return YamlList.from_string(out)[0]
+            return EzDict.loads_yaml(out)
         elif output_format == 'json':
-            return json.loads(out)
+            return EzDict.loads_json(out)
         elif output_format == 'name':
             return out.split('\n')
         else:
@@ -258,11 +259,16 @@ if __name__ == '__main__':
                  context={'MUJOCO_KEY_TEXT': kube.get_secret_file('mujoco_key_path')})
     else:
         import pprint
+        pp = pprint.pprint
         # 3 different ways to get a list of node names
-        pprint.pprint(kube.query_jsonpath('nodes', '{.metadata.name}'))
-        pprint.pprint(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
-        pprint.pprint(kube.query_resources('nodes', 'name'))
-        y = YamlList(kube.query_resources('nodes', 'yaml'))
-        print(y.to_string())
-
+        pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
+        pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
+        pp(kube.query_resources('nodes', 'name'))
+        y = kube.query_resources('nodes', 'yaml')
+        pp(y.items[0].metadata)
+        # print(YamlList(y).to_string())
+        print(kube.query_jsonpath('pods', '{.metadata.name}', labels='mytype=transient_component'))
+        print(kube.query_resources('pods', 'name', labels='mytype=persistent_component'))
+        y = kube.query_resources('pods', 'yaml')
+        pp(y.items[0].status)
 
