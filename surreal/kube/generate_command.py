@@ -1,11 +1,10 @@
 import shlex
 
 class CommandGenerator():
-    def __init__(self, config_path, config_command=None, service_url=None, num_agents=2):
+    def __init__(self, config_path, config_command=None, service_url=None):
         self.config_path = config_path
         self.config_command = config_command
         self.service_url = service_url
-        self.num_agents = num_agents
 
     def get_command(self, role, args=[]):
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
@@ -17,11 +16,11 @@ class CommandGenerator():
             command += ['--', self.config_command]
         return ' '.join(command)
 
-    def launch(self):
+    def launch(self, num_agents):
         di = {}
         for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay', 'learner']:
             di[role] = self.get_command(role)
-        di['agent'] = [self.get_command('agent', [str(i)]) for i in range(self.num_agents)]
+        di['agent'] = [self.get_command('agent', [str(i)]) for i in range(num_agents)]
         di['eval'] = [self.get_command('eval', ['--mode', 'deterministic', '--id', '0'])]
         return di
 
@@ -30,6 +29,8 @@ class CommandGenerator():
     di = 
 """
 if __name__ == "__main__":
-    gen = CommandGenerator('~/.abc', config_command='--test-command def', service_url='foo.bar.com', num_agents=3)
-    di = gen.launch()
+    gen = CommandGenerator('~/.abc',
+                           config_command='--test-command def',
+                           service_url='foo.bar.com')
+    di = gen.launch(3)
     print(di)
