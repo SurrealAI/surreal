@@ -9,12 +9,12 @@ class CommandGenerator():
 
     def get_command(self, role, args=[]):
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
-        if self.config_command is not None:
-            command += ['--config-command', shlex.quote(self.config_command)]
         if self.service_url is not None:
             command += ['--service-url', shlex.quote(self.service_url)]
         command += [role]
         command += args
+        if self.config_command is not None:
+            command += ['--', self.config_command]
         return ' '.join(command)
 
     def launch(self):
