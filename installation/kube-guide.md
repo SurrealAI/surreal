@@ -49,4 +49,20 @@ apt-get -y install nfs-common
 mount -t nfs surreal-shared-fs-vm:/data /mnt
 ```
 
+## To mound nfs on kube
+In .yaml file
+```
+containers:
+  - name: ...
+    ...
+    volumeMounts:
+    - mountPath: /mnt
+      name: nfs-volume
+  volumes:
+  - name: nfs-volume
+    nfs:
+      server: surreal-shared-fs-vm
+      path: /data
+```
+
 
