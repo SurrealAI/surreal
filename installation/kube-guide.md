@@ -36,4 +36,17 @@ decide which branch is the temp branch to snapshot your code
 
 ## Kurreal API
 
+## TO create a nfs on google
+* there is one running called surreal-shared-fs-vm
+* Ask Yuke for permission
+* Go to google cloud launcher
+* Search for single node file server
+* Follow the instructions
+* Copy the mount command in the completed page
+* Set "startupscript" field of vm to be
+```
+apt-get -y install nfs-common
+mount -t nfs surreal-shared-fs-vm:/data /mnt
+```
+
 
