@@ -39,7 +39,7 @@ class TmuxCluster(object):
             Will be escaped by shlex.quote
             @dry_run: Set for tmux
         """
-        self.all_config = load_config(config_path, config_command)
+        self.all_config = load_config(config_path, shlex.split(config_command))
         self.config = self.all_config.session_config
         self.config_path = config_path
         self.config_command = config_command
