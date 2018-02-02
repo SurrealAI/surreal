@@ -44,6 +44,9 @@ class Kubectl(object):
             return '', '', 0
         else:
             out, err, retcode = run_process('kubectl ' + cmd)
+            if 'could not find default credentials' in err:
+                print("Please try `gcloud container clusters get-credentials mycluster` "
+                      "to fix credential error")
             return out.strip(), err.strip(), retcode
 
     def _print_err_return(self, out, err, retcode):
@@ -132,6 +135,18 @@ class Kubectl(object):
         fpath = self.config[yaml_key]
         return file_content(fpath)
 
+    def _yamlify_label_string(self, label_string):
+        if not label_string:
+            return ''
+        assert (':' in label_string or '=' in label_string), \
+            'label spec should look like <labelname>=<labelvalue>'
+        if ':' in label_string:
+            label_spec = label_string.split(':', 1)
+        else:
+            label_spec = label_string.split('=', 1)
+        # the space after colon is necessary for valid yaml
+        return '{}: {}'.format(*label_spec)
+
     def create_surreal(self,
                        yaml_file,
                        snapshot=True,
@@ -154,7 +169,7 @@ class Kubectl(object):
                 )
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
-        git_config = {
+        surreal_context = {
             'GIT_USER': self.config.git.user,
             'GIT_TOKEN': self.config.git.token,
             'GIT_SNAPSHOT_BRANCH': self.config.git.snapshot_branch,
@@ -163,14 +178,38 @@ class Kubectl(object):
         if context is None:
             context = {}
         if mujoco:
-            git_config['MUJOCO_KEY_TEXT'] = self.get_secret_file('mujoco_key_path')
-        git_config.update(context)
-        self.create(yaml_file, context=git_config, **context_kwargs)
+            surreal_context['MUJOCO_KEY_TEXT'] = self.get_secret_file('mujoco_key_path')
+        surreal_context.update(context)
+        # node-pool labeling
+        cluster = self.config.cluster
+        surreal_context['AGENT_POOL_LABEL'] = \
+            self._yamlify_label_string(cluster.agent_pool_label)
+        surreal_context['NONAGENT_POOL_LABEL'] = \
+            self._yamlify_label_string(cluster.nonagent_pool_label)
+        self.create(yaml_file, context=surreal_context, **context_kwargs)
+
+    def label_nodes(self, old_labels, new_label_name, new_label_value):
+        """
+        Select nodes that comply with `old_labels` spec, and assign them
+        a set of new nodes: `label:value`
+        https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+        """
+        node_names = self.query_resources('node', 'name', labels=old_labels)
+        for node_name in node_names:
+            new_label_string = shlex.quote('{}={}'.format(
+                new_label_name, new_label_value
+            ))
+            # no need for `kubectl label nodes` because the `names` returned
+            # will have fully qualified name "nodes/my-node-name`
+            self.run_verbose('label --overwrite {} {}'.format(
+                node_name, new_label_string
+            ))
 
     def _get_selectors(self, labels, fields):
         """
         Helper for list_resources and list_jsonpath
         """
+        labels, fields = labels.strip(), fields.strip()
         cmd= ' '
         if labels:
             cmd += '--selector ' + shlex.quote(labels) + ' '
@@ -178,7 +217,7 @@ class Kubectl(object):
             cmd += ' --field-selector ' + shlex.quote(fields) + ' '
         return cmd
 
-    def query_resources(self, resource, output_format, labels=None, fields=None):
+    def query_resources(self, resource, output_format, labels='', fields=''):
         """
         Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -228,7 +267,7 @@ class Kubectl(object):
         else:
             return out
 
-    def query_jsonpath(self, resource, jsonpath, labels=None, fields=None):
+    def query_jsonpath(self, resource, jsonpath, labels='', fields=''):
         """
         Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -258,7 +297,7 @@ class Kubectl(object):
 
 if __name__ == '__main__':
     kube = Kubectl(dry_run=0)
-    if 1:
+    if 0:
         kube.create_surreal(
             '~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
             snapshot=0
@@ -267,7 +306,11 @@ if __name__ == '__main__':
         import pprint
         pp = pprint.pprint
         # 3 different ways to get a list of node names
-        # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
+        pp(kube.query_jsonpath('nodes', '{.metadata.labels}')[0])
+        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                            'surreal-node', 'agent-pool')
+        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                            'surreal-node', 'nonagent-pool')
         # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
         # pp(kube.query_resources('nodes', 'name'))
         # y = kube.query_resources('nodes', 'yaml')
@@ -276,8 +319,8 @@ if __name__ == '__main__':
         # print(YamlList(y).to_string())
         # print(kube.query_jsonpath('pods', '{.metadata.name}', labels='mytype=transient_component'))
         # print(kube.query_resources('pods', 'name', labels='mytype=persistent_component'))
-        y = kube.query_resources('pods', 'yaml')
-        for _it in y.items:
-            print(_it.status.phase)
+        # y = kube.query_resources('pods', 'yaml')
+        # for _it in y.items:
+        #     print(_it.status.phase)
         # pp(y.items[0].status)
 

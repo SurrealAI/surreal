@@ -74,7 +74,10 @@ spec:
   hostname: {{ NONAGENT_HOST_NAME }}
   subdomain: surreal
   {{ volume_block | indent(2) }}
-
+{% if NONAGENT_POOL_LABEL %}
+  nodeSelector:
+    {{NONAGENT_POOL_LABEL}}
+{% endif %}
   containers:
 {% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
   {{ container_block(ENTITY,
@@ -97,7 +100,10 @@ spec:
   subdomain: surreal
   restartPolicy: Never
   {{ volume_block | indent(2) }}
-
+{% if AGENT_POOL_LABEL %}
+  nodeSelector:
+    {{AGENT_POOL_LABEL}}
+{% endif %}
   containers:
   {{ container_block('agent-' + (N|string),
     ["--cmd", CMD_DICT.agent[N]])
