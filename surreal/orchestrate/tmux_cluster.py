@@ -61,7 +61,7 @@ class TmuxCluster(object):
         """
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
         command += [mode]
-        if args is None:
+        if args is not None:
             command += [args]
         if self.config_command is not None:
             command += ['--', self.config_command]
