@@ -13,6 +13,7 @@ def generate(argv):
     parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
     parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
 
+    argv = [x for x in argv if x != '--']
     args = parser.parse_args(args=argv)
 
     learner_config = {
