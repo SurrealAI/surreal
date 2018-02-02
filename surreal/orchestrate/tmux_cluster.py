@@ -56,9 +56,9 @@ class TmuxCluster(object):
 
     def get_command(self, mode):
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
-        if self.config_command is not None:
-            command += ['--config-command', shlex.quote(self.config_command)]
         command += [mode]
+        if self.config_command is not None:
+            command += ['--', self.config_command]
         return ' '.join(command)
 
     def _get_agent_info(self, agent_names, agent_args_):
