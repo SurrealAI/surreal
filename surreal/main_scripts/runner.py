@@ -116,8 +116,8 @@ def override_urls(configs, url):
     configs.session_config.replay.sampler_host = url
     configs.session_config.ps.host = url
     configs.session_config.ps.publish_host = url
-    configs.tensorplex.host = url
-    configs.loggerplex.host = url
+    configs.session_config.tensorplex.host = url
+    configs.session_config.loggerplex.host = url
 
 def main():
     parser = setup_parser()
