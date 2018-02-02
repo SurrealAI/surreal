@@ -8,6 +8,7 @@ from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEA
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 
+import pdb
 
 class PPOLearner(Learner):
 
@@ -103,15 +104,18 @@ class PPOLearner(Learner):
         new_p = self.pd.likelihood(actions, new_prob)
         prob_ratio = new_p / fixed_prob
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
+        #print('old_prob (network output) min: ', fixed_dist.min())
+        #print('old_prob (network output) mean: ', fixed_dist.mean())
+        #print('fixed_prob (pd likelihood) min: ', fixed_prob.min())
+        #print('fixed_prob (pd likelihood) mean: ', fixed_prob.mean())
+        
         surr = -prob_ratio * advantages
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
-        kl = self.pd.kl(fixed_dist, new_prob).mean()
 
         stats = {
             "surr_loss": surr.mean().data[0], 
             "clip_surr_loss": clip_loss.data[0], 
-            "pol_kl": kl.data[0],
             "entropy": self.pd.entropy(new_prob).data.mean(),
             'clip_epsilon': self.clip_epsilon
         }
@@ -162,7 +166,6 @@ class PPOLearner(Learner):
     def _clip_update_full(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, old_prob).detach()
-
         for epoch in range(self.epoch_policy):
 
             loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
@@ -173,6 +176,7 @@ class PPOLearner(Learner):
 
             prob = self.model.actor(obs)
             kl = self.pd.kl(old_prob, prob).mean()
+            stats['pol_kl'] = kl.data[0]
             if kl.data[0] > 4 * self.kl_targ:
                 break
 
@@ -198,7 +202,7 @@ class PPOLearner(Learner):
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
 
         stats = {
-            'adapt_kl_loss': loss.data[0], 
+            'kl_loss_adapt': loss.data[0], 
             'surr_loss': surr.data[0], 
             'pol_kl': kl.data[0], 
             'entropy': entropy.data[0],
@@ -252,10 +256,11 @@ class PPOLearner(Learner):
         loss = (values - returns).pow(2).mean()
 
         stats = {
-            'value_loss': loss.data[0],
-            'explained_var': explained_var.data[0]
+            'val_loss': loss.data[0],
+            'val_explained_var': explained_var.data[0]
         }
         return loss, stats
+
 
     def _value_update_iter(self, obs, returns):
         num_batches = obs.size()[0] // self.batch_size + 1
@@ -289,7 +294,7 @@ class PPOLearner(Learner):
 
         return stats
 
-
+    
     def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
         advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
 
@@ -308,7 +313,8 @@ class PPOLearner(Learner):
         # updating tensorplex
         for k in baseline_stats:
             stats[k] = baseline_stats[k]
-        stats['returns'] = returns.mean().data[0]
+        stats['avg_returns'] = returns.mean().data[0]
+        stats['pol_avg_var'] = torch.exp(self.model.actor.log_var * 0.5).mean().data[0]
 
         if self.use_z_filter:
             stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
@@ -316,7 +322,6 @@ class PPOLearner(Learner):
             stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
 
         self.update_tensorplex(stats)
-
 
     def learn(self, batch):
         batch = self.aggregator.aggregate(batch)

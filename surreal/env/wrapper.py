@@ -3,7 +3,7 @@ import numpy as np
 import surreal.utils as U
 from operator import mul
 import functools
-import pygame
+#import pygame
 import sys
 import gym
 import dm_control
