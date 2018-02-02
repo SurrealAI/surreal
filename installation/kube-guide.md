@@ -32,6 +32,25 @@ decide which branch is the temp branch to snapshot your code
 
 # Walk through
 
+## Google Cloud cluster
+
+```
+gcloud container node-pools create agent-pool --cluster mycluster -m n1-standard-2 --num-nodes=8
+
+gcloud container node-pools create nonagent-pool --cluster mycluster -m n1-highmem-8 --num-nodes=1
+```
+
+Must label nodes in order to assign agent/non-agent to their corresponding node pool
+
+Also need to put the label config in `~/.surreal.yml`
+
+```python
+kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                            'surreal-node', 'agent-pool')
+kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                    'surreal-node', 'nonagent-pool')
+```
+
 ## Pod YAML
 
 ## Kurreal API
@@ -47,6 +66,12 @@ decide which branch is the temp branch to snapshot your code
 ```
 apt-get -y install nfs-common
 mount -t nfs surreal-shared-fs-vm:/data /mnt
+```
+
+## Connect to Tensorboard
+
+```bash
+autossh -N -L localhost:9006:10.138.0.33:6006 gke-mycluster-nonagent-pool-0b0a9484-l3kg.us-west1-b.<gcloud-url>
 ```
 
 ## To mound nfs on kube

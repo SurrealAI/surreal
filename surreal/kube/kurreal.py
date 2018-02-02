@@ -3,6 +3,9 @@ from surreal.kube.generate_command import *
 from surreal.kube.yaml_util import *
 from surreal.utils.serializer import string_hash
 
+# TODO experiment name needs to be passed into command line
+# TODO temp yaml will be saved to surreal-dir/experiment/temp-aosdfjiosdj.yaml
+
 
 experiment_name = 'myexper'
 host_name = string_hash(experiment_name).lower()  # WARNING: must lower case
@@ -16,7 +19,7 @@ if 1:
 
     kube.create_surreal(
         './kurreal.yml',
-        snapshot=1,
+        snapshot=0,
         NONAGENT_HOST_NAME=host_name,
         CMD_DICT=cmd_dict
     )

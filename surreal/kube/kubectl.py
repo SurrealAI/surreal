@@ -296,7 +296,15 @@ class Kubectl(object):
 
 
 if __name__ == '__main__':
+    # TODO: save temp file to experiment dir
     kube = Kubectl(dry_run=0)
+
+    def label_nodes():
+        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                         'surreal-node', 'agent-pool')
+        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                         'surreal-node', 'nonagent-pool')
+
     if 0:
         kube.create_surreal(
             '~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
@@ -306,11 +314,9 @@ if __name__ == '__main__':
         import pprint
         pp = pprint.pprint
         # 3 different ways to get a list of node names
-        pp(kube.query_jsonpath('nodes', '{.metadata.labels}')[0])
-        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-                            'surreal-node', 'agent-pool')
-        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-                            'surreal-node', 'nonagent-pool')
+        # pp(kube.query_jsonpath('pods', '{.metadata.labels}')[0])
+        pp(kube.query_resources('pods', 'json', fields='metadata.name=agent-0').dumps_yaml())
+
         # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
         # pp(kube.query_resources('nodes', 'name'))
         # y = kube.query_resources('nodes', 'yaml')
