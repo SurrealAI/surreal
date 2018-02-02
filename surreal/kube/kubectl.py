@@ -87,13 +87,16 @@ class Kubectl(object):
         if retcode:
             # TODO: very hacky check, should run checks on names instead
             if 'is being deleted' in err:
-                if True or time.time() - self._loop_start_time > 30:
+                if time.time() - self._loop_start_time > 30:
                     print_err('old resource being deleted, waiting ...')
                     print_err(err)
                     self._loop_start_time = time.time()
                 return False
             else:
-                print_err('create encounters an error that is not `being deleted`')
+                if 'AlreadyExists' in err:
+                    print('Warning: some components already exist')
+                else:
+                    print_err('create encounters an error that is not `being deleted`')
                 self._print_err_return(out, err, retcode)
                 return True
         else:
@@ -109,10 +112,11 @@ class Kubectl(object):
             context: see `YamlList`
             **context_kwargs: see `YamlList`
         """
-        with JinjaYaml.from_file(yaml_file).render_temp_file(
+        with JinjaYaml.from_file(yaml_file).render_throwaway_file(
                 context=context,
                 **context_kwargs
         ) as temp:
+            # _created_yaml will be used by log() and delete()
             self._created_yaml = YamlList.from_file(temp)
             if self.dry_run:
                 print(file_content(temp))

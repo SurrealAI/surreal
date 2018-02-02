@@ -5,7 +5,7 @@ from surreal.utils.serializer import string_hash
 
 
 experiment_name = 'myexper'
-host_name = string_hash(experiment_name)
+host_name = string_hash(experiment_name).lower()  # WARNING: must lower case
 service_url = host_name + '.surreal'  # hostname.subdomain
 
 if 1:

@@ -199,14 +199,23 @@ class JinjaYaml(object):
         with open(path.expanduser(out_file), 'w') as fp:
             fp.write(self.render(context=context, **context_kwargs))
 
-    @contextlib.contextmanager
+    def _get_temp_filepath(self, folder):
+        temp_fname = 'jinja-{}.yml'.format(uuid.uuid4())
+        return path.expanduser(path.join(folder, temp_fname))
+
     def render_temp_file(self, folder='.', context=None, **context_kwargs):
+        temp_fpath = self._get_temp_filepath(folder)
+        self.render_file(temp_fpath, context=context, **context_kwargs)
+        yield temp_fpath
+        os.remove(temp_fpath)
+
+    @contextlib.contextmanager
+    def render_throwaway_file(self, folder='.', context=None, **context_kwargs):
         """
         Returns:
             the temporarily generated yaml (uuid4)
         """
-        temp_fname = 'jinja-{}.yml'.format(uuid.uuid4())
-        temp_fpath = path.expanduser(path.join(folder, temp_fname))
+        temp_fpath = self._get_temp_filepath(folder)
         self.render_file(temp_fpath, context=context, **context_kwargs)
         yield temp_fpath
         os.remove(temp_fpath)
