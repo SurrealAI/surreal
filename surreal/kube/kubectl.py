@@ -132,7 +132,8 @@ class Kubectl(object):
                        yaml_file,
                        snapshot=True,
                        mujoco=True,
-                       context=None):
+                       context=None,
+                       **context_kwargs):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
@@ -160,7 +161,7 @@ class Kubectl(object):
         if mujoco:
             git_config['MUJOCO_KEY_TEXT'] = self.get_secret_file('mujoco_key_path')
         git_config.update(context)
-        self.create(yaml_file, context=git_config)
+        self.create(yaml_file, context=git_config, **context_kwargs)
 
     def _get_selectors(self, labels, fields):
         """
@@ -256,7 +257,7 @@ if __name__ == '__main__':
     if 1:
         kube.create_surreal(
             '~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
-            snapshot=1
+            snapshot=0
         )
     else:
         import pprint
