@@ -1,0 +1,105 @@
+# ================== preambles ==================
+{% set volume_block %}
+volumes:
+{% for git_repo in GIT_REPOS %}
+- name: {{git_repo | to_hyphen}}
+  gitRepo:
+    repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/stanfordvl/{{git_repo}}
+    revision: {{GIT_SNAPSHOT_BRANCH}}
+{% endfor %}
+{% endset %}
+
+# containers:
+{% macro container_block(name, args) %}
+- name: {{name}}
+  image: stanfordvl/surreal-cpu
+  imagePullPolicy: Always
+  env:
+  {% for git_repo in GIT_REPOS %}
+  - name: repo_{{git_repo | to_underscore}}
+    # Note that the path is duplicated because gitVolume doesn't allow the
+    # same mount path, but the git repos are cloned as a subdir.
+    value: /mylibs/{{git_repo}}/{{git_repo}}
+  {% endfor %}
+  - name: mujoco_key_text
+    value: {{MUJOCO_KEY_TEXT}}
+  - name: my_node_name
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: my_pod_name
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: my_pod_namespace
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: my_pod_ip
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+  volumeMounts:
+  # WARNING: will be mounted to /mylibs/surreal/surreal
+  {% for git_repo in GIT_REPOS %}
+  - mountPath: /mylibs/{{git_repo}}
+    name: {{git_repo | to_hyphen}}
+  {% endfor %}
+  args: {{args}}
+{% endmacro %}
+# ================== headless service provides DNS ==================
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: surreal
+spec:
+  selector:
+    type: nonagent
+  clusterIP: None
+  ports:
+  - port: 1  # doesn't matter what you put here, enables all ports
+
+# ================== nonagents, all on one pod ==================
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonagent
+  labels:
+    type: nonagent
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  hostname: {{ NONAGENT_HOST_NAME }}
+  subdomain: surreal
+  {{ volume_block | indent(2) }}
+
+  containers:
+{% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
+  {{ container_block(ENTITY,
+    ["--cmd", CMD_DICT[ENTITY]])
+    | indent(2) }}
+{% endfor %}
+
+# ================== agents, each on separate pod ==================
+{% for N in range(CMD_DICT.agent | length) %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: agent-{{N}}
+  labels:
+    type: agent
+spec:
+  hostNetwork: false
+  hostname: agent-{{N}}
+  subdomain: surreal
+  restartPolicy: Never
+  {{ volume_block | indent(2) }}
+
+  containers:
+  {{ container_block('agent-' + (N|string),
+    ["--cmd", CMD_DICT.agent[N]])
+    | indent(2) }}
+{% endfor %}
