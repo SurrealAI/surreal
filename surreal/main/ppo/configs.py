@@ -22,6 +22,8 @@ learner_config = {
         'optimizer': 'Adam',
         'clip_actor_gradient': True,
         'actor_gradient_clip_value': 1.,
+        'clip_critic_gradient': True,
+        'critic_gradient_clip_value': 1.,
         'gamma': .99,
         'target_update': {
             'type': 'soft',
