@@ -75,7 +75,10 @@ init()
 if args.bash:
     os.system('bash')
 elif args.cmd:
-    os.system(' '.join(map(shlex.quote, args.cmd)))
+    if len(args.cmd) == 1:
+        os.system(args.cmd[0])
+    else:  # docker run
+        os.system(' '.join(map(shlex.quote, args.cmd)))
 elif args.py:
     assert args.py.endswith('.py')
     os.system('python -u ' + args.py)

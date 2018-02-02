@@ -122,6 +122,9 @@ def override_urls(configs, url):
 def main():
     parser = setup_parser()
     args, remainder = parser.parse_known_args()
+    if '--' in remainder:
+        remainder.remove('--')
+    # remainder args will be passed to user's config generator
     config = load_config(args.config, remainder)
 
     if args.service_url: 
