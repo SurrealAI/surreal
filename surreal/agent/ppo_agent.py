@@ -39,8 +39,8 @@ class PPOAgent(Agent):
     def act(self, obs):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-
         action = self.model.actor(obs).data.numpy()
+
         if self.agent_mode is not AgentMode.eval_deterministic:
             action = self.pd.sample(action)
         else:

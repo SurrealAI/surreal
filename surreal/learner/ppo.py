@@ -61,6 +61,10 @@ class PPOLearner(Learner):
         if self.clip_actor_gradient:
             self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
 
+        self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
+        if self.clip_critic_gradient:
+            self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
             lr=self.lr_baseline
@@ -75,7 +79,6 @@ class PPOLearner(Learner):
         
         # probability distribution. Gaussian only for now
         self.pd = DiagGauss(self.action_dim)
-
 
 
     def _advantage_and_return(self, obs, actions, rewards, obs_next, done, num_steps):
@@ -165,6 +168,7 @@ class PPOLearner(Learner):
             loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
             self.model.actor.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
             prob = self.model.actor(obs)
@@ -251,7 +255,6 @@ class PPOLearner(Learner):
             'value_loss': loss.data[0],
             'explained_var': explained_var.data[0]
         }
-
         return loss, stats
 
     def _value_update_iter(self, obs, returns):
@@ -281,10 +284,10 @@ class PPOLearner(Learner):
             loss, stats = self._value_loss(obs, returns)
             self.model.critic.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
             self.critic_optim.step()
 
         return stats
-
 
 
     def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
