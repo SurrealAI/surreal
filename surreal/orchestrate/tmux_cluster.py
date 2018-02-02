@@ -54,9 +54,15 @@ class TmuxCluster(object):
             dry_run=dry_run
         )
 
-    def get_command(self, mode):
+    def get_command(self, mode, args=None):
+        """
+            mode is agent/learner/...
+            args is the surreal defined argument to give to agent/learner, in a string!!!!
+        """
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
         command += [mode]
+        if args is not None:
+            command += [args]
         if self.config_command is not None:
             command += ['--', self.config_command]
         return ' '.join(command)
@@ -162,7 +168,7 @@ class TmuxCluster(object):
             self._tmux.run(
                 session_name=self.agent_session,
                 window_name=agent_name,
-                cmd=self.get_command('agent') + ' ' + args
+                cmd=self.get_command('agent', args)
             )
 
     def kill_agents(self, agent_names):
@@ -184,7 +190,7 @@ class TmuxCluster(object):
             self._tmux.run(
                 session_name=self.learner_session,
                 window_name=eval_name,
-                cmd=self.get_command('eval') + ' ' + args
+                cmd=self.get_command('eval', args)
             )
 
     def kill_evals(self, eval_names):
