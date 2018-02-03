@@ -1,17 +1,30 @@
 # ================== preambles ==================
-{% set volume_block %}
+# file_server: 'hostPath', 'emptyDir', or NFS server address
+# alias: localhost == hostPath, temp == temporary == emptyDir
+{% macro volume_block(file_server, path_on_server) %}
 volumes:
 {% for git_repo in GIT_REPOS %}
-- name: {{git_repo | to_hyphen}}
+- name: {{ git_repo | to_hyphen }}
   gitRepo:
     repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/stanfordvl/{{git_repo}}
-    revision: {{GIT_SNAPSHOT_BRANCH}}
+    revision: {{ GIT_SNAPSHOT_BRANCH }}
 {% endfor %}
-{% endset %}
+- name: experiment
+{% if file_server | lower in ['temp', 'temporary', 'emptydir'] %}
+  emptyDir: {}
+{% elif file_server | lower in ['localhost', 'hostpath'] %}
+  hostPath:
+    path: {{ path_on_server }}
+{% else %}
+  nfs:
+    server: {{ file_server }}
+    path: {{ path_on_server }}
+{% endif %}
+{% endmacro %}
 
 # containers:
 {% macro container_block(name, args) %}
-- name: {{name}}
+- name: {{ name }}
   image: stanfordvl/surreal-cpu
   imagePullPolicy: Always
   env:
@@ -22,7 +35,7 @@ volumes:
     value: /mylibs/{{git_repo}}/{{git_repo}}
   {% endfor %}
   - name: mujoco_key_text
-    value: {{MUJOCO_KEY_TEXT}}
+    value: {{ MUJOCO_KEY_TEXT }}
   - name: my_node_name
     valueFrom:
       fieldRef:
@@ -42,10 +55,12 @@ volumes:
   volumeMounts:
   # WARNING: will be mounted to /mylibs/surreal/surreal
   {% for git_repo in GIT_REPOS %}
-  - mountPath: /mylibs/{{git_repo}}
-    name: {{git_repo | to_hyphen}}
+  - name: {{ git_repo | to_hyphen }}
+    mountPath: /mylibs/{{ git_repo }}
   {% endfor %}
-  args: {{args}}
+  - name: experiment
+    mountPath: /experiment
+  args: {{ args }}
 {% endmacro %}
 # ================== headless service provides DNS ==================
 ---
@@ -73,10 +88,11 @@ spec:
   dnsPolicy: ClusterFirstWithHostNet
   hostname: {{ NONAGENT_HOST_NAME }}
   subdomain: surreal
-  {{ volume_block | indent(2) }}
+  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+
 {% if NONAGENT_POOL_LABEL %}
   nodeSelector:
-    {{NONAGENT_POOL_LABEL}}
+    {{ NONAGENT_POOL_LABEL }}
 {% endif %}
   containers:
 {% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
@@ -99,10 +115,10 @@ spec:
   hostname: agent-{{N}}
   subdomain: surreal
   restartPolicy: Never
-  {{ volume_block | indent(2) }}
+  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
 {% if AGENT_POOL_LABEL %}
   nodeSelector:
-    {{AGENT_POOL_LABEL}}
+    {{ AGENT_POOL_LABEL }}
 {% endif %}
   containers:
   {{ container_block('agent-' + (N|string),

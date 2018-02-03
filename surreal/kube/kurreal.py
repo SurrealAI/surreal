@@ -13,7 +13,7 @@ snapshot = 0
 
 if 1:
     kube = Kubectl(dry_run=dry_run)
-    gen = CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py', config_command="--env 'dm_control:cheetah-run' --savefile /root/", service_url=service_url)
+    gen = CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py', config_command="--env 'dm_control:cheetah-run' --savefile /experiment/", service_url=service_url)
     cmd_dict = gen.launch(3)
     print(cmd_dict['tensorplex'])
 
@@ -21,6 +21,8 @@ if 1:
         './kurreal.yml',
         snapshot=snapshot,
         NONAGENT_HOST_NAME=host_name,
+        FILE_SERVER='temp',
+        PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
 else:
