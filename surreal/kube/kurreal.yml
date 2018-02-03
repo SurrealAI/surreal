@@ -75,6 +75,26 @@ spec:
   ports:
   - port: 1  # doesn't matter what you put here, enables all ports
 
+---
+# Cloud provider will assign an external IP, find it by looking for `tensorboard`:
+# kubectl get svc -o wide
+kind: Service
+apiVersion: v1
+metadata:
+  name: tensorboard
+spec:
+  # magic line here. Only works on cloud providers
+  type: LoadBalancer
+  selector:
+    type: nonagent
+  ports:
+  - name: tensorboard
+    protocol: TCP
+    # port: where external request should go to
+    port: 6006
+    # targetPort is where the container listens internally
+    targetPort: 6006
+
 # ================== nonagents, all on one pod ==================
 ---
 apiVersion: v1
