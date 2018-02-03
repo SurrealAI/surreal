@@ -1,4 +1,5 @@
 # this file should be saved at ~/.surreal.yml
+# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 git:
   user: <your_github_user_name>
   token: <generate_git_access_token_on_github_website>
