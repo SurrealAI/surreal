@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'git-snapshot=surreal.kube.git_snapshot:main',
+            'surreal-runner=surreal.main_scripts.runner:main',
         ]
     },
     classifiers=[
