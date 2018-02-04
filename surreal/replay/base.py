@@ -36,7 +36,7 @@ class ReplayCore(object, metaclass=ReplayMeta):
         self._exp_queue = ExpQueue(
             port=puller_port,
             max_size=max_puller_queue,
-            exp_handler=self.insert,
+            exp_handler=self._insert_base,
         )
         self._sampler_server = ZmqServer(
             port=sampler_port,
@@ -45,6 +45,8 @@ class ReplayCore(object, metaclass=ReplayMeta):
         )
         self._evict_interval = evict_interval
         self._evict_thread = None
+        self.cumulative_experience_count = 0
+        self.cumulative_sampled_count = 0
         # self._sample_condition = threading.Condition()
 
     def start_threads(self):
@@ -53,6 +55,8 @@ class ReplayCore(object, metaclass=ReplayMeta):
         if self._evict_interval:
             self.start_evict_thread()
         self._sampler_server.run_loop(block=True)
+
+
 
     def insert(self, exp_dict):
         """
@@ -97,6 +101,13 @@ class ReplayCore(object, metaclass=ReplayMeta):
         raise NotImplementedError
 
     # ======================== internal methods ========================
+    def _insert_base(self, exp_dict):
+        """
+            Allows us to do some book keeping in the base class
+        """
+        self.cumulative_experience_count += 1
+        self.insert(exp_dict)
+
     def _sample_request_handler(self, batch_size):
         """
         Handle requests to the learner
@@ -106,6 +117,7 @@ class ReplayCore(object, metaclass=ReplayMeta):
         U.assert_type(batch_size, int)
         while not self.start_sample_condition():
             time.sleep(0.01)
+        self.cumulative_sampled_count += batch_size
         return self.sample(batch_size)
 
     def _evict_loop(self):
@@ -174,6 +186,8 @@ class Replay(ReplayCore):
             'batch_size': '_int_',
         }
 
+    def _insert_base(self, exp_dict):
+        self.insert(exp_dict)
 
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
@@ -185,9 +199,23 @@ class Replay(ReplayCore):
         return self._tensorplex_thread
 
     def _tensorplex_loop(self, init_time):
+        self.last_experience_count = 0
+        self.last_sample_count = 0
         while True:
             time.sleep(1.)
+            
+            cum_count_exp = self.cumulative_experience_count
+            new_exp_count = cum_count_exp - self.last_experience_count
+            self.last_experience_count = cum_count_exp
+
+            cum_count_sample = self.cumulative_sampled_count
+            new_sample_count = cum_count_sample - self.last_sample_count
+            self.last_sample_count = cum_count_sample
+
             self.tensorplex.add_scalars({
                 'exp_queue_occupancy': self._exp_queue.occupancy(),
                 'num_exps': len(self),
+                'cumulative_exps': self.cumulative_experience_count,
+                'exp_in/s': new_exp_count,
+                'exp_out/s': new_sample_count,
             }, global_step=int(time.time() - init_time))
