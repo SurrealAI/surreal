@@ -13,7 +13,15 @@ class DDPGLearner(Learner):
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
 
+        self.current_iteration = 0
+
         self.gpu_id = session_config.learner.gpu
+        if self.gpu_id == -1:
+            self.log.info('Using CPU')
+            print('Using CPU')
+        else:
+            self.log.info('Using GPU: {}'.format(self.gpu_id))
+            print('Using GPU: {}'.format(self.gpu_id))
         with U.torch_gpu_scope(self.gpu_id):
 
             self.target_update_init()
@@ -126,22 +134,25 @@ class DDPGLearner(Learner):
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                 tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]
-
-            self.update_tensorplex(tensorplex_update_dict)
+                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]            
 
             # (possibly) update target networks
             self.target_update()
 
+            return tensorplex_update_dict
+
     def learn(self, batch):
+        self.current_iteration += 1
         batch = self.aggregator.aggregate(batch)
-        self._optimize(
+        tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
             batch.rewards,
             batch.obs_next,
             batch.dones
         )
+
+        self.update_tensorplex(tensorplex_update_dict)
 
     def module_dict(self):
         return {

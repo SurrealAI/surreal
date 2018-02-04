@@ -186,9 +186,6 @@ class Replay(ReplayCore):
             'batch_size': '_int_',
         }
 
-    def _insert_base(self, exp_dict):
-        self.insert(exp_dict)
-
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
             raise RuntimeError('tensorplex thread already running')
