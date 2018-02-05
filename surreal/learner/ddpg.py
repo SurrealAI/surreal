@@ -16,12 +16,11 @@ class DDPGLearner(Learner):
         self.current_iteration = 0
 
         self.gpu_id = session_config.learner.gpu
+        self.log.info('Initializing DDPG learner')
         if self.gpu_id == -1:
             self.log.info('Using CPU')
-            print('Using CPU')
         else:
             self.log.info('Using GPU: {}'.format(self.gpu_id))
-            print('Using GPU: {}'.format(self.gpu_id))
         with U.torch_gpu_scope(self.gpu_id):
 
             self.target_update_init()
@@ -51,19 +50,22 @@ class DDPGLearner(Learner):
 
             self.critic_criterion = nn.MSELoss()
 
+            self.log.info('Using adam for critic with learning rate {}'.format(self.learner_config.algo.lr))
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
                 lr=self.learner_config.algo.lr
             )
 
+            self.log.info('Using adam for actor with learning rate {}'.format(self.learner_config.algo.lr))
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
                 lr=self.learner_config.algo.lr
             )
 
+            self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
+            # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
             # self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
-
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
@@ -165,9 +167,11 @@ class DDPGLearner(Learner):
 
         if self.target_update_type == 'soft':
             self.target_update_tau = target_update_config.tau
+            self.log.info('Using soft target update with tau = {}'.format(self.target_update_tau))
         elif self.target_update_type == 'hard':
             self.target_update_counter = 0
             self.target_update_interval = target_update_config.interval
+            self.log.info('Using hard target update every {} steps'.format(self.target_update_interval))
         else:
             raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
 
