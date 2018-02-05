@@ -17,15 +17,15 @@ build:
 # Can't do as container requires gpu hosts
 # test-gpu:
 
-GPU_URL='stanfordvl/surreal-cpu'
+GPU_URL='stanfordvl/surreal-gpu'
 
 push-gpu:
 	docker push $(GPU_URL):`cat VERSION`
 	docker push $(GPU_URL):latest
 
-pull:
+pull-gpu:
 	docker pull $(GPU_URL):latest
 
-build:
+build-gpu:
 	docker build -t $(GPU_URL):`cat VERSION` .
 	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
