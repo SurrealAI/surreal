@@ -25,7 +25,7 @@ Resources:
 ## Instructions
 Command to create cluster
 ```
-gcloud  beta container clusters create [cluster-name] --enable-kubernetes-alpha --accelerator type=nvidia-tesla-k80,count=1 --cluster-version 1.9.2-gke.0 --zone [zone]
+gcloud beta container clusters create [cluster-name] --enable-kubernetes-alpha --accelerator type=nvidia-tesla-k80,count=1 --cluster-version 1.9.2-gke.0 --zone [zone]
 ```
 Add custom commands as needed, if you have the money, you can replace k80 with p100
 
