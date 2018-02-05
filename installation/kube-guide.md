@@ -33,7 +33,7 @@ decide which branch is the temp branch to snapshot your code
 # Walk through
 
 ## Google Cloud cluster
-
+If you want GPU, go to [creating a GPU cluster](# Creating a GPU cluster)
 ```
 gcloud container node-pools create agent-pool --cluster mycluster -m n1-standard-2 --num-nodes=8
 
@@ -74,6 +74,8 @@ mount -t nfs surreal-shared-fs-vm:/data /mnt
 autossh -N -L localhost:9006:10.138.0.33:6006 gke-mycluster-nonagent-pool-0b0a9484-l3kg.us-west1-b.<gcloud-url>
 ```
 
+
+
 ## To mound nfs on kube
 In .yaml file
 ```
@@ -90,4 +92,55 @@ containers:
       path: /data
 ```
 
+# Creating a GPU cluster
+This guide shows how to create an alpha cluster and run gpu-accelerated ku/surreal on it.
 
+First we create the cluster
+```
+gcloud beta container clusters create [cluster-name] --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone [zone] --num-nodes=1
+```
+
+Next we set up some context
+```
+gcloud config set container/cluster [cluster-name]
+gcloud container clusters get-credentials [cluster-name]
+```
+
+If this line runs successfully the cluster is setup
+```
+kubectl cluster-info
+```
+
+Create the nodes we want and delete the original node pool
+```
+gcloud container node-pools create agent-pool -m n1-standard-2 --num-nodes=8
+gcloud beta container node-pools create nonagent-pool -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --num-nodes=1
+gcloud container node-pools delete default-pool
+```
+
+Run the daemon to install nvidia drivers
+```
+kubectl create -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/k8s-1.9/nvidia-driver-installer/cos/daemonset-preloaded.yaml
+```
+
+Check to see the daemons are running by 
+```
+kubectl get pods --namespace=kube-system | grep nvidia
+>>>nvidia-driver-installer-ng5vv ...
+>>>nvidia-gpu-device-plugin-n8stz ...
+```
+
+Next we tag the nodes, 
+```python
+kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                            'surreal-node', 'agent-pool')
+kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                    'surreal-node', 'nonagent-pool')
+```
+The rest are the same for the non-GPU case
+
+To clean up the cluster:
+```
+gcloud container clusters delete [cluster-name]
+gcloud config unset container/cluster
+```
