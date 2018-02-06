@@ -307,6 +307,7 @@ class PPOLearner(Learner):
             stats[k] = baseline_stats[k]
         stats['avg_returns'] = returns.mean().data[0]
         stats['pol_avg_var'] = torch.exp(self.model.actor.log_var * 0.5).mean().data[0]
+        stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
 
         if self.use_z_filter:
             stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]

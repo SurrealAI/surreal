@@ -48,11 +48,11 @@ learner_config = {
         # ppo specific parameters:
         'method': 'clip',
         'lam': 0.95, # GAE lambda
-        'lr_policy': 1e-3,
-        'lr_baseline': 1e-3,
+        'lr_policy': 4e-4,
+        'lr_baseline': 4e-4,
         'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
-        'epoch_policy': 10,
-        'epoch_baseline': 10,
+        'epoch_policy': 4,
+        'epoch_baseline': 4,
         'kl_targ': 0.003, # target KL divergence between before and after
         'kl_cutoff_coeff': 50, # penalty coeff when kl large
         'clip_epsilon_init': 0.2, # factor of clipped loss
