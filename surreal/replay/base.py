@@ -36,7 +36,7 @@ class ReplayCore(object, metaclass=ReplayMeta):
         self._exp_queue = ExpQueue(
             port=puller_port,
             max_size=max_puller_queue,
-            exp_handler=self._insert_base,
+            exp_handler=self._insert_wrapper,
         )
         self._sampler_server = ZmqServer(
             port=sampler_port,
@@ -45,7 +45,9 @@ class ReplayCore(object, metaclass=ReplayMeta):
         )
         self._evict_interval = evict_interval
         self._evict_thread = None
+        # Number of experience collected by agents
         self.cumulative_experience_count = 0
+        # Number of experience sampled by learner
         self.cumulative_sampled_count = 0
         # self._sample_condition = threading.Condition()
 
@@ -55,8 +57,6 @@ class ReplayCore(object, metaclass=ReplayMeta):
         if self._evict_interval:
             self.start_evict_thread()
         self._sampler_server.run_loop(block=True)
-
-
 
     def insert(self, exp_dict):
         """
@@ -101,7 +101,7 @@ class ReplayCore(object, metaclass=ReplayMeta):
         raise NotImplementedError
 
     # ======================== internal methods ========================
-    def _insert_base(self, exp_dict):
+    def _insert_wrapper(self, exp_dict):
         """
             Allows us to do some book keeping in the base class
         """

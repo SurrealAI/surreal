@@ -13,9 +13,9 @@ def run_agent_main(args, config):
     env, env_config = make_env(env_config)
 
     # This has to go first as it alters step returns
-    agent_limit_episode_length = learner_config.algo.agent_limit_episode_length
-    if agent_limit_episode_length > 0:
-        env = MaxStepWrapper(env, agent_limit_episode_length)
+    limit_training_episode_length = learner_config.algo.limit_training_episode_length
+    if limit_training_episode_length > 0:
+        env = MaxStepWrapper(env, limit_training_episode_length)
 
     env = ConsoleMonitor(
         env,

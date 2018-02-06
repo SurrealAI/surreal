@@ -54,7 +54,7 @@ def generate(argv):
                 'sigma': 0.05,
                 'dt': 1e-3,
             },
-            'agent_limit_episode_length': 0, # 0 means no limit
+            'limit_training_episode_length': 0, # 0 means no limit
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
