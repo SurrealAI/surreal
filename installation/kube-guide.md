@@ -99,6 +99,9 @@ First we create the cluster
 ```
 gcloud beta container clusters create [cluster-name] --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone [zone] --num-nodes=1
 ```
+```
+gcloud beta container clusters create kurreal --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone us-west1-b --num-nodes=2 -m n1-standard-1
+```
 
 Next we set up some context
 ```
@@ -113,9 +116,8 @@ kubectl cluster-info
 
 Create the nodes we want and delete the original node pool
 ```
-gcloud container node-pools create agent-pool -m n1-standard-2 --num-nodes=8
-gcloud beta container node-pools create nonagent-pool -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --num-nodes=1
-gcloud container node-pools delete default-pool
+gcloud container node-pools create agent-pool -m n1-standard-2 --node-labels surreal-node=agent-pool --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2
+gcloud beta container node-pools create nonagent-pool -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-pool --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2
 ```
 
 Run the daemon to install nvidia drivers
