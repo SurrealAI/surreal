@@ -104,11 +104,6 @@ class PPOLearner(Learner):
         new_p = self.pd.likelihood(actions, new_prob)
         prob_ratio = new_p / fixed_prob
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
-        #print('old_prob (network output) min: ', fixed_dist.min())
-        #print('old_prob (network output) mean: ', fixed_dist.mean())
-        #print('fixed_prob (pd likelihood) min: ', fixed_prob.min())
-        #print('fixed_prob (pd likelihood) mean: ', fixed_prob.mean())
-        
         surr = -prob_ratio * advantages
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
@@ -297,18 +292,15 @@ class PPOLearner(Learner):
     
     def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
         advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
-
         obs = Variable(obs)
         actions = Variable(actions.squeeze(1))
         advantages = Variable(advantages)
         returns = Variable(returns)
-
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages)
         else:
             stats = self._adapt_update(obs, actions, advantages)
         baseline_stats = self._value_update_full(obs, returns)
-
 
         # updating tensorplex
         for k in baseline_stats:

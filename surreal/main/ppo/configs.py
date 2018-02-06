@@ -44,15 +44,15 @@ learner_config = {
         'n_step': 10,
         'experience': 'ExpSenderWrapperMultiStepMovingWindow',
         'stride': 1,
-        'batch_size': 4096,
+        'batch_size': 128,
         # ppo specific parameters:
         'method': 'clip',
         'lam': 0.95, # GAE lambda
         'lr_policy': 1e-3,
         'lr_baseline': 1e-3,
         'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
-        'epoch_policy': 1,
-        'epoch_baseline': 1,
+        'epoch_policy': 10,
+        'epoch_baseline': 10,
         'kl_targ': 0.003, # target KL divergence between before and after
         'kl_cutoff_coeff': 50, # penalty coeff when kl large
         'clip_epsilon_init': 0.2, # factor of clipped loss
@@ -63,9 +63,9 @@ learner_config = {
     },
     'replay': {
         'replay_class': 'UniformReplay',
-        'batch_size': 4096,
-        'memory_size': 8192,
-        'sampling_start_size': 1024,
+        'batch_size': 128,
+        'memory_size': 256,
+        'sampling_start_size': 128,
     },
     'eval': {
         'eps': 0.05  # 5% random action under eval_stochastic mode
