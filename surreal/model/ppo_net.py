@@ -18,7 +18,7 @@ class DiagGauss(object):
             2.0 * np.pi) * self.d - std0.log().sum(dim=1, keepdim=True)
 
     def likelihood(self, a, prob):
-        return self.loglikelihood(a, prob).exp()
+        return torch.clamp(self.loglikelihood(a, prob).exp(), min=1e-5)
 
     def kl(self, prob0, prob1):
         mean0 = prob0[:, :self.d]
