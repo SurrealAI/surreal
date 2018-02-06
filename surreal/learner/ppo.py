@@ -206,8 +206,33 @@ class PPOLearner(Learner):
 
         return loss, stats
 
+    def _adapt_update_full(self, obs, actions, advantages):
+        old_prob = self.model.actor(obs).detach()
 
-    def _adapt_update(self, obs, actions, advantages):
+        for epoch in range(self.epoch_policy):
+
+                loss, _ = self._adapt_loss(obs, actions, advantages, old_prob)
+                self.model.actor.zero_grad()
+                loss.backward()
+                self.actor_optim.step()
+
+            prob = self.model.actor(obs)
+            kl = self.pd.kl(old_prob, prob).mean()
+            stats['pol_kl'] = kl.data[0]
+            if kl.data[0] > self.kl_targ * 4:
+                break
+
+        if kl.data[0] > self.kl_targ * self.beta_adj_thres[1]:
+            if self.beta_upper > self.beta:
+                self.beta = self.beta * 1.5
+        elif kl.data[0] < self.kl_targ * self.beta_adj_thres[0]:
+            if self.beta_lower < self.beta:
+                self.beta = self.beta / 1.5
+
+        return stats
+
+
+    def _adapt_update_iter(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
 
         num_batches = obs.size()[0] // self.batch_size + 1
@@ -299,14 +324,13 @@ class PPOLearner(Learner):
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages)
         else:
-            stats = self._adapt_update(obs, actions, advantages)
+            stats = self._adapt_update_full(obs, actions, advantages)
         baseline_stats = self._value_update_full(obs, returns)
 
         # updating tensorplex
         for k in baseline_stats:
             stats[k] = baseline_stats[k]
         stats['avg_returns'] = returns.mean().data[0]
-        stats['pol_avg_var'] = torch.exp(self.model.actor.log_var * 0.5).mean().data[0]
         stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
 
         if self.use_z_filter:
