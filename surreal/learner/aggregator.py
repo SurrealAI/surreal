@@ -81,7 +81,7 @@ class MultistepAggregator():
     def aggregate(self, exp_list):
         observations, actions, rewards, dones = [], [], [], []
         for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stak_n_step_experience(exp)
+            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
             observations.append(observation_n_step)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
@@ -100,7 +100,7 @@ class MultistepAggregator():
                     rewards=rewards, 
                     dones=dones,)
 
-    def stak_n_step_experience(self, experience):
+    def stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays
         """
