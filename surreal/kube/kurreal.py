@@ -9,7 +9,7 @@ def _add_dry_run(parser):
     parser.add_argument(
         '-dr', '--dry-run',
         action='store_true',
-        help='print the rendered yaml and not actually execute it.'
+        help='print the kubectl command without actually executing it.'
     )
 
 
@@ -42,15 +42,24 @@ def _process_labels(label_string):
 
 def setup_parser():
     parser = argparse.ArgumentParser()
+    _add_dry_run(parser)
 
-    # parser.add_argument('config', help='file name of the config')
-    # parser.add_argument('--service-url', type=str, help='override domain name for parameter server and replay server. (Used when they are on the same machine)')
     subparsers = parser.add_subparsers(
-        help='kurreal actions',
-        dest='subcommand_name'  # will store to parser.dest
+        help='kurreal action commands',
+        dest='kurreal_action'  # will store to parser.subcommand_name
     )
+    subparsers.required = True
 
-    create_parser = subparsers.add_parser('create')
+    def _add_subparser(name, parse_func):
+        parser = subparsers.add_parser(
+            name,
+            help=parse_func.__doc__
+        )
+        _add_dry_run(parser)
+        parser.set_defaults(func=parse_func)
+        return parser
+
+    create_parser = _add_subparser('create', kurreal_create)
     _add_experiment_name(create_parser)
     create_parser.add_argument(
         'config_py',
@@ -64,7 +73,6 @@ def setup_parser():
         type=int,
         help='number of agents to run in parallel.'
     )
-    _add_dry_run(create_parser)
     create_parser.add_argument(
         '-sn', '--snapshot',
         action='store_true',
@@ -76,15 +84,11 @@ def setup_parser():
         help='force overwrite an existing kurreal.yml file '
              'if its experiment folder already exists.'
     )
-    create_parser.set_defaults(func=kurreal_create)
 
-    stop_parser = subparsers.add_parser('stop')
+    stop_parser = _add_subparser('stop', kurreal_stop)
     _add_experiment_name(stop_parser)
-    _add_dry_run(stop_parser)
-    stop_parser.set_defaults(func=kurreal_stop)
 
-    label_parser = subparsers.add_parser('label')
-    _add_dry_run(label_parser)
+    label_parser = _add_subparser('label', kurreal_label)
     label_parser.add_argument(
         'old_labels',
         help='select nodes according to their old labels'
@@ -95,16 +99,10 @@ def setup_parser():
         help='mark the selected nodes with new labels in format '
              '"mylabel1=myvalue1,mylabel2=myvalue2"'
     )
-    label_parser.set_defaults(func=kurreal_label)
 
-    label_gcloud_parser = subparsers.add_parser(
-        'label-gcloud',
-        help=kurreal_label_gcloud.__doc__,
-    )
-    _add_dry_run(label_gcloud_parser)
-    label_gcloud_parser.set_defaults(func=kurreal_label_gcloud)
+    label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
 
-    logs_parser = subparsers.add_parser('logs')
+    logs_parser = _add_subparser('logs', kurreal_logs)
     logs_parser.add_argument(
         'component_name',
         help="must be either agent-<N> or one of "
@@ -126,39 +124,29 @@ def setup_parser():
         default=100,
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
-    _add_dry_run(logs_parser)
-    logs_parser.set_defaults(func=kurreal_logs)
 
-    namespace_parser = subparsers.add_parser('ns')
+    namespace_parser = _add_subparser('ns', kurreal_namespace)
     # no arg to get the current namespace
     _add_experiment_name(namespace_parser, nargs='?')
-    _add_dry_run(namespace_parser)
-    namespace_parser.set_defaults(func=kurreal_namespace)
 
-    list_parser = subparsers.add_parser('list')
-    _add_dry_run(list_parser)
+    list_parser = _add_subparser('list', kurreal_list)
     list_parser.add_argument(
         'resource',
         choices=['ns', 'namespace', 'p', 'pod', 'no', 'node', 's', 'service'],
         help='list experiment, pod, and node'
     )
-    list_parser.set_defaults(func=kurreal_list)
 
-    tb_parser = subparsers.add_parser('tb')
-    _add_dry_run(tb_parser)
+    tb_parser = _add_subparser('tb', kurreal_tb)
     tb_parser.add_argument(
         '-u', '--url-only',
         nargs='?',
         help='only show the URL without opening the browser.'
     )
-    tb_parser.set_defaults(func=kurreal_tb)
 
-    debug_create_parser = subparsers.add_parser('debug-create')
+    debug_create_parser = _add_subparser('debug-create', kurreal_debug_create)
     _add_experiment_name(debug_create_parser)
-    _add_dry_run(debug_create_parser)
     debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
     debug_create_parser.add_argument('num_agents', type=int)
-    debug_create_parser.set_defaults(func=kurreal_debug_create)
 
     return parser
 
@@ -173,9 +161,7 @@ def _find_kurreal_template():
 
 def kurreal_create(args, remainder):
     """
-    CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
-    config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
-    service_url=service_url)
+    Spin up a multi-node distributed Surreal experiment
     """
     kube = Kubectl(dry_run=args.dry_run)
     if args.config_py.startswith('/'):
@@ -204,6 +190,11 @@ def kurreal_create(args, remainder):
 
 
 def kurreal_debug_create(args, _):
+    """
+    CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
+    config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
+    service_url=experiment_name + '.surreal')
+    """
     kube = Kubectl(dry_run=args.dry_run)
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
@@ -227,13 +218,17 @@ def kurreal_debug_create(args, _):
 
 
 def kurreal_stop(args, _):
+    """
+    Stop an experiment, delete corresponding pods, services, and namespace.
+    """
     kube = Kubectl(dry_run=args.dry_run)
     kube.stop(args.experiment_name)
 
 
 def kurreal_namespace(args, _):
     """
-    If no arg specified to `kurreal ns`, show the current namespace
+    `kurreal ns`: show the current namespace/experiment
+    `kurreal ns <namespace>`: switch context to another namespace/experiment
     """
     kube = Kubectl(dry_run=args.dry_run)
     if args.experiment_name:
@@ -243,6 +238,9 @@ def kurreal_namespace(args, _):
 
 
 def kurreal_list(args, _):
+    """
+    List resource information: namespace, pods, nodes, services
+    """
     kube = Kubectl(dry_run=args.dry_run)
     run = lambda cmd: kube.run_verbose(cmd, print_out=True, raise_on_error=False)
     if args.resource in ['ns', 'namespace']:
@@ -258,6 +256,9 @@ def kurreal_list(args, _):
 
 
 def kurreal_label(args, _):
+    """
+    Label nodes in node pools
+    """
     kube = Kubectl(dry_run=args.dry_run)
     for label, value in args.new_labels:
         kube.label_nodes(args.old_labels, label, value)
