@@ -68,6 +68,16 @@ def init():
     else:
         print('WARNING: `tensorplex` lib not installed')
 
+    # convenient symlinks for GitVolumes to be accessible in the home dir
+    for env_var in os.environ:
+        if env_var.startswith('repo_'):
+            original_path = os.environ[env_var]
+            dir_name = os.path.basename(os.path.normpath(original_path))
+            try:
+                os.symlink(original_path, '/root/' + dir_name)
+            except Exception as e:
+                print('WARNING:', e)
+
 
 init()
 
