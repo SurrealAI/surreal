@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .base import Learner
-from .aggregator import NstepReturnAggregator
+from .aggregator import MultistepAggregator 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
@@ -32,6 +32,9 @@ class PPOLearner(Learner):
 
         # PPO parameters
         self.method = self.learner_config.algo.method
+        self.trace_cutoff = self.learner_config.algo.trace_cutoff
+        self.is_weight_thresh = self.learner_config.algo.is_weight_thresh
+        self.is_weight_eps = self.learner_config.alog.is_weight_eps
         self.lr_policy = self.learner_config.algo.lr_policy
         self.lr_baseline = self.learner_config.algo.lr_baseline
         self.epoch_policy = self.learner_config.algo.epoch_policy
@@ -313,13 +316,52 @@ class PPOLearner(Learner):
 
         return stats
 
+
+    def _V_trace_compute_target(obs, actions, rewards, done):
+        batch_size =self.learner_config.replay.batch_size
+        obs_flat = obs.view(batch_size * (self.n_step + 1), -1 ) 
+        actions_flat = obs.view(batch_size * self.n_step, -1)
+
+        # getting the importance sampling weights
+        curr_pd   = self.model.actor(Variable(obs_flat))
+        curr_prob = self.pd.likelihood(Variable(actions), curr_pd).data # tensor
+
+        behave_pd   = self.model.actor(Variable(obs_flat))
+        behave_prob = self.pd.likelihood(Variable(actions), behave_pd).data # this should be parsed in from data
+        behave_prob = torch.clamp(behavr_prob, min=self.is_weight_eps) # hard clamp, not variance reduction step
+
+        is_weight = curr_prob / behave_prob
+        is_weight_trunc = torch.clamp(is_weight, max=self.is_weight_thresh)
+        trace_c         = torch.clamp(is_weight, max= self.trace_cutoff) # both in shape (batch * n, 1)
     
-    def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
-        advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
-        obs = Variable(obs)
-        actions = Variable(actions.squeeze(1))
-        advantages = Variable(advantages)
-        returns = Variable(returns)
+        is_weight_trunc = is_weight_trun.view(batch_size, self.n_step)
+        log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
+
+        # value estimate
+        values = self.model.critic(Varialbe(obs_flat)).data # (batch * (n+1), 1)
+        values = values.view(batch_size, self.n_step + 1)
+        values[:, :self.n_step] *= 1 - done
+        values[:, self.n_step]  *= 1 - done[:, self.n_step]
+
+        # computing trace
+        delta = is_weight_trunc * (rewards + self.gamma * values[:, 1:]) - values[:, :-1] # (batch, n)
+        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+        # flipping is wrong, as this flips axis 0, need to flip axis 1
+        inv_idx = torch.arange(log_trace_c.size(0)-1, -1, -1).long() # flipping log_trace_c and then cum_sum
+        inv_log_trace = log_trace_c.index_select(0, inv_idx)
+        inv_log_trace = torch.cumsum(dim = 1)
+        inv_trace = torch.exp(inv_log_trafce) # (batch, n)
+
+        v_trace_targ = (delta * inv_trace * gamma).sum(1).view(-1, 1) # this is wrong, need a cumsum here as well but dont know details yet
+
+
+        return obs, actiions, advantages, v_trace_targ    
+
+
+    def _optimize(self, obs, actions, rewards, obs_next, done):
+        obs_concat = torch.cat((obs, obs_next), dim = 1)
+        obs, actions, advantages, v_trace_targ = self._V_trace_compute_target(obs_concat, actions, rewards, done)
+        
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages)
         else:
@@ -346,8 +388,7 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.obs_next,
-            batch.dones,
-            batch.num_steps
+            batch.done,
         )
 
     def module_dict(self):
