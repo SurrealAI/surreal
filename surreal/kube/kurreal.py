@@ -1,10 +1,8 @@
 import argparse
 import surreal
+import webbrowser
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
-from surreal.kube.yaml_util import *
-from surreal.utils.serializer import string_hash
-from pkg_resources import resource_filename
 
 
 def _add_dry_run(parser):
@@ -145,6 +143,15 @@ def setup_parser():
         help='list experiment, pod, and node'
     )
     list_parser.set_defaults(func=kurreal_list)
+
+    tb_parser = subparsers.add_parser('tb')
+    _add_dry_run(tb_parser)
+    tb_parser.add_argument(
+        '-u', '--url-only',
+        nargs='?',
+        help='only show the URL without opening the browser.'
+    )
+    tb_parser.set_defaults(func=kurreal_tb)
 
     debug_create_parser = subparsers.add_parser('debug-create')
     _add_experiment_name(debug_create_parser)
@@ -291,10 +298,12 @@ def kurreal_logs(args, _):
 def kurreal_tb(args, _):
     """
     Open tensorboard in your default browser.
-    -ip, --ip to just print IP
     """
     kube = Kubectl(dry_run=args.dry_run)
-
+    url = 'http://' + kube.external_ip('tensorboard')
+    print(url)
+    if not args.url_only:
+        webbrowser.open(url)
 
 
 def main():

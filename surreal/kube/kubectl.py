@@ -301,12 +301,13 @@ class Kubectl(object):
         labels, fields = labels.strip(), fields.strip()
         cmd= ' '
         if labels:
-            cmd += '--selector ' + shlex.quote(labels) + ' '
+            cmd += '--selector ' + shlex.quote(labels)
         if fields:
-            cmd += ' --field-selector ' + shlex.quote(fields) + ' '
+            cmd += ' --field-selector ' + shlex.quote(fields)
         return cmd
 
-    def query_resources(self, resource, output_format, labels='', fields=''):
+    def query_resources(self, resource, output_format,
+                        names=None, labels='', fields=''):
         """
         Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -323,6 +324,8 @@ class Kubectl(object):
               - name: list
               - wide
               - yaml: returns a dict
+            names: list of names to get resource, mutually exclusive with
+                label and field selectors. Should only specify one.
             labels: label selector syntax, comma separated as logical AND. E.g:
               - equality: mylabel=production
               - inequality: mylabel!=production
@@ -339,13 +342,19 @@ class Kubectl(object):
             list if output format is name
             string from stdout otherwise
         """
+        if names and (labels or fields):
+            raise ValueError('names and (labels or fields) are mutually exclusive')
         cmd = 'get ' + resource
-        cmd += self._get_selectors(labels, fields)
+        if names is None:
+            cmd += self._get_selectors(labels, fields)
+        else:
+            assert isinstance(names, (list, tuple))
+            cmd += ' ' + ' '.join(names)
         if '=' in output_format:
             # quoting the part after jsonpath=<...>
             prefix, arg = output_format.split('=', 1)
             output_format = prefix + '=' + shlex.quote(arg)
-        cmd += '-o ' + output_format
+        cmd += ' -o ' + output_format
         out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
         if output_format == 'yaml':
             return EzDict.loads_yaml(out)
@@ -356,7 +365,8 @@ class Kubectl(object):
         else:
             return out
 
-    def query_jsonpath(self, resource, jsonpath, labels='', fields=''):
+    def query_jsonpath(self, resource, jsonpath,
+                       names=None, labels='', fields=''):
         """
         Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -379,6 +389,7 @@ class Kubectl(object):
         output_format = "jsonpath=" + jsonpath
         out = self.query_resources(
             resource=resource,
+            names=names,
             output_format=output_format,
             labels=labels,
             fields=fields
@@ -394,6 +405,20 @@ class Kubectl(object):
             'config view', print_out=False, raise_on_error=True
         )
         return EzDict.loads_yaml(out)
+
+    def external_ip(self, pod_name):
+        """
+        Returns:
+            "<ip>:<port>"
+        """
+        tb = self.query_resources('svc', 'yaml', names=[pod_name])
+        conf = tb.status.loadBalancer
+        if not ('ingress' in conf and 'ip' in conf.ingress[0]):
+            print_err('Tensorboard does not have an external IP.')
+            return ''
+        ip = conf.ingress[0].ip
+        port = tb.spec.ports[0].port
+        return '{}:{}'.format(ip, port)
 
     def _get_logs_cmd(self, pod_name, container_name,
                       follow, since=0, tail=-1):
