@@ -18,8 +18,12 @@ class ModuleDict(object):
         self._module_dict = module_dict
 
     def dumps(self):
-        bin_dict = {k: m.state_dict()
-                    for k, m in self._module_dict.items()}
+        bin_dict = {}
+        for k,m in self._module_dict.items():
+            state_dict = m.state_dict()
+            for key in state_dict:
+                state_dict[key] = state_dict[key].cpu()
+            bin_dict[k] = state_dict
         return U.serialize(bin_dict)
 
     def loads(self, binary):

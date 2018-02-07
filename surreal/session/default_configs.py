@@ -11,6 +11,7 @@ BASE_LEARNER_CONFIG = {
         'experience': 'ExpSenderWrapperSSARNStep',
         'n_step': 1,
         'gamma': '_float_',
+        'limit_training_episode_length': 0,
     },
     'replay': {
         # The replay class to instantiate
