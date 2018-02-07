@@ -227,7 +227,7 @@ class Kubectl(object):
             **context_kwargs
         )
 
-    def stop(self, experiment_name):
+    def delete(self, experiment_name):
         """
         kubectl delete -f kurreal.yml --namespace <experiment_name>
         kubectl delete namespace <experiment_name>

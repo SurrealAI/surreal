@@ -85,8 +85,8 @@ def setup_parser():
              'if its experiment folder already exists.'
     )
 
-    stop_parser = _add_subparser('stop', kurreal_stop)
-    _add_experiment_name(stop_parser)
+    delete_parser = _add_subparser('delete', kurreal_delete)
+    _add_experiment_name(delete_parser)
 
     label_parser = _add_subparser('label', kurreal_label)
     label_parser.add_argument(
@@ -217,12 +217,12 @@ def kurreal_debug_create(args, _):
     kurreal_namespace(args, _)
 
 
-def kurreal_stop(args, _):
+def kurreal_delete(args, _):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.stop(args.experiment_name)
+    kube.delete(args.experiment_name)
 
 
 def kurreal_namespace(args, _):
