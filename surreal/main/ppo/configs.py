@@ -44,6 +44,7 @@ learner_config = {
         'n_step': 10,
         'trace_cutoff': 1.2,
         'is_weight_thresh': 1.5, 
+        'is_weight_eps': 1e-5,
         'experience': 'ExpSenderWrapperMultiStepMovingWindow',
         'stride': 1,
         'batch_size': 128,
