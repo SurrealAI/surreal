@@ -32,7 +32,6 @@ class PPOLearner(Learner):
 
         # PPO parameters
         self.method = self.learner_config.algo.method
-        self.lam = self.learner_config.algo.lam
         self.lr_policy = self.learner_config.algo.lr_policy
         self.lr_baseline = self.learner_config.algo.lr_baseline
         self.epoch_policy = self.learner_config.algo.epoch_policy
@@ -211,10 +210,10 @@ class PPOLearner(Learner):
 
         for epoch in range(self.epoch_policy):
 
-                loss, _ = self._adapt_loss(obs, actions, advantages, old_prob)
-                self.model.actor.zero_grad()
-                loss.backward()
-                self.actor_optim.step()
+            loss, _ = self._adapt_loss(obs, actions, advantages, old_prob)
+            self.model.actor.zero_grad()
+            loss.backward()
+            self.actor_optim.step()
 
             prob = self.model.actor(obs)
             kl = self.pd.kl(old_prob, prob).mean()
@@ -355,4 +354,23 @@ class PPOLearner(Learner):
         return {
             'ppo': self.model,
         }
+
+'''
+    off-policy bias corrected PPO: -> custom V-trace aggregator 
+        1) V-trace integration:
+            * advantage estimate with V-trace
+            * value update with V-trace
+            * epsilon variance reduction in IS weights
+        2) Trajectory: using partial trajectories instead full trajectories
+            * Caveat: introduces bias
+            * CAN use full trajectory but it also reduces learning frequency (trade off)
+
+        Implementation details (compared to regular PPO):
+            - partial trajectoriy (N-step) | bias  ^
+            - sample size  v
+            - stride match N-step (or truncating)
+            - aggregator: multistep aggregator instead of NstepReturnAggregator
+'''
+
+
 
