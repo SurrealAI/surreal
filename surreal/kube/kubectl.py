@@ -9,7 +9,7 @@ import sys
 import time
 import subprocess as pc
 import shlex
-import json
+import functools
 import os
 import re
 import os.path as path
@@ -395,15 +395,27 @@ class Kubectl(object):
         )
         return EzDict.loads_yaml(out)
 
-    def logs(self, pod_name, container_name=''):
+    def _get_logs_cmd(self, pod_name, container_name,
+                      follow, since=0, tail=-1):
+        return 'logs {} {} {} --since={} --tail={}'.format(
+            pod_name,
+            container_name,
+            '--follow' if follow else '',
+            since,
+            tail
+        )
+
+    def logs(self, pod_name, container_name='', since=0, tail=100):
         """
-        kubectl logs <pod_name> <container_name>
+        kubectl logs <pod_name> <container_name> --follow --since= --tail=
+        https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
 
         Returns:
             stdout string
         """
         out, err, retcode = self.run_verbose(
-            'logs {} {}'.format(pod_name, container_name),
+            self._get_logs_cmd(pod_name, container_name,
+                               follow=False, since=since, tail=tail),
             print_out=False,
             raise_on_error=False
         )
@@ -412,14 +424,18 @@ class Kubectl(object):
         else:
             return out
 
-    def print_logs(self, pod_name, container_name=''):
+    def print_logs(self, pod_name, container_name='',
+                   follow=False, since=0, tail=100):
         """
         kubectl logs <pod_name> <container_name>
         No error checking, no string caching, delegates to os.system
         """
-        os.system('kubectl logs {} {}'.format(pod_name, container_name))
+        cmd = self._get_logs_cmd(pod_name, container_name,
+                                 follow=follow, since=since, tail=tail)
+        os.system('kubectl ' + cmd)
 
-    def logs_surreal(self, component_name, is_print=False):
+    def logs_surreal(self, component_name, is_print=False,
+                     follow=False, since=0, tail=100):
         """
         Args:
             component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
@@ -428,9 +444,10 @@ class Kubectl(object):
             stdout string if is_print else None
         """
         if is_print:
-            log_func = self.print_logs
+            log_func = functools.partial(self.print_logs, follow=follow)
         else:
             log_func = self.logs
+        log_func = functools.partial(log_func, since=since, tail=tail)
         if component_name.startswith('agent-'):
             return log_func(component_name)
         else:

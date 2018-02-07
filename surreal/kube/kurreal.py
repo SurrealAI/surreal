@@ -99,7 +99,10 @@ def setup_parser():
     )
     label_parser.set_defaults(func=kurreal_label)
 
-    label_gcloud_parser = subparsers.add_parser('label-gcloud')
+    label_gcloud_parser = subparsers.add_parser(
+        'label-gcloud',
+        help=kurreal_label_gcloud.__doc__,
+    )
     _add_dry_run(label_gcloud_parser)
     label_gcloud_parser.set_defaults(func=kurreal_label_gcloud)
 
@@ -108,6 +111,22 @@ def setup_parser():
         'component_name',
         help="must be either agent-<N> or one of "
              "'learner', 'ps', 'replay', 'tensorplex', 'tensorboard'"
+    )
+    logs_parser.add_argument(
+        '-f', '--follow',
+        action='store_true',
+        help='if the logs should be streamed.'
+    )
+    logs_parser.add_argument(
+        '-s', '--since',
+        default='0',
+        help='only show logs newer than a relative duration like 5s, 2m, 3h.'
+    )
+    logs_parser.add_argument(
+        '-t', '--tail',
+        type=int,
+        default=100,
+        help='Only show the most recent lines of log. -1 to show all log lines.'
     )
     _add_dry_run(logs_parser)
     logs_parser.set_defaults(func=kurreal_logs)
@@ -130,11 +149,7 @@ def setup_parser():
     debug_create_parser = subparsers.add_parser('debug-create')
     _add_experiment_name(debug_create_parser)
     _add_dry_run(debug_create_parser)
-    debug_create_parser.add_argument(
-        '-sn', '--snapshot',
-        action='store_true',
-        help='upload a snapshot of the git repos (specified in ~/.surreal.yml).'
-    )
+    debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
     debug_create_parser.add_argument('num_agents', type=int)
     debug_create_parser.set_defaults(func=kurreal_debug_create)
 
@@ -243,10 +258,13 @@ def kurreal_label(args, _):
 
 def kurreal_label_gcloud(args, _):
     """
-    Default labels for GCloud cluster.
+    Add default labels for GCloud cluster.
     Note that you have to create the node-pools with the exact names:
     "agent-pool" and "nonagent-pool"
     gcloud container node-pools create agent-pool -m n1-standard-2 --num-nodes=8
+
+    Command to check whether the labeling is successful:
+    kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
     """
     kube = Kubectl(dry_run=args.dry_run)
     kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
@@ -257,10 +275,26 @@ def kurreal_label_gcloud(args, _):
 
 def kurreal_logs(args, _):
     """
-    Show logs of Surreal components
+    Show logs of Surreal components: agent-<N>, learner, ps, etc.
+    https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.logs_surreal(args.component_name, is_print=True)
+    kube.logs_surreal(
+        args.component_name,
+        is_print=True,
+        follow=args.follow,
+        since=args.since,
+        tail=args.tail
+    )
+
+
+def kurreal_tb(args, _):
+    """
+    Open tensorboard in your default browser.
+    -ip, --ip to just print IP
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+
 
 
 def main():
