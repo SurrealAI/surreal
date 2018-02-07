@@ -21,9 +21,9 @@ learner_config = {
         'learner_class': 'PPOLearner',
         'optimizer': 'Adam',
         'clip_actor_gradient': True,
-        'actor_gradient_clip_value': 1.,
+        'actor_gradient_clip_value': 0.5,
         'clip_critic_gradient': True,
-        'critic_gradient_clip_value': 1.,
+        'critic_gradient_clip_value': 0.5,
         'gamma': .99,
         'target_update': {
             'type': 'soft',
@@ -42,12 +42,13 @@ learner_config = {
             # 'dt': 5e-2,
         },
         'n_step': 10,
+        'trace_cutoff': 1.2,
+        'is_weight_thresh': 1.5, 
         'experience': 'ExpSenderWrapperMultiStepMovingWindow',
         'stride': 1,
         'batch_size': 128,
         # ppo specific parameters:
         'method': 'clip',
-        'lam': 0.95, # GAE lambda
         'lr_policy': 4e-4,
         'lr_baseline': 4e-4,
         'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
