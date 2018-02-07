@@ -1,0 +1,2 @@
+include surreal/kube/kurreal_template.yml
+recursive-include docs *

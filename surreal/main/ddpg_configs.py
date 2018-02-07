@@ -38,7 +38,7 @@ def generate(argv):
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
-            'clip_critic_gradient': True,
+            'clip_critic_gradient': False,
             'critic_gradient_clip_value': 1.,
             'gamma': .99,
             'target_update': {
@@ -47,7 +47,6 @@ def generate(argv):
                 # 'type': 'hard',
                 # 'interval': 100,
             },
-            # 'target_network_update_freq': 250 * 64,
             'use_z_filter': False,
             'exploration': {
                 'noise_type': 'normal',
@@ -57,7 +56,8 @@ def generate(argv):
                 # 'sigma': 0.3,
                 # 'dt': 1e-3,
             },
-            'n_step': 5,
+            'limit_training_episode_length': 100, # 0 means no limit
+            'n_step': 1,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
             'stride': 1,
