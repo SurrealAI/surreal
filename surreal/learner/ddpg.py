@@ -26,6 +26,10 @@ class DDPGLearner(Learner):
             if self.clip_actor_gradient:
                 self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
 
+            self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
+            if self.clip_critic_gradient:
+                self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+
             self.action_dim = self.env_config.action_spec.dim[0]
             self.obs_dim = self.env_config.obs_spec.dim[0]
 
@@ -45,12 +49,12 @@ class DDPGLearner(Learner):
 
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
-                lr=self.learner_config.algo.lr
+                lr=self.learner_config.algo.lr_actor
             )
 
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
-                lr=self.learner_config.algo.lr
+                lr=self.learner_config.algo.lr_critic
             )
 
             self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
@@ -98,6 +102,8 @@ class DDPGLearner(Learner):
             self.model.critic.zero_grad()
             critic_loss = self.critic_criterion(y_policy, y)
             critic_loss.backward()
+            if self.clip_critic_gradient:
+                self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
             # for p in self.model.critic.parameters():
             #     p.grad.data.clamp_(-1.0, 1.0)
             self.critic_optim.step()
