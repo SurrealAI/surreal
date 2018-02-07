@@ -122,7 +122,7 @@ class PPOLearner(Learner):
 
     def _clip_update_iter(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach()
+        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
 
         num_batches = obs.size()[0] // self.batch_size + 1
         for epoch in range(self.epoch_policy):
@@ -162,7 +162,7 @@ class PPOLearner(Learner):
 
     def _clip_update_full(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach()
+        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
             loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
@@ -332,7 +332,7 @@ class PPOLearner(Learner):
 
         is_weight = curr_prob / behave_prob
         is_weight_trunc = torch.clamp(is_weight, max=self.is_weight_thresh)
-        trace_c         = torch.clamp(is_weight, max= self.trace_cutoff) # both in shape (batch * n, 1)
+        trace_c         = torch.clamp(is_weight, max=self.trace_cutoff) # both in shape (batch * n, 1)
     
         is_weight_trunc = is_weight_trun.view(batch_size, self.n_step)
         log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
@@ -346,32 +346,47 @@ class PPOLearner(Learner):
         # computing trace
         delta = is_weight_trunc * (rewards + self.gamma * values[:, 1:]) - values[:, :-1] # (batch, n)
         gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-        # flipping is wrong, as this flips axis 0, need to flip axis 1
-        inv_idx = torch.arange(log_trace_c.size(0)-1, -1, -1).long() # flipping log_trace_c and then cum_sum
-        inv_log_trace = log_trace_c.index_select(0, inv_idx)
+        inv_idx = torch.arange(log_trace_c.size(1)-1, -1, -1).long() 
+        inv_log_trace = log_trace_c.index_select(1, inv_idx)
         inv_log_trace = torch.cumsum(dim = 1)
         inv_trace = torch.exp(inv_log_trafce) # (batch, n)
 
-        v_trace_targ = (delta * inv_trace * gamma).sum(1).view(-1, 1) # this is wrong, need a cumsum here as well but dont know details yet
+        adv  = inv_trace * delta
+        for step in range(self.n_step):
+            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step)) # (n -1,)
+            adv[:, step] = torch.cumsum(v_trace_targ * gamma, dim=1)
+        v_trace_targ = adv + values[:, :-1]
 
+        adv = adv.view(-1 , 1)
+        v_trace_targ = v_trace_targ.view(-1, 1)
 
-        return obs, actiions, advantages, v_trace_targ    
+        if self.norm_adv:
+            mean = adv.mean()
+            std  = adv.std()
+            adv  = (adv - mean)/std  
+
+        return adv, v_trace_targ    
 
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         obs_concat = torch.cat((obs, obs_next), dim = 1)
-        obs, actions, advantages, v_trace_targ = self._V_trace_compute_target(obs_concat, actions, rewards, done)
+        advantages, v_trace_targ = self._V_trace_compute_target(obs_concat, actions, rewards, done)
         
+        obs = Variable(obs.view(self.learner_config.replay.batch_size * self.n_step, -1))
+        actions = Variable(actions.view(self.learner_config.replay.batch_size * self.n_step, -1))
+        advantages = Variable(advantages)
+        v_trace_targ = Variable(v_trace_targ)
+
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages)
         else:
             stats = self._adapt_update_full(obs, actions, advantages)
-        baseline_stats = self._value_update_full(obs, returns)
+        baseline_stats = self._value_update_full(obs, v_trace_targ)
 
         # updating tensorplex
         for k in baseline_stats:
             stats[k] = baseline_stats[k]
-        stats['avg_returns'] = returns.mean().data[0]
+        stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
         stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
 
         if self.use_z_filter:
