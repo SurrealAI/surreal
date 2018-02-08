@@ -87,11 +87,11 @@ class MultistepAggregator():
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
-            next_obs += exp[obs_next]
+            next_obs.append(exp['obs_next'])
         observations = U.to_float_tensor(np.stack(observations))
-        next_obs     = U.to_float_tensor(next_obs).unsqueeze(1)
+        next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = U.to_float_tensor(actions).squeeze(2)
         elif self.action_type == ActionType.discrete:
             actions = torch.LongTensor(actions).unsqueeze(2)
         else:
