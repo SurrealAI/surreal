@@ -1,9 +1,9 @@
 # this file should be saved at ~/.surreal.yml
 experiment_folder: ~/Temp/kurreal
 images:
-  agent: us.gcr.io/surreal-dev-188523/surreal-cpu
-  nonagent-cpu: us.gcr.io/surreal-dev-188523/surreal-cpu
-  nonagent-gpu: us.gcr.io/surreal-dev-188523/surreal-gpu
+  agent: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
+  nonagent-cpu: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
+  nonagent-gpu: us.gcr.io/surreal-dev-188523/surreal-gpu:latest
 selectors:
   agent:
     surreal-node: agent
