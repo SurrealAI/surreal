@@ -176,6 +176,17 @@ class Kubectl(object):
         # the space after colon is necessary for valid yaml
         return '{}: {}'.format(*label_spec)
 
+    def _get_docker_image(self, image_name):
+        """
+        image_name: key in ~/.surreal.yml `images` section that points to docker URL
+            else assume it's a docker image URL itself.
+        """
+        if image_name in self.config.images:
+            return self.config.images[image_name]
+        else:
+            assert '/' in image_name, 'must be a valid docker image URL'
+            return image_name
+
     def create_surreal(self,
                        experiment_name,
                        jinja_template,
@@ -183,6 +194,8 @@ class Kubectl(object):
                        mujoco=True,
                        agent_pool_label='agent-pool',
                        nonagent_pool_label='nonagent-pool',
+                       agent_image='agent',
+                       nonagent_image='nonagent',
                        context=None,
                        check_file_exists=True,
                        **context_kwargs):
@@ -192,6 +205,9 @@ class Kubectl(object):
         Args:
             agent_pool_label: surreal-node=<agent_pool_label>
             nonagent_pool_label: surreal-node=<nonagent_pool_label>
+            agent_image: key in ~/.surreal.yml `images` section.
+                If not a key, assume it's a docker image URL itself
+            nonagent_image: see `agent_image`
             context: for extra context variables
         """
         check_valid_dns(experiment_name)
@@ -217,11 +233,13 @@ class Kubectl(object):
             surreal_context['MUJOCO_KEY_TEXT'] = \
                 file_content(self.config.mujoco_key_path)
         surreal_context.update(context)
-        # node-pool labeling
+        # select nodes from nodepool label to schedule agent/nonagent pods
         surreal_context['AGENT_POOL_LABEL'] = \
-            self._yamlify_label_string('surreal-node:' + agent_pool_label)
+            self._yamlify_label_string('surreal-node=' + agent_pool_label)
         surreal_context['NONAGENT_POOL_LABEL'] = \
-            self._yamlify_label_string('surreal-node:' + nonagent_pool_label)
+            self._yamlify_label_string('surreal-node=' + nonagent_pool_label)
+        surreal_context['AGENT_IMAGE'] = self._get_docker_image(agent_image)
+        surreal_context['NONAGENT_IMAGE'] = self._get_docker_image(nonagent_image)
         self.create(
             experiment_name,
             jinja_template,
