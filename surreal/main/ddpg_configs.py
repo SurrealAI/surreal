@@ -36,7 +36,7 @@ def generate(argv):
             'gamma': .99,
             'target_update': {
                 'type': 'soft',
-                'tau': 1e-2,
+                'tau': 1e-3,
                 # 'type': 'hard',
                 # 'interval': 100,
             },
@@ -52,6 +52,7 @@ def generate(argv):
             },
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
+            'use_batchnorm': False,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
@@ -59,7 +60,7 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'UniformReplay',
-            'batch_size': 64,
+            'batch_size': 512,
             'memory_size': 1000000,
             'sampling_start_size': 1000,
         },

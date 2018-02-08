@@ -18,6 +18,7 @@ class DDPGLearner(Learner):
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_batchnorm = self.learner_config.algo.use_batchnorm
 
         self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
         if self.clip_actor_gradient:
@@ -30,12 +31,16 @@ class DDPGLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_batchnorm=self.use_batchnorm,
+            train=True
         )
 
         self.model_target = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_batchnorm=self.use_batchnorm,
+            train=False
         )
 
         self.critic_criterion = nn.MSELoss()

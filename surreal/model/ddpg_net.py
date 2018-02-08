@@ -12,16 +12,19 @@ class DDPGModel(U.Module):
     def __init__(self,
                  obs_dim,
                  action_dim,
-                 use_z_filter):
+                 use_z_filter,
+                 use_batchnorm,
+                 train):
         super(DDPGModel, self).__init__()
 
         # hyperparameters
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
+        self.use_batchnorm = use_batchnorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim)
+        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, train=train)
+        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, train=train)
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim)
 

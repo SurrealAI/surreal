@@ -27,12 +27,14 @@ class DDPGAgent(Agent):
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_batchnorm = self.learner_config.algo.use_batchnorm
         
-
         self.model = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_batchnorm=self.use_batchnorm,
+            train=False,
         )
         
         self.init_noise()
@@ -61,7 +63,6 @@ class DDPGAgent(Agent):
         #     print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
-
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.actor(obs).data.numpy()[0]
@@ -88,3 +89,4 @@ class DDPGAgent(Agent):
     def reset(self):
         if self.agent_mode is not AgentMode.eval_deterministic:
             self.noise.reset()
+

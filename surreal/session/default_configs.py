@@ -12,7 +12,8 @@ BASE_LEARNER_CONFIG = {
         'n_step': 1,
         'gamma': '_float_',
         'actor_regularization': 0.0,
-        'critic_regularization': 0.0
+        'critic_regularization': 0.0,
+        'use_batchnorm': False
     },
     'replay': {
         # The replay class to instantiate
