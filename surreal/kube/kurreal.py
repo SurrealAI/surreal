@@ -76,12 +76,14 @@ def setup_parser():
     create_parser.add_argument(
         '-ap', '--agent-pool',
         default='agent-pool',
-        help='node selector label for nodes on which agent processes run.'
+        help='node selector label for nodes on which agent processes run. '
+             'Default: "agent-pool"'
     )
     create_parser.add_argument(
         '-nap', '--nonagent-pool',
         default='nonagent-pool',
-        help='node selector label for nodes on which nonagent processes (learner, ps, etc.) run.'
+        help='node selector label for nodes on which nonagent processes '
+             '(learner, ps, etc.) run. Default: "nonagent-pool"'
     )
     create_parser.add_argument(
         '-sn', '--snapshot',
@@ -316,9 +318,10 @@ def kurreal_tb(args, _):
     """
     kube = Kubectl(dry_run=args.dry_run)
     url = 'http://' + kube.external_ip('tensorboard')
-    print(url)
-    if not args.url_only:
-        webbrowser.open(url)
+    if url:
+        print(url)
+        if not args.url_only:
+            webbrowser.open(url)
 
 
 def main():
