@@ -74,6 +74,16 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
+        '-ap', '--agent-pool',
+        default='agent-pool',
+        help='node selector label for nodes on which agent processes run.'
+    )
+    create_parser.add_argument(
+        '-nap', '--nonagent-pool',
+        default='nonagent-pool',
+        help='node selector label for nodes on which nonagent processes (learner, ps, etc.) run.'
+    )
+    create_parser.add_argument(
         '-sn', '--snapshot',
         action='store_true',
         help='upload a snapshot of the git repos (specified in ~/.surreal.yml).'
@@ -178,6 +188,8 @@ def kurreal_create(args, remainder):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
+        agent_pool_label=args.agent_pool,
+        nonagent_pool_label=args.nonagent_pool,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -207,6 +219,8 @@ def kurreal_debug_create(args, _):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
+        agent_pool_label='agent-pool',
+        nonagent_pool_label='nonagent-pool',
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS

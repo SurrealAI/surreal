@@ -62,6 +62,15 @@ volumes:
     mountPath: /experiment
   args: {{ args }}
 {% endmacro %}
+
+# node tainting to avoid system pods being scheduled to experiment nodes in autoscaling
+{% set tolerations_block %}
+tolerations:
+- key: "surreal"
+  operator: "Exists"
+  effect: "NoSchedule"
+{% endset %}
+
 # ================== headless service provides DNS ==================
 ---
 apiVersion: v1
@@ -109,6 +118,7 @@ spec:
   hostname: {{ NONAGENT_HOST_NAME }}
   subdomain: surreal
   {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ tolerations_block | indent(2) }}
 
 {% if NONAGENT_POOL_LABEL %}
   nodeSelector:
@@ -136,6 +146,7 @@ spec:
   subdomain: surreal
   restartPolicy: Never
   {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ tolerations_block | indent(2) }}
 {% if AGENT_POOL_LABEL %}
   nodeSelector:
     {{ AGENT_POOL_LABEL }}

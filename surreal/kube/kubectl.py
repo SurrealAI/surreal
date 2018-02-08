@@ -181,6 +181,8 @@ class Kubectl(object):
                        jinja_template,
                        snapshot=True,
                        mujoco=True,
+                       agent_pool_label='agent-pool',
+                       nonagent_pool_label='nonagent-pool',
                        context=None,
                        check_file_exists=True,
                        **context_kwargs):
@@ -188,6 +190,8 @@ class Kubectl(object):
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
         Args:
+            agent_pool_label: surreal-node=<agent_pool_label>
+            nonagent_pool_label: surreal-node=<nonagent_pool_label>
             context: for extra context variables
         """
         check_valid_dns(experiment_name)
@@ -214,11 +218,10 @@ class Kubectl(object):
                 file_content(self.config.mujoco_key_path)
         surreal_context.update(context)
         # node-pool labeling
-        cluster = self.config.cluster
         surreal_context['AGENT_POOL_LABEL'] = \
-            self._yamlify_label_string(cluster.agent_pool_label)
+            self._yamlify_label_string('surreal-node:' + agent_pool_label)
         surreal_context['NONAGENT_POOL_LABEL'] = \
-            self._yamlify_label_string(cluster.nonagent_pool_label)
+            self._yamlify_label_string('surreal-node:' + nonagent_pool_label)
         self.create(
             experiment_name,
             jinja_template,
