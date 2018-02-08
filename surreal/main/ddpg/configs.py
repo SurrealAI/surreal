@@ -17,7 +17,8 @@ learner_config = {
         }
     },
     'algo': {
-        'lr': 1e-3,
+        'actor_lr': 1e-4,
+        'critic_lr': 1e-4,
         'optimizer': 'Adam',
         'grad_norm_clipping': 10,
         'gamma': .99,
@@ -36,7 +37,8 @@ learner_config = {
             'eps': 1e-6
         },
         'n_step': 5,
-        'regularization': 0.0,
+        'actor_regularization': 0.0,
+        'critic_regularization': 0.0,
         'experience': 'ExpSenderWrapperSSARNStep',
     },
     'replay': {

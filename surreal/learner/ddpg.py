@@ -42,14 +42,14 @@ class DDPGLearner(Learner):
 
         self.critic_optim = torch.optim.Adam(
             self.model.critic.parameters(),
-            lr=self.learner_config.algo.lr,
-            weight_decay=self.learner_config.algo.regularization # Weight regularization term
+            lr=self.learner_config.algo.critic_lr,
+            weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
         )
 
         self.actor_optim = torch.optim.Adam(
             self.model.actor.parameters(),
-            lr=self.learner_config.algo.lr,
-            weight_decay=self.learner_config.algo.regularization # Weight regularization term
+            lr=self.learner_config.algo.actor_lr,
+            weight_decay=self.learner_config.algo.actor_regularization # Weight regularization term
         )
 
         self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)

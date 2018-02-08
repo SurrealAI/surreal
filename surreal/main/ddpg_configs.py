@@ -28,7 +28,8 @@ def generate(argv):
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
-            'lr': 1e-4,
+            'actor_lr': 1e-4,
+            'critic_lr': 1e-4,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
@@ -49,6 +50,8 @@ def generate(argv):
                 'sigma': 0.3,
                 'dt': 1e-3,
             },
+            'actor_regularization': 0.0,
+            'critic_regularization': 0.0,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
