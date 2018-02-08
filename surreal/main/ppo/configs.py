@@ -46,8 +46,8 @@ learner_config = {
         'is_weight_thresh': 1.5, 
         'is_weight_eps': 1e-5,
         'experience': 'ExpSenderWrapperMultiStepMovingWindow',
-        'stride': 1,
-        'batch_size': 128,
+        'stride': 6,
+        'batch_size': 32,
         # ppo specific parameters:
         'method': 'clip',
         'lr_policy': 4e-4,
@@ -65,9 +65,9 @@ learner_config = {
     },
     'replay': {
         'replay_class': 'UniformReplay',
-        'batch_size': 128,
-        'memory_size': 256,
-        'sampling_start_size': 128,
+        'batch_size': 32,
+        'memory_size': 64,
+        'sampling_start_size': 32,
     },
     'eval': {
         'eps': 0.05  # 5% random action under eval_stochastic mode
