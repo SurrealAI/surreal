@@ -1,4 +1,8 @@
 # this file should be saved at ~/.surreal.yml
+experiment_folder: ~/Temp/kurreal
+images:
+    agent: stanfordvl/surreal-cpu
+    nonagent: stanfordvl/surreal-gpu
 # https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 git:
   user: <your_github_user_name>
@@ -8,7 +12,3 @@ git:
   - ~/my/repo/path/surreal
   - ~/my/repo/path/tensorplex
 mujoco_key_path: ~/.mujoco/mjkey.txt
-# don't change the following lines unless you know what you're doing
-cluster:
-  agent_pool_label: surreal-node:agent-pool
-  nonagent_pool_label: surreal-node:nonagent-pool

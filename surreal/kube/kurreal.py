@@ -86,9 +86,16 @@ def setup_parser():
              '(learner, ps, etc.) run. Default: "nonagent-pool"'
     )
     create_parser.add_argument(
-        '-sn', '--snapshot',
-        action='store_true',
-        help='upload a snapshot of the git repos (specified in ~/.surreal.yml).'
+        '-ai', '--agent-image',
+        default='agent',
+        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
+             'If key does not exist, assume the string itself is a docker URL. '
+    )
+    create_parser.add_argument(
+        '-nai', '--nonagent-image',
+        default='nonagent',
+        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
+             'If key does not exist, assume the string itself is a docker URL.'
     )
     create_parser.add_argument(
         '--force',
@@ -192,6 +199,8 @@ def kurreal_create(args, remainder):
         snapshot=args.snapshot,
         agent_pool_label=args.agent_pool,
         nonagent_pool_label=args.nonagent_pool,
+        agent_image=args.agent_image,
+        nonagent_image=args.nonagent_image,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -223,6 +232,8 @@ def kurreal_debug_create(args, _):
         snapshot=args.snapshot,
         agent_pool_label='agent-pool',
         nonagent_pool_label='nonagent-pool',
+        agent_image='agent',
+        nonagent_image='stanfordvl/surreal-cpu',
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS

@@ -23,9 +23,9 @@ volumes:
 {% endmacro %}
 
 # containers:
-{% macro container_block(name, args) %}
+{% macro container_block(name, image, args) %}
 - name: {{ name }}
-  image: stanfordvl/surreal-cpu
+  image: {{ image }}
   imagePullPolicy: Always
   env:
   {% for git_repo in GIT_REPOS %}
@@ -127,6 +127,7 @@ spec:
   containers:
 {% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
   {{ container_block(ENTITY,
+    NONAGENT_IMAGE,
     ["--cmd", CMD_DICT[ENTITY]])
     | indent(2) }}
 {% endfor %}
@@ -153,6 +154,7 @@ spec:
 {% endif %}
   containers:
   {{ container_block('agent-' + (N|string),
+    AGENT_IMAGE,
     ["--cmd", CMD_DICT.agent[N]])
     | indent(2) }}
 {% endfor %}
