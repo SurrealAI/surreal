@@ -13,7 +13,7 @@ BASE_LEARNER_CONFIG = {
         'gamma': '_float_',
         'actor_regularization': 0.0,
         'critic_regularization': 0.0,
-        'use_batchnorm': False
+        'use_batchnorm': False,
         'limit_training_episode_length': 0,
     },
     'replay': {
