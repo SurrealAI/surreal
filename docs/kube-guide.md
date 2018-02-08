@@ -118,6 +118,7 @@ Create the nodes we want and delete the original node pool
 ```
 gcloud container node-pools create agent-pool -m n1-standard-2 --node-labels surreal-node=agent-pool --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2
 gcloud beta container node-pools create nonagent-pool -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-pool --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2
+gcloud beta container node-pools create nonagent-pool-cpu -m n1-highmem-8 --node-labels surreal-node=nonagent-pool --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2
 ```
 
 Run the daemon to install nvidia drivers
