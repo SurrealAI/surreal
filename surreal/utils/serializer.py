@@ -34,6 +34,11 @@ def deserialize(binary):
     return _DESERIALIZER(binary)
 
 
+def string_hash(s):
+    assert isinstance(s, str)
+    return binary_hash(s.encode('utf-8'))
+
+
 def binary_hash(binary):
     """
     Low collision hash of any binary string

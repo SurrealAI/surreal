@@ -2,7 +2,7 @@ from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
 from surreal.agent import agentFactory
-
+import argparse
 def agent_parser_setup(parser):
     parser.add_argument('id', type=int, help='agent id')
 
@@ -11,6 +11,11 @@ def run_agent_main(args, config):
     agent_id = args.id
 
     env, env_config = make_env(env_config)
+
+    # This has to go first as it alters step returns
+    limit_training_episode_length = learner_config.algo.limit_training_episode_length
+    if limit_training_episode_length > 0:
+        env = MaxStepWrapper(env, limit_training_episode_length)
 
     env = ConsoleMonitor(
         env,
@@ -41,6 +46,9 @@ def run_agent_main(args, config):
         session_config=session_config,
         separate_plots=True
     )
+
+    
+
 
     agent_class = agentFactory(learner_config.algo.agent_class)
     agent = agent_class(

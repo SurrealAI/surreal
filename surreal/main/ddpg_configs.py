@@ -4,9 +4,14 @@ import argparse
 # TODO：Documentation on config files
 
 def generate(argv):
+    """
+    The function name must be `generate`.
+    Will be called by `surreal.main_scripts.runner`
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, help='name of the environment')
-    parser.add_argument('--savefile', type=str, help='place to save the experiment result file')
+    parser.add_argument('--env', type=str, required=True, help='name of the environment')
+    parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
+    parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
 
     args = parser.parse_args(args=argv)
 
@@ -28,11 +33,13 @@ def generate(argv):
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
-            'actor_lr': 1e-4,
-            'critic_lr': 1e-4,
+            'lr_actor': 1e-4,
+            'lr_critic': 1e-3,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
+            'clip_critic_gradient': False,
+            'critic_gradient_clip_value': 1.,
             'gamma': .99,
             'target_update': {
                 'type': 'soft',
@@ -40,20 +47,20 @@ def generate(argv):
                 # 'type': 'hard',
                 # 'interval': 100,
             },
-            # 'target_network_update_freq': 250 * 64,
             'use_z_filter': False,
             'exploration': {
-                # 'noise_type': 'normal',
-                # 'sigma': 0.37,
-                'noise_type': 'ou_noise',
-                'theta': 0.15,
-                'sigma': 0.3,
-                'dt': 1e-3,
+                'noise_type': 'normal',
+                'sigma': 0.37,
+                # 'noise_type': 'ou_noise',
+                # 'theta': 0.15,
+                # 'sigma': 0.3,
+                # 'dt': 1e-3,
             },
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'use_batchnorm': False,
-            'n_step': 5,
+            'limit_training_episode_length': 100, # 0 means no limit
+            'n_step': 1,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
             'stride': 1,
@@ -90,7 +97,10 @@ def generate(argv):
         },
         'sender': {
             'flush_iteration': 100,
-        }
+        },
+        'learner': {
+            'gpu': args.gpu,
+        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)

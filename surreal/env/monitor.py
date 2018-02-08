@@ -107,7 +107,8 @@ class ConsoleMonitor(EpisodeMonitor):
             for row_caption, row_func in self._extra_rows.items():
                 row_value = row_func(self.total_steps, self.num_episodes)
                 info_table.append([row_caption, str(row_value)])
-            print(tabulate(info_table, tablefmt='fancy_grid'))
+            # `fancy_grid` doesn't work in terminal that doesn't display unicode
+            print(tabulate(info_table, tablefmt='simple', numalign='left'))
         return ob, r, done, info
 
 

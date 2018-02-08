@@ -39,7 +39,7 @@ class TmuxCluster(object):
             Will be escaped by shlex.quote
             @dry_run: Set for tmux
         """
-        self.all_config = load_config(config_path, config_command)
+        self.all_config = load_config(config_path, shlex.split(config_command))
         self.config = self.all_config.session_config
         self.config_path = config_path
         self.config_command = config_command
@@ -54,11 +54,17 @@ class TmuxCluster(object):
             dry_run=dry_run
         )
 
-    def get_command(self, mode):
+    def get_command(self, mode, args=None):
+        """
+            mode is agent/learner/...
+            args is the surreal defined argument to give to agent/learner, in a string!!!!
+        """
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
-        if self.config_command is not None:
-            command += ['--config-command', shlex.quote(self.config_command)]
         command += [mode]
+        if args is not None:
+            command += [args]
+        if self.config_command is not None:
+            command += ['--', self.config_command]
         return ' '.join(command)
 
     def _get_agent_info(self, agent_names, agent_args_):
@@ -162,7 +168,7 @@ class TmuxCluster(object):
             self._tmux.run(
                 session_name=self.agent_session,
                 window_name=agent_name,
-                cmd=self.get_command('agent') + ' ' + args
+                cmd=self.get_command('agent', args)
             )
 
     def kill_agents(self, agent_names):
@@ -184,7 +190,7 @@ class TmuxCluster(object):
             self._tmux.run(
                 session_name=self.learner_session,
                 window_name=eval_name,
-                cmd=self.get_command('eval') + ' ' + args
+                cmd=self.get_command('eval', args)
             )
 
     def kill_evals(self, eval_names):

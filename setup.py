@@ -21,7 +21,9 @@ setup(
     packages=['surreal'],
     entry_points={
         'console_scripts': [
-            # TODO
+            'git-snapshot=surreal.kube.git_snapshot:main',
+            'surreal-runner=surreal.main_scripts.runner:main',
+            'kurreal=surreal.kube.kurreal:main',
         ]
     },
     classifiers=[

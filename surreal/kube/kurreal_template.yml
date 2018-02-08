@@ -1,0 +1,158 @@
+# ================== preambles ==================
+# file_server: 'hostPath', 'emptyDir', or NFS server address
+# alias: localhost == hostPath, temp == temporary == emptyDir
+{% macro volume_block(file_server, path_on_server) %}
+volumes:
+{% for git_repo in GIT_REPOS %}
+- name: {{ git_repo | to_hyphen }}
+  gitRepo:
+    repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/stanfordvl/{{git_repo}}
+    revision: {{ GIT_SNAPSHOT_BRANCH }}
+{% endfor %}
+- name: experiment
+{% if file_server | lower in ['temp', 'temporary', 'emptydir'] %}
+  emptyDir: {}
+{% elif file_server | lower in ['localhost', 'hostpath'] %}
+  hostPath:
+    path: {{ path_on_server }}
+{% else %}
+  nfs:
+    server: {{ file_server }}
+    path: {{ path_on_server }}
+{% endif %}
+{% endmacro %}
+
+# containers:
+{% macro container_block(name, args) %}
+- name: {{ name }}
+  image: stanfordvl/surreal-cpu
+  imagePullPolicy: Always
+  env:
+  {% for git_repo in GIT_REPOS %}
+  - name: repo_{{git_repo | to_underscore}}
+    # Note that the path is duplicated because gitVolume doesn't allow the
+    # same mount path, but the git repos are cloned as a subdir.
+    value: /mylibs/{{git_repo}}/{{git_repo}}
+  {% endfor %}
+  - name: mujoco_key_text
+    value: {{ MUJOCO_KEY_TEXT }}
+  - name: my_node_name
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: my_pod_name
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: my_pod_namespace
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: my_pod_ip
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+  volumeMounts:
+  # WARNING: will be mounted to /mylibs/surreal/surreal
+  {% for git_repo in GIT_REPOS %}
+  - name: {{ git_repo | to_hyphen }}
+    mountPath: /mylibs/{{ git_repo }}
+  {% endfor %}
+  - name: experiment
+    mountPath: /experiment
+  args: {{ args }}
+{% endmacro %}
+
+# node tainting to avoid system pods being scheduled to experiment nodes in autoscaling
+{% set tolerations_block %}
+tolerations:
+- key: "surreal"
+  operator: "Exists"
+  effect: "NoSchedule"
+{% endset %}
+
+# ================== headless service provides DNS ==================
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: surreal
+spec:
+  selector:
+    type: nonagent
+  clusterIP: None
+  ports:
+  - port: 1  # doesn't matter what you put here, enables all ports
+
+---
+# Cloud provider will assign an external IP, find it by looking for `tensorboard`:
+# kubectl get svc -o wide
+kind: Service
+apiVersion: v1
+metadata:
+  name: tensorboard
+spec:
+  # magic line here. Only works on cloud providers
+  type: LoadBalancer
+  selector:
+    type: nonagent
+  ports:
+  - name: tensorboard
+    protocol: TCP
+    # port: where external request should go to
+    port: 6006
+    # targetPort is where the container listens internally
+    targetPort: 6006
+
+# ================== nonagents, all on one pod ==================
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonagent
+  labels:
+    type: nonagent
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  hostname: {{ NONAGENT_HOST_NAME }}
+  subdomain: surreal
+  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ tolerations_block | indent(2) }}
+
+{% if NONAGENT_POOL_LABEL %}
+  nodeSelector:
+    {{ NONAGENT_POOL_LABEL }}
+{% endif %}
+  containers:
+{% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
+  {{ container_block(ENTITY,
+    ["--cmd", CMD_DICT[ENTITY]])
+    | indent(2) }}
+{% endfor %}
+
+# ================== agents, each on separate pod ==================
+{% for N in range(CMD_DICT.agent | length) %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: agent-{{N}}
+  labels:
+    type: agent
+spec:
+  hostNetwork: false
+  hostname: agent-{{N}}
+  subdomain: surreal
+  restartPolicy: Never
+  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ tolerations_block | indent(2) }}
+{% if AGENT_POOL_LABEL %}
+  nodeSelector:
+    {{ AGENT_POOL_LABEL }}
+{% endif %}
+  containers:
+  {{ container_block('agent-' + (N|string),
+    ["--cmd", CMD_DICT.agent[N]])
+    | indent(2) }}
+{% endfor %}

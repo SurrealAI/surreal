@@ -1,13 +1,13 @@
-import gym
 from .base import Env, ActionType, ObsType
-import dm_control
-from dm_control.rl.environment import StepType
 import numpy as np
 import surreal.utils as U
 from operator import mul
 import functools
 import pygame
 import sys
+import gym
+import dm_control
+from dm_control.rl.environment import StepType
 
 class SpecFormat(U.StringEnum):
     SURREAL_CLASSIC = ()
@@ -121,7 +121,29 @@ class ActionWrapper(Wrapper):
     def _reverse_action(self, action):
         raise NotImplementedError
 
+class MaxStepWrapper(Wrapper):
+    """
+        Simple wrapper to limit maximum steps of an environment
+    """
+    def __init__(self, env, max_steps):
+        super().__init__(env)
+        if max_steps <= 0:
+            raise ValueError('MaxStepWrapper received max_steps')
+        self.max_steps = max_steps
+        self.current_step = 0
 
+    def _reset(self):
+        self.current_step = 0
+        return self.env.reset()
+
+    def _step(self, action):
+        self.current_step += 1
+        observation, reward, done, info = self.env.step(action)
+        if self.current_step >= self.max_steps:
+            done = True
+        return observation, reward, done, info
+
+# putting import inside to allow difference in dependency
 class GymAdapter(Wrapper):
     def __init__(self, env):
         super().__init__(env)

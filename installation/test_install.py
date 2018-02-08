@@ -1,5 +1,9 @@
+import sys
 import numpy as np
 import torch
+
+print('testing entry cmd:', sys.argv)
+assert len(sys.argv) == 4, 'entry point shlex quote error'
 
 print('testing pytorch ...')
 print(torch.FloatTensor([7, 8, 9]))
