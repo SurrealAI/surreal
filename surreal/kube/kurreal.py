@@ -74,6 +74,18 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
+        '-ap', '--agent-pool',
+        default='agent-pool',
+        help='node selector label for nodes on which agent processes run. '
+             'Default: "agent-pool"'
+    )
+    create_parser.add_argument(
+        '-nap', '--nonagent-pool',
+        default='nonagent-pool',
+        help='node selector label for nodes on which nonagent processes '
+             '(learner, ps, etc.) run. Default: "nonagent-pool"'
+    )
+    create_parser.add_argument(
         '-sn', '--snapshot',
         action='store_true',
         help='upload a snapshot of the git repos (specified in ~/.surreal.yml).'
@@ -85,8 +97,8 @@ def setup_parser():
              'if its experiment folder already exists.'
     )
 
-    stop_parser = _add_subparser('stop', kurreal_stop)
-    _add_experiment_name(stop_parser)
+    delete_parser = _add_subparser('delete', kurreal_delete)
+    _add_experiment_name(delete_parser)
 
     label_parser = _add_subparser('label', kurreal_label)
     label_parser.add_argument(
@@ -178,6 +190,8 @@ def kurreal_create(args, remainder):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
+        agent_pool_label=args.agent_pool,
+        nonagent_pool_label=args.nonagent_pool,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -207,6 +221,8 @@ def kurreal_debug_create(args, _):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
+        agent_pool_label='agent-pool',
+        nonagent_pool_label='nonagent-pool',
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -217,12 +233,12 @@ def kurreal_debug_create(args, _):
     kurreal_namespace(args, _)
 
 
-def kurreal_stop(args, _):
+def kurreal_delete(args, _):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.stop(args.experiment_name)
+    kube.delete(args.experiment_name)
 
 
 def kurreal_namespace(args, _):
@@ -302,9 +318,10 @@ def kurreal_tb(args, _):
     """
     kube = Kubectl(dry_run=args.dry_run)
     url = 'http://' + kube.external_ip('tensorboard')
-    print(url)
-    if not args.url_only:
-        webbrowser.open(url)
+    if url:
+        print(url)
+        if not args.url_only:
+            webbrowser.open(url)
 
 
 def main():
