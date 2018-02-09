@@ -88,6 +88,10 @@ tolerations:
 - key: "surreal"
   operator: "Exists"
   effect: "NoExecute"
+- key: "node.alpha.kubernetes.io/notready"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 3600
 {% endset %}
 
 # ================== headless service provides DNS ==================
