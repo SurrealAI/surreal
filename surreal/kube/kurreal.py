@@ -186,6 +186,7 @@ def setup_parser():
     _add_experiment_name(debug_create_parser)
     debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
     debug_create_parser.add_argument('-g', '--gpu', action='store_true')
+    debug_create_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
     debug_create_parser.add_argument('num_agents', type=int)
 
     return parser
@@ -235,30 +236,32 @@ def kurreal_create(args, remainder):
     kurreal_namespace(args, remainder)
 
 
-def kurreal_debug_create(args, _):
+def kurreal_debug_create(args, remainder):
     """
     CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
     config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
     service_url=experiment_name + '.surreal')
     """
     kube = Kubectl(dry_run=args.dry_run)
+    if len(remainder) > 0:
+        config_command = ' '.join(remainder)
+    else:
+        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/"
     if args.gpu:
         nonagent_selector = 'nonagent-gpu'
         nonagent_resource_request = 'nonagent-gpu'
         nonagent_resource_limit = 'nonagent-gpu'
         nonagent_image = 'nonagent-gpu'
-        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/ --gpu 0"
+        config_command += " --gpu 0"
     else:
         nonagent_selector = 'nonagent-cpu'
         nonagent_resource_request = 'nonagent-cpu'
         nonagent_resource_limit = None
         nonagent_image = 'nonagent-cpu'
-        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/"
-        
 
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
-        'surreal/surreal/main/ddpg_configs.py',
+        'surreal/surreal/main/' + args.config_file,
         config_command=config_command,
         service_url=args.experiment_name + '.surreal'
     )
@@ -281,7 +284,7 @@ def kurreal_debug_create(args, _):
         PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
-    kurreal_namespace(args, _)
+    kurreal_namespace(args, remainder)
 
 
 def kurreal_delete(args, _):
