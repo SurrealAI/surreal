@@ -41,6 +41,11 @@ def run_eval_main(args, config):
     obs, info = env.reset()
     while True:
         action = agent.act(U.to_float_tensor(obs))
+        
+        # hack such that this is runnable for ppo
+        if type(action) == tuple:
+            action = action[0]
+
         if args.render:
             env.render()
         obs, reward, done, info = env.step(action)

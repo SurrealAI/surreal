@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .base import Learner
-from .aggregator import MultistepAggregator 
+from .aggregator import MultistepWithBehaviorPolicyAggregator 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
@@ -78,7 +78,7 @@ class PPOLearner(Learner):
         )
 
         # Experience Aggregator
-        self.aggregator = MultistepAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+        self.aggregator = MultistepWithBehaviorPolicyAggregator(self.env_config.obs_spec, self.env_config.action_spec)
         
         # probability distribution. Gaussian only for now
         self.pd = DiagGauss(self.action_dim)
@@ -120,9 +120,8 @@ class PPOLearner(Learner):
         return clip_loss, stats
 
 
-    def _clip_update_iter(self, obs, actions, advantages):
-        old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
+    def _clip_update_iter(self, obs, actions, advantages, behave_pol):
+        fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
 
         num_batches = obs.size()[0] // self.batch_size + 1
         for epoch in range(self.epoch_policy):
@@ -136,7 +135,7 @@ class PPOLearner(Learner):
                 obs_batch = obs.index_select(0, sortinds[start:end])
                 act_batch = actions.index_select(0, sortinds[start:end])
                 adv_batch = advantages.index_select(0, sortinds[start:end])
-                prb_batch = old_prob.index_select(0, sortinds[start:end])
+                prb_batch = behave_pol.index_select(0, sortinds[start:end])
                 fix_batch = fixed_prob.index_select(0, sortinds[start:end])
 
                 loss, _ = self._clip_loss(obs_batch, act_batch, adv_batch, prb_batch, fix_batch)
@@ -156,23 +155,22 @@ class PPOLearner(Learner):
             if self.clip_upper > self.clip_epsilon:
                 self.clip_epsilon = self.clip_epsilon * 1.2
         
-        _, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
+        _, stats = self._clip_loss(obs, actions, advantages, behave_pol, fixed_prob)
         return stats
 
 
-    def _clip_update_full(self, obs, actions, advantages):
-        old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
+    def _clip_update_full(self, obs, actions, advantages, behave_pol):
+        fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
-            loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
+            loss, stats = self._clip_loss(obs, actions, advantages, behave_pol, fixed_prob)
             self.model.actor.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
             prob = self.model.actor(obs)
-            kl = self.pd.kl(old_prob, prob).mean()
+            kl = self.pd.kl(behave_pol, prob).mean()
             stats['pol_kl'] = kl.data[0]
             if kl.data[0] > 4 * self.kl_targ:
                 break
@@ -208,7 +206,7 @@ class PPOLearner(Learner):
 
         return loss, stats
 
-    def _adapt_update_full(self, obs, actions, advantages):
+    def _adapt_update_full(self, obs, actions, advantages, pds):
         old_prob = self.model.actor(obs).detach()
 
         for epoch in range(self.epoch_policy):
@@ -234,7 +232,7 @@ class PPOLearner(Learner):
         return stats
 
 
-    def _adapt_update_iter(self, obs, actions, advantages):
+    def _adapt_update_iter(self, obs, actions, advantages, pds):
         old_prob = self.model.actor(obs).detach()
 
         num_batches = obs.size()[0] // self.batch_size + 1
@@ -317,7 +315,7 @@ class PPOLearner(Learner):
         return stats
 
 
-    def _V_trace_compute_target(self, obs, obs_next, actions, rewards, dones):
+    def _V_trace_compute_target(self, obs, obs_next, actions, rewards, pds, dones):
         batch_size =self.learner_config.replay.batch_size
         obs_flat = obs.view(batch_size * self.n_step, -1 ) 
         actions_flat = actions.view(batch_size * self.n_step, -1)
@@ -326,8 +324,8 @@ class PPOLearner(Learner):
         curr_pd   = self.model.actor(Variable(obs_flat))
         curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
 
-        behave_pd   = self.model.actor(Variable(obs_flat))
-        behave_prob = self.pd.likelihood(Variable(actions_flat), behave_pd).data # this should be parsed in from data
+        behave_pd   = Variable(pds.view(batch_size * self.n_step, -1))
+        behave_prob = self.pd.likelihood(Variable(actions_flat), behave_pd).data
         behave_prob = torch.clamp(behave_prob, min=self.is_weight_eps) # hard clamp, not variance reduction step
 
         is_weight = curr_prob / behave_prob
@@ -360,7 +358,7 @@ class PPOLearner(Learner):
         v_trace_targ = adv + values[:, :-1]
         adv = adv.view(-1 , 1)
         v_trace_targ = v_trace_targ.view(-1, 1)
-
+        pds_flat = pds.view(batch_size * self.n_step, -1)
         # Less Efficnet, less biased. Run with stride = 1
         '''
         gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
@@ -368,6 +366,7 @@ class PPOLearner(Learner):
         v_trace_targ = adv + values[:, 0]
         obs_flat = obs[:, 0, :].squeeze(1)
         action_flat = actions[:, 0, :].squeeze(1) 
+        pds_flat = pds[:, 0, :].squeeze(1)
         '''
 
         if self.norm_adv:
@@ -375,20 +374,22 @@ class PPOLearner(Learner):
             std  = adv.std()
             adv  = (adv - mean)/std  
 
-        return obs_flat, actions_flat, adv, v_trace_targ    
+        return obs_flat, actions_flat, adv, v_trace_targ, pds_flat    
 
 
-    def _optimize(self, obs, actions, rewards, obs_next, dones):
-        obs, actions, advantages, v_trace_targ = self._V_trace_compute_target(obs, obs_next, actions, rewards, dones)
+    def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
+        obs, actions, advantages, v_trace_targ, pds = self._V_trace_compute_target(obs, obs_next, actions, 
+                                                                                   rewards, pds, dones)
         obs =Variable(obs)
         actions = Variable(actions)
         advantages = Variable(advantages)
         v_trace_targ = Variable(v_trace_targ)
+        pds = Variable(pds)
 
         if self.method == 'clip': 
-            stats = self._clip_update_full(obs, actions, advantages)
+            stats = self._clip_update_full(obs, actions, advantages, pds)
         else:
-            stats = self._adapt_update_full(obs, actions, advantages)
+            stats = self._adapt_update_full(obs, actions, advantages, pds)
         baseline_stats = self._value_update_full(obs, v_trace_targ)
 
         # updating tensorplex
@@ -411,6 +412,7 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.next_obs,
+            batch.pds, 
             batch.dones,
         )
 

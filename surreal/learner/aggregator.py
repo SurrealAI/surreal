@@ -91,7 +91,7 @@ class MultistepAggregator():
         observations = U.to_float_tensor(np.stack(observations))
         next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions).squeeze(2)
+            actions = U.to_float_tensor(actions)
         elif self.action_type == ActionType.discrete:
             actions = torch.LongTensor(actions).unsqueeze(2)
         else:
@@ -113,6 +113,70 @@ class MultistepAggregator():
         reward_arr = np.array(experience['reward_arr'])
         done_arr = np.array(experience['done_arr'])
         return observation_arr, action_arr, reward_arr, done_arr
+
+
+class MultistepWithBehaviorPolicyAggregator():
+    """
+        Accepts input by ExpSenderWrapperMultiStep
+        aggregate() returns float Tensors
+        TODO: make them Tensors
+        EasyDict{
+            obs = batch_size * n_step * observation
+            next_obs = batch_size * 1 * next_observation
+            actions = batch_size * n_step * actions,
+            rewards = batch_size * n_step,
+            pds = batch_size * n_step * pd_length, # pd_length = 2 * actions for Gaussian Policy
+            dones = batch_size * n_step,
+        }
+    """
+    def __init__(self, obs_spec, action_spec):
+        U.assert_type(obs_spec, dict)
+        U.assert_type(action_spec, dict)
+        self.action_type = ActionType[action_spec['type']]
+        self.action_spec = action_spec
+        self.obs_spec = obs_spec
+
+    def aggregate(self, exp_list):
+        observations, next_obs, actions, rewards, pds, dones = [], [], [], [], [], []
+        for exp in exp_list:
+            observation_n_step, action_n_step, reward_n_step, pd_n_step, done_n_step = self.stack_n_step_experience(exp)
+            observations.append(observation_n_step)
+            actions.append(action_n_step)
+            rewards.append(reward_n_step)
+            dones.append(done_n_step)
+            pds.append(pd_n_step)
+            next_obs.append(exp['obs_next'])
+        observations = U.to_float_tensor(np.stack(observations))
+        next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
+        if self.action_type == ActionType.continuous:
+            actions = U.to_float_tensor(actions)
+        elif self.action_type == ActionType.discrete:
+            actions = torch.LongTensor(actions).unsqueeze(2)
+        else:
+            raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
+        pds = U.to_float_tensor(pds)
+        rewards = U.to_float_tensor(rewards)
+        dones = U.to_float_tensor(dones)
+        return EasyDict(obs=observations,
+                    next_obs = next_obs,
+                    actions=actions, 
+                    rewards=rewards, 
+                    pds=pds,
+                    dones=dones,)
+
+    def stack_n_step_experience(self, experience):
+        """
+            Stacks n steps into single numpy arrays
+        """
+        observation_arr = np.stack(experience['obs_arr'])
+        action_arr = np.stack(experience['action_arr'])
+        reward_arr = np.array(experience['reward_arr'])
+        done_arr = np.array(experience['done_arr'])
+        pds_arr  = np.stack(experience['pd_arr'])
+        return observation_arr, action_arr, reward_arr, pds_arr, done_arr
+
+
+
 
 class NstepReturnAggregator():
     """
