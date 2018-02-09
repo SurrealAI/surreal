@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .base import Learner
-from .aggregator import NstepReturnAggregator
+from .aggregator import MultistepAggregator 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
@@ -32,6 +32,9 @@ class PPOLearner(Learner):
 
         # PPO parameters
         self.method = self.learner_config.algo.method
+        self.trace_cutoff = self.learner_config.algo.trace_cutoff
+        self.is_weight_thresh = self.learner_config.algo.is_weight_thresh
+        self.is_weight_eps = self.learner_config.algo.is_weight_eps
         self.lr_policy = self.learner_config.algo.lr_policy
         self.lr_baseline = self.learner_config.algo.lr_baseline
         self.epoch_policy = self.learner_config.algo.epoch_policy
@@ -75,7 +78,7 @@ class PPOLearner(Learner):
         )
 
         # Experience Aggregator
-        self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.gamma)
+        self.aggregator = MultistepAggregator(self.env_config.obs_spec, self.env_config.action_spec)
         
         # probability distribution. Gaussian only for now
         self.pd = DiagGauss(self.action_dim)
@@ -119,7 +122,7 @@ class PPOLearner(Learner):
 
     def _clip_update_iter(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach()
+        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
 
         num_batches = obs.size()[0] // self.batch_size + 1
         for epoch in range(self.epoch_policy):
@@ -159,7 +162,7 @@ class PPOLearner(Learner):
 
     def _clip_update_full(self, obs, actions, advantages):
         old_prob = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, old_prob).detach()
+        fixed_prob = self.pd.likelihood(actions, old_prob).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
             loss, stats = self._clip_loss(obs, actions, advantages, old_prob, fixed_prob)
@@ -313,23 +316,85 @@ class PPOLearner(Learner):
 
         return stats
 
+
+    def _V_trace_compute_target(self, obs, obs_next, actions, rewards, dones):
+        batch_size =self.learner_config.replay.batch_size
+        obs_flat = obs.view(batch_size * self.n_step, -1 ) 
+        actions_flat = actions.view(batch_size * self.n_step, -1)
+
+        # getting the importance sampling weights
+        curr_pd   = self.model.actor(Variable(obs_flat))
+        curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
+
+        behave_pd   = self.model.actor(Variable(obs_flat))
+        behave_prob = self.pd.likelihood(Variable(actions_flat), behave_pd).data # this should be parsed in from data
+        behave_prob = torch.clamp(behave_prob, min=self.is_weight_eps) # hard clamp, not variance reduction step
+
+        is_weight = curr_prob / behave_prob
+        is_weight_trunc = torch.clamp(is_weight, max=self.is_weight_thresh)
+        trace_c         = torch.clamp(is_weight, max=self.trace_cutoff) # both in shape (batch * n, 1)
     
-    def _optimize(self, obs, actions, rewards, obs_next, done, num_steps):
-        advantages, returns = self._advantage_and_return(obs, actions, rewards, obs_next, done, num_steps)
-        obs = Variable(obs)
-        actions = Variable(actions.squeeze(1))
+        is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
+        log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
+
+        # value estimate
+        obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
+        values = self.model.critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
+        values = values.view(batch_size, self.n_step + 1)
+        values[:, :self.n_step] *= 1 - dones
+        values[:, self.n_step]  *= 1 - dones[:, -1]
+
+        # computing trace
+        delta = is_weight_trunc * (rewards + self.gamma * values[:, 1:]) - values[:, :-1] # (batch, n)
+        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+        inv_idx = torch.arange(log_trace_c.size(1)-1, -1, -1).long() 
+        inv_log_trace = log_trace_c.index_select(1, inv_idx)
+        inv_log_trace = inv_log_trace.cumsum(dim = 1)
+        inv_trace = torch.exp(inv_log_trace) # (batch, n)
+
+        # More efficient, more biased. run with stride ~= n_step
+        adv  = inv_trace * delta
+        for step in range(self.n_step):
+            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n -1,)
+            adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
+        v_trace_targ = adv + values[:, :-1]
+        adv = adv.view(-1 , 1)
+        v_trace_targ = v_trace_targ.view(-1, 1)
+
+        # Less Efficnet, less biased. Run with stride = 1
+        '''
+        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+        adv = torch.sum(inv_trace * gamma * delta, dim = 1)
+        v_trace_targ = adv + values[:, 0]
+        obs_flat = obs[:, 0, :].squeeze(1)
+        action_flat = actions[:, 0, :].squeeze(1) 
+        '''
+
+        if self.norm_adv:
+            mean = adv.mean()
+            std  = adv.std()
+            adv  = (adv - mean)/std  
+
+        return obs_flat, actions_flat, adv, v_trace_targ    
+
+
+    def _optimize(self, obs, actions, rewards, obs_next, dones):
+        obs, actions, advantages, v_trace_targ = self._V_trace_compute_target(obs, obs_next, actions, rewards, dones)
+        obs =Variable(obs)
+        actions = Variable(actions)
         advantages = Variable(advantages)
-        returns = Variable(returns)
+        v_trace_targ = Variable(v_trace_targ)
+
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages)
         else:
             stats = self._adapt_update_full(obs, actions, advantages)
-        baseline_stats = self._value_update_full(obs, returns)
+        baseline_stats = self._value_update_full(obs, v_trace_targ)
 
         # updating tensorplex
         for k in baseline_stats:
             stats[k] = baseline_stats[k]
-        stats['avg_returns'] = returns.mean().data[0]
+        stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
         stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
 
         if self.use_z_filter:
@@ -345,9 +410,8 @@ class PPOLearner(Learner):
             batch.obs,
             batch.actions,
             batch.rewards,
-            batch.obs_next,
+            batch.next_obs,
             batch.dones,
-            batch.num_steps
         )
 
     def module_dict(self):
@@ -370,7 +434,12 @@ class PPOLearner(Learner):
             - sample size  v
             - stride match N-step (or truncating)
             - aggregator: multistep aggregator instead of NstepReturnAggregator
+
+
+        TODO:
+            - √ custom sender
+            - √ high bias, efficient implementation
+            - low bias, inefficient implementation
+            - agent side sleeping?
+            - log_sig smaller learning rate
 '''
-
-
-

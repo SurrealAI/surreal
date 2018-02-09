@@ -66,6 +66,7 @@ class MultistepAggregator():
         TODO: make them Tensors
         EasyDict{
             obs = batch_size * n_step * observation
+            next_obs = batch_size * 1 * next_observation
             actions = batch_size * n_step * actions,
             rewards = batch_size * n_step,
             dones = batch_size * n_step,
@@ -79,16 +80,18 @@ class MultistepAggregator():
         self.obs_spec = obs_spec
 
     def aggregate(self, exp_list):
-        observations, actions, rewards, dones = [], [], [], []
+        observations, next_obs, actions, rewards, dones = [], [], [], [], []
         for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stak_n_step_experience(exp)
+            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
             observations.append(observation_n_step)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
+            next_obs.append(exp['obs_next'])
         observations = U.to_float_tensor(np.stack(observations))
+        next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = U.to_float_tensor(actions).squeeze(2)
         elif self.action_type == ActionType.discrete:
             actions = torch.LongTensor(actions).unsqueeze(2)
         else:
@@ -96,11 +99,12 @@ class MultistepAggregator():
         rewards = U.to_float_tensor(rewards)
         dones = U.to_float_tensor(dones)
         return EasyDict(obs=observations,
+                    next_obs = next_obs,
                     actions=actions, 
                     rewards=rewards, 
                     dones=dones,)
 
-    def stak_n_step_experience(self, experience):
+    def stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays
         """
