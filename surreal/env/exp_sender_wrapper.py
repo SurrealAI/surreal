@@ -191,9 +191,10 @@ class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
         self.last_n.clear()
         return self._obs, info
 
-    def _step(self, action, pd):
-        obs_next, reward, done, info = self.env.step(action)
-        self.last_n.append([self._obs, action, reward, done, pd, info])
+    def _step(self, action):
+        action_choice, action_pd = action
+        obs_next, reward, done, info = self.env.step(action_choice)
+        self.last_n.append([self._obs, action_choice, reward, done, action_pd, info])
         if len(self.last_n) == self.n_step:
             self.send(self.last_n, obs_next)
             for i in range(self.stride):

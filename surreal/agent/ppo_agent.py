@@ -39,15 +39,17 @@ class PPOAgent(Agent):
     def act(self, obs):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action = self.model.actor(obs).data.numpy()
+        action_pd = self.model.actor(obs).data.numpy()
 
         if self.agent_mode is not AgentMode.eval_deterministic:
-            action = self.pd.sample(action)
+            action_choice = self.pd.sample(action_pd)
         else:
-            action = self.pd.maxprob(action)
-        np.clip(action, -1, 1, out=action)
-
-        return action
+            action_choice = self.pd.maxprob(action_pd)
+        np.clip(action_choice, -1, 1, out=action_choice)
+        
+        action_choice = action_choice.reshape((-1,))
+        action_pd     = action_pd.reshape((-1,))
+        return (action_choice, action_pd)
 
     def module_dict(self):
         return {

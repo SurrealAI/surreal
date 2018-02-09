@@ -45,7 +45,7 @@ learner_config = {
         'trace_cutoff': 1.2,
         'is_weight_thresh': 1.5, 
         'is_weight_eps': 1e-5,
-        'experience': 'ExpSenderWrapperMultiStepMovingWindow',
+        'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
         'stride': 6,
         'batch_size': 32,
         # ppo specific parameters:
