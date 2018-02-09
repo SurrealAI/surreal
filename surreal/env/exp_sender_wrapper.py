@@ -158,6 +158,78 @@ class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
         }
         self.sender.send(hash_dict, nonhash_dict)
 
+class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
+    """
+        Base class for all classes that send experience in format
+        {   
+            'obs_arr': [state_1, ..., state_n]
+            'obs_next': [state_{n + 1}]
+            'action_arr': [action_1, ...],
+            'reward_arr': [reward_1, ...],
+            'done_arr': [done_1, ...],
+            'pd_arr': [policy_1, ..., policy_n]
+            'info_arr': [info_1, ...],
+            'n_step': n
+        }
+
+        Requires:
+            @self.learner_config.algo.n_step: n, number of steps per experience
+            @self.learner_config.algo.stride: after sending experience [state_i, ...]
+            the next experience is [state_{i + stride}]
+    """
+    def __init__(self, env, learner_config, session_config):
+        super().__init__(env, learner_config, session_config)
+        self._obs = None  # obs of the current time step
+        self.n_step = self.learner_config.algo.n_step
+        self.stride = self.learner_config.algo.stride # Stride for moving window
+        if self.stride < 1:
+            raise ConfigError('stride {} for experience generation cannot be less than 1'.format(self.learner_config.algo.stride))
+        self.last_n = deque()
+
+    def _reset(self):
+        self._obs, info = self.env.reset()
+        self.last_n.clear()
+        return self._obs, info
+
+    def _step(self, action, pd):
+        obs_next, reward, done, info = self.env.step(action)
+        self.last_n.append([self._obs, action, reward, done, pd, info])
+        if len(self.last_n) == self.n_step:
+            self.send(self.last_n, obs_next)
+            for i in range(self.stride):
+                if len(self.last_n) > 0:
+                    self.last_n.popleft()
+        self._obs = obs_next
+        return obs_next, reward, done, info
+
+    def send(self, data, obs_next):
+        obs_arr, action_arr, reward_arr, done_arr, pd_arr, info_arr = [], [], [], [], [], []
+        hash_dict = {}
+        nonhash_dict = {}
+        for index, (obs, action, reward, done, pd, info) in enumerate(data):
+            # Store observations in a deduplicated way
+            obs_arr.append(obs)
+            action_arr.append(action)
+            reward_arr.append(reward)
+            done_arr.append(done)
+            pd_arr.append(pd)
+            info_arr.append(info)
+
+        hash_dict = {
+            'obs_arr': obs_arr,
+            'obs_next': obs_next,
+        }
+        nonhash_dict = {
+            'action_arr': action_arr,
+            'pd_arr' : pd_arr,
+            'reward_arr': reward_arr,
+            'done_arr': done_arr,
+            'info_arr': info_arr,
+            'n_step': len(data),
+        }
+        self.sender.send(hash_dict, nonhash_dict)
+
+
 
 class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
     """
