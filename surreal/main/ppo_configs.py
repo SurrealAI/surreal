@@ -90,12 +90,12 @@ def generate(argv):
 
 
     env_config = {
-        'env_name': 'dm_control:cheetah-run',
+        'env_name': args.env,  
     }
 
 
     session_config = Config({
-        'folder': '~/Desktop/Research/tmp/halfcheetah',
+        'folder': args.savefile, 
         'tensorplex': {
             'update_schedule': {
                 # for TensorplexWrapper:
@@ -109,7 +109,10 @@ def generate(argv):
         },
         'sender': {
             'flush_iteration': 100,
-        }
+        },
+        'learner': {
+            'gpu': args.gpu,
+        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)

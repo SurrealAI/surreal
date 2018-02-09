@@ -386,6 +386,7 @@ class PPOLearner(Learner):
         v_trace_targ = Variable(v_trace_targ)
         pds = Variable(pds)
 
+
         if self.method == 'clip': 
             stats = self._clip_update_full(obs, actions, advantages, pds)
         else:
@@ -397,6 +398,10 @@ class PPOLearner(Learner):
             stats[k] = baseline_stats[k]
         stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
         stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
+        stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data
+        new_pol_pd = self.model.actor(obs)
+        new_likelihood = self.pd.likelihood(actions, new_pol_pd)
+        stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data
 
         if self.use_z_filter:
             stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
