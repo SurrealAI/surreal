@@ -17,6 +17,7 @@ class DDPGAgent(Agent):
                  session_config,
                  agent_id,
                  agent_mode):
+
         super().__init__(
             learner_config=learner_config,
             env_config=env_config,

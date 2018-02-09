@@ -37,9 +37,9 @@ def generate(argv):
             'lr_critic': 1e-3,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 1.,
+            'actor_gradient_clip_value': 5.,
             'clip_critic_gradient': False,
-            'critic_gradient_clip_value': 1.,
+            'critic_gradient_clip_value': 5.,
             'gamma': .99,
             'target_update': {
                 'type': 'soft',
@@ -73,11 +73,9 @@ def generate(argv):
         }
     }
 
-
     env_config = {
         'env_name': args.env,
     }
-
 
     session_config = Config({
         'folder': args.savefile,
@@ -102,4 +100,3 @@ def generate(argv):
 
     session_config.extend(LOCAL_SESSION_CONFIG)
     return learner_config, env_config, session_config
-    
