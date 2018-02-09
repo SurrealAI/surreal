@@ -11,7 +11,7 @@ selectors:
     surreal-node: nonagent-cpu
   nonagent-gpu:
     surreal-node: nonagent-gpu
-    cloud.google.com/gke-accelerator: nvidia-tesla-k80
+    cloud.google.com/gke-accelerator: nvidia-tesla-k80 # This k80 can be changed to p100
 resource_requests:
   agent:
     cpu: 1.5
