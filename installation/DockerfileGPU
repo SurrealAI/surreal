@@ -5,11 +5,11 @@ LABEL author="Stanford Surreal team"
 RUN mkdir /mylibs
 WORKDIR /mylibs
 
-RUN apt-get update
-RUN apt-get install -y expect
-COPY keyboard_configuration.exp .
-RUN expect keyboard_configuration.exp
-RUN yes | apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13
+# RUN apt-get update
+# RUN apt-get install -y expect
+# COPY keyboard_configuration.exp .
+# RUN expect keyboard_configuration.exp
+RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0
 
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
 	&& bash Miniconda3-latest-Linux-x86_64.sh -p /mylibs/miniconda -b
@@ -27,7 +27,7 @@ RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
     && rm mjpro131_linux.zip
 
 # pytorch
-RUN printf 'y\n' | conda install pytorch torchvision -c pytorch
+RUN conda install --yes pytorch torchvision -c pytorch
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 

@@ -23,9 +23,9 @@ volumes:
 {% endmacro %}
 
 # containers:
-{% macro container_block(name, args) %}
+{% macro container_block(type, name, image, args, resource_request, resource_limit) %}
 - name: {{ name }}
-  image: stanfordvl/surreal-cpu
+  image: {{ image }}
   imagePullPolicy: Always
   env:
   {% for git_repo in GIT_REPOS %}
@@ -61,6 +61,21 @@ volumes:
   - name: experiment
     mountPath: /experiment
   args: {{ args }}
+  {% if resource_request | length > 0 or resource_limit | length > 0 and type in ['agent', 'learner']%}
+  resources:
+    {% if resource_request | length > 0 and type in ['agent', 'learner']%}
+    requests:
+      {% for req_key, req_val in resource_request.items() %}
+      {{req_key}}: {{req_val}}
+      {% endfor %}
+    {% endif %}
+    {% if resource_limit | length > 0 and type in ['agent', 'learner']%}
+    limits:
+      {% for lim_key, lim_val in resource_limit.items() %}
+      {{lim_key}}: {{lim_val}}
+      {% endfor %}
+    {% endif %}
+  {% endif %}
 {% endmacro %}
 
 # node tainting to avoid system pods being scheduled to experiment nodes in autoscaling
@@ -68,7 +83,7 @@ volumes:
 tolerations:
 - key: "surreal"
   operator: "Exists"
-  effect: "NoSchedule"
+  effect: "NoExecute"
 {% endset %}
 
 # ================== headless service provides DNS ==================
@@ -120,14 +135,19 @@ spec:
   {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
   {{ tolerations_block | indent(2) }}
 
-{% if NONAGENT_POOL_LABEL %}
+{% if NONAGENT_SELECTOR | length > 0 %}
   nodeSelector:
-    {{ NONAGENT_POOL_LABEL }}
+    {% for selector_key, selector_val in NONAGENT_SELECTOR.items() %}
+    {{selector_key}}: {{selector_val}}
+    {% endfor %}
 {% endif %}
   containers:
 {% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
-  {{ container_block(ENTITY,
-    ["--cmd", CMD_DICT[ENTITY]])
+  {{ container_block(ENTITY,ENTITY,
+    NONAGENT_IMAGE,
+    ["--cmd", CMD_DICT[ENTITY]],
+    NONAGENT_RESOURCE_REQUEST,
+    NONAGENT_RESOURCE_LIMIT)
     | indent(2) }}
 {% endfor %}
 
@@ -147,12 +167,18 @@ spec:
   restartPolicy: Never
   {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
   {{ tolerations_block | indent(2) }}
-{% if AGENT_POOL_LABEL %}
+{% if AGENT_SELECTOR | length > 0 %}
   nodeSelector:
-    {{ AGENT_POOL_LABEL }}
+    {% for selector_key, selector_val in AGENT_SELECTOR.items() %}
+    {{selector_key}}: {{selector_val}}
+    {% endfor %}
 {% endif %}
   containers:
-  {{ container_block('agent-' + (N|string),
-    ["--cmd", CMD_DICT.agent[N]])
+  {{ container_block('agent', 
+    'agent-' + (N|string),
+    AGENT_IMAGE,
+    ["--cmd", CMD_DICT.agent[N]],
+    AGENT_RESOURCE_REQUEST,
+    AGENT_RESOURCE_LIMIT)
     | indent(2) }}
 {% endfor %}

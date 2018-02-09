@@ -82,6 +82,11 @@ gcloud beta container clusters create [cluster-name] --enable-kubernetes-alpha -
 gcloud beta container clusters create kurreal --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone us-west1-b --num-nodes=2 -m n1-standard-1
 ```
 
+Next we opt in for beta-features (tainting)
+```
+gcloud config set container/use_v1_api_client false
+```
+
 Next we set up some context
 ```
 gcloud config set container/cluster [cluster-name]
@@ -93,10 +98,13 @@ If this line runs successfully the cluster is setup
 kubectl cluster-info
 ```
 
-Create the nodes we want and delete the original node pool
+To create the nodes, run
 ```
-gcloud container node-pools create agent-pool -m n1-standard-2 --node-labels surreal-node=agent-pool --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2
-gcloud beta container node-pools create nonagent-pool -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-pool --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2
+gcloud beta container node-pools create agent-pool -m n1-standard-2 --node-labels surreal-node=agent --enable-autoscaling --min-nodes 0 --max-nodes 500 --num-nodes 2 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-gpu -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-cpu -m n1-highmem-8 --node-labels surreal-node=nonagent-cpu --enable-autoscaling --min-nodes 0 --max-nodes 10 --num-nodes 2 --node-taints surreal=true:NoExecute
 ```
 
 Run the daemon to install nvidia drivers

@@ -31,13 +31,13 @@ def _add_experiment_name(parser, nargs=None):
     )
 
 
-def _process_labels(label_string):
-    """
-    mylabel1=myvalue1,mylabel2=myvalue2
-    """
-    assert '=' in label_string
-    label_pairs = label_string.split(',')
-    return [label_pair.split('=') for label_pair in label_pairs]
+# def _process_labels(label_string):
+#     """
+#     mylabel1=myvalue1,mylabel2=myvalue2
+#     """
+#     assert '=' in label_string
+#     label_pairs = label_string.split(',')
+#     return [label_pair.split('=') for label_pair in label_pairs]
 
 
 def setup_parser():
@@ -74,21 +74,48 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
-        '-ap', '--agent-pool',
-        default='agent-pool',
-        help='node selector label for nodes on which agent processes run. '
-             'Default: "agent-pool"'
+        '-ap', '--agent-selector',
+        default='agent',
+        help='key in ~/.surreal.yml `selector` section that points to a node selector'
+             'If key does not exist, assume the string itself is a selector string'
+             'node selector for nodes on which agent processes run. '
+             'Default: "agent"' # TODO
     )
     create_parser.add_argument(
-        '-nap', '--nonagent-pool',
-        default='nonagent-pool',
-        help='node selector label for nodes on which nonagent processes '
-             '(learner, ps, etc.) run. Default: "nonagent-pool"'
+        '-nap', '--nonagent-selector',
+        default='nonagent-cpu',
+        help='key in ~/.surreal.yml `selector` section that points to a node selector'
+             'If key does not exist, assume the string itself is a selector string'
+             'node selector label for nodes on which nonagent processes '
+             '(learner, ps, etc.) run. Default: "nonagent-cpu"' # TODO
     )
     create_parser.add_argument(
-        '-sn', '--snapshot',
-        action='store_true',
-        help='upload a snapshot of the git repos (specified in ~/.surreal.yml).'
+        '-ar', '--agent-resource-request',
+        default='agent',
+        help='key in ~/.surreal.yml `resource_requests` section'
+             'that points to a resource request setting for agent container'
+             'If key does not exist, assume the string itself can be parsed:'
+             'eg: cpu=1.5'
+    )
+    create_parser.add_argument(
+        '-nar', '--nonagent-resource-request',
+        default='nonagent-cpu',
+        help='key in ~/.surreal.yml `resource_requests` section'
+             'that points to a resource request setting for learner container'
+             'If key does not exist, assume the string itself can be parsed:'
+             'eg: cpu=7'
+    )
+    create_parser.add_argument(
+        '-ai', '--agent-image',
+        default='agent',
+        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
+             'If key does not exist, assume the string itself is a docker URL. '
+    )
+    create_parser.add_argument(
+        '-nai', '--nonagent-image',
+        default='nonagent-cpu',
+        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
+             'If key does not exist, assume the string itself is a docker URL.'
     )
     create_parser.add_argument(
         '--force',
@@ -100,19 +127,19 @@ def setup_parser():
     delete_parser = _add_subparser('delete', kurreal_delete)
     _add_experiment_name(delete_parser)
 
-    label_parser = _add_subparser('label', kurreal_label)
-    label_parser.add_argument(
-        'old_labels',
-        help='select nodes according to their old labels'
-    )
-    label_parser.add_argument(
-        'new_labels',
-        type=_process_labels,
-        help='mark the selected nodes with new labels in format '
-             '"mylabel1=myvalue1,mylabel2=myvalue2"'
-    )
+    # label_parser = _add_subparser('label', kurreal_label)
+    # label_parser.add_argument(
+    #     'old_labels',
+    #     help='select nodes according to their old labels'
+    # )
+    # label_parser.add_argument(
+    #     'new_labels',
+    #     type=_process_labels,
+    #     help='mark the selected nodes with new labels in format '
+    #          '"mylabel1=myvalue1,mylabel2=myvalue2"'
+    # )
 
-    label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
+    # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
 
     logs_parser = _add_subparser('logs', kurreal_logs)
     logs_parser.add_argument(
@@ -158,6 +185,7 @@ def setup_parser():
     debug_create_parser = _add_subparser('debug-create', kurreal_debug_create)
     _add_experiment_name(debug_create_parser)
     debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
+    debug_create_parser.add_argument('-g', '--gpu', action='store_true')
     debug_create_parser.add_argument('num_agents', type=int)
 
     return parser
@@ -190,8 +218,12 @@ def kurreal_create(args, remainder):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
-        agent_pool_label=args.agent_pool,
-        nonagent_pool_label=args.nonagent_pool,
+        agent_selector=args.agent_pool,
+        nonagent_selector=args.nonagent_pool,
+        agent_resource_request=args.agent_resource_request,
+        nonagent_resource_request=args.nonagent_resource_request,
+        agent_image=args.agent_image,
+        nonagent_image=args.nonagent_image,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -210,10 +242,24 @@ def kurreal_debug_create(args, _):
     service_url=experiment_name + '.surreal')
     """
     kube = Kubectl(dry_run=args.dry_run)
+    if args.gpu:
+        nonagent_selector = 'nonagent-gpu'
+        nonagent_resource_request = 'nonagent-gpu'
+        nonagent_resource_limit = 'nonagent-gpu'
+        nonagent_image = 'nonagent-gpu'
+        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/ --gpu 0"
+    else:
+        nonagent_selector = 'nonagent-cpu'
+        nonagent_resource_request = 'nonagent-cpu'
+        nonagent_resource_limit = None
+        nonagent_image = 'nonagent-cpu'
+        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/"
+        
+
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
         'surreal/surreal/main/ddpg_configs.py',
-        config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
+        config_command=config_command,
         service_url=args.experiment_name + '.surreal'
     )
     cmd_dict = cmd_gen.generate(args.num_agents)
@@ -221,8 +267,13 @@ def kurreal_debug_create(args, _):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
-        agent_pool_label='agent-pool',
-        nonagent_pool_label='nonagent-pool',
+        agent_selector='agent',
+        nonagent_selector=nonagent_selector,
+        agent_resource_request='agent',
+        nonagent_resource_request=nonagent_resource_request,
+        nonagent_resource_limit=nonagent_resource_limit,
+        agent_image='agent',
+        nonagent_image=nonagent_image,
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
         # TODO change to NFS
@@ -271,30 +322,30 @@ def kurreal_list(args, _):
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
 
-def kurreal_label(args, _):
-    """
-    Label nodes in node pools
-    """
-    kube = Kubectl(dry_run=args.dry_run)
-    for label, value in args.new_labels:
-        kube.label_nodes(args.old_labels, label, value)
+# def kurreal_label(args, _):
+#     """
+#     Label nodes in node pools
+#     """
+#     kube = Kubectl(dry_run=args.dry_run)
+#     for label, value in args.new_labels:
+#         kube.label_nodes(args.old_labels, label, value)
 
+# Deprecated: 
+# def kurreal_label_gcloud(args, _):
+#     """
+#     Add default labels for GCloud cluster.
+#     Note that you have to create the node-pools with the exact names:
+#     "agent-pool" and "nonagent-pool-cpu"
+#     gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
 
-def kurreal_label_gcloud(args, _):
-    """
-    Add default labels for GCloud cluster.
-    Note that you have to create the node-pools with the exact names:
-    "agent-pool" and "nonagent-pool"
-    gcloud container node-pools create agent-pool -m n1-standard-2 --num-nodes=8
-
-    Command to check whether the labeling is successful:
-    kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
-    """
-    kube = Kubectl(dry_run=args.dry_run)
-    kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-                     'surreal-node', 'agent-pool')
-    kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-                     'surreal-node', 'nonagent-pool')
+#     Command to check whether the labeling is successful:
+#     kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
+#     """
+#     kube = Kubectl(dry_run=args.dry_run)
+#     kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+#                      'surreal-node', 'agent-pool')
+#     kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+#                      'surreal-node', 'nonagent-pool')
 
 
 def kurreal_logs(args, _):
