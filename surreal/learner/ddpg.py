@@ -49,7 +49,9 @@ class DDPGLearner(Learner):
                 action_dim=self.action_dim,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
-                train=True
+                train=True,
+                actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
 
             self.model_target = DDPGModel(
@@ -57,7 +59,9 @@ class DDPGLearner(Learner):
                 action_dim=self.action_dim,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
-                train=False
+                train=False,
+                actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
 
             self.critic_criterion = nn.MSELoss()

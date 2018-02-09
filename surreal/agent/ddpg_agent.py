@@ -40,6 +40,8 @@ class DDPGAgent(Agent):
             use_z_filter=self.use_z_filter,
             use_batchnorm=self.use_batchnorm,
             train=False,
+            actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+            critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
         )
         
         self.init_noise()
@@ -87,7 +89,8 @@ class DDPGAgent(Agent):
         return {
             'model': {
                 'convs': '_list_',
-                'fc_hidden_sizes': '_list_',
+                'actor_fc_hidden_sizes': '_list_',
+                'critic_fc_hidden_sizes': '_list_',
             },
         }
 

@@ -4,7 +4,8 @@ from surreal.session import Config, LOCAL_SESSION_CONFIG
 learner_config = {
     'model': {
         'convs': [],
-        'fc_hidden_sizes': [128],
+        'actor_fc_hidden_sizes': [64, 64],
+        'critic_fc_hidden_sizes': [64, 64],
         'dueling': False,
         'conv_spec': {
             'out_channels': [64, 64],
