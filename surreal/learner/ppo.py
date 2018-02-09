@@ -321,7 +321,7 @@ class PPOLearner(Learner):
         batch_size =self.learner_config.replay.batch_size
         obs_flat = obs.view(batch_size * self.n_step, -1 ) 
         actions_flat = actions.view(batch_size * self.n_step, -1)
-        # slightly biased, more efficient:
+
         # getting the importance sampling weights
         curr_pd   = self.model.actor(Variable(obs_flat))
         curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
@@ -352,6 +352,7 @@ class PPOLearner(Learner):
         inv_log_trace = inv_log_trace.cumsum(dim = 1)
         inv_trace = torch.exp(inv_log_trace) # (batch, n)
 
+        # More efficient, more biased. run with stride ~= n_step
         adv  = inv_trace * delta
         for step in range(self.n_step):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n -1,)
@@ -360,6 +361,14 @@ class PPOLearner(Learner):
         adv = adv.view(-1 , 1)
         v_trace_targ = v_trace_targ.view(-1, 1)
 
+        # Less Efficnet, less biased. Run with stride = 1
+        '''
+        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+        adv = torch.sum(inv_trace * gamma * delta, dim = 1)
+        v_trace_targ = adv + values[:, 0]
+        obs_flat = obs[:, 0, :].squeeze(1)
+        action_flat = actions[:, 0, :].squeeze(1) 
+        '''
 
         if self.norm_adv:
             mean = adv.mean()
@@ -428,10 +437,9 @@ class PPOLearner(Learner):
 
 
         TODO:
-            - custom sender
-            - high bias, efficient implementation
+            - √ custom sender
+            - √ high bias, efficient implementation
             - low bias, inefficient implementation
+            - agent side sleeping?
+            - log_sig smaller learning rate
 '''
-
-
-
