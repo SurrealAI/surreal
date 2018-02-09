@@ -1,6 +1,34 @@
-# Guide to installing gpu and using it for surreal
+# Minikube and Kubernetes
 
-# Running on a vm
+
+## Docker
+
+TODO: docker install
+
+## Minikube
+
+[Official instructions](https://kubernetes.io/docs/tasks/tools/install-minikube/).
+
+First install Virtualbox driver.
+
+```bash
+sudo apt-get update
+sudo apt-get install virtualbox
+```
+
+Then [install](https://github.com/kubernetes/minikube/releases) Minikube executable
+
+```bash
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+```
+
+`minikube-setenv.sh` to communicate with local docker.
+`minikube-mount.sh` to mount hostDir
+
+
+# GPU for Surreal
+
+## Running on a vm
 
 In general, following the [google official documentation](https://cloud.google.com/compute/docs/gpus/add-gpus) is enough.
 
@@ -14,7 +42,7 @@ Note that the default installation provided by google overwrites the original op
 
 A potential work around is to install through nvidia run file where you can configure whether or not to install opengl bindings. However this is not officially supported by google and one needs to manage the dependency manually. TODO: see if [this guide](https://gist.github.com/wangruohui/df039f0dc434d6486f5d4d098aa52d07#install-nvidia-graphics-driver-via-runfile) is sufficient 
 
-# Running gpu instances on a kubernetes engine
+## Running gpu instances on a kubernetes engine
 Resources:
 * [google contianer engines on gpu](https://cloud.google.com/kubernetes-engine/docs/concepts/gpus)
 * [Kubernetes on GPU support](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)

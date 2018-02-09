@@ -9,12 +9,14 @@ import sys
 import time
 import subprocess as pc
 import shlex
-import json
+import functools
 import os
+import re
 import os.path as path
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
+import surreal.utils as U
 
 
 def run_process(cmd):
@@ -29,14 +31,31 @@ def print_err(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
+_DNS_RE = re.compile('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+
+
+def check_valid_dns(name):
+    """
+    experiment name is used as namespace, which must conform to DNS format
+    """
+    if not _DNS_RE.match(name):
+        raise ValueError(name + ' must be a valid DNS name with only lower-case '
+            'letters, 0-9 and hyphen. No underscore or dot allowed.')
+
+
 class Kubectl(object):
     def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
-        surreal_yml = path.expanduser(surreal_yml)
+        surreal_yml = U.f_expand(surreal_yml)
         assert path.exists(surreal_yml)
+        # persistent config in the home dir that contains git access token
         self.config = YamlList.from_file(surreal_yml)[0]
+        self.folder = U.f_expand(self.config.experiment_folder)
         self.dry_run = dry_run
         self._loop_start_time = None
-        self._created_yaml = None  # will be set after create()
+
+    def _yaml_path(self, experiment_name, yaml_name='kurreal.yml'):
+        "retrieve from the experiment folder"
+        return U.f_join(self.folder, experiment_name, yaml_name)
 
     def run(self, cmd):
         if self.dry_run:
@@ -80,13 +99,14 @@ class Kubectl(object):
                 break
             time.sleep(poll_interval)
 
-    def _create_loop(self, yaml_file):
+    def _create_loop(self, yaml_file, namespace):
         """
         Useful for restarting a kube service.
         Resource might be in the process of deletion. Wait until deletion completes
         """
-        yaml_file = path.expanduser(yaml_file)
-        out, err, retcode = self.run('create -f "{}"'.format(yaml_file))
+        yaml_file = U.f_expand(yaml_file)
+        out, err, retcode = self.run('create -f "{}" --namespace {}'
+                                     .format(yaml_file, namespace))
         if retcode:
             # TODO: very hacky check, should run checks on names instead
             if 'is being deleted' in err:
@@ -106,34 +126,43 @@ class Kubectl(object):
             print(out)
             return True
 
-    def create(self, yaml_file, context=None, **context_kwargs):
+    def create(self,
+               experiment_name,
+               jinja_template,
+               context=None,
+               check_file_exists=True,
+               **context_kwargs):
         """
-        kubectl create -f dummy.yml
+        kubectl create namespace <experiment_name>
+        kubectl create -f kurreal.yml --namespace <experiment_name>
 
         Args:
-            yaml_file:
+            jinja_template: Jinja template kurreal.yml
             context: see `YamlList`
             **context_kwargs: see `YamlList`
-        """
-        with JinjaYaml.from_file(yaml_file).render_throwaway_file(
-                context=context,
-                **context_kwargs
-        ) as temp:
-            # _created_yaml will be used by log() and delete()
-            self._created_yaml = YamlList.from_file(temp)
-            if self.dry_run:
-                print(file_content(temp))
-            else:
-                self.run_event_loop(self._create_loop, temp, poll_interval=5)
 
-    def get_secret_file(self, yaml_key):
+        Returns:
+            path for the rendered kurreal.yml in the experiment folder
         """
-        To be passed to Jinja2 engine.
-        Hack yaml to support multiline key files like Mujoco.
-        https://stackoverflow.com/questions/3790454/in-yaml-how-do-i-break-a-string-over-multiple-lines
-        """
-        fpath = self.config[yaml_key]
-        return file_content(fpath)
+        check_valid_dns(experiment_name)
+        rendered_path = self._yaml_path(experiment_name)
+        if check_file_exists and U.f_exists(rendered_path):
+            raise FileExistsError(rendered_path
+                                  + ' already exists, cannot run `create`.')
+        U.f_mkdir_in_path(rendered_path)
+        JinjaYaml.from_file(jinja_template).render_file(
+            rendered_path, context=context, **context_kwargs
+        )
+        if self.dry_run:
+            print(file_content(rendered_path))
+        else:
+            self.run('create namespace ' + experiment_name)
+            self.run_event_loop(
+                self._create_loop,
+                rendered_path,
+                namespace=experiment_name,
+                poll_interval=5
+            )
 
     def _yamlify_label_string(self, label_string):
         if not label_string:
@@ -147,20 +176,108 @@ class Kubectl(object):
         # the space after colon is necessary for valid yaml
         return '{}: {}'.format(*label_spec)
 
+    def _get_docker_image(self, image_name):
+        """
+        image_name: key in ~/.surreal.yml `images` section that points to docker URL
+            else assume it's a docker image URL itself.
+        """
+        if image_name in self.config.images:
+            return self.config.images[image_name]
+        else:
+            assert '/' in image_name, 'must be a valid docker image URL'
+            return image_name
+
+    def _parse_label_strings(self, selector_string):
+        """
+            Receives input like:
+                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+            splits by ',' and then parse by = into dictionary 
+            i.e.:
+                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+                => 
+                {
+                    'surreal-node': 'agent',
+                    'cloud.google.com/gke-accelerator': 'nvidia-tesla-k80'
+                }
+        """
+        label_strings = selector_string.split(',')
+        di = {}
+        for label_string in label_strings:
+            if label_string == '':
+                continue
+            assert(label_string.count('=') == 1), 'invalid label {}'.format(label_string)
+            k, v = label_string.split('=')
+            di[k] = v
+        return di
+
+    def _create_get_node_selector(self, selector_string):
+        """
+        selector_string: key in ~/.surreal.yml `selectors` section that points to
+            a selector for kubernetes
+            else assume it's a label string itself: 
+            e.g.: surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+        """
+        if selector_string in self.config.selectors:
+            return self.config.selectors[selector_string]
+        else:
+            return _parse_label_strings(selector_string)
+
+    def _create_get_node_resource_request(self, request_string):
+        """
+        selector_string: key in ~/.surreal.yml `resource_requests` section that specifies
+        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
+        On input '' or None, returns empty dictionary, (will be ignored by template)
+        """
+        if request_string == '' or request_string == None:
+            return {}
+        if request_string in self.config.resource_requests:
+            return self.config.resource_requests[request_string]
+        else:
+            return _parse_label_strings(request_string)
+
+    def _create_get_node_resource_limit(self, limit_string):
+        """
+        selector_string: key in ~/.surreal.yml `resource_limits` section that specifies
+        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
+        On input '' or None, returns empty dictionary, (will be ignored by template)
+        """
+        if limit_string == '' or limit_string == None:
+            return {}
+        if limit_string in self.config.resource_limits:
+            return self.config.resource_limits[limit_string]
+        else:
+            return _parse_label_strings(limit_string)
+
     def create_surreal(self,
-                       yaml_file,
+                       experiment_name,
+                       jinja_template,
                        snapshot=True,
                        mujoco=True,
+                       agent_selector='agent-pool',
+                       nonagent_selector='nonagent-pool',
+                       agent_resource_request='agent',
+                       nonagent_resource_request='nonagent',
+                       agent_resource_limit=None,
+                       nonagent_resource_limit=None,
+                       agent_image='agent',
+                       nonagent_image='nonagent',
                        context=None,
+                       check_file_exists=True,
                        **context_kwargs):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
         Args:
+            agent_pool_label: surreal-node=<agent_pool_label>
+            nonagent_pool_label: surreal-node=<nonagent_pool_label>
+            agent_image: key in ~/.surreal.yml `images` section.
+                If not a key, assume it's a docker image URL itself
+            nonagent_image: see `agent_image`
             context: for extra context variables
         """
+        check_valid_dns(experiment_name)
         repo_paths = self.config.git.get('snapshot_repos', [])
-        repo_paths = [path.expanduser(p) for p in repo_paths]
+        repo_paths = [U.f_expand(p) for p in repo_paths]
         if snapshot and not self.dry_run:
             for repo_path in repo_paths:
                 push_snapshot(
@@ -178,15 +295,89 @@ class Kubectl(object):
         if context is None:
             context = {}
         if mujoco:
-            surreal_context['MUJOCO_KEY_TEXT'] = self.get_secret_file('mujoco_key_path')
+            surreal_context['MUJOCO_KEY_TEXT'] = \
+                file_content(self.config.mujoco_key_path)
         surreal_context.update(context)
-        # node-pool labeling
-        cluster = self.config.cluster
-        surreal_context['AGENT_POOL_LABEL'] = \
-            self._yamlify_label_string(cluster.agent_pool_label)
-        surreal_context['NONAGENT_POOL_LABEL'] = \
-            self._yamlify_label_string(cluster.nonagent_pool_label)
-        self.create(yaml_file, context=surreal_context, **context_kwargs)
+
+        # select nodes from nodepool label to schedule agent/nonagent pods
+        surreal_context['AGENT_SELECTOR'] = \
+            self._create_get_node_selector(agent_selector)
+            # self._yamlify_label_string('surreal-node=' + agent_pool_label)
+        surreal_context['NONAGENT_SELECTOR'] = \
+            self._create_get_node_selector(nonagent_selector)
+            # self._yamlify_label_string('surreal-node=' + nonagent_pool_label)
+        
+        # Request for nodes so that multiple experiments won't crowd onto one machine
+        surreal_context['AGENT_RESOURCE_REQUEST'] = \
+            self._create_get_node_resource_request(agent_resource_request)
+        surreal_context['NONAGENT_RESOURCE_REQUEST'] = \
+        self._create_get_node_resource_request(nonagent_resource_request)
+
+        # Request for nodes so that multiple experiments won't crowd onto one machine
+        surreal_context['AGENT_RESOURCE_LIMIT'] = \
+            self._create_get_node_resource_limit(agent_resource_limit)
+        surreal_context['NONAGENT_RESOURCE_LIMIT'] = \
+        self._create_get_node_resource_limit(nonagent_resource_limit)
+
+        surreal_context['AGENT_IMAGE'] = self._get_docker_image(agent_image)
+        surreal_context['NONAGENT_IMAGE'] = self._get_docker_image(nonagent_image)
+        self.create(
+            experiment_name,
+            jinja_template,
+            context=surreal_context,
+            check_file_exists=check_file_exists,
+            **context_kwargs
+        )
+
+    def delete(self, experiment_name):
+        """
+        kubectl delete -f kurreal.yml --namespace <experiment_name>
+        kubectl delete namespace <experiment_name>
+        """
+        check_valid_dns(experiment_name)
+        yaml_path = self._yaml_path(experiment_name)
+        if not U.f_exists(yaml_path):
+            raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
+        self.run_verbose(
+            'delete -f "{}" --namespace {}'
+                .format(yaml_path, experiment_name),
+            print_out=True, raise_on_error=False
+        )
+        self.run_verbose(
+            'delete namespace {}'.format(experiment_name),
+            print_out=True, raise_on_error=False
+        )
+
+    def current_context(self):
+        out, err, retcode = self.run_verbose(
+            'config current-context', print_out=False, raise_on_error=True
+        )
+        return out
+
+    def current_namespace(self):
+        """
+        Parse from `kubectl config view`
+        """
+        config = self.config_view()
+        current_context = self.current_context()
+        for context in config['contexts']:
+            if context['name'] == current_context:
+                return context['context']['namespace']
+        raise RuntimeError('INTERNAL: current context not found')
+
+    def set_namespace(self, namespace):
+        """
+        https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+        After this call, all subsequent `kubectl` will default to the namespace
+        """
+        check_valid_dns(namespace)
+        _, _, retcode = self.run_verbose(
+            'config set-context $(kubectl config current-context) --namespace='
+            + namespace,
+            print_out=True, raise_on_error=False
+        )
+        if retcode == 0:
+            print('successfully switched to namespace `{}`'.format(namespace))
 
     def label_nodes(self, old_labels, new_label_name, new_label_value):
         """
@@ -212,12 +403,13 @@ class Kubectl(object):
         labels, fields = labels.strip(), fields.strip()
         cmd= ' '
         if labels:
-            cmd += '--selector ' + shlex.quote(labels) + ' '
+            cmd += '--selector ' + shlex.quote(labels)
         if fields:
-            cmd += ' --field-selector ' + shlex.quote(fields) + ' '
+            cmd += ' --field-selector ' + shlex.quote(fields)
         return cmd
 
-    def query_resources(self, resource, output_format, labels='', fields=''):
+    def query_resources(self, resource, output_format,
+                        names=None, labels='', fields=''):
         """
         Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -234,6 +426,8 @@ class Kubectl(object):
               - name: list
               - wide
               - yaml: returns a dict
+            names: list of names to get resource, mutually exclusive with
+                label and field selectors. Should only specify one.
             labels: label selector syntax, comma separated as logical AND. E.g:
               - equality: mylabel=production
               - inequality: mylabel!=production
@@ -250,13 +444,19 @@ class Kubectl(object):
             list if output format is name
             string from stdout otherwise
         """
+        if names and (labels or fields):
+            raise ValueError('names and (labels or fields) are mutually exclusive')
         cmd = 'get ' + resource
-        cmd += self._get_selectors(labels, fields)
+        if names is None:
+            cmd += self._get_selectors(labels, fields)
+        else:
+            assert isinstance(names, (list, tuple))
+            cmd += ' ' + ' '.join(names)
         if '=' in output_format:
             # quoting the part after jsonpath=<...>
             prefix, arg = output_format.split('=', 1)
             output_format = prefix + '=' + shlex.quote(arg)
-        cmd += '-o ' + output_format
+        cmd += ' -o ' + output_format
         out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
         if output_format == 'yaml':
             return EzDict.loads_yaml(out)
@@ -267,7 +467,8 @@ class Kubectl(object):
         else:
             return out
 
-    def query_jsonpath(self, resource, jsonpath, labels='', fields=''):
+    def query_jsonpath(self, resource, jsonpath,
+                       names=None, labels='', fields=''):
         """
         Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -284,49 +485,112 @@ class Kubectl(object):
         Returns:
             a list of returned jsonpath values
         """
+        if '{' not in jsonpath:
+            jsonpath = '{' + jsonpath + '}'
         jsonpath = '{range .items[*]}' + jsonpath + '{"\\n\\n"}{end}'
         output_format = "jsonpath=" + jsonpath
         out = self.query_resources(
             resource=resource,
+            names=names,
             output_format=output_format,
             labels=labels,
             fields=fields
         )
         return out.split('\n\n')
 
+    def config_view(self):
+        """
+        kubectl config view
+        Generates a yaml of context and cluster info
+        """
+        out, err, retcode = self.run_verbose(
+            'config view', print_out=False, raise_on_error=True
+        )
+        return EzDict.loads_yaml(out)
+
+    def external_ip(self, pod_name):
+        """
+        Returns:
+            "<ip>:<port>"
+        """
+        tb = self.query_resources('svc', 'yaml', names=[pod_name])
+        conf = tb.status.loadBalancer
+        if not ('ingress' in conf and 'ip' in conf.ingress[0]):
+            print_err('Tensorboard does not have an external IP.')
+            return ''
+        ip = conf.ingress[0].ip
+        port = tb.spec.ports[0].port
+        return '{}:{}'.format(ip, port)
+
+    def _get_logs_cmd(self, pod_name, container_name,
+                      follow, since=0, tail=-1):
+        return 'logs {} {} {} --since={} --tail={}'.format(
+            pod_name,
+            container_name,
+            '--follow' if follow else '',
+            since,
+            tail
+        )
+
+    def logs(self, pod_name, container_name='', since=0, tail=100):
+        """
+        kubectl logs <pod_name> <container_name> --follow --since= --tail=
+        https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
+
+        Returns:
+            stdout string
+        """
+        out, err, retcode = self.run_verbose(
+            self._get_logs_cmd(pod_name, container_name,
+                               follow=False, since=since, tail=tail),
+            print_out=False,
+            raise_on_error=False
+        )
+        if retcode != 0:
+            return ''
+        else:
+            return out
+
+    def print_logs(self, pod_name, container_name='',
+                   follow=False, since=0, tail=100):
+        """
+        kubectl logs <pod_name> <container_name>
+        No error checking, no string caching, delegates to os.system
+        """
+        cmd = self._get_logs_cmd(pod_name, container_name,
+                                 follow=follow, since=since, tail=tail)
+        os.system('kubectl ' + cmd)
+
+    def logs_surreal(self, component_name, is_print=False,
+                     follow=False, since=0, tail=100):
+        """
+        Args:
+            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+
+        Returns:
+            stdout string if is_print else None
+        """
+        if is_print:
+            log_func = functools.partial(self.print_logs, follow=follow)
+        else:
+            log_func = self.logs
+        log_func = functools.partial(log_func, since=since, tail=tail)
+        if component_name.startswith('agent-'):
+            return log_func(component_name)
+        else:
+            assert component_name in \
+                   ['learner', 'ps', 'replay', 'tensorplex', 'tensorboard']
+            return log_func('nonagent', component_name)
+
 
 if __name__ == '__main__':
     # TODO: save temp file to experiment dir
+    import pprint
+    pp = pprint.pprint
     kube = Kubectl(dry_run=0)
-
-    def label_nodes():
-        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-                         'surreal-node', 'agent-pool')
-        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-                         'surreal-node', 'nonagent-pool')
-
-    if 0:
-        kube.create_surreal(
-            '~/Dropbox/Portfolio/Kurreal_demo/kfinal_gcloud.yml',
-            snapshot=0
-        )
-    else:
-        import pprint
-        pp = pprint.pprint
-        # 3 different ways to get a list of node names
-        # pp(kube.query_jsonpath('pods', '{.metadata.labels}')[0])
-        pp(kube.query_resources('pods', 'json', fields='metadata.name=agent-0').dumps_yaml())
-
-        # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
-        # pp(kube.query_resources('nodes', 'name'))
-        # y = kube.query_resources('nodes', 'yaml')
-        # print(y.dumps_yaml())
-        # pp(y.items[0].metadata)
-        # print(YamlList(y).to_string())
-        # print(kube.query_jsonpath('pods', '{.metadata.name}', labels='mytype=transient_component'))
-        # print(kube.query_resources('pods', 'name', labels='mytype=persistent_component'))
-        # y = kube.query_resources('pods', 'yaml')
-        # for _it in y.items:
-        #     print(_it.status.phase)
-        # pp(y.items[0].status)
-
+    # 3 different ways to get a list of node names
+    # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
+    # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))
+    # pp(kube.query_resources('nodes', 'name'))
+    # yaml for pods
+    # pp(kube.query_resources('pods', 'json', fields='metadata.name=agent-0').dumps_yaml())

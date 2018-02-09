@@ -13,7 +13,14 @@ class DDPGLearner(Learner):
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
 
+        self.current_iteration = 0
+
         self.gpu_id = session_config.learner.gpu
+        self.log.info('Initializing DDPG learner')
+        if self.gpu_id == -1:
+            self.log.info('Using CPU')
+        else:
+            self.log.info('Using GPU: {}'.format(self.gpu_id))
         with U.torch_gpu_scope(self.gpu_id):
 
             self.target_update_init()
@@ -24,7 +31,13 @@ class DDPGLearner(Learner):
 
             self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
             if self.clip_actor_gradient:
+                self.log.info('Clipping actor gradient at {}'.format(self.learner_config.algo.actor_gradient_clip_value))
                 self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+
+            self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
+            if self.clip_critic_gradient:
+                self.log.info('Clipping critic gradient at {}'.format(self.learner_config.algo.critic_gradient_clip_value))
+                self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
 
             self.action_dim = self.env_config.action_spec.dim[0]
             self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -43,19 +56,22 @@ class DDPGLearner(Learner):
 
             self.critic_criterion = nn.MSELoss()
 
+            self.log.info('Using adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
-                lr=self.learner_config.algo.lr
+                lr=self.learner_config.algo.lr_critic
             )
 
+            self.log.info('Using adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
-                lr=self.learner_config.algo.lr
+                lr=self.learner_config.algo.lr_actor
             )
 
+            self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
+            # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
             # self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
-
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
@@ -98,6 +114,8 @@ class DDPGLearner(Learner):
             self.model.critic.zero_grad()
             critic_loss = self.critic_criterion(y_policy, y)
             critic_loss.backward()
+            if self.clip_critic_gradient:
+                self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
             # for p in self.model.critic.parameters():
             #     p.grad.data.clamp_(-1.0, 1.0)
             self.critic_optim.step()
@@ -126,22 +144,25 @@ class DDPGLearner(Learner):
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                 tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]
-
-            self.update_tensorplex(tensorplex_update_dict)
+                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]            
 
             # (possibly) update target networks
             self.target_update()
 
+            return tensorplex_update_dict
+
     def learn(self, batch):
+        self.current_iteration += 1
         batch = self.aggregator.aggregate(batch)
-        self._optimize(
+        tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
             batch.rewards,
             batch.obs_next,
             batch.dones
         )
+
+        self.update_tensorplex(tensorplex_update_dict)
 
     def module_dict(self):
         return {
@@ -154,9 +175,11 @@ class DDPGLearner(Learner):
 
         if self.target_update_type == 'soft':
             self.target_update_tau = target_update_config.tau
+            self.log.info('Using soft target update with tau = {}'.format(self.target_update_tau))
         elif self.target_update_type == 'hard':
             self.target_update_counter = 0
             self.target_update_interval = target_update_config.interval
+            self.log.info('Using hard target update every {} steps'.format(self.target_update_interval))
         else:
             raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
 
