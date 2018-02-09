@@ -37,7 +37,7 @@ RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
     && rm mjpro131_linux.zip
 
 # pytorch
-conda install --yes pytorch-cpu torchvision -c pytorch
+RUN conda install --yes pytorch-cpu torchvision -c pytorch
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 

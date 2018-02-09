@@ -9,7 +9,7 @@ WORKDIR /mylibs
 # RUN apt-get install -y expect
 # COPY keyboard_configuration.exp .
 # RUN expect keyboard_configuration.exp
-RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0
+RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0 libsm6 xorg-dev
 
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
 	&& bash Miniconda3-latest-Linux-x86_64.sh -p /mylibs/miniconda -b

@@ -11,7 +11,7 @@ pull:
 	docker pull $(URL):latest
 
 build:
-	docker build -t $(URL):`cat VERSION` -f Dockerfile.
+	docker build -t $(URL):`cat VERSION` -f Dockerfile .
 	docker tag $(URL):`cat VERSION` $(URL):latest
 
 # Can't do as container requires gpu hosts

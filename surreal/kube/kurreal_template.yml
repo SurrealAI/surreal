@@ -52,6 +52,10 @@ volumes:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
+  {% if type == 'learner' %}
+  - name: DISABLE_MUJOCO_RENDERING
+    value: "1"
+  {% endif %}
   volumeMounts:
   # WARNING: will be mounted to /mylibs/surreal/surreal
   {% for git_repo in GIT_REPOS %}
@@ -84,6 +88,10 @@ tolerations:
 - key: "surreal"
   operator: "Exists"
   effect: "NoExecute"
+- key: "node.alpha.kubernetes.io/notready"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 3600
 {% endset %}
 
 # ================== headless service provides DNS ==================

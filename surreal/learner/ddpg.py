@@ -15,30 +15,31 @@ class DDPGLearner(Learner):
 
         self.current_iteration = 0
 
+        self.discount_factor = self.learner_config.algo.gamma
+        self.n_step = self.learner_config.algo.n_step
+        self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_batchnorm = self.learner_config.algo.use_batchnorm
+
         self.gpu_id = session_config.learner.gpu
         self.log.info('Initializing DDPG learner')
         if self.gpu_id == -1:
             self.log.info('Using CPU')
         else:
             self.log.info('Using GPU: {}'.format(self.gpu_id))
+
         with U.torch_gpu_scope(self.gpu_id):
 
             self.target_update_init()
 
-            self.discount_factor = self.learner_config.algo.gamma
-            self.n_step = self.learner_config.algo.n_step
-            self.use_z_filter = self.learner_config.algo.use_z_filter
-            self.use_batchnorm = self.learner_config.algo.use_batchnorm
-
             self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
             if self.clip_actor_gradient:
-                self.log.info('Clipping actor gradient at {}'.format(self.learner_config.algo.actor_gradient_clip_value))
                 self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+                self.log.info('Clipping actor gradient at {}'.format(self.actor_gradient_clip_value))
 
             self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
             if self.clip_critic_gradient:
-                self.log.info('Clipping critic gradient at {}'.format(self.learner_config.algo.critic_gradient_clip_value))
                 self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+                self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
             self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -61,14 +62,14 @@ class DDPGLearner(Learner):
 
             self.critic_criterion = nn.MSELoss()
 
-            self.log.info('Using adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
+            self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
                 lr=self.learner_config.algo.lr_critic,
                 weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
             )
 
-            self.log.info('Using adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
+            self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
                 lr=self.learner_config.algo.lr_actor,
