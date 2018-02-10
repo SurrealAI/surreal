@@ -11,19 +11,30 @@ Host surrealfs
   IdentityFile [your identity file]
 ```
 
-## To set up the server
+* Setup remote files
+* The kurreal shorthand command will expect that you have mount_root/[user name]/experiments folder in 777 mode for the agent to write experiment results in.
+```
+ssh surrealfs
+cd /data
+mkdir [your user name]
+cd [your user name]
+mkdir experiments
+chmod 777 experiments
+```
+
+* To set up the server
 ```
 mkdir ~/surrealfsroot
 sshfs -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 surrealfs:/data ~/surrealfsroot
 ln -s ~/surrealfsroot/[your user name] ~/surrealfs
 ```
 
-## To mount
+* To mount
 ```
 sshfs -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 surrealfs:/data ~/surrealfsroot
 ```
 
-## To unmount
+* To unmount
 ```
 umount -f ~/surrealfsroot
 ```

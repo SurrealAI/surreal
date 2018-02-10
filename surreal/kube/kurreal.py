@@ -227,9 +227,6 @@ def kurreal_create(args, remainder):
         nonagent_image=args.nonagent_image,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
-        # TODO change to NFS
-        FILE_SERVER='temp',
-        PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
     # switch to the experiment namespace just created
@@ -244,25 +241,28 @@ def kurreal_debug_create(args, remainder):
     """
     kube = Kubectl(dry_run=args.dry_run)
     if len(remainder) > 0:
-        config_command = ' '.join(remainder)
+        config_command = remainder
     else:
-        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/"
+        config_command = ['--env', "'dm_control:cheetah-run'"]
+
     if args.gpu:
         nonagent_selector = 'nonagent-gpu'
         nonagent_resource_request = 'nonagent-gpu'
         nonagent_resource_limit = 'nonagent-gpu'
         nonagent_image = 'nonagent-gpu'
-        config_command += " --gpu 0"
+        config_command += ["--gpu", "0"]
     else:
         nonagent_selector = 'nonagent-cpu'
         nonagent_resource_request = 'nonagent-cpu'
         nonagent_resource_limit = None
         nonagent_image = 'nonagent-cpu'
 
+    config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
+
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
         'surreal/surreal/main/' + args.config_file,
-        config_command=config_command,
+        config_command=' '.join(config_command),
         service_url=args.experiment_name + '.surreal'
     )
     cmd_dict = cmd_gen.generate(args.num_agents)
@@ -279,9 +279,6 @@ def kurreal_debug_create(args, remainder):
         nonagent_image=nonagent_image,
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
-        # TODO change to NFS
-        FILE_SERVER='temp',
-        PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
     kurreal_namespace(args, remainder)
