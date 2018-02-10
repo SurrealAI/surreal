@@ -80,7 +80,7 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 32,
-            'memory_size': 64,
+            'memory_size': 1024,
             'sampling_start_size': 32,
         },
         'eval': {

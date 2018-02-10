@@ -121,6 +121,7 @@ class PPOLearner(Learner):
 
 
     def _clip_update_iter(self, obs, actions, advantages, behave_pol):
+        behave_pol = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
 
         num_batches = obs.size()[0] // self.batch_size + 1
@@ -160,6 +161,7 @@ class PPOLearner(Learner):
 
 
     def _clip_update_full(self, obs, actions, advantages, behave_pol):
+        behave_pol = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
@@ -334,6 +336,8 @@ class PPOLearner(Learner):
     
         is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
         log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
+        log_trace_c = log_trace_c.cumsum(1)
+        trace_c = log_trace_c.exp()
 
         # value estimate
         obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
@@ -345,13 +349,14 @@ class PPOLearner(Learner):
         # computing trace
         delta = is_weight_trunc * (rewards + self.gamma * values[:, 1:]) - values[:, :-1] # (batch, n)
         gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-        inv_idx = torch.arange(log_trace_c.size(1)-1, -1, -1).long() 
-        inv_log_trace = log_trace_c.index_select(1, inv_idx)
-        inv_log_trace = inv_log_trace.cumsum(dim = 1)
-        inv_trace = torch.exp(inv_log_trace) # (batch, n)
+        #inv_idx = torch.arange(log_trace_c.size(1)-1, -1, -1).long() 
+        #inv_log_trace = log_trace_c.index_select(1, inv_idx)
+        #inv_log_trace = inv_log_trace.cumsum(dim = 1)
+        #inv_trace = torch.exp(inv_log_trace) # (batch, n)
+        #trace = inv_trace.index_select(1, inv_idx)
 
         # More efficient, more biased. run with stride ~= n_step
-        adv  = inv_trace * delta
+        adv  = trace_c * delta
         for step in range(self.n_step):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n -1,)
             adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
@@ -362,7 +367,7 @@ class PPOLearner(Learner):
         # Less Efficnet, less biased. Run with stride = 1
         '''
         gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-        adv = torch.sum(inv_trace * gamma * delta, dim = 1)
+        adv = torch.sum(trace_c * gamma * delta, dim = 1)
         v_trace_targ = adv + values[:, 0]
         obs_flat = obs[:, 0, :].squeeze(1)
         action_flat = actions[:, 0, :].squeeze(1) 
@@ -380,7 +385,7 @@ class PPOLearner(Learner):
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
         obs, actions, advantages, v_trace_targ, pds = self._V_trace_compute_target(obs, obs_next, actions, 
                                                                                    rewards, pds, dones)
-        obs =Variable(obs)
+        obs = Variable(obs)
         actions = Variable(actions)
         advantages = Variable(advantages)
         v_trace_targ = Variable(v_trace_targ)
