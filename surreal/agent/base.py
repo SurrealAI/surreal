@@ -7,7 +7,8 @@ from surreal.session import (
     PeriodicTracker, PeriodicTensorplex, extend_config,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
-from surreal.distributed import ParameterClient
+from surreal.distributed import ParameterClient, ModuleDict
+import time
 
 
 class AgentMode(U.StringEnum):
@@ -40,11 +41,13 @@ class AgentCore(metaclass=AgentMeta):
         self._ps_port = ps_port
 
     def _initialize(self):
-        "implements AutoInitializeMeta meta class."
+        """
+            implements AutoInitializeMeta meta class.
+        """
         self._ps_client = ParameterClient(
             host=self._ps_host,
             port=self._ps_port,
-            module_dict=self.module_dict()
+            module_dict=self.module_dict(),
         )
 
     def act(self, obs):
@@ -73,7 +76,8 @@ class AgentCore(metaclass=AgentMeta):
         """
         Update agent by pulling parameters from parameter server.
         """
-        return self._ps_client.fetch_parameter()
+        params, info = self._ps_client.fetch_parameter_with_info()
+        return params, info
 
     def fetch_parameter_info(self):
         """
@@ -87,8 +91,6 @@ class AgentCore(metaclass=AgentMeta):
             agent_mode: enum of AgentMode class
         """
         self.agent_mode = AgentMode[agent_mode]
-
-
 
 class Agent(AgentCore):
     """
@@ -138,8 +140,10 @@ class Agent(AgentCore):
             name=logger_name,
             session_config=self.session_config
         )
+        self.last_parameter_time = None
 
     def update_tensorplex(self, tag_value_dict, global_step=None):
+        
         self._periodic_tensorplex.update(tag_value_dict, global_step)
 
     def default_config(self):
@@ -148,6 +152,16 @@ class Agent(AgentCore):
             a dict of defaults.
         """
         return BASE_LEARNER_CONFIG
+
+    def fetch_parameter(self):
+        """
+            Extends base class fetch_parameters to add some logging
+        """
+        params, info = super().fetch_parameter()
+        if params:
+            # The time it takes for parameter to go from learner to agent
+            delay = time.time() - info['time']
+            self.update_tensorplex({'parameter_publish_delay': delay})
 
     def reset(self):
         """
