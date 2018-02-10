@@ -6,7 +6,6 @@ redis
 seaborn
 tabulate
 tqdm
-opencv-python
 pyyaml
 pygame
 pyzmq
