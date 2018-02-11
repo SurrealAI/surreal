@@ -127,6 +127,7 @@ def setup_parser():
     delete_parser = _add_subparser('delete', kurreal_delete)
     _add_experiment_name(delete_parser)
 
+    # you don't need labeling for kube autoscaling
     # label_parser = _add_subparser('label', kurreal_label)
     # label_parser.add_argument(
     #     'old_labels',
@@ -322,30 +323,32 @@ def kurreal_list(args, _):
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
 
-# def kurreal_label(args, _):
-#     """
-#     Label nodes in node pools
-#     """
-#     kube = Kubectl(dry_run=args.dry_run)
-#     for label, value in args.new_labels:
-#         kube.label_nodes(args.old_labels, label, value)
+def kurreal_label(args, _):
+    """
+    Label nodes in node pools
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    for label, value in args.new_labels:
+        kube.label_nodes(args.old_labels, label, value)
 
-# Deprecated: 
-# def kurreal_label_gcloud(args, _):
-#     """
-#     Add default labels for GCloud cluster.
-#     Note that you have to create the node-pools with the exact names:
-#     "agent-pool" and "nonagent-pool-cpu"
-#     gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
 
-#     Command to check whether the labeling is successful:
-#     kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
-#     """
-#     kube = Kubectl(dry_run=args.dry_run)
-#     kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-#                      'surreal-node', 'agent-pool')
-#     kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-#                      'surreal-node', 'nonagent-pool')
+def kurreal_label_gcloud(args, _):
+    """
+    NOTE: you don't need this for autoscale
+
+    Add default labels for GCloud cluster.
+    Note that you have to create the node-pools with the exact names:
+    "agent-pool" and "nonagent-pool-cpu"
+    gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
+
+    Command to check whether the labeling is successful:
+    kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                     'surreal-node', 'agent-pool')
+    kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                     'surreal-node', 'nonagent-pool')
 
 
 def kurreal_logs(args, _):
