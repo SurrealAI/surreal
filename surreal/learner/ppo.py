@@ -337,7 +337,7 @@ class PPOLearner(Learner):
         is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
         log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
         log_trace_c = log_trace_c.cumsum(1)
-        trace_c = log_trace_c.exp()
+        trace_c = log_trace_c.exp()[:,:-1] # (batch_size, n-1)
 
         # value estimate
         obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
@@ -347,18 +347,12 @@ class PPOLearner(Learner):
         values[:, self.n_step]  *= 1 - dones[:, -1]
 
         # computing trace
-        delta = is_weight_trunc * (rewards + self.gamma * values[:, 1:]) - values[:, :-1] # (batch, n)
-        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-        #inv_idx = torch.arange(log_trace_c.size(1)-1, -1, -1).long() 
-        #inv_log_trace = log_trace_c.index_select(1, inv_idx)
-        #inv_log_trace = inv_log_trace.cumsum(dim = 1)
-        #inv_trace = torch.exp(inv_log_trace) # (batch, n)
-        #trace = inv_trace.index_select(1, inv_idx)
+        adv = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
+        adv[:, 1:] *= trace_c
 
         # More efficient, more biased. run with stride ~= n_step
-        adv  = trace_c * delta
         for step in range(self.n_step):
-            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n -1,)
+            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
             adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
         v_trace_targ = adv + values[:, :-1]
         adv = adv.view(-1 , 1)
@@ -379,12 +373,12 @@ class PPOLearner(Learner):
             std  = adv.std()
             adv  = (adv - mean)/std  
 
-        return obs_flat, actions_flat, adv, v_trace_targ, pds_flat    
+        avg_trace = trace_c.mean()
+        return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace   
 
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
-        obs, actions, advantages, v_trace_targ, pds = self._V_trace_compute_target(obs, obs_next, actions, 
-                                                                                   rewards, pds, dones)
+        obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
         obs = Variable(obs)
         actions = Variable(actions)
         advantages = Variable(advantages)
@@ -407,6 +401,7 @@ class PPOLearner(Learner):
         new_pol_pd = self.model.actor(obs)
         new_likelihood = self.pd.likelihood(actions, new_pol_pd)
         stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data
+        stats['avg_trace'] = avg_trace
 
         if self.use_z_filter:
             stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
