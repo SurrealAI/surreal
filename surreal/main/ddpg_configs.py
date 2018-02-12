@@ -79,6 +79,12 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
+        'video': {
+            'record_video': True,
+            'save_directory': '/mnt/snaps/',
+            'max_videos': 100,
+            'record_every': 100,
+        }
     }
 
     session_config = Config({

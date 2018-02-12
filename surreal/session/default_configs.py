@@ -27,6 +27,12 @@ BASE_LEARNER_CONFIG = {
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
     'env_name' : '_str_',
+    'video' : {
+        'record_video' : False,
+        'max_videos': 10,
+        'record_every': 10,
+        'save_directory': '/mnt/snaps',
+    }
     'action_spec': {},
     'obs_spec': {},
     # 'action_spec': {

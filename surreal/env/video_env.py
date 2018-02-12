@@ -55,11 +55,7 @@ class VideoWrapper(Wrapper):
             video_queue (Queue): queue of frames to be writen to file
     '''
 
-    def __init__(self, env, save_dir = "snaps/", max_videos = 10,
-                                                capture_interval = 10,
-                                                frame_interval = 10,
-                                                fps =30,
-                                                use_gif = False):
+    def __init__(self, env, env_config, frame_interval = 10, fps =30, use_gif = False):
         '''
         Constructor for VideoWrapper. also creates the save directory if not present
         Args:
@@ -75,13 +71,13 @@ class VideoWrapper(Wrapper):
         super().__init__(env)
         self.env = env
 
-        self.max_videos = max_videos
-        self.capture_interval = capture_interval
+        self.max_videos = env_config.video.max_videos
+        self.capture_interval = env_config.video.record_every
         self.frame_interval   = frame_interval
         self.fps = fps
 
         self.ext = '.gif' if use_gif else '.mp4'
-        self.save_dir = save_dir
+        self.save_dir = env_config.video.save_directory
 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)

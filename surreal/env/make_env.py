@@ -8,16 +8,19 @@ def make_env(env_config):
     """
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
+    record_video = env_config.video.record_video
+    env, env_config = None, None
     if env_category == 'gym':
-        return make_gym(env_name, env_config)
+        env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
-        return make_mujocomanip(env_name, env_config)
+        env, env_config = make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
-        return make_dm_control(env_name, env_config)
-    elif env_category == 'video_dm_control':
-        return make_video_dm_control(env_name, env_config)
+        env, env_config = make_dm_control(env_name, env_config)
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
+    if record_video:
+        env = VideoWrapper(env, env_config)
+    return env, env_config
 
 def make_gym(env_name, env_config):
     import gym
@@ -42,7 +45,3 @@ def make_dm_control(env_name, env_config):
     env_config.obs_spec = env.observation_spec()
     return env, env_config
 
-def make_video_dm_control(env_name, env_config):
-    env, env_config = make_dm_control(env_name, env_config)
-    env = VideoWrapper(env)
-    return env, env_config
