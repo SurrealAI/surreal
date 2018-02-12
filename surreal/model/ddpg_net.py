@@ -25,8 +25,14 @@ class DDPGModel(U.Module):
         self.use_z_filter = use_z_filter
         self.use_batchnorm = use_batchnorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, train=train, hidden_sizes=actor_fc_hidden_sizes)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, train=train, hidden_sizes=critic_fc_hidden_sizes)
+        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=actor_fc_hidden_sizes)
+        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=critic_fc_hidden_sizes)
+        if train:
+            self.actor.train()
+            self.critic.train()
+        else:
+            self.actor.eval()
+            self.critic.eval()
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim)
 

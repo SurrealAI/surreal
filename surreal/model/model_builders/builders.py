@@ -5,7 +5,7 @@ import surreal.utils as U
 
 class ActorNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False, train=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(ActorNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
@@ -16,10 +16,6 @@ class ActorNetwork(U.Module):
             self.bn_h1 = nn.BatchNorm1d(D_obs)
             self.bn_h2 = nn.BatchNorm1d(hidden_sizes[0])
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
-            if not train:
-                self.bn_h1.eval()
-                self.bn_h2.eval()
-                self.bn_out.eval()
 
     def forward(self, obs):
         if self.use_batchnorm:
@@ -35,7 +31,7 @@ class ActorNetwork(U.Module):
 
 class CriticNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False, train=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(CriticNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         if self.use_batchnorm:
@@ -44,11 +40,6 @@ class CriticNetwork(U.Module):
             # Critic architecture from https://github.com/Breakend/baselines/blob/50ffe01d254221db75cdb5c2ba0ab51a6da06b0a/baselines/ddpg/models.py
             self.bn_h2 = nn.BatchNorm1d(hidden_sizes[0] + D_act)
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
-            if not train:
-                self.bn_obs.eval()
-                self.bn_act.eval()
-                self.bn_h2.eval()
-                self.bn_out.eval()
         self.fc_obs = nn.Linear(D_obs, hidden_sizes[0])
         self.fc_h2 = nn.Linear(hidden_sizes[0] + D_act, hidden_sizes[1])
         self.fc_q = nn.Linear(hidden_sizes[1], 1)
