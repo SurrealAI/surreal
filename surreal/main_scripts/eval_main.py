@@ -36,13 +36,19 @@ def run_eval_main(args, config):
         fetch_parameter=agent.fetch_parameter,
         session_config=session_config,
     )
-
-
-    obs, info = env.reset()
+    
     while True:
-        action = agent.act(U.to_float_tensor(obs))
-        if args.render:
-            env.render()
-        obs, reward, done, info = env.step(action)
-        if done:
-            obs, info = env.reset()
+        obs, info = env.reset()
+        agent.pre_episode()
+        while True:
+            obs = U.to_float_tensor(obs)
+            agent.pre_action(obs)
+            action = agent.act(obs)
+            obs_next, reward, done, info = env.step(action)
+            agent.post_action(obs, action, obs_next, reward, done, info)
+            obs = obs_next
+            if args.render:
+                env.render()
+            if done:
+                break
+        agent.post_episode()
