@@ -79,7 +79,7 @@ First we create the cluster
 gcloud beta container clusters create [cluster-name] --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone [zone] --num-nodes=1
 ```
 ```
-gcloud beta container clusters create kurreal --enable-kubernetes-alpha --cluster-version 1.9.2-gke.0 --zone us-west1-b --num-nodes=2 -m n1-standard-1
+gcloud beta container clusters create kurreal-1 --cluster-version 1.9.2-gke.1 --zone us-west1-b --num-nodes=2 -m n1-standard-1
 ```
 
 Next we opt in for beta-features (tainting)
