@@ -13,3 +13,4 @@ gitpython
 tensorflow
 tensorboardX
 jinja2
+imageio
