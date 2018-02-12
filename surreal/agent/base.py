@@ -73,7 +73,8 @@ class AgentCore(metaclass=AgentMeta):
     def post_episode(self):
         """
             Called by agent process.
-            Can beused to reset internal states before an episode ends
+            Can beused to reset internal states after an episode ends
+            I.e. after the post_action when done = True
         """
         pass
 
