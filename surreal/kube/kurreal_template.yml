@@ -9,7 +9,7 @@ volumes:
     repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/stanfordvl/{{git_repo}}
     revision: {{ GIT_SNAPSHOT_BRANCH }}
 {% endfor %}
-- name: experiment
+- name: fs
 {% if file_server | lower in ['temp', 'temporary', 'emptydir'] %}
   emptyDir: {}
 {% elif file_server | lower in ['localhost', 'hostpath'] %}
@@ -62,8 +62,8 @@ volumes:
   - name: {{ git_repo | to_hyphen }}
     mountPath: /mylibs/{{ git_repo }}
   {% endfor %}
-  - name: experiment
-    mountPath: /experiment
+  - name: fs
+    mountPath: /fs
   args: {{ args }}
   {% if resource_request | length > 0 or resource_limit | length > 0 and type in ['agent', 'learner']%}
   resources:
