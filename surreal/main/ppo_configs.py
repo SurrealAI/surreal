@@ -113,6 +113,10 @@ def generate(argv):
         'learner': {
             'gpu': args.gpu,
         },
+        'agent' : {
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 10,
+        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)

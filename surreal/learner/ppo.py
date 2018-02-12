@@ -59,32 +59,43 @@ class PPOLearner(Learner):
             self.clip_upper = self.clip_range[1]
             self.clip_lower = self.clip_range[0]
 
-        # Learning parameters
-        self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
-        if self.clip_actor_gradient:
-            self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+        # GPU settings:
+        self.gpu_id = session_config.learner.gpu
+        if self.gpu_id == -1:
+            self.log.info('Using CPU')
+        else:
+            self.log.info('Using GPU: {}'.format(self.gpu_id))
 
-        self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
-        if self.clip_critic_gradient:
-            self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
 
-        self.critic_optim = torch.optim.Adam(
-            self.model.critic.parameters(),
-            lr=self.lr_baseline
-        )
-        self.actor_optim = torch.optim.Adam(
-            self.model.actor.parameters(),
-            lr=self.lr_policy
-        )
+        with U.torch_gpu_scope(self.gpu_id):
 
-        # Experience Aggregator
-        self.aggregator = MultistepWithBehaviorPolicyAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            # Learning parameters
+            self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
+            if self.clip_actor_gradient:
+                self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+
+            self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
+            if self.clip_critic_gradient:
+                self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+
+            self.critic_optim = torch.optim.Adam(
+                self.model.critic.parameters(),
+                lr=self.lr_baseline
+            )
+            self.actor_optim = torch.optim.Adam(
+                self.model.actor.parameters(),
+                lr=self.lr_policy
+            )
+
+            # Experience Aggregator
+            self.aggregator = MultistepWithBehaviorPolicyAggregator(self.env_config.obs_spec, self.env_config.action_spec)
         
-        # probability distribution. Gaussian only for now
-        self.pd = DiagGauss(self.action_dim)
+            # probability distribution. Gaussian only for now
+            self.pd = DiagGauss(self.action_dim)
 
 
     def _advantage_and_return(self, obs, actions, rewards, obs_next, done, num_steps):
+        # deprecated 
         n_samples = obs.size()[0]
         gamma = torch.ones(n_samples, 1) * self.gamma
 
@@ -318,97 +329,100 @@ class PPOLearner(Learner):
 
 
     def _V_trace_compute_target(self, obs, obs_next, actions, rewards, pds, dones):
-        batch_size =self.learner_config.replay.batch_size
-        obs_flat = obs.view(batch_size * self.n_step, -1 ) 
-        actions_flat = actions.view(batch_size * self.n_step, -1)
+        with U.torch_gpu_scope(self.gpu_id):
+                batch_size =self.learner_config.replay.batch_size
+                obs_flat = obs.view(batch_size * self.n_step, -1 ) 
+                actions_flat = actions.view(batch_size * self.n_step, -1)
 
-        # getting the importance sampling weights
-        curr_pd   = self.model.actor(Variable(obs_flat))
-        curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
+                # getting the importance sampling weights
+                curr_pd   = self.model.actor(Variable(obs_flat))
+                curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
 
-        behave_pd   = Variable(pds.view(batch_size * self.n_step, -1))
-        behave_prob = self.pd.likelihood(Variable(actions_flat), behave_pd).data
-        behave_prob = torch.clamp(behave_prob, min=self.is_weight_eps) # hard clamp, not variance reduction step
+                behave_pd   = Variable(pds.view(batch_size * self.n_step, -1))
+                behave_prob = self.pd.likelihood(Variable(actions_flat), behave_pd).data
+                behave_prob = torch.clamp(behave_prob, min=self.is_weight_eps) # hard clamp, not variance reduction step
 
-        is_weight = curr_prob / behave_prob
-        is_weight_trunc = torch.clamp(is_weight, max=self.is_weight_thresh)
-        trace_c         = torch.clamp(is_weight, max=self.trace_cutoff) # both in shape (batch * n, 1)
-    
-        is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
-        log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
-        log_trace_c = log_trace_c.cumsum(1)
-        trace_c = log_trace_c.exp()[:,:-1] # (batch_size, n-1)
+                is_weight = curr_prob / behave_prob
+                is_weight_trunc = torch.clamp(is_weight, max=self.is_weight_thresh)
+                trace_c         = torch.clamp(is_weight, max=self.trace_cutoff) # both in shape (batch * n, 1)
+            
+                is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
+                log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
+                log_trace_c = log_trace_c.cumsum(1)
+                trace_c = log_trace_c.exp()[:,:-1] # (batch_size, n-1)
 
-        # value estimate
-        obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
-        values = self.model.critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
-        values = values.view(batch_size, self.n_step + 1)
-        values[:, :self.n_step] *= 1 - dones
-        values[:, self.n_step]  *= 1 - dones[:, -1]
+                # value estimate
+                obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
+                values = self.model.critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
+                values = values.view(batch_size, self.n_step + 1)
+                values[:, :self.n_step] *= 1 - dones
+                values[:, self.n_step]  *= 1 - dones[:, -1]
 
-        # computing trace
-        adv = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
-        adv[:, 1:] *= trace_c
+                # computing trace
+                adv = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
+                adv[:, 1:] *= trace_c
 
-        # More efficient, more biased. run with stride ~= n_step
-        for step in range(self.n_step):
-            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
-            adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
-        v_trace_targ = adv + values[:, :-1]
-        adv = adv.view(-1 , 1)
-        v_trace_targ = v_trace_targ.view(-1, 1)
-        pds_flat = pds.view(batch_size * self.n_step, -1)
-        # Less Efficnet, less biased. Run with stride = 1
-        '''
-        gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-        adv = torch.sum(trace_c * gamma * delta, dim = 1)
-        v_trace_targ = adv + values[:, 0]
-        obs_flat = obs[:, 0, :].squeeze(1)
-        action_flat = actions[:, 0, :].squeeze(1) 
-        pds_flat = pds[:, 0, :].squeeze(1)
-        '''
+                # More efficient, more biased. run with stride ~= n_step
+                for step in range(self.n_step):
+                    gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
+                    adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
+                v_trace_targ = adv + values[:, :-1]
+                adv = adv.view(-1 , 1)
+                v_trace_targ = v_trace_targ.view(-1, 1)
+                pds_flat = pds.view(batch_size * self.n_step, -1)
 
-        if self.norm_adv:
-            mean = adv.mean()
-            std  = adv.std()
-            adv  = (adv - mean)/std  
+                # Less Efficnet, less biased. Run with stride = 1
+                '''
+                gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+                adv = torch.sum(trace_c * gamma * delta, dim = 1)
+                v_trace_targ = adv + values[:, 0]
+                obs_flat = obs[:, 0, :].squeeze(1)
+                action_flat = actions[:, 0, :].squeeze(1) 
+                pds_flat = pds[:, 0, :].squeeze(1)
+                '''
 
-        avg_trace = trace_c.mean()
-        return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace   
+                if self.norm_adv:
+                    mean = adv.mean()
+                    std  = adv.std()
+                    adv  = (adv - mean)/std  
+
+                avg_trace = trace_c.mean()
+                return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace   
 
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
         obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
-        obs = Variable(obs)
-        actions = Variable(actions)
-        advantages = Variable(advantages)
-        v_trace_targ = Variable(v_trace_targ)
-        pds = Variable(pds)
+        with U.torch_gpu_scope(self.gpu_id):
+                obs = Variable(obs)
+                actions = Variable(actions)
+                advantages = Variable(advantages)
+                v_trace_targ = Variable(v_trace_targ)
+                pds = Variable(pds)
 
 
-        if self.method == 'clip': 
-            stats = self._clip_update_full(obs, actions, advantages, pds)
-        else:
-            stats = self._adapt_update_full(obs, actions, advantages, pds)
-        baseline_stats = self._value_update_full(obs, v_trace_targ)
+                if self.method == 'clip': 
+                    stats = self._clip_update_full(obs, actions, advantages, pds)
+                else:
+                    stats = self._adapt_update_full(obs, actions, advantages, pds)
+                baseline_stats = self._value_update_full(obs, v_trace_targ)
 
-        # updating tensorplex
-        for k in baseline_stats:
-            stats[k] = baseline_stats[k]
-        stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
-        stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
-        stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data
-        new_pol_pd = self.model.actor(obs)
-        new_likelihood = self.pd.likelihood(actions, new_pol_pd)
-        stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data
-        stats['avg_trace'] = avg_trace
+                # updating tensorplex
+                for k in baseline_stats:
+                    stats[k] = baseline_stats[k]
+                stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
+                stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
+                stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data
+                new_pol_pd = self.model.actor(obs)
+                new_likelihood = self.pd.likelihood(actions, new_pol_pd)
+                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data
+                stats['avg_trace'] = avg_trace
 
-        if self.use_z_filter:
-            stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
-            stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-            stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
+                if self.use_z_filter:
+                    stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
+                    stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
+                    stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
 
-        self.update_tensorplex(stats)
+                self.update_tensorplex(stats)
 
     def learn(self, batch):
         batch = self.aggregator.aggregate(batch)
