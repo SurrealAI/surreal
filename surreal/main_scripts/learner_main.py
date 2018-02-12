@@ -18,6 +18,10 @@ def run_learner_main(args, config):
         session_config=session_config)
 
     # for i, batch in enumerate(learner.fetch_iterator()):
+    #     pass
+    
+
+    # for i, batch in enumerate(learner.fetch_iterator()):
     #     break
     # while True:
     #     learner.learn(batch)

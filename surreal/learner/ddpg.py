@@ -22,6 +22,11 @@ class DDPGLearner(Learner):
 
         self.gpu_id = session_config.learner.gpu
         self.log.info('Initializing DDPG learner')
+
+        self.cum_requests = 0
+        self.cum_time = 0
+        self.ctr = 0
+
         if self.gpu_id == -1:
             self.log.info('Using CPU')
         else:
@@ -155,14 +160,16 @@ class DDPGLearner(Learner):
 
     def learn(self, batch):
         if self.current_iteration == 0:
-            print('start timing')
+            # print('start timing')
             self.time = time.time()
         elif self.current_iteration % 100 == 0:
             diff = time.time() - self.time
-            print('100 iteration in {:.3f} seconds'.format(diff))
+            print('[Full learner iter] {:.2f} ms'.format(diff * 10))
             self.time = time.time()
         self.current_iteration += 1
         batch = self.aggregator.aggregate(batch)
+
+        pre_time = time.time()
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
@@ -170,6 +177,17 @@ class DDPGLearner(Learner):
             batch.obs_next,
             batch.dones
         )
+        post_time = time.time()
+
+        self.ctr += 1
+        self.cum_requests *= 0.99
+        self.cum_requests += 1
+        self.cum_time *= 0.99
+        self.cum_time += post_time - pre_time
+        self.ctr += 1
+        if self.ctr % 100 == 0:
+            print('[Train] {:.2f} ms'.format(self.cum_time / self.cum_requests * 1000))
+
         self.update_tensorplex(tensorplex_update_dict)
 
     def module_dict(self):

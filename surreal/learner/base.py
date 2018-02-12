@@ -10,7 +10,7 @@ from surreal.session import StatsTensorplex, Loggerplex
 from surreal.distributed import ZmqClient, ParameterPublisher
 import queue
 from easydict import EasyDict
-
+import time
 
 class PrefetchBatchQueue(object):
     """
@@ -30,9 +30,24 @@ class PrefetchBatchQueue(object):
         )
         self._enqueue_thread = None
 
+        self.cum_requests = 0
+        self.cum_time = 0
+        self.ctr = 0
+
     def _enqueue_loop(self):
         while True:
+            pre_time = time.time()
             sample = self._client.request(self._batch_size)
+            post_time = time.time()
+
+            self.ctr += 1
+            self.cum_requests *= 0.99
+            self.cum_requests += 1
+            self.cum_time *= 0.99
+            self.cum_time += post_time - pre_time
+            self.ctr += 1
+            if self.ctr % 100 == 0:
+                print('[Fetch Experience] {:.2f} ms'.format(self.cum_time / self.cum_requests * 1000))
             self._queue.put(sample, block=True)
 
     def start_enqueue_thread(self):

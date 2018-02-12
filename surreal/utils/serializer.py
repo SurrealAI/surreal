@@ -4,10 +4,11 @@ Serializes numpy and JSON-like objects
 import pickle
 import base64
 import hashlib
-
+import json
 
 _SERIALIZER = pickle.dumps
 _DESERIALIZER = pickle.loads
+
 
 
 def set_global_serializer(serializer, deserializer):

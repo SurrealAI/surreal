@@ -3,6 +3,7 @@ from surreal.session import *
 import surreal.utils as U
 from surreal.agent import agentFactory
 import argparse
+
 def agent_parser_setup(parser):
     parser.add_argument('id', type=int, help='agent id')
 
