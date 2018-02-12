@@ -172,7 +172,7 @@ class PPOLearner(Learner):
 
 
     def _clip_update_full(self, obs, actions, advantages, behave_pol):
-        behave_pol = self.model.actor(obs).detach()
+        #behave_pol = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
@@ -330,6 +330,11 @@ class PPOLearner(Learner):
 
     def _V_trace_compute_target(self, obs, obs_next, actions, rewards, pds, dones):
         with U.torch_gpu_scope(self.gpu_id):
+
+                if self.gpu_id >= 0: 
+                    rewards = rewards.cuda()
+                    dones = dones.cuda()
+
                 batch_size =self.learner_config.replay.batch_size
                 obs_flat = obs.view(batch_size * self.n_step, -1 ) 
                 actions_flat = actions.view(batch_size * self.n_step, -1)
@@ -365,7 +370,10 @@ class PPOLearner(Learner):
                 # More efficient, more biased. run with stride ~= n_step
                 for step in range(self.n_step):
                     gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
+                    if self.gpu_id >= 0:
+                        gamma = gamma.cuda()
                     adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
+
                 v_trace_targ = adv + values[:, :-1]
                 adv = adv.view(-1 , 1)
                 v_trace_targ = v_trace_targ.view(-1, 1)
