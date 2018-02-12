@@ -37,6 +37,7 @@ class DDPGAgent(Agent):
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
         )
+
         
         self.init_noise()
 
@@ -88,6 +89,7 @@ class DDPGAgent(Agent):
             },
         }
 
-    def reset(self):
+    def pre_episode(self):
+        super().pre_episode()
         if self.agent_mode is not AgentMode.eval_deterministic:
             self.noise.reset()

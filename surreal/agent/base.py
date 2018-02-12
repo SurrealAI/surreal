@@ -7,7 +7,8 @@ from surreal.session import (
     PeriodicTracker, PeriodicTensorplex, extend_config,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
-from surreal.distributed import ParameterClient
+from surreal.distributed import ParameterClient, ModuleDict
+import time
 
 
 class AgentMode(U.StringEnum):
@@ -40,12 +41,42 @@ class AgentCore(metaclass=AgentMeta):
         self._ps_port = ps_port
 
     def _initialize(self):
-        "implements AutoInitializeMeta meta class."
+        """
+            implements AutoInitializeMeta meta class.
+        """
         self._ps_client = ParameterClient(
             host=self._ps_host,
             port=self._ps_port,
-            module_dict=self.module_dict()
+            module_dict=self.module_dict(),
         )
+
+    def pre_action(self, obs):
+        """
+            Called before act is called by agent main script
+        """
+        pass
+
+    def post_action(self, obs, action, obs_next, reward, done, info):
+        """
+            Called before act is called by agent main script.
+            TODO: move experience generation to here so that agent has control over it.
+        """
+        pass
+
+    def pre_episode(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states before an episode starts
+        """
+        pass
+
+    def post_episode(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states after an episode ends
+            I.e. after the post_action when done = True
+        """
+        pass
 
     def act(self, obs):
         """
@@ -73,7 +104,8 @@ class AgentCore(metaclass=AgentMeta):
         """
         Update agent by pulling parameters from parameter server.
         """
-        return self._ps_client.fetch_parameter()
+        params, info = self._ps_client.fetch_parameter_with_info()
+        return params, info
 
     def fetch_parameter_info(self):
         """
@@ -87,8 +119,6 @@ class AgentCore(metaclass=AgentMeta):
             agent_mode: enum of AgentMode class
         """
         self.agent_mode = AgentMode[agent_mode]
-
-
 
 class Agent(AgentCore):
     """
@@ -139,6 +169,12 @@ class Agent(AgentCore):
             session_config=self.session_config
         )
 
+        # Parameter update related logging
+        self.last_parameter_time = None
+        # record how long the current parameter have been used
+        self.actions_per_param_update = 0
+        self.episodes_per_param_update = 0
+
     def update_tensorplex(self, tag_value_dict, global_step=None):
         self._periodic_tensorplex.update(tag_value_dict, global_step)
 
@@ -149,9 +185,32 @@ class Agent(AgentCore):
         """
         return BASE_LEARNER_CONFIG
 
-    def reset(self):
+    def fetch_parameter(self):
         """
-            Called by agent process.
-            Can beused to reset internal states after an episode has ended. 
+            Extends base class fetch_parameters to add some logging
         """
-        pass
+        params, info = super().fetch_parameter()
+        if params:
+            self.on_parameter_fetched(params, info)
+
+    def on_parameter_fetched(self, params, info):
+        """
+            Method called when a new parameter is fetched. Free to be inherited by subclasses.
+        """
+        # The time it takes for parameter to go from learner to agent
+        if self.agent_mode == AgentMode.training:
+            delay = time.time() - info['time']
+            self.update_tensorplex({'parameter_publish_delay': delay,
+                                    'actions_per_param_update': self.actions_per_param_update,
+                                    'episodes_per_param_update': self.episodes_per_param_update
+                                    })
+            self.actions_per_param_update = 0
+            self.episodes_per_param_update = 0
+
+
+    def post_action(self, obs, action, obs_next, reward, done, info):
+        super().post_action(obs, action, obs_next, reward, done, info)
+        if self.agent_mode == AgentMode.training:
+            self.actions_per_param_update += 1
+            if done:
+                self.episodes_per_param_update += 1

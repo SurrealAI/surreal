@@ -5,9 +5,8 @@ import surreal.utils as U
 class ModuleDict(object):
     """
     Two-step serialization.
-    1. All objects of surreal.utils.pytorch.Module will be serialized by a
-        specialized method that flattens the tensors and compact into a binary.
-    2. The outside dict is then pickled.
+    1. Each element's state_dict() is called
+    2. The overall dict is then pickled.
     """
     def __init__(self, module_dict):
         U.assert_type(module_dict, dict)

@@ -2,7 +2,7 @@ import numpy as np
 from collections import deque
 import gym
 from gym import spaces
-import cv2
+# import cv2
 from .atari_names import atari_name_cap
 
 
@@ -124,25 +124,25 @@ class ClipRewardEnv(gym.RewardWrapper):
         """Bin reward to {+1, 0, -1} by its sign."""
         return np.sign(reward)
 
-class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env, is_pytorch=True):
-        """Warp frames to 84x84 as done in the Nature paper and later work."""
-        gym.ObservationWrapper.__init__(self, env)
-        self.width = 84
-        self.height = 84
-        shape = (self.width, self.height)
-        shape = (1,) + shape if is_pytorch else shape + (1,)
-        self.observation_space = spaces.Box(low=0, high=255, shape=shape )
-        self.is_pytorch = is_pytorch
+# class WarpFrame(gym.ObservationWrapper):
+#     def __init__(self, env, is_pytorch=True):
+#         """Warp frames to 84x84 as done in the Nature paper and later work."""
+#         gym.ObservationWrapper.__init__(self, env)
+#         self.width = 84
+#         self.height = 84
+#         shape = (self.width, self.height)
+#         shape = (1,) + shape if is_pytorch else shape + (1,)
+#         self.observation_space = spaces.Box(low=0, high=255, shape=shape )
+#         self.is_pytorch = is_pytorch
 
-    def _observation(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-        frame = cv2.resize(
-            frame,
-            (self.width, self.height),
-            interpolation=cv2.INTER_AREA
-        )
-        return frame[:, :, None] if self.is_pytorch else frame[None, :, :]
+#     def _observation(self, frame):
+#         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+#         frame = cv2.resize(
+#             frame,
+#             (self.width, self.height),
+#             interpolation=cv2.INTER_AREA
+#         )
+#         return frame[:, :, None] if self.is_pytorch else frame[None, :, :]
 
 
 class FrameStack(gym.Wrapper):
