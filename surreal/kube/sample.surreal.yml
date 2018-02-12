@@ -30,4 +30,8 @@ git:
   snapshot_repos:
   - ~/my/repo/path/surreal
   - ~/my/repo/path/tensorplex
+fs:
+  server: '35.227.164.158'
+  path: /data
+username: jimfan
 mujoco_key_path: ~/.mujoco/mjkey.txt

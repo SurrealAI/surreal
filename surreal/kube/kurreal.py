@@ -127,6 +127,7 @@ def setup_parser():
     delete_parser = _add_subparser('delete', kurreal_delete)
     _add_experiment_name(delete_parser)
 
+    # you don't need labeling for kube autoscaling
     # label_parser = _add_subparser('label', kurreal_label)
     # label_parser.add_argument(
     #     'old_labels',
@@ -186,6 +187,7 @@ def setup_parser():
     _add_experiment_name(debug_create_parser)
     debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
     debug_create_parser.add_argument('-g', '--gpu', action='store_true')
+    debug_create_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
     debug_create_parser.add_argument('num_agents', type=int)
 
     return parser
@@ -226,40 +228,42 @@ def kurreal_create(args, remainder):
         nonagent_image=args.nonagent_image,
         check_file_exists=not args.force,
         NONAGENT_HOST_NAME=args.experiment_name,
-        # TODO change to NFS
-        FILE_SERVER='temp',
-        PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
     # switch to the experiment namespace just created
     kurreal_namespace(args, remainder)
 
 
-def kurreal_debug_create(args, _):
+def kurreal_debug_create(args, remainder):
     """
     CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
     config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
     service_url=experiment_name + '.surreal')
     """
     kube = Kubectl(dry_run=args.dry_run)
+    if len(remainder) > 0:
+        config_command = remainder
+    else:
+        config_command = ['--env', "'dm_control:cheetah-run'"]
+
     if args.gpu:
         nonagent_selector = 'nonagent-gpu'
         nonagent_resource_request = 'nonagent-gpu'
         nonagent_resource_limit = 'nonagent-gpu'
         nonagent_image = 'nonagent-gpu'
-        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/ --gpu 0"
+        config_command += ["--gpu", "0"]
     else:
         nonagent_selector = 'nonagent-cpu'
         nonagent_resource_request = 'nonagent-cpu'
         nonagent_resource_limit = None
         nonagent_image = 'nonagent-cpu'
-        config_command = "--env 'dm_control:cheetah-run' --savefile /experiment/"
-        
+
+    config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
 
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
-        'surreal/surreal/main/ddpg_configs.py',
-        config_command=config_command,
+        'surreal/surreal/main/' + args.config_file,
+        config_command=' '.join(config_command),
         service_url=args.experiment_name + '.surreal'
     )
     cmd_dict = cmd_gen.generate(args.num_agents)
@@ -276,12 +280,9 @@ def kurreal_debug_create(args, _):
         nonagent_image=nonagent_image,
         check_file_exists=False,
         NONAGENT_HOST_NAME=args.experiment_name,
-        # TODO change to NFS
-        FILE_SERVER='temp',
-        PATH_ON_SERVER='/',
         CMD_DICT=cmd_dict
     )
-    kurreal_namespace(args, _)
+    kurreal_namespace(args, remainder)
 
 
 def kurreal_delete(args, _):
@@ -322,30 +323,32 @@ def kurreal_list(args, _):
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
 
-# def kurreal_label(args, _):
-#     """
-#     Label nodes in node pools
-#     """
-#     kube = Kubectl(dry_run=args.dry_run)
-#     for label, value in args.new_labels:
-#         kube.label_nodes(args.old_labels, label, value)
+def kurreal_label(args, _):
+    """
+    Label nodes in node pools
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    for label, value in args.new_labels:
+        kube.label_nodes(args.old_labels, label, value)
 
-# Deprecated: 
-# def kurreal_label_gcloud(args, _):
-#     """
-#     Add default labels for GCloud cluster.
-#     Note that you have to create the node-pools with the exact names:
-#     "agent-pool" and "nonagent-pool-cpu"
-#     gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
 
-#     Command to check whether the labeling is successful:
-#     kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
-#     """
-#     kube = Kubectl(dry_run=args.dry_run)
-#     kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-#                      'surreal-node', 'agent-pool')
-#     kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-#                      'surreal-node', 'nonagent-pool')
+def kurreal_label_gcloud(args, _):
+    """
+    NOTE: you don't need this for autoscale
+
+    Add default labels for GCloud cluster.
+    Note that you have to create the node-pools with the exact names:
+    "agent-pool" and "nonagent-pool-cpu"
+    gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
+
+    Command to check whether the labeling is successful:
+    kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                     'surreal-node', 'agent-pool')
+    kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                     'surreal-node', 'nonagent-pool')
 
 
 def kurreal_logs(args, _):

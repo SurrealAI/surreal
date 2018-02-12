@@ -60,14 +60,23 @@ def run_agent_main(args, config):
     )
 
     pull_tracker = PeriodicTracker(_fetch_interval)
-    obs, info = env.reset()
     while True:
-        action = agent.act(U.to_float_tensor(obs))
-        obs, reward, done, info = env.step(action)
-        #time.sleep(0.1)
-        if _fetch_mode == 'step' and pull_tracker.track_increment():
-            is_fetched = agent.fetch_parameter()
-        if done:
-            obs, info = env.reset()
-            if _fetch_mode == 'episode' and pull_tracker.track_increment():
+        agent.pre_episode()
+        obs, info = env.reset()
+        while True:
+            obs = U.to_float_tensor(obs)
+            agent.pre_action(obs)
+            action = agent.act(obs)
+            obs_next, reward, done, info = env.step(action)
+            agent.post_action(obs, action, obs_next, reward, done, info)
+            obs = obs_next
+            #time.sleep(0.1)
+            # TODO: put this into agent.
+            if _fetch_mode == 'step' and pull_tracker.track_increment():
                 is_fetched = agent.fetch_parameter()
+            if done:
+                break
+        agent.post_episode()
+        # TODO: put this into agent
+        if _fetch_mode == 'episode' and pull_tracker.track_increment():
+            is_fetched = agent.fetch_parameter()

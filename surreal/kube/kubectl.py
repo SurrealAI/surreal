@@ -299,6 +299,14 @@ class Kubectl(object):
                 file_content(self.config.mujoco_key_path)
         surreal_context.update(context)
 
+        # Mount file system from 
+        if 'fs' in self.config:
+            surreal_context['FILE_SERVER'] = self.config.fs.server
+            surreal_context['PATH_ON_SERVER'] = self.config.fs.path
+        else:
+            surreal_context['FILE_SERVER'] = 'temp'
+            surreal_context['PATH_ON_SERVER'] = '/'
+
         # select nodes from nodepool label to schedule agent/nonagent pods
         surreal_context['AGENT_SELECTOR'] = \
             self._create_get_node_selector(agent_selector)

@@ -43,6 +43,7 @@ class DDPGAgent(Agent):
             actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
             critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
         )
+
         
         self.init_noise()
 
@@ -94,7 +95,8 @@ class DDPGAgent(Agent):
             },
         }
 
-    def reset(self):
+    def pre_episode(self):
+        super().pre_episode()
         if self.agent_mode is not AgentMode.eval_deterministic:
             self.noise.reset()
 

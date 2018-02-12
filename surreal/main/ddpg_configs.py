@@ -60,7 +60,7 @@ def generate(argv):
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'use_batchnorm': False,
-            'limit_training_episode_length': 100, # 0 means no limit
+            'limit_training_episode_length': 0, # 0 means no limit
             'n_step': 1,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
