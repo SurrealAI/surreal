@@ -8,6 +8,7 @@ def generate(argv):
     The function name must be `generate`.
     Will be called by `surreal.main_scripts.runner`
     """
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
     parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
