@@ -36,9 +36,9 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 1.5,
+            'actor_gradient_clip_value': 5.,
             'clip_critic_gradient': True,
-            'critic_gradient_clip_value': 1.5,
+            'critic_gradient_clip_value': 5.,
             'gamma': .995,
             'target_update': {
                 'type': 'soft',
@@ -47,7 +47,7 @@ def generate(argv):
                 # 'interval': 100,
             },
             'use_z_filter': False,
-            'norm_adv': False,
+            'norm_adv': True,
             'exploration': {
                 'noise_type': 'normal',
                 'sigma': 0.37,
@@ -70,7 +70,7 @@ def generate(argv):
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
             'epoch_policy': 5,
             'epoch_baseline': 5,
-            'kl_targ': 0.003, # target KL divergence between before and after
+            'kl_targ': 0.01, # target KL divergence between before and after
             'kl_cutoff_coeff': 50, # penalty coeff when kl large
             'clip_epsilon_init': 0.2, # factor of clipped loss
             'beta_init': 1.0, # original beta

@@ -228,6 +228,7 @@ class PPOLearner(Learner):
             loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol)
             self.model.actor.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
             prob = self.model.actor(obs)
