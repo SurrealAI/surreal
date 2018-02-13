@@ -24,6 +24,7 @@ class PPOLearner(Learner):
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.init_log_sig = self.learner_config.algo.init_log_sig
         self.model = PPOModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
@@ -421,10 +422,10 @@ class PPOLearner(Learner):
                     stats[k] = baseline_stats[k]
                 stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
                 stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
-                stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data
+                stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data[0]
                 new_pol_pd = self.model.actor(obs)
                 new_likelihood = self.pd.likelihood(actions, new_pol_pd)
-                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data
+                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data[0]
                 stats['avg_trace'] = avg_trace
 
                 if self.use_z_filter:
