@@ -7,9 +7,9 @@ class ActionNoise(object):
 
 
 class NormalActionNoise(ActionNoise):
-    def __init__(self, mu, sigma):
+    def __init__(self, mu, sigma, agent_id):
         self.mu = mu
-        self.sigma = sigma
+        self.sigma = agent_id * 0.10
 
     def __call__(self):
         return np.random.normal(self.mu, self.sigma)

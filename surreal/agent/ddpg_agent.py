@@ -8,6 +8,7 @@ from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
 from surreal.session import ConfigError
+import time
 
 class DDPGAgent(Agent):
 
@@ -26,6 +27,7 @@ class DDPGAgent(Agent):
             agent_mode=agent_mode,
         )
 
+        self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
@@ -44,7 +46,6 @@ class DDPGAgent(Agent):
         )
         self.model.eval()
 
-        
         self.init_noise()
 
     def init_noise(self):
@@ -56,7 +57,7 @@ class DDPGAgent(Agent):
             return
         if self.noise_type == 'normal':
             self.noise = NormalActionNoise(np.zeros(self.action_dim),
-                                           np.ones(self.action_dim) * self.sigma)
+                                           np.ones(self.action_dim) * self.sigma, self.agent_id)
         elif self.noise_type == 'ou_noise':
             self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),
                                                       sigma=self.learner_config.algo.exploration.sigma,
@@ -71,6 +72,7 @@ class DDPGAgent(Agent):
 
     def act(self, obs):
         assert torch.is_tensor(obs)
+        time.sleep(1/100.)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
