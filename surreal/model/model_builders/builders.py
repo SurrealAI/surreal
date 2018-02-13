@@ -52,7 +52,7 @@ class PPO_ActorNetwork(U.Module):
         self.fc_h2 = nn.Linear(hid_1, hid_2)
         self.fc_h3 = nn.Linear(hid_2, hid_3)
         self.fc_mean = nn.Linear(hid_3, D_act)
-        self.log_var = nn.Parameter(torch.zeros(1, D_act) - init_log_sig)
+        self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
 
     def forward(self, obs):
         h1 = F.tanh(self.fc_h1(obs))

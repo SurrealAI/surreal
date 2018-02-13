@@ -68,7 +68,7 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 32,
-            'memory_size': 48,
+            'memory_size': 2048,
             'sampling_start_size': 32,
         },
         'eval': {
@@ -101,10 +101,10 @@ def generate(argv):
         'learner': {
             'gpu': args.gpu,
         },
-#        'agent' : {
-#            'fetch_parameter_mode': 'step',
-#            'fetch_parameter_interval': 10,
-#        },
+        'agent' : {
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 250,
+        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)
