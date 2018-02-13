@@ -79,8 +79,8 @@ class VideoWrapper(Wrapper):
         self.ext = '.gif' if use_gif else '.mp4'
         self.save_dir = env_config.video.save_directory
 
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
         self.num_eps = 0
         self.num_steps = 0

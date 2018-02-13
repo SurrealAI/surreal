@@ -39,10 +39,10 @@ class DDPGAgent(Agent):
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             use_batchnorm=self.use_batchnorm,
-            train=False,
             actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
             critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
         )
+        self.model.eval()
 
         
         self.init_noise()

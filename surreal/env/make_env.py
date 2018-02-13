@@ -9,7 +9,6 @@ def make_env(env_config):
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
     record_video = env_config.video.record_video
-    env, env_config = None, None
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
