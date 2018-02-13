@@ -36,10 +36,10 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 0.5,
+            'actor_gradient_clip_value': 1.5,
             'clip_critic_gradient': True,
-            'critic_gradient_clip_value': 0.5,
-            'gamma': .99,
+            'critic_gradient_clip_value': 1.5,
+            'gamma': .995,
             'target_update': {
                 'type': 'soft',
                 'tau': 1e-2,
@@ -64,12 +64,12 @@ def generate(argv):
             'stride': 6,
             'batch_size': 32,
             # ppo specific parameters:
-            'method': 'clip',
-            'lr_policy': 4e-4,
-            'lr_baseline': 4e-4,
+            'method': 'adapt',
+            'lr_policy': 2e-4,
+            'lr_baseline': 2e-4,
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
-            'epoch_policy': 2,
-            'epoch_baseline': 2,
+            'epoch_policy': 5,
+            'epoch_baseline': 5,
             'kl_targ': 0.003, # target KL divergence between before and after
             'kl_cutoff_coeff': 50, # penalty coeff when kl large
             'clip_epsilon_init': 0.2, # factor of clipped loss
@@ -81,7 +81,7 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 32,
-            'memory_size': 1024,
+            'memory_size': 48,
             'sampling_start_size': 32,
         },
         'eval': {
@@ -109,15 +109,15 @@ def generate(argv):
             }
         },
         'sender': {
-            'flush_iteration': 100,
+            'flush_iteration': 5,
         },
         'learner': {
             'gpu': args.gpu,
         },
-        'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10,
-        },
+#        'agent' : {
+#            'fetch_parameter_mode': 'step',
+#            'fetch_parameter_interval': 10,
+#        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)

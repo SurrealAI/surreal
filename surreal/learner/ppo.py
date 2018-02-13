@@ -172,7 +172,7 @@ class PPOLearner(Learner):
 
 
     def _clip_update_full(self, obs, actions, advantages, behave_pol):
-        #behave_pol = self.model.actor(obs).detach()
+        behave_pol = self.model.actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
@@ -198,13 +198,14 @@ class PPOLearner(Learner):
         return stats
 
 
-    def _adapt_loss(self, obs, actions, advantages, old_pol):
+    def _adapt_loss(self, obs, actions, advantages, behave_pol):
         prob = self.model.actor(obs)
         logp = self.pd.loglikelihood(actions, prob)
-        logp_old = self.pd.loglikelihood(actions, old_prob)
-        kl = self.pd.kl(old_prob, prob).mean()
+        logp_old = self.pd.loglikelihood(actions, behave_pol)
+        kl = self.pd.kl(behave_pol, prob).mean()
         surr = -(advantages * (logp - logp_old).exp()).mean()
         loss = surr + self.beta * kl
+        entropy = self.pd.entropy(prob).mean()
 
         if kl.data[0] - 2.0 * self.kl_targ > 0:
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
@@ -219,18 +220,18 @@ class PPOLearner(Learner):
 
         return loss, stats
 
-    def _adapt_update_full(self, obs, actions, advantages, pds):
-        old_prob = self.model.actor(obs).detach()
+    def _adapt_update_full(self, obs, actions, advantages,behave_pol):
+        behave_pol = self.model.actor(obs).detach()
 
         for epoch in range(self.epoch_policy):
 
-            loss, _ = self._adapt_loss(obs, actions, advantages, old_prob)
+            loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol)
             self.model.actor.zero_grad()
             loss.backward()
             self.actor_optim.step()
 
             prob = self.model.actor(obs)
-            kl = self.pd.kl(old_prob, prob).mean()
+            kl = self.pd.kl(behave_pol, prob).mean()
             stats['pol_kl'] = kl.data[0]
             if kl.data[0] > self.kl_targ * 4:
                 break
