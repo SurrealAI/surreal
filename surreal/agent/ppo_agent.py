@@ -27,8 +27,10 @@ class PPOAgent(Agent):
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.init_log_sig = self.learner_config.algo.init_log_sig
 
         self.model = PPOModel(
+            init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,

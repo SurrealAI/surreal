@@ -54,8 +54,9 @@ class PPOModel(U.Module):
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
+        self.init_log_sig = init_log_sig
 
-        self.actor = PPO_ActorNetwork(self.obs_dim, self.action_dim, init_log_sig)
+        self.actor = PPO_ActorNetwork(self.obs_dim, self.action_dim, self.init_log_sig)
         self.critic = PPO_CriticNetwork(self.obs_dim)
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim)
