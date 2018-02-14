@@ -458,6 +458,7 @@ class TimeRecorder():
     def __init__(self, decay=0.99):
         self.cum_count = 0
         self.cum_time = 0
+        self.decay = decay
 
     @contextmanager
     def time(self):
@@ -471,4 +472,6 @@ class TimeRecorder():
 
     @property
     def avg(self):
+        if self.cum_count == 0:
+            return 0
         return self.cum_time / self.cum_count

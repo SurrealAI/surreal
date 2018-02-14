@@ -107,6 +107,7 @@ class LearnerCore(metaclass=LearnerMeta):
 
         self.learn_timer = U.TimeRecorder()
         self.fetch_timer = self._prefetch_queue.timer
+        self.iter_timer = U.TimeRecorder()
 
     def _initialize(self):
         """
@@ -172,9 +173,10 @@ class LearnerCore(metaclass=LearnerMeta):
             Main loop that defines learner process
         """
         for i, batch in enumerate(self.fetch_iterator()):
-            with self.learn_timer.time():
-                self.learn(batch)
-            self.publish_parameter(i, message='batch '+str(i))
+            with self.iter_timer.time():
+                with self.learn_timer.time():
+                    self.learn(batch)
+                self.publish_parameter(i, message='batch '+str(i))
 
 
 class Learner(LearnerCore):
@@ -232,6 +234,17 @@ class Learner(LearnerCore):
             tag_value_dict:
             global_step: None to use internal tracker value
         """
-        tag_value_dict['learn_time'] = self.learn_timer.avg
-        tag_value_dict['fetch_time'] = self.fetch_timer.avg
+        learn_time = self.learn_timer.avg + 1e-6
+        fetch_time = self.fetch_timer.avg + 1e-6
+        iter_time = self.iter_timer.avg + 1e-6
+        # Time it takes to learn from a batch
+        tag_value_dict['speed/learn_time'] = learn_time
+        # Time it takes to fetch a batch
+        tag_value_dict['speed/fetch_time'] = fetch_time
+        # Time it takes to complete one full iteration
+        tag_value_dict['speed/iter_time'] = iter_time
+        # Percent of time spent on learning
+        tag_value_dict['speed/compute_bound_percent'] = learn_time / iter_time * 100
+        # Percent of time spent on IO
+        tag_value_dict['speed/io_bound_percent'] = fetch_time / iter_time * 100
         self._periodic_tensorplex.update(tag_value_dict, global_step)
