@@ -50,16 +50,17 @@ def setup_parser():
     )
     subparsers.required = True
 
-    def _add_subparser(name, parse_func):
+    def _add_subparser(name, parse_func, **kwargs):
         parser = subparsers.add_parser(
             name,
-            help=parse_func.__doc__
+            help=parse_func.__doc__,
+            **kwargs
         )
         _add_dry_run(parser)
         parser.set_defaults(func=parse_func)
         return parser
 
-    create_parser = _add_subparser('create', kurreal_create)
+    create_parser = _add_subparser('create', kurreal_create, aliases=['c'])
     _add_experiment_name(create_parser)
     create_parser.add_argument(
         'config_py',
@@ -74,13 +75,13 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
-        '-ap', '--agent-pod-type',
+        '-apt', '--agent-pod-type',
         default='agent',
         help='key in ~/.surreal.yml `pod_types` section that describes spec for agent pod. '
              'Default: "agent"'
     )
     create_parser.add_argument(
-        '-nap', '--nonagent-pod-type',
+        '-napt', '--nonagent-pod-type',
         default='nonagent-cpu',
         help='key in ~/.surreal.yml `pod_types` section that describes spec for '
              'nonagent pod with multiple containers: learner, ps, tensorboard, etc. '
@@ -92,8 +93,13 @@ def setup_parser():
         help='force overwrite an existing kurreal.yml file '
              'if its experiment folder already exists.'
     )
+    create_parser.add_argument(
+        '--no-prefix',
+        action='store_true',
+        help='do not prefix experiment name with <username>-...'
+    )
 
-    delete_parser = _add_subparser('delete', kurreal_delete)
+    delete_parser = _add_subparser('delete', kurreal_delete, aliases=['d'])
     _add_experiment_name(delete_parser)
 
     # you don't need labeling for kube autoscaling
@@ -111,7 +117,7 @@ def setup_parser():
 
     # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
 
-    logs_parser = _add_subparser('logs', kurreal_logs)
+    logs_parser = _add_subparser('log', kurreal_logs, aliases=['logs', 'l'])
     logs_parser.add_argument(
         'component_name',
         help="must be either agent-<N> or one of "
@@ -134,25 +140,31 @@ def setup_parser():
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
 
-    namespace_parser = _add_subparser('ns', kurreal_namespace)
+    namespace_parser = _add_subparser('ns', kurreal_namespace,
+                                      aliases=['exp', 'experiment'])
     # no arg to get the current namespace
     _add_experiment_name(namespace_parser, nargs='?')
 
-    list_parser = _add_subparser('list', kurreal_list)
+    list_parser = _add_subparser('list', kurreal_list, aliases=['ls'])
     list_parser.add_argument(
         'resource',
-        choices=['ns', 'namespace', 'p', 'pod', 'no', 'node', 's', 'service'],
+        choices=['ns', 'namespace', 'namespaces',
+                 'e', 'exp', 'experiment', 'experiments',
+                 'p', 'pod', 'pods',
+                 'no', 'node', 'nodes',
+                 's', 'service', 'services'],
         help='list experiment, pod, and node'
     )
 
-    tb_parser = _add_subparser('tb', kurreal_tb)
+    tb_parser = _add_subparser('tb', kurreal_tb, aliases=['tensorboard'])
     tb_parser.add_argument(
         '-u', '--url-only',
         nargs='?',
         help='only show the URL without opening the browser.'
     )
 
-    create_dev_parser = _add_subparser('create-dev', kurreal_create_dev)
+    create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
+                                       aliases=['cdev', 'devc', 'dev-create'])
     _add_experiment_name(create_dev_parser)
     create_dev_parser.add_argument('-sn', '--snapshot', action='store_true')
     create_dev_parser.add_argument('-g', '--gpu', action='store_true')
@@ -179,6 +191,7 @@ def kurreal_create(args, remainder):
         config_py = args.config_py
     else:
         config_py = U.f_join('/root', args.config_py)
+    args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
         config_py,
         config_command=' '.join(remainder),
@@ -218,6 +231,7 @@ def kurreal_create_dev(args, remainder):
 
     config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
 
+    args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
         'surreal/surreal/main/' + args.config_file,
@@ -230,10 +244,10 @@ def kurreal_create_dev(args, remainder):
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
         agent_pod_type='agent',
-        cmd_dict=cmd_dict,
         nonagent_pod_type=nonagent_pod_type,
+        cmd_dict=cmd_dict,
         check_file_exists=False,
-   )
+    )
     kurreal_namespace(args, remainder)
 
 
@@ -263,13 +277,14 @@ def kurreal_list(args, _):
     """
     kube = Kubectl(dry_run=args.dry_run)
     run = lambda cmd: kube.run_verbose(cmd, print_out=True, raise_on_error=False)
-    if args.resource in ['ns', 'namespace']:
+    if args.resource in ['ns', 'namespace', 'namespaces',
+                         'e', 'exp', 'experiment', 'experiments']:
         run('get namespace')
-    elif args.resource in ['p', 'pod']:
+    elif args.resource in ['p', 'pod', 'pods']:
         run('get pods -o wide')
-    elif args.resource in ['no', 'node']:
+    elif args.resource in ['no', 'node', 'nodes']:
         run('get nodes -o wide')
-    elif args.resource in ['s', 'service']:
+    elif args.resource in ['s', 'service', 'services']:
         run('get services -o wide')
     else:
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')

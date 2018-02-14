@@ -199,6 +199,21 @@ class Kubectl(object):
             di[k] = v
         return di
 
+    @property
+    def username(self):
+        assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
+        return self.config.username
+
+    def get_experiment_name(self, experiment_name):
+        """
+        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml
+        """
+        assert 'prefix_experiment_with_username' in self.config
+        if self.config.prefix_experiment_with_username:
+            experiment_name = self.username + '-' + experiment_name
+        check_valid_dns(experiment_name)
+        return experiment_name
+
     def create_surreal(self,
                        experiment_name,
                        jinja_template,
@@ -212,12 +227,16 @@ class Kubectl(object):
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
         Args:
-            agent_pool_label: surreal-node=<agent_pool_label>
-            nonagent_pool_label: surreal-node=<nonagent_pool_label>
-            agent_image: key in ~/.surreal.yml `images` section.
-                If not a key, assume it's a docker image URL itself
-            nonagent_image: see `agent_image`
-            context: for extra context variables
+            experiment_name: will also be used as hostname for DNS
+            jinja_template: kurreal_template.yml file path
+            agent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            nonagent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            cmd_dict: dict of commands to be run on each container
+            snapshot: True to take a snapshot of git repo and upload
+            mujoco: True to copy mujoco key into the generated yaml
+            prefix_user_name: True to prefix experiment name (and host name)
+                as <myusername>-<experiment_name>
+            check_file_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
         repo_paths = self.config.git.get('snapshot_repos', [])

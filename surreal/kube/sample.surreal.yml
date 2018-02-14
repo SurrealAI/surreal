@@ -1,5 +1,21 @@
 # this file should be saved at ~/.surreal.yml
+version: 0.0.1
 experiment_folder: ~/Temp/kurreal
+username: <user_name_for_experiments_and_fs>
+prefix_experiment_with_username: True
+mujoco_key_path: ~/.mujoco/mjkey.txt
+# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+git:
+  user: <github_user_name>
+  token: <generate_git_access_token_on_github_website>
+  snapshot_branch: <myuser-snapshot>
+  snapshot_repos:
+  - ~/my/repo/path/surreal
+  - ~/my/repo/path/tensorplex
+fs:
+  server: surreal-shared-fs-vm
+  path: /data
+
 pod_types:
   agent:
     image: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
@@ -22,16 +38,3 @@ pod_types:
       cpu: 7
     resource_limit:
       nvidia.com/gpu: 1
-# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
-git:
-  user: <your_github_user_name>
-  token: <generate_git_access_token_on_github_website>
-  snapshot_branch: mysnapshot
-  snapshot_repos:
-  - ~/my/repo/path/surreal
-  - ~/my/repo/path/tensorplex
-fs:
-  server: surreal-shared-fs-vm
-  path: /data
-username: jimfan
-mujoco_key_path: ~/.mujoco/mjkey.txt
