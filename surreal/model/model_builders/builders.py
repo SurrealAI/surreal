@@ -59,7 +59,7 @@ class PPO_ActorNetwork(U.Module):
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
         mean = self.fc_mean(h3)
-        std  = torch.exp(self.log_var * 0.5) * Variable(torch.ones(mean.size()))
+        std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
         action = torch.cat((mean, std), dim=1)
         return action
 

@@ -201,13 +201,13 @@ class PPOLearner(Learner):
 
 
     def _adapt_loss(self, obs, actions, advantages, behave_pol):
-        prob = self.model.actor(obs)
-        logp = self.pd.loglikelihood(actions, prob)
-        logp_old = self.pd.loglikelihood(actions, behave_pol)
-        kl = self.pd.kl(behave_pol, prob).mean()
-        surr = -(advantages * (logp - logp_old).exp()).mean()
+        learn_pol = self.model.actor(obs)
+        logp_behave = torch.log(self.pd.loglikelihood(actions, behave_pol).exp() + self.is_weight_eps)
+        logp_learn  = self.pd.loglikelihood(actions, learn_pol)
+        kl = self.pd.kl(behave_pol, learn_pol).mean()
+        surr = -(advantages * torch.clamp((logp_learn - logp_behave).exp(), max=1e5)).mean()
         loss = surr + self.beta * kl
-        entropy = self.pd.entropy(prob).mean()
+        entropy = self.pd.entropy(learn_pol).mean()
 
         if kl.data[0] - 2.0 * self.kl_targ > 0:
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)

@@ -30,7 +30,7 @@ class DiagGauss(object):
 
     def entropy(self, prob):
         std_nd = prob[:, self.d:]
-        return std_nd.log().sum(dim=1) + .5 * np.log(2 * np.pi * np.e) * self.d
+        return 0.5 * std_nd.log().sum(dim=1) + .5 * np.log(2 * np.pi * np.e) * self.d
 
     def sample(self, prob):
         mean_nd = prob[:, :self.d]

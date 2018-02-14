@@ -42,7 +42,7 @@ def generate(argv):
             'gamma': .995,
             'use_z_filter': False,
             'norm_adv': True,
-            'init_log_sig': -1.,
+            'init_log_sig': -2.,
             'n_step': 10,
             'trace_cutoff': 1.2,
             'is_weight_thresh': 1.5, 
@@ -103,7 +103,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 250,
+            'fetch_parameter_interval': 200,
         },
     })
 
