@@ -74,48 +74,17 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
-        '-ap', '--agent-selector',
+        '-ap', '--agent-pod-type',
         default='agent',
-        help='key in ~/.surreal.yml `selector` section that points to a node selector'
-             'If key does not exist, assume the string itself is a selector string'
-             'node selector for nodes on which agent processes run. '
-             'Default: "agent"' # TODO
+        help='key in ~/.surreal.yml `pod_types` section that describes spec for agent pod. '
+             'Default: "agent"'
     )
     create_parser.add_argument(
-        '-nap', '--nonagent-selector',
+        '-nap', '--nonagent-pod-type',
         default='nonagent-cpu',
-        help='key in ~/.surreal.yml `selector` section that points to a node selector'
-             'If key does not exist, assume the string itself is a selector string'
-             'node selector label for nodes on which nonagent processes '
-             '(learner, ps, etc.) run. Default: "nonagent-cpu"' # TODO
-    )
-    create_parser.add_argument(
-        '-ar', '--agent-resource-request',
-        default='agent',
-        help='key in ~/.surreal.yml `resource_requests` section'
-             'that points to a resource request setting for agent container'
-             'If key does not exist, assume the string itself can be parsed:'
-             'eg: cpu=1.5'
-    )
-    create_parser.add_argument(
-        '-nar', '--nonagent-resource-request',
-        default='nonagent-cpu',
-        help='key in ~/.surreal.yml `resource_requests` section'
-             'that points to a resource request setting for learner container'
-             'If key does not exist, assume the string itself can be parsed:'
-             'eg: cpu=7'
-    )
-    create_parser.add_argument(
-        '-ai', '--agent-image',
-        default='agent',
-        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
-             'If key does not exist, assume the string itself is a docker URL. '
-    )
-    create_parser.add_argument(
-        '-nai', '--nonagent-image',
-        default='nonagent-cpu',
-        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
-             'If key does not exist, assume the string itself is a docker URL.'
+        help='key in ~/.surreal.yml `pod_types` section that describes spec for '
+             'nonagent pod with multiple containers: learner, ps, tensorboard, etc. '
+             'Default: "nonagent-cpu"'
     )
     create_parser.add_argument(
         '--force',
@@ -183,12 +152,12 @@ def setup_parser():
         help='only show the URL without opening the browser.'
     )
 
-    debug_create_parser = _add_subparser('debug-create', kurreal_debug_create)
-    _add_experiment_name(debug_create_parser)
-    debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
-    debug_create_parser.add_argument('-g', '--gpu', action='store_true')
-    debug_create_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
-    debug_create_parser.add_argument('num_agents', type=int)
+    create_dev_parser = _add_subparser('create-dev', kurreal_create_dev)
+    _add_experiment_name(create_dev_parser)
+    create_dev_parser.add_argument('-sn', '--snapshot', action='store_true')
+    create_dev_parser.add_argument('-g', '--gpu', action='store_true')
+    create_dev_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
+    create_dev_parser.add_argument('num_agents', type=int)
 
     return parser
 
@@ -220,21 +189,16 @@ def kurreal_create(args, remainder):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
-        agent_selector=args.agent_pool,
-        nonagent_selector=args.nonagent_pool,
-        agent_resource_request=args.agent_resource_request,
-        nonagent_resource_request=args.nonagent_resource_request,
-        agent_image=args.agent_image,
-        nonagent_image=args.nonagent_image,
+        agent_pod_type=args.agent_pod_type,
+        nonagent_pod_type=args.nonagent_pod_type,
+        cmd_dict=cmd_dict,
         check_file_exists=not args.force,
-        NONAGENT_HOST_NAME=args.experiment_name,
-        CMD_DICT=cmd_dict
     )
     # switch to the experiment namespace just created
     kurreal_namespace(args, remainder)
 
 
-def kurreal_debug_create(args, remainder):
+def kurreal_create_dev(args, remainder):
     """
     CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
     config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
@@ -247,16 +211,10 @@ def kurreal_debug_create(args, remainder):
         config_command = ['--env', "'dm_control:cheetah-run'"]
 
     if args.gpu:
-        nonagent_selector = 'nonagent-gpu'
-        nonagent_resource_request = 'nonagent-gpu'
-        nonagent_resource_limit = 'nonagent-gpu'
-        nonagent_image = 'nonagent-gpu'
+        nonagent_pod_type = 'nonagent-gpu'
         config_command += ["--gpu", "0"]
     else:
-        nonagent_selector = 'nonagent-cpu'
-        nonagent_resource_request = 'nonagent-cpu'
-        nonagent_resource_limit = None
-        nonagent_image = 'nonagent-cpu'
+        nonagent_pod_type = 'nonagent-cpu'
 
     config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
 
@@ -271,17 +229,11 @@ def kurreal_debug_create(args, remainder):
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
         snapshot=args.snapshot,
-        agent_selector='agent',
-        nonagent_selector=nonagent_selector,
-        agent_resource_request='agent',
-        nonagent_resource_request=nonagent_resource_request,
-        nonagent_resource_limit=nonagent_resource_limit,
-        agent_image='agent',
-        nonagent_image=nonagent_image,
+        agent_pod_type='agent',
+        cmd_dict=cmd_dict,
+        nonagent_pod_type=nonagent_pod_type,
         check_file_exists=False,
-        NONAGENT_HOST_NAME=args.experiment_name,
-        CMD_DICT=cmd_dict
-    )
+   )
     kurreal_namespace(args, remainder)
 
 

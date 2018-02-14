@@ -176,29 +176,18 @@ class Kubectl(object):
         # the space after colon is necessary for valid yaml
         return '{}: {}'.format(*label_spec)
 
-    def _get_docker_image(self, image_name):
-        """
-        image_name: key in ~/.surreal.yml `images` section that points to docker URL
-            else assume it's a docker image URL itself.
-        """
-        if image_name in self.config.images:
-            return self.config.images[image_name]
-        else:
-            assert '/' in image_name, 'must be a valid docker image URL'
-            return image_name
-
     def _parse_label_strings(self, selector_string):
         """
-            Receives input like:
-                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-            splits by ',' and then parse by = into dictionary 
-            i.e.:
-                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-                => 
-                {
-                    'surreal-node': 'agent',
-                    'cloud.google.com/gke-accelerator': 'nvidia-tesla-k80'
-                }
+        Receives input like:
+            surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+        splits by ',' and then parse by = into dictionary
+        i.e.:
+            surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+            =>
+            {
+                'surreal-node': 'agent',
+                'cloud.google.com/gke-accelerator': 'nvidia-tesla-k80'
+            }
         """
         label_strings = selector_string.split(',')
         di = {}
@@ -210,60 +199,15 @@ class Kubectl(object):
             di[k] = v
         return di
 
-    def _create_get_node_selector(self, selector_string):
-        """
-        selector_string: key in ~/.surreal.yml `selectors` section that points to
-            a selector for kubernetes
-            else assume it's a label string itself: 
-            e.g.: surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-        """
-        if selector_string in self.config.selectors:
-            return self.config.selectors[selector_string]
-        else:
-            return _parse_label_strings(selector_string)
-
-    def _create_get_node_resource_request(self, request_string):
-        """
-        selector_string: key in ~/.surreal.yml `resource_requests` section that specifies
-        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
-        On input '' or None, returns empty dictionary, (will be ignored by template)
-        """
-        if request_string == '' or request_string == None:
-            return {}
-        if request_string in self.config.resource_requests:
-            return self.config.resource_requests[request_string]
-        else:
-            return _parse_label_strings(request_string)
-
-    def _create_get_node_resource_limit(self, limit_string):
-        """
-        selector_string: key in ~/.surreal.yml `resource_limits` section that specifies
-        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
-        On input '' or None, returns empty dictionary, (will be ignored by template)
-        """
-        if limit_string == '' or limit_string == None:
-            return {}
-        if limit_string in self.config.resource_limits:
-            return self.config.resource_limits[limit_string]
-        else:
-            return _parse_label_strings(limit_string)
-
     def create_surreal(self,
                        experiment_name,
                        jinja_template,
+                       agent_pod_type,
+                       nonagent_pod_type,
+                       cmd_dict,
                        snapshot=True,
                        mujoco=True,
-                       agent_selector='agent-pool',
-                       nonagent_selector='nonagent-pool',
-                       agent_resource_request='agent',
-                       nonagent_resource_request='nonagent',
-                       agent_resource_limit=None,
-                       nonagent_resource_limit=None,
-                       agent_image='agent',
-                       nonagent_image='nonagent',
-                       context=None,
-                       check_file_exists=True,
-                       **context_kwargs):
+                       check_file_exists=True):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
@@ -286,55 +230,53 @@ class Kubectl(object):
                 )
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
-        surreal_context = {
+        context = {
             'GIT_USER': self.config.git.user,
             'GIT_TOKEN': self.config.git.token,
             'GIT_SNAPSHOT_BRANCH': self.config.git.snapshot_branch,
             'GIT_REPOS': repo_names,
         }
-        if context is None:
-            context = {}
         if mujoco:
-            surreal_context['MUJOCO_KEY_TEXT'] = \
+            context['MUJOCO_KEY_TEXT'] = \
                 file_content(self.config.mujoco_key_path)
-        surreal_context.update(context)
+
+        context['CMD_DICT'] = cmd_dict
+        context['NONAGENT_HOST_NAME'] = experiment_name
 
         # Mount file system from 
         if 'fs' in self.config:
-            surreal_context['FILE_SERVER'] = self.config.fs.server
-            surreal_context['PATH_ON_SERVER'] = self.config.fs.path
+            context['FILE_SERVER'] = self.config.fs.server
+            context['PATH_ON_SERVER'] = self.config.fs.path
         else:
-            surreal_context['FILE_SERVER'] = 'temp'
-            surreal_context['PATH_ON_SERVER'] = '/'
+            context['FILE_SERVER'] = 'temp'
+            context['PATH_ON_SERVER'] = '/'
 
+        assert agent_pod_type in self.config.pod_types, \
+            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
+        assert nonagent_pod_type in self.config.pod_types, \
+            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
+        agent_pod_spec = self.config.pod_types[agent_pod_type]
+        nonagent_pod_spec = self.config.pod_types[nonagent_pod_type]
+        context['AGENT_IMAGE'] = agent_pod_spec.image
+        context['NONAGENT_IMAGE'] = nonagent_pod_spec.image
         # select nodes from nodepool label to schedule agent/nonagent pods
-        surreal_context['AGENT_SELECTOR'] = \
-            self._create_get_node_selector(agent_selector)
-            # self._yamlify_label_string('surreal-node=' + agent_pool_label)
-        surreal_context['NONAGENT_SELECTOR'] = \
-            self._create_get_node_selector(nonagent_selector)
-            # self._yamlify_label_string('surreal-node=' + nonagent_pool_label)
-        
-        # Request for nodes so that multiple experiments won't crowd onto one machine
-        surreal_context['AGENT_RESOURCE_REQUEST'] = \
-            self._create_get_node_resource_request(agent_resource_request)
-        surreal_context['NONAGENT_RESOURCE_REQUEST'] = \
-        self._create_get_node_resource_request(nonagent_resource_request)
+        context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
+        context['NONAGENT_SELECTOR'] = nonagent_pod_spec.get('selector', {})
+        # request for nodes so that multiple experiments won't crowd onto one machine
+        context['AGENT_RESOURCE_REQUEST'] = \
+            agent_pod_spec.get('resource_request', {})
+        context['NONAGENT_RESOURCE_REQUEST'] = \
+            nonagent_pod_spec.get('resource_request', {})
+        context['AGENT_RESOURCE_LIMIT'] = \
+            agent_pod_spec.get('resource_limit', {})
+        context['NONAGENT_RESOURCE_LIMIT'] = \
+            nonagent_pod_spec.get('resource_limit', {})
 
-        # Request for nodes so that multiple experiments won't crowd onto one machine
-        surreal_context['AGENT_RESOURCE_LIMIT'] = \
-            self._create_get_node_resource_limit(agent_resource_limit)
-        surreal_context['NONAGENT_RESOURCE_LIMIT'] = \
-        self._create_get_node_resource_limit(nonagent_resource_limit)
-
-        surreal_context['AGENT_IMAGE'] = self._get_docker_image(agent_image)
-        surreal_context['NONAGENT_IMAGE'] = self._get_docker_image(nonagent_image)
         self.create(
             experiment_name,
             jinja_template,
-            context=surreal_context,
+            context=context,
             check_file_exists=check_file_exists,
-            **context_kwargs
         )
 
     def delete(self, experiment_name):
