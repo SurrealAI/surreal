@@ -31,7 +31,7 @@ git:
   - ~/my/repo/path/surreal
   - ~/my/repo/path/tensorplex
 fs:
-  server: '35.227.164.158'
+  server: surreal-shared-fs-vm
   path: /data
 username: jimfan
 mujoco_key_path: ~/.mujoco/mjkey.txt

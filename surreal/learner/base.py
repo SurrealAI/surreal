@@ -10,7 +10,6 @@ from surreal.session import StatsTensorplex, Loggerplex
 from surreal.distributed import ZmqClient, ParameterPublisher
 import queue
 from easydict import EasyDict
-import time
 
 class PrefetchBatchQueue(object):
     """
@@ -30,24 +29,12 @@ class PrefetchBatchQueue(object):
         )
         self._enqueue_thread = None
 
-        self.cum_requests = 0
-        self.cum_time = 0
-        self.ctr = 0
+        self.timer = U.TimeRecorder()
 
     def _enqueue_loop(self):
         while True:
-            pre_time = time.time()
-            sample = self._client.request(self._batch_size)
-            post_time = time.time()
-
-            self.ctr += 1
-            self.cum_requests *= 0.99
-            self.cum_requests += 1
-            self.cum_time *= 0.99
-            self.cum_time += post_time - pre_time
-            self.ctr += 1
-            if self.ctr % 100 == 0:
-                print('[Fetch Experience] {:.2f} ms'.format(self.cum_time / self.cum_requests * 1000))
+            with self.timer.time():
+                sample = self._client.request(self._batch_size)
             self._queue.put(sample, block=True)
 
     def start_enqueue_thread(self):
@@ -118,6 +105,9 @@ class LearnerCore(metaclass=LearnerMeta):
             max_size=max_prefetch_batch_queue,
         )
 
+        self.learn_timer = U.TimeRecorder()
+        self.fetch_timer = self._prefetch_queue.timer
+
     def _initialize(self):
         """
         For AutoInitializeMeta interface
@@ -177,6 +167,15 @@ class LearnerCore(metaclass=LearnerMeta):
         while True:
             yield self.fetch_batch()
 
+    def main_loop(self):    
+        """
+            Main loop that defines learner process
+        """
+        for i, batch in enumerate(self.fetch_iterator()):
+            with self.learn_timer.time():
+                self.learn(batch)
+            self.publish_parameter(i, message='batch '+str(i))
+
 
 class Learner(LearnerCore):
     """
@@ -233,4 +232,6 @@ class Learner(LearnerCore):
             tag_value_dict:
             global_step: None to use internal tracker value
         """
+        tag_value_dict['learn_time'] = self.learn_timer.avg
+        tag_value_dict['fetch_time'] = self.fetch_timer.avg
         self._periodic_tensorplex.update(tag_value_dict, global_step)

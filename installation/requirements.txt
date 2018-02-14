@@ -13,3 +13,4 @@ gitpython
 tensorflow
 tensorboardX
 kubernetes
+imageio

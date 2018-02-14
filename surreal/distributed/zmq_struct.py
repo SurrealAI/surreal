@@ -1,7 +1,6 @@
 import zmq
 import threading
 import surreal.utils as U
-import time
 
 def _get_serializer(is_pyobj):
     if is_pyobj:
@@ -61,29 +60,14 @@ class ZmqServer(object):
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
 
-        self.cum_requests = 0
-        self.cum_time = 0
-        self.ctr = 0
-
     def _run_loop(self):
         while True:
             req = self.socket.recv()
-            request = self._deserialize(req)            
+            request = self._deserialize(req)
             response = self._handler(request)
-            pre_time = time.time()
             res = self._serialize(response)
-            post_time = time.time()
             self.socket.send(res)
             
-            self.cum_requests *= 0.99
-            self.cum_requests += 1
-            self.cum_time *= 0.99
-            self.cum_time += post_time - pre_time
-            self.ctr += 1
-            if self.ctr % 100 == 0:
-                print('[Serialize Exp] {:.2f} ms'.format(self.cum_time / self.cum_requests * 1000))
-            
-
     def run_loop(self, block):
         if block:
             self._run_loop()
@@ -103,24 +87,11 @@ class ZmqClient(object):
         self.socket.connect("tcp://{}:{}".format(host, port))
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
-        
-        self.cum_requests = 0
-        self.cum_time = 0
-        self.ctr = 0
 
     def request(self, request):
         self.socket.send(self._serialize(request))
         response = self.socket.recv()
-        pre_time = time.time()
         ret = self._deserialize(response)
-        post_time = time.time()
-        self.cum_requests *= 0.99
-        self.cum_requests += 1
-        self.cum_time *= 0.99
-        self.cum_time += post_time - pre_time
-        self.ctr += 1
-        if self.ctr % 100 == 0:
-            print('[Deserialize Exp] {:.2f} ms'.format(self.cum_time / self.cum_requests * 1000))
         return ret
 
 

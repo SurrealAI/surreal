@@ -17,15 +17,4 @@ def run_learner_main(args, config):
         env_config=env_config,
         session_config=session_config)
 
-    # for i, batch in enumerate(learner.fetch_iterator()):
-    #     pass
-    
-
-    # for i, batch in enumerate(learner.fetch_iterator()):
-    #     break
-    # while True:
-    #     learner.learn(batch)
-
-    for i, batch in enumerate(learner.fetch_iterator()):
-        learner.learn(batch)
-        learner.publish_parameter(i, message='batch '+str(i))
+    learner.main_loop()
