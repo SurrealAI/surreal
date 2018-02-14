@@ -244,7 +244,7 @@ class Learner(LearnerCore):
         # Time it takes to complete one full iteration
         tag_value_dict['speed/iter_time'] = iter_time
         # Percent of time spent on learning
-        tag_value_dict['speed/compute_bound_percent'] = learn_time / iter_time * 100
+        tag_value_dict['speed/compute_bound_percent'] = min(learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
-        tag_value_dict['speed/io_bound_percent'] = fetch_time / iter_time * 100
+        tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
         self._periodic_tensorplex.update(tag_value_dict, global_step)
