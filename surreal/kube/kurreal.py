@@ -205,7 +205,7 @@ def kurreal_create(args, remainder):
         agent_pod_type=args.agent_pod_type,
         nonagent_pod_type=args.nonagent_pod_type,
         cmd_dict=cmd_dict,
-        check_file_exists=not args.force,
+        check_experiment_exists=not args.force,
     )
     # switch to the experiment namespace just created
     kurreal_namespace(args, remainder)
@@ -246,7 +246,7 @@ def kurreal_create_dev(args, remainder):
         agent_pod_type='agent',
         nonagent_pod_type=nonagent_pod_type,
         cmd_dict=cmd_dict,
-        check_file_exists=False,
+        check_experiment_exists=True,
     )
     kurreal_namespace(args, remainder)
 

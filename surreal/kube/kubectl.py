@@ -130,7 +130,7 @@ class Kubectl(object):
                experiment_name,
                jinja_template,
                context=None,
-               check_file_exists=True,
+               check_experiment_exists=True,
                **context_kwargs):
         """
         kubectl create namespace <experiment_name>
@@ -146,7 +146,7 @@ class Kubectl(object):
         """
         check_valid_dns(experiment_name)
         rendered_path = self._yaml_path(experiment_name)
-        if check_file_exists and U.f_exists(rendered_path):
+        if check_experiment_exists and U.f_exists(rendered_path):
             raise FileExistsError(rendered_path
                                   + ' already exists, cannot run `create`.')
         U.f_mkdir_in_path(rendered_path)
@@ -222,7 +222,7 @@ class Kubectl(object):
                        cmd_dict,
                        snapshot=True,
                        mujoco=True,
-                       check_file_exists=True):
+                       check_experiment_exists=True):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
@@ -236,7 +236,7 @@ class Kubectl(object):
             mujoco: True to copy mujoco key into the generated yaml
             prefix_user_name: True to prefix experiment name (and host name)
                 as <myusername>-<experiment_name>
-            check_file_exists: check if the Kube yaml has already been generated.
+            check_experiment_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
         repo_paths = self.config.git.get('snapshot_repos', [])
@@ -295,7 +295,7 @@ class Kubectl(object):
             experiment_name,
             jinja_template,
             context=context,
-            check_file_exists=check_file_exists,
+            check_experiment_exists=check_experiment_exists,
         )
 
     def delete(self, experiment_name):
