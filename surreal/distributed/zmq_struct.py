@@ -18,6 +18,9 @@ def _get_deserializer(is_pyobj):
 
 
 class ZmqPushClient(object):
+    """
+    agent -> replay
+    """
     def __init__(self, host, port, is_pyobj=True):
         if host == 'localhost':
             host = '127.0.0.1'
@@ -32,6 +35,9 @@ class ZmqPushClient(object):
 
 
 class ZmqPullServer(object):
+    """
+    replay <- agent
+    """
     def __init__(self, port, is_pyobj=True):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
@@ -42,7 +48,11 @@ class ZmqPullServer(object):
     def pull(self):
         return self._deserialize(self.socket.recv())
 
+
 class ZmqServerWorker(threading.Thread):
+    """
+    replay -> learner, replay handling learner's requests
+    """
     def __init__(self, context, handler, is_pyobj):
         threading.Thread.__init__(self)
         self.context = context
@@ -67,8 +77,10 @@ class ZmqServerWorker(threading.Thread):
             res = self._serialize(response)
         return res
 
+
 class ZmqServer(threading.Thread):
     """
+    replay -> learner, manages ZmqServerWorker pool
     Async REQ-REP server
     """
     def __init__(self, port, handler, is_pyobj=True, num_workers=10):
@@ -92,6 +104,8 @@ class ZmqServer(threading.Thread):
         dealer = context.socket(zmq.DEALER)
         dealer.bind("inproc://worker")
 
+        zmq.proxy(router, dealer)
+
         workers = []
         for worker_id in range(self.num_workers):
             worker = ZmqServerWorker(context, self.handler, self.is_pyobj)
@@ -100,16 +114,16 @@ class ZmqServer(threading.Thread):
 
         self.serialize_time = workers[0].serialize_time
 
-        zmq.proxy(router, dealer)
-
         # Never reach
         router.close()
         dealer.close()
         context.term()
 
+
 class ZmqClientTask(threading.Thread):
     """
-        Forwards input from 'tasks' to 'out' and hand over response to @handler
+    learner <- replay
+    Forwards input from 'tasks' to 'out' and hand over response to @handler
     """
     def __init__(self, context, identifier, host, port, handler, is_pyobj):
         threading.Thread.__init__(self)
@@ -139,7 +153,11 @@ class ZmqClientTask(threading.Thread):
         out.close()
         tasks.close()
 
+
 class ZmqClientPool(threading.Thread):
+    """
+    learner <- replay, pull from replay, manages ZmqClientTasks
+    """
     def __init__(self, host, port, request, handler, is_pyobj=True, num_workers=10):
         threading.Thread.__init__(self)
         if host == 'localhost':
@@ -178,6 +196,10 @@ class ZmqClientPool(threading.Thread):
 
 
 class ZmqClient(object):
+    """
+    Just a REQ, connects to ROUTER or REP
+    agent <- ps
+    """
     def __init__(self, host, port, is_pyobj=True):
         if host == 'localhost':
             host = '127.0.0.1'
@@ -197,6 +219,7 @@ class ZmqClient(object):
 class ZmqPublishServer(object):
     """
     PUB-SUB pattern: PUB server
+    learner -> ps
     """
     def __init__(self, port, is_pyobj=True):
         """
@@ -219,6 +242,7 @@ class ZmqPublishServer(object):
 class ZmqSubscribeClient(object):
     """
     Simple REQ-REP server
+    ps <- learner
     """
     def __init__(self, host, port, handler, topic, is_pyobj=True):
         """
