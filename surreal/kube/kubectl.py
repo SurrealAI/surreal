@@ -13,10 +13,14 @@ import functools
 import os
 import re
 import os.path as path
+from pkg_resources import parse_version
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
 import surreal.utils as U
+
+
+SURREAL_YML_VERSION = '0.0.1'  # force version check
 
 
 def run_process(cmd):
@@ -46,9 +50,10 @@ def check_valid_dns(name):
 class Kubectl(object):
     def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
         surreal_yml = U.f_expand(surreal_yml)
-        assert path.exists(surreal_yml)
+        assert U.f_exists(surreal_yml)
         # persistent config in the home dir that contains git access token
         self.config = YamlList.from_file(surreal_yml)[0]
+        self._check_version()
         self.folder = U.f_expand(self.config.experiment_folder)
         self.dry_run = dry_run
         self._loop_start_time = None
@@ -56,6 +61,14 @@ class Kubectl(object):
     def _yaml_path(self, experiment_name, yaml_name='kurreal.yml'):
         "retrieve from the experiment folder"
         return U.f_join(self.folder, experiment_name, yaml_name)
+
+    def _check_version(self):
+        """
+        Check ~/.surreal.yml `version` key
+        """
+        assert 'version' in self.config, 'surreal yml version not specified.'
+        if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
+            raise ValueError('version incompatible, please check the latest sample.surreal.yml')
 
     def run(self, cmd):
         if self.dry_run:

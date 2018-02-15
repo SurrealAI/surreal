@@ -167,8 +167,11 @@ def setup_parser():
                                        aliases=['cdev', 'devc', 'dev-create'])
     _add_experiment_name(create_dev_parser)
     create_dev_parser.add_argument('-sn', '--snapshot', action='store_true')
+    create_dev_parser.add_argument('-f', '--force', action='store_true')
     create_dev_parser.add_argument('-g', '--gpu', action='store_true')
-    create_dev_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
+    create_dev_parser.add_argument('-c', '--config_file',
+                                   default='ddpg_configs.py',
+                                   help='which config file in surreal/main to use')
     create_dev_parser.add_argument('num_agents', type=int)
 
     return parser
@@ -246,7 +249,7 @@ def kurreal_create_dev(args, remainder):
         agent_pod_type='agent',
         nonagent_pod_type=nonagent_pod_type,
         cmd_dict=cmd_dict,
-        check_experiment_exists=True,
+        check_experiment_exists=not args.force,
     )
     kurreal_namespace(args, remainder)
 
