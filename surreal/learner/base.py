@@ -7,7 +7,7 @@ from surreal.session import (
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
 from surreal.session import StatsTensorplex, Loggerplex
-from surreal.distributed import ZmqClient, ParameterPublisher
+from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
 import queue
 from easydict import EasyDict
 
@@ -22,20 +22,19 @@ class PrefetchBatchQueue(object):
                  max_size,):
         self._queue = queue.Queue(maxsize=max_size)
         self._batch_size = batch_size
-        self._client = ZmqClient(
+        self._client = ZmqClientPool(
             host=sampler_host,
             port=sampler_port,
-            is_pyobj=True
+            request=self._batch_size,
+            handler=self._enqueue,
+            is_pyobj=True,
         )
         self._enqueue_thread = None
 
         self.timer = U.TimeRecorder()
 
-    def _enqueue_loop(self):
-        while True:
-            with self.timer.time():
-                sample = self._client.request(self._batch_size)
-            self._queue.put(sample, block=True)
+    def _enqueue(self, item):
+        self._queue.put(item, block=True)            
 
     def start_enqueue_thread(self):
         """
@@ -54,14 +53,16 @@ class PrefetchBatchQueue(object):
         """
         if self._enqueue_thread is not None:
             raise RuntimeError('Enqueue thread is already running')
-        self._enqueue_thread = U.start_thread(self._enqueue_loop)
+        self._enqueue_thread = self._client
+        self._client.start()
         return self._enqueue_thread
 
     def dequeue(self):
         """
         Called by the neural network, draw the next batch of experiences
         """
-        return self._queue.get(block=True)
+        with self.timer.time():
+            return self._queue.get(block=True)
 
     def __len__(self):
         return self._queue.qsize()

@@ -120,9 +120,10 @@ class ParameterServer(object):
             raise ValueError('invalid request: '+str(request))
 
     def run_loop(self):
-        "blocking"
+        """blocking"""
         self._subscriber.run_loop(block=False)
-        self._server.run_loop(block=True)
+        self._server.start()
+        self._server.join()
 
 
 class ParameterClient(object):

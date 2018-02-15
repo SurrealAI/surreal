@@ -1,6 +1,7 @@
 import zmq
 import threading
 import surreal.utils as U
+from multiprocessing.pool import ThreadPool
 
 def _get_serializer(is_pyobj):
     if is_pyobj:
@@ -41,41 +42,139 @@ class ZmqPullServer(object):
     def pull(self):
         return self._deserialize(self.socket.recv())
 
+class ZmqServerWorker(threading.Thread):
+    def __init__(self, context, handler, is_pyobj):
+        threading.Thread.__init__(self)
+        self.context = context
+        self._handler = handler
+        self._serialize = _get_serializer(is_pyobj)
+        self._deserialize = _get_deserializer(is_pyobj)
+        self.serialize_time = U.TimeRecorder()
 
-class ZmqServer(object):
+    def run(self):
+        socket = self.context.socket(zmq.REP)
+        socket.connect('inproc://worker')
+        while True:
+            req = socket.recv()
+            res = self.process(req)
+            socket.send(res)
+        socket.close()
+
+    def process(self, req):
+        request = self._deserialize(req)
+        response = self._handler(request)
+        with self.serialize_time.time():
+            res = self._serialize(response)
+        return res
+
+class ZmqServer(threading.Thread):
     """
-    Simple REQ-REP server
+    Async REQ-REP server
     """
-    def __init__(self, port, handler, is_pyobj=True):
+    def __init__(self, port, handler, is_pyobj=True, num_workers=10):
         """
         Args:
             port:
             handler: takes the request (pyobj) and sends the response
         """
+        threading.Thread.__init__(self)
+        self.port = port
+        self.handler = handler
+        self.is_pyobj = is_pyobj
+        self.num_workers = num_workers
+        self.serialize_time = U.TimeRecorder()
+
+    def run(self):
         context = zmq.Context()
-        self.socket = context.socket(zmq.REP)
-        self.socket.bind("tcp://*:{}".format(port))
+        router = context.socket(zmq.ROUTER)
+        router.bind("tcp://*:{}".format(self.port))
+
+        dealer = context.socket(zmq.DEALER)
+        dealer.bind("inproc://worker")
+
+        workers = []
+        for worker_id in range(self.num_workers):
+            worker = ZmqServerWorker(context, self.handler, self.is_pyobj)
+            worker.start()
+            workers.append(worker)
+
+        self.serialize_time = workers[0].serialize_time
+
+        zmq.proxy(router, dealer)
+
+        # Never reach
+        router.close()
+        dealer.close()
+        context.term()
+
+class ZmqClientTask(threading.Thread):
+    """
+        Forwards input from 'tasks' to 'out' and hand over response to @handler
+    """
+    def __init__(self, context, identifier, host, port, handler, is_pyobj):
+        threading.Thread.__init__(self)
+        self.context = context
+        self.id = identifier
+        self.address = "tcp://{}:{}".format(host, port)
         self._handler = handler
-        self._thread = None
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
 
-    def _run_loop(self):
+    def run(self):
+        out = self.context.socket(zmq.REQ)
+        out.connect(self.address)
+
+        tasks = self.context.socket(zmq.REQ)
+        tasks.connect("inproc://worker")
         while True:
-            req = self.socket.recv()
-            request = self._deserialize(req)
-            response = self._handler(request)
-            res = self._serialize(response)
-            self.socket.send(res)
+            tasks.send(b'ready')
+            request = tasks.recv()
             
-    def run_loop(self, block):
-        if block:
-            self._run_loop()
-        else:
-            if self._thread:
-                raise RuntimeError('loop already running')
-            self._thread = U.start_thread(self._run_loop)
-            return self._thread
+            out.send(request)
+            response = out.recv()
+            ret = self._deserialize(response)
+            self._handler(ret)
+
+        # Never reach
+        out.close()
+        tasks.close()
+
+class ZmqClientPool(threading.Thread):
+    def __init__(self, host, port, request, handler, is_pyobj=True, num_workers=10):
+        threading.Thread.__init__(self)
+        if host == 'localhost':
+            host = '127.0.0.1'
+        self.host = host
+        self.port = port
+        self.request = _get_serializer(is_pyobj)(request)
+        self.handler = handler
+        self.is_pyobj = is_pyobj
+        self.num_workers = num_workers
+
+    def run(self):
+        context = zmq.Context()
+        router = context.socket(zmq.ROUTER)
+        router.bind("inproc://worker")
+
+        workers = []
+        for worker_id in range(self.num_workers):
+            worker = ZmqClientTask(context,
+                                    'worker-{}'.format(worker_id),
+                                    self.host,
+                                    self.port,
+                                    self.handler,
+                                    self.is_pyobj)
+            worker.start()
+            workers.append(worker)
+
+        # Distribute all tasks 
+        while True:
+            address, empty, ready = router.recv_multipart()
+            router.send_multipart([address, b'', self.request])
+
+        # Never reach
+        router.close()
+        context.term()
 
 
 class ZmqClient(object):

@@ -10,6 +10,7 @@ from easydict import EasyDict
 from enum import Enum, EnumMeta
 import time
 from contextlib import contextmanager
+from asyncio import Lock
 
 def _get_qualified_type_name(type_):
     name = str(type_)
@@ -454,6 +455,7 @@ class ArgParser(object):
 class TimeRecorder():
     """
         Records waited average of whatever context block it is recording
+        Thread unsafe
     """
     def __init__(self, decay=0.99):
         self.cum_count = 0

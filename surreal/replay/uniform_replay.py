@@ -1,6 +1,6 @@
 import random
 from .base import Replay
-# import time
+import surreal.utils as U
 
 
 class UniformReplay(Replay):
@@ -23,9 +23,6 @@ class UniformReplay(Replay):
         self.memory_size = self.replay_config.memory_size
         self._next_idx = 0
 
-        # self.cum_requests = 0
-        # self.cum_time = 0
-
     def default_config(self):
         conf = super().default_config()
         conf.update({
@@ -35,23 +32,18 @@ class UniformReplay(Replay):
         return conf
 
     def insert(self, exp_dict):
-        if self._next_idx >= len(self._memory):
-            self._memory.append(exp_dict)
-        else:
-            self._memory[self._next_idx] = exp_dict
-        self._next_idx = (self._next_idx + 1) % self.memory_size
+        with self.insert_time.time():
+            if self._next_idx >= len(self._memory):
+                self._memory.append(exp_dict)
+            else:
+                self._memory[self._next_idx] = exp_dict
+            self._next_idx = (self._next_idx + 1) % self.memory_size
 
     def sample(self, batch_size):
-        # pre_time = time.time()
-        indices = [random.randint(0, len(self._memory) - 1)
-                   for _ in range(batch_size)]
-        response = [self._memory[i] for i in indices]
-        # post_time = time.time()
-        # self.cum_requests *= 0.99
-        # self.cum_requests += 1
-        # self.cum_time *= 0.99
-        # self.cum_time += post_time - pre_time
-        # print('Avg sample takes: {:.3f} seconds'.format(self.cum_time / self.cum_requests))
+        with self.sample_time.time():
+            indices = [random.randint(0, len(self._memory) - 1)
+                       for _ in range(batch_size)]
+            response = [self._memory[i] for i in indices]
         return response
 
     def evict(self):
@@ -80,4 +72,3 @@ class UniformReplay(Replay):
 
     def __len__(self):
         return len(self._memory)
-

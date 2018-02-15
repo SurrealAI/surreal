@@ -5,11 +5,15 @@ import pickle
 import base64
 import hashlib
 import json
+import msgpack
+import msgpack_numpy as m
+m.patch()
 
-_SERIALIZER = pickle.dumps
-_DESERIALIZER = pickle.loads
+_SERIALIZER = lambda x: msgpack.packb(x, use_bin_type=True)
+_DESERIALIZER = lambda x: msgpack.unpackb(x, raw=False)
 
-
+# _SERIALIZER = pickle.dumps
+# _DESERIALIZER = pickle.loads
 
 def set_global_serializer(serializer, deserializer):
     """
