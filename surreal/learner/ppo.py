@@ -368,10 +368,11 @@ class PPOLearner(Learner):
                 values[:, self.n_step]  *= 1 - dones[:, -1]
 
                 # computing trace
-                adv = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
-                adv[:, 1:] *= trace_c
+                tds = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
+                tds[:, 1:] *= trace_c
 
                 # More efficient, more biased. run with stride ~= n_step
+                '''
                 for step in range(self.n_step):
                     gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
                     if self.gpu_id >= 0:
@@ -382,35 +383,38 @@ class PPOLearner(Learner):
                 adv = adv.view(-1 , 1)
                 v_trace_targ = v_trace_targ.view(-1, 1)
                 pds_flat = pds.view(batch_size * self.n_step, -1)
-
-                # Less Efficnet, less biased. Run with stride = 1
-                '''
-                gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-                adv = torch.sum(trace_c * gamma * delta, dim = 1)
-                v_trace_targ = adv + values[:, 0]
-                obs_flat = obs[:, 0, :].squeeze(1)
-                action_flat = actions[:, 0, :].squeeze(1) 
-                pds_flat = pds[:, 0, :].squeeze(1)
                 '''
 
+                # Less Efficnet, less biased. Run with stride = 1                
+                gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n,)
+                if self.gpu_id >= 0:
+                    gamma = gamma.cuda()
+                v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma, dim = 1) #(batch_size,)
+                v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
+                v_trace_s_adv = is_weight_trunc[:, 0] * (rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]) # (batch_size,)
+
+                obs_flat = obs[:, 0, :] # (batch, obs_dim)
+                actions_flat = actions[:, 0, :] # (batch, act_dim)
+                pds_flat = pds[:, 0, :] # (batch, 2* act_dim)
+                
                 if self.norm_adv:
-                    mean = adv.mean()
-                    std  = adv.std()
-                    adv  = (adv - mean)/std  
+                    mean = v_trace_s_adv.mean()
+                    std  = v_trace_s_adv.std()
+                    v_trace_s_adv  = (v_trace_s_adv - mean)/std  
 
                 avg_trace = trace_c.mean()
-                return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace   
+                return obs_flat, actions_flat, v_trace_s_adv.view(-1, 1), v_trace_s.view(-1, 1), pds_flat, avg_trace   
 
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
         obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
         with U.torch_gpu_scope(self.gpu_id):
+                # new variables to detach everything
                 obs = Variable(obs)
                 actions = Variable(actions)
                 advantages = Variable(advantages)
                 v_trace_targ = Variable(v_trace_targ)
                 pds = Variable(pds)
-
 
                 if self.method == 'clip': 
                     stats = self._clip_update_full(obs, actions, advantages, pds)
