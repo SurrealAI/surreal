@@ -1,7 +1,7 @@
 import zmq
 import threading
 import surreal.utils as U
-from multiprocessing.pool import ThreadPool
+
 
 def _get_serializer(is_pyobj):
     if is_pyobj:

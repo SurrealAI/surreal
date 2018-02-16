@@ -6,9 +6,13 @@ import base64
 import hashlib
 import json
 import msgpack
-import msgpack_numpy as m
-m.patch()
+import msgpack_numpy as _msgpack_numpy
+_msgpack_numpy.patch()
 
+"""
+    msgpack is faster than pickle 
+    but it only support native types and numpy arrays
+"""
 _SERIALIZER = lambda x: msgpack.packb(x, use_bin_type=True)
 _DESERIALIZER = lambda x: msgpack.unpackb(x, raw=False)
 
