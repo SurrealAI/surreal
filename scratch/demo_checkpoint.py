@@ -39,7 +39,7 @@ class Learner():
             tracked_obj=self,
             tracked_attrs=['lr', 'net1', 'eps', 'mylist', 'net2'],
             keep_history=3,
-            keep_best=True,
+            keep_best=2,
         )
 
     def get_score(self):
@@ -60,7 +60,9 @@ class Learner():
                 self.mylist[i] += 0.01
             self.net1.set_weight(c)
             self.net2.set_weight(c * 2)
-            self.checkpoint.save(self.get_score(), global_steps=steps)
+            self.checkpoint.save(self.get_score(),
+                                 global_steps=steps,
+                                 reload_metadata=True)
             callback()
 
 LR = 0.1
@@ -77,17 +79,21 @@ checkpoint = Checkpoint(
     tracked_obj=learner_load,
 )
 
-
 def callback():
     print('='*70)
     print('learner_save')
     learner_save.show_weight()
     print('BEFORE load')
     learner_load.show_weight()
-    checkpoint.restore(-2, reload_metadata=True, check_ckpt_exists=True)
+    checkpoint.restore(0, is_best=False, reload_metadata=True, check_ckpt_exists=True)
     print('AFTER load')
     learner_load.show_weight()
     input('continue ...')
 
 
-learner_save.train(callback)
+if 1:
+    learner_save.train(callback)
+else:  # demo restore
+    # checkpoint.restore(2, is_best=0, reload_metadata=True, check_ckpt_exists=True)
+    checkpoint.restore_full_name('learner.best-16000.ckpt')
+    learner_load.show_weight()
