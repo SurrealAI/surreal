@@ -377,7 +377,7 @@ class Kubectl(object):
             + namespace,
             print_out=True, raise_on_error=False
         )
-        if retcode == 0:
+        if not self.dry_run and retcode == 0:
             print('successfully switched to namespace `{}`'.format(namespace))
 
     def label_nodes(self, old_labels, new_label_name, new_label_value):

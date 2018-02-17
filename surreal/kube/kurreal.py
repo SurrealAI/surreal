@@ -87,28 +87,29 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
-        '-apt', '--agent-pod-type',
+        '-at', '--agent-pod-type',
         default='agent',
         help='key in ~/.surreal.yml `pod_types` section that describes spec for agent pod. '
              'Default: "agent"'
     )
     create_parser.add_argument(
-        '-napt', '--nonagent-pod-type',
+        '-nt', '--nonagent-pod-type',
         default='nonagent-cpu',
         help='key in ~/.surreal.yml `pod_types` section that describes spec for '
              'nonagent pod with multiple containers: learner, ps, tensorboard, etc. '
              'Default: "nonagent-cpu"'
     )
     create_parser.add_argument(
-        '--force',
+        '-sn', '--snapshot',
+        action='store_true',
+        help='take a snapshot of the specified Git repos in ~/.surreal.yml '
+             'and upload to your remote branch'
+    )
+    create_parser.add_argument(
+        '-f', '--force',
         action='store_true',
         help='force overwrite an existing kurreal.yml file '
              'if its experiment folder already exists.'
-    )
-    create_parser.add_argument(
-        '--no-prefix',
-        action='store_true',
-        help='do not prefix experiment name with <username>-...'
     )
 
     delete_parser = _add_subparser('delete', kurreal_delete, aliases=['d'])
@@ -140,6 +141,11 @@ def setup_parser():
 
     exec_parser = _add_subparser('exec', kurreal_exec, aliases=['x'])
     _add_component_arg(exec_parser)
+    exec_parser.add_argument(
+        'commands',
+        nargs=argparse.REMAINDER,
+        help="command to be executed in the pod. You don't have to quote it."
+    )
 
     ssh_parser = _add_subparser('ssh', kurreal_ssh, aliases=['login'])
     _add_component_arg(ssh_parser)
@@ -169,21 +175,21 @@ def setup_parser():
     tb_parser = _add_subparser('tb', kurreal_tb, aliases=['tensorboard'])
     tb_parser.add_argument(
         '-u', '--url-only',
-        nargs='?',
+        action='store_true',
         help='only show the URL without opening the browser.'
     )
 
-    # ===== debug only =====
+    # ===== internal dev only =====
     create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
                                        aliases=['cdev', 'devc', 'cd', 'dev-create'])
     _add_experiment_name(create_dev_parser)
-    create_dev_parser.add_argument('-nsn', '--no-snapshot', action='store_true')
+    create_dev_parser.add_argument('num_agents', type=int)
+    create_dev_parser.add_argument('-nos', '--no-snapshot', action='store_true')
     create_dev_parser.add_argument('-f', '--force', action='store_true')
     create_dev_parser.add_argument('-g', '--gpu', action='store_true')
     create_dev_parser.add_argument('-c', '--config_file',
                                    default='ddpg_configs.py',
                                    help='which config file in surreal/main to use')
-    create_dev_parser.add_argument('num_agents', type=int)
 
     # you don't need labeling for kube autoscaling
     # label_parser = _add_subparser('label', kurreal_label)
@@ -211,9 +217,10 @@ def _find_kurreal_template():
     return U.f_join(surreal.__path__[0], 'kube', 'kurreal_template.yml')
 
 
-def kurreal_create(args, remainder):
+def kurreal_create(args):
     """
-    Spin up a multi-node distributed Surreal experiment
+    Spin up a multi-node distributed Surreal experiment.
+    Put any command line args that pass to the config script after "--"
     """
     kube = Kubectl(dry_run=args.dry_run)
     if args.config_py.startswith('/'):
@@ -223,7 +230,7 @@ def kurreal_create(args, remainder):
     args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
         config_py,
-        config_command=' '.join(remainder),
+        config_command=' '.join(args.remainder),
         service_url=args.experiment_name + '.surreal'
     )
     cmd_dict = cmd_gen.generate(args.num_agents)
@@ -237,18 +244,18 @@ def kurreal_create(args, remainder):
         check_experiment_exists=not args.force,
     )
     # switch to the experiment namespace just created
-    kurreal_namespace(args, remainder)
+    kurreal_namespace(args)
 
 
-def kurreal_create_dev(args, remainder):
+def kurreal_create_dev(args):
     """
     CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
     config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
     service_url=experiment_name + '.surreal')
     """
     kube = Kubectl(dry_run=args.dry_run)
-    if len(remainder) > 0:
-        config_command = remainder
+    if len(args.remainder) > 0:
+        config_command = args.remainder
     else:
         config_command = ['--env', "'dm_control:cheetah-run'"]
 
@@ -278,10 +285,10 @@ def kurreal_create_dev(args, remainder):
         cmd_dict=cmd_dict,
         check_experiment_exists=not args.force,
     )
-    kurreal_namespace(args, remainder)
+    kurreal_namespace(args)
 
 
-def kurreal_delete(args, _):
+def kurreal_delete(args):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
     If experiment_name is omitted, default to deleting the current namespace.
@@ -301,7 +308,7 @@ def kurreal_delete(args, _):
     kube.delete(to_delete)
 
 
-def kurreal_namespace(args, _):
+def kurreal_namespace(args):
     """
     `kurreal ns`: show the current namespace/experiment
     `kurreal ns <namespace>`: switch context to another namespace/experiment
@@ -313,7 +320,7 @@ def kurreal_namespace(args, _):
         print(kube.current_namespace())
 
 
-def kurreal_list(args, _):
+def kurreal_list(args):
     """
     List resource information: namespace, pods, nodes, services
     """
@@ -332,7 +339,7 @@ def kurreal_list(args, _):
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
 
-def kurreal_label(args, _):
+def kurreal_label(args):
     """
     Label nodes in node pools
     """
@@ -341,7 +348,7 @@ def kurreal_label(args, _):
         kube.label_nodes(args.old_labels, label, value)
 
 
-def kurreal_label_gcloud(args, _):
+def kurreal_label_gcloud(args):
     """
     NOTE: you don't need this for autoscale
 
@@ -360,7 +367,7 @@ def kurreal_label_gcloud(args, _):
                      'surreal-node', 'nonagent-pool')
 
 
-def kurreal_logs(args, _):
+def kurreal_logs(args):
     """
     Show logs of Surreal components: agent-<N>, learner, ps, etc.
     https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
@@ -375,16 +382,18 @@ def kurreal_logs(args, _):
     )
 
 
-def kurreal_exec(args, remainder):
+def kurreal_exec(args):
     """
     Exec command on a Surreal component: agent-<N>, learner, ps, etc.
     kubectl exec -ti <component> -- <command>
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.exec_surreal(args.component_name, remainder)
+    if len(args.commands) == 1:
+        args.commands = args.commands[0]  # don't quote the singleton string
+    kube.exec_surreal(args.component_name, args.commands)
 
 
-def kurreal_ssh(args, _):
+def kurreal_ssh(args):
     """
     Interactive /bin/bash into the pod
     kubectl exec -ti <component> -- /bin/bash
@@ -393,7 +402,7 @@ def kurreal_ssh(args, _):
     kube.exec_surreal(args.component_name, '/bin/bash')
 
 
-def kurreal_describe(args, _):
+def kurreal_describe(args):
     """
     Same as `kubectl describe pod <pod_name>`
     """
@@ -401,7 +410,7 @@ def kurreal_describe(args, _):
     kube.describe(args.pod_name)
 
 
-def kurreal_tb(args, _):
+def kurreal_tb(args):
     """
     Open tensorboard in your default browser.
     """
@@ -416,10 +425,17 @@ def kurreal_tb(args, _):
 
 def main():
     parser = setup_parser()
-    args, remainder = parser.parse_known_args()
-    if '--' in remainder:
-        remainder.remove('--')
-    args.func(args, remainder)
+    assert sys.argv.count('--') <= 1, 'command line can only have at most one "--"'
+    if '--' in sys.argv:
+        idx = sys.argv.index('--')
+        remainder = sys.argv[idx+1:]
+        sys.argv = sys.argv[:idx]
+    else:
+        remainder = []
+        
+    args = parser.parse_args()
+    args.remainder = remainder
+    args.func(args)
 
 
 if __name__ == '__main__':
