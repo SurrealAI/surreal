@@ -100,10 +100,10 @@ def setup_parser():
              'Default: "nonagent-cpu"'
     )
     create_parser.add_argument(
-        '-sn', '--snapshot',
+        '-nos', '--no-snapshot',
         action='store_true',
-        help='take a snapshot of the specified Git repos in ~/.surreal.yml '
-             'and upload to your remote branch'
+        help='Unless this flag is on, Surreal will take snapshot of the specified '
+             'git repos in ~/.surreal.yml and upload to your remote Github branch.'
     )
     create_parser.add_argument(
         '-f', '--force',
@@ -237,7 +237,7 @@ def kurreal_create(args):
     kube.create_surreal(
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
-        snapshot=args.snapshot,
+        snapshot=not args.no_snapshot,
         agent_pod_type=args.agent_pod_type,
         nonagent_pod_type=args.nonagent_pod_type,
         cmd_dict=cmd_dict,
