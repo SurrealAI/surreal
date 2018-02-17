@@ -166,7 +166,7 @@ def setup_parser():
     create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
                                        aliases=['cdev', 'devc', 'dev-create'])
     _add_experiment_name(create_dev_parser)
-    create_dev_parser.add_argument('-sn', '--snapshot', action='store_true')
+    create_dev_parser.add_argument('-nsn', '--no-snapshot', action='store_true')
     create_dev_parser.add_argument('-f', '--force', action='store_true')
     create_dev_parser.add_argument('-g', '--gpu', action='store_true')
     create_dev_parser.add_argument('-c', '--config_file',
@@ -245,7 +245,7 @@ def kurreal_create_dev(args, remainder):
     kube.create_surreal(
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
-        snapshot=args.snapshot,
+        snapshot=not args.no_snapshot,
         agent_pod_type='agent',
         nonagent_pod_type=nonagent_pod_type,
         cmd_dict=cmd_dict,
