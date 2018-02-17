@@ -68,7 +68,9 @@ class Kubectl(object):
         """
         assert 'version' in self.config, 'surreal yml version not specified.'
         if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
-            raise ValueError('version incompatible, please check the latest sample.surreal.yml')
+            raise ValueError('version incompatible, please check the latest '
+                             'sample.surreal.yml and make sure ~/.surreal.yml is '
+                             + SURREAL_YML_VERSION)
 
     def run(self, cmd):
         if self.dry_run:
