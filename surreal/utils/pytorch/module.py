@@ -10,8 +10,6 @@ import threading
 from io import BytesIO
 
 
-
-
 def _net_or_parameters(net):
     if isinstance(net, torch.nn.Module):
         return net.parameters()
@@ -102,6 +100,7 @@ def soft_update(target, source, tau):
         target_param.data.copy_(
             target_param.data * (1.0 - tau) + param.data * tau
         )
+
 
 def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters()):

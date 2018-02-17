@@ -7,10 +7,9 @@ from surreal.session import (
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
 from surreal.session import StatsTensorplex, Loggerplex
-from surreal.distributed import ZmqClient, ParameterPublisher
+from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
 import queue
 from easydict import EasyDict
-
 
 class PrefetchBatchQueue(object):
     """
@@ -23,17 +22,19 @@ class PrefetchBatchQueue(object):
                  max_size,):
         self._queue = queue.Queue(maxsize=max_size)
         self._batch_size = batch_size
-        self._client = ZmqClient(
+        self._client = ZmqClientPool(
             host=sampler_host,
             port=sampler_port,
-            is_pyobj=True
+            request=self._batch_size,
+            handler=self._enqueue,
+            is_pyobj=True,
         )
         self._enqueue_thread = None
 
-    def _enqueue_loop(self):
-        while True:
-            sample = self._client.request(self._batch_size)
-            self._queue.put(sample, block=True)
+        self.timer = U.TimeRecorder()
+
+    def _enqueue(self, item):
+        self._queue.put(item, block=True)            
 
     def start_enqueue_thread(self):
         """
@@ -52,14 +53,16 @@ class PrefetchBatchQueue(object):
         """
         if self._enqueue_thread is not None:
             raise RuntimeError('Enqueue thread is already running')
-        self._enqueue_thread = U.start_thread(self._enqueue_loop)
+        self._enqueue_thread = self._client
+        self._client.start()
         return self._enqueue_thread
 
     def dequeue(self):
         """
         Called by the neural network, draw the next batch of experiences
         """
-        return self._queue.get(block=True)
+        with self.timer.time():
+            return self._queue.get(block=True)
 
     def __len__(self):
         return self._queue.qsize()
@@ -102,6 +105,10 @@ class LearnerCore(metaclass=LearnerMeta):
             batch_size=batch_size,
             max_size=max_prefetch_batch_queue,
         )
+
+        self.learn_timer = U.TimeRecorder()
+        self.fetch_timer = self._prefetch_queue.timer
+        self.iter_timer = U.TimeRecorder()
 
     def _initialize(self):
         """
@@ -162,6 +169,16 @@ class LearnerCore(metaclass=LearnerMeta):
         while True:
             yield self.fetch_batch()
 
+    def main_loop(self):    
+        """
+            Main loop that defines learner process
+        """
+        for i, batch in enumerate(self.fetch_iterator()):
+            with self.iter_timer.time():
+                with self.learn_timer.time():
+                    self.learn(batch)
+                self.publish_parameter(i, message='batch '+str(i))
+
 
 class Learner(LearnerCore):
     """
@@ -218,4 +235,17 @@ class Learner(LearnerCore):
             tag_value_dict:
             global_step: None to use internal tracker value
         """
+        learn_time = self.learn_timer.avg + 1e-6
+        fetch_time = self.fetch_timer.avg + 1e-6
+        iter_time = self.iter_timer.avg + 1e-6
+        # Time it takes to learn from a batch
+        tag_value_dict['speed/learn_time'] = learn_time
+        # Time it takes to fetch a batch
+        tag_value_dict['speed/fetch_time'] = fetch_time
+        # Time it takes to complete one full iteration
+        tag_value_dict['speed/iter_time'] = iter_time
+        # Percent of time spent on learning
+        tag_value_dict['speed/compute_bound_percent'] = min(learn_time / iter_time * 100, 100)
+        # Percent of time spent on IO
+        tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
         self._periodic_tensorplex.update(tag_value_dict, global_step)

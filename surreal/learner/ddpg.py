@@ -7,7 +7,6 @@ from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-import time
 
 class DDPGLearner(Learner):
 
@@ -23,6 +22,7 @@ class DDPGLearner(Learner):
 
         self.gpu_id = session_config.learner.gpu
         self.log.info('Initializing DDPG learner')
+
         if self.gpu_id == -1:
             self.log.info('Using CPU')
         else:
@@ -165,13 +165,6 @@ class DDPGLearner(Learner):
             return tensorplex_update_dict
 
     def learn(self, batch):
-        if self.current_iteration == 0:
-            print('start timing')
-            self.time = time.time()
-        elif self.current_iteration % 100 == 0:
-            diff = time.time() - self.time
-            print('100 iteration in {:.3f} seconds'.format(diff))
-            self.time = time.time()
         self.current_iteration += 1
         batch = self.aggregator.aggregate(batch)
         tensorplex_update_dict = self._optimize(

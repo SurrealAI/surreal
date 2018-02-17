@@ -74,7 +74,7 @@ class DDPGAgent(Agent):
         assert torch.is_tensor(obs)
         time.sleep(1/100.)
         obs = Variable(obs.unsqueeze(0))
-        action = self.model.actor(obs).data.numpy()[0]
+        action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
 
         if self.agent_mode is not AgentMode.eval_deterministic:

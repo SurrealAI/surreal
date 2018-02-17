@@ -8,7 +8,7 @@ BASE_LEARNER_CONFIG = {
         'agent_class': '_str_',
         # Learner class to instantiate
         'learner_class': '_str_',
-        'experience': 'ExpSenderWrapperSSARNStep',
+        'experience': '_str_',
         'n_step': 1,
         'gamma': '_float_',
         'actor_regularization': 0.0,
