@@ -247,7 +247,8 @@ def kurreal_create_dev(args, remainder):
     else:
         nonagent_pod_type = 'nonagent-cpu'
 
-    config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
+    config_command += ["--savefile",
+       "/fs/experiments/{}/{}".format(kube.config.username, args.experiment_name)]
 
     args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
