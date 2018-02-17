@@ -34,7 +34,14 @@ class DDPGAgent(Agent):
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
-        self.sigma = self.learner_config.algo.exploration.sigma
+        if type(self.learner_config.algo.exploration.sigma) == list:
+            if len(self.learner_config.algo.exploration.sigma) <= agent_id:
+                raise ConfigError('Agent {} out of range for sigma of length {}'.format(agent_id, len(self.learner_config.algo.exploration.sigma)))
+            self.sigma = self.learner_config.algo.exploration.sigma[agent_id]
+        elif type(self.learner_config.algo.exploration.sigma) in [int, float]:
+            self.sigma = self.learner_config.algo.exploration.sigma
+        else:
+            raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
 
         self.model = DDPGModel(
             obs_dim=self.obs_dim,
@@ -57,10 +64,10 @@ class DDPGAgent(Agent):
             return
         if self.noise_type == 'normal':
             self.noise = NormalActionNoise(np.zeros(self.action_dim),
-                                           np.ones(self.action_dim) * self.sigma, self.agent_id)
+                                           np.ones(self.action_dim) * self.sigma)
         elif self.noise_type == 'ou_noise':
             self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),
-                                                      sigma=self.learner_config.algo.exploration.sigma,
+                                                      sigma=self.sigma,
                                                       theta=self.learner_config.algo.exploration.theta,
                                                       dt=self.learner_config.algo.exploration.dt)
         else:
@@ -72,7 +79,6 @@ class DDPGAgent(Agent):
 
     def act(self, obs):
         assert torch.is_tensor(obs)
-        time.sleep(1/100.)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
