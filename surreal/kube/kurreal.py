@@ -100,7 +100,12 @@ def setup_parser():
     )
 
     delete_parser = _add_subparser('delete', kurreal_delete, aliases=['d'])
-    _add_experiment_name(delete_parser)
+    _add_experiment_name(delete_parser, nargs='?')
+    delete_parser.add_argument(
+        '-f', '--force',
+        action='store_true',
+        help='force delete, do not show confirmation message.'
+    )
 
     # you don't need labeling for kube autoscaling
     # label_parser = _add_subparser('label', kurreal_label)
@@ -257,9 +262,21 @@ def kurreal_create_dev(args, remainder):
 def kurreal_delete(args, _):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
+    If experiment_name is omitted, default to deleting the current namespace.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.delete(args.experiment_name)
+    if args.experiment_name:
+        to_delete = args.experiment_name
+    else:
+        to_delete = kube.current_namespace()
+    assert to_delete not in ['default', 'kube-public', 'kube-system'], \
+        'cannot delete reserved namespaces: default, kube-public, kube-system'
+    if not args.force:
+        ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
+        if ans not in ['', 'y', 'yes', 'Y']:
+            print('Aborted')
+            return
+    kube.delete(to_delete)
 
 
 def kurreal_namespace(args, _):
