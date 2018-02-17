@@ -104,13 +104,16 @@ class ZmqServer(threading.Thread):
         dealer = context.socket(zmq.DEALER)
         dealer.bind("inproc://worker")
 
-        zmq.proxy(router, dealer)
-
         workers = []
         for worker_id in range(self.num_workers):
             worker = ZmqServerWorker(context, self.handler, self.is_pyobj)
             worker.start()
             workers.append(worker)
+
+        # http://zguide.zeromq.org/py:mtserver
+        # **WARNING**: zmq.proxy() must be called AFTER the connects are made!
+        # ZMQ will hang if you call proxy() before the threads start.
+        zmq.proxy(router, dealer)
 
         self.serialize_time = workers[0].serialize_time
 
