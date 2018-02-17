@@ -221,11 +221,14 @@ class Kubectl(object):
 
     def get_experiment_name(self, experiment_name):
         """
-        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml
+        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml.
+        Will prefix the experiment name unless it is already manually prefixed.
         """
         assert 'prefix_experiment_with_username' in self.config
         if self.config.prefix_experiment_with_username:
-            experiment_name = self.username + '-' + experiment_name
+            prefix = self.username + '-'
+            if not experiment_name.startswith(prefix):
+                experiment_name = prefix + experiment_name
         check_valid_dns(experiment_name)
         return experiment_name
 
