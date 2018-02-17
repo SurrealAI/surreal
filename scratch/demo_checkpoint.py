@@ -38,8 +38,8 @@ class Learner():
             name='learner',
             tracked_obj=self,
             tracked_attrs=['lr', 'net1', 'eps', 'mylist', 'net2'],
-            keep_history=3,
-            keep_best=2,
+            keep_history=7,
+            keep_best=5,
         )
 
     def get_score(self):
@@ -91,9 +91,12 @@ def callback():
     input('continue ...')
 
 
-if 1:
+if 0:
     learner_save.train(callback)
 else:  # demo restore
-    # checkpoint.restore(2, is_best=0, reload_metadata=True, check_ckpt_exists=True)
-    checkpoint.restore_full_name('learner.best-16000.ckpt')
-    learner_load.show_weight()
+    for i in range(11):
+        ret = checkpoint.restore(i, is_best=0, reload_metadata=True, check_ckpt_exists=1)
+        print(ret)
+        if ret:
+            learner_load.show_weight()
+    # checkpoint.restore_full_name('learner.best-16000.ckpt')

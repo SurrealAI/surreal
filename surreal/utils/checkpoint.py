@@ -137,13 +137,15 @@ class Checkpoint(object):
     def _restore(self, ckpt_file, check_ckpt_exists):
         """
         helper to be used in self.restore() and self.restore_full_name()
+        Returns:
+            True if successfully restored
         """
         ckpt_path = self._get_path(ckpt_file)
         if not U.f_exists(ckpt_path):
             if check_ckpt_exists:
                 raise FileNotFoundError(ckpt_path + ' missing.')
             else:
-                return
+                return False
         # overwrite attributes on self.tracked_obj
         with open(ckpt_path, 'rb') as fp:
             data = pickle.load(fp)
@@ -153,6 +155,7 @@ class Checkpoint(object):
                 attr_value.load_state_dict(data[attr_name])
             else:
                 setattr(self.tracked_obj, attr_name, data[attr_name])
+        return True
 
     def restore(self, target, is_best,
                 reload_metadata=True, check_ckpt_exists=False):
@@ -165,6 +168,9 @@ class Checkpoint(object):
             reload_metadata: overwrite self.metadata with the metadata.yml file content
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
 
+        Returns:
+            True if successfully restored
+
         Warnings:
             to restore attrs that point to pytorch Module, you must initialize
             the Module class first, because the checkpoint only saves the
@@ -176,33 +182,36 @@ class Checkpoint(object):
         meta = self.metadata
         if isinstance(target, int):
             assert target >= 0, 'target int should start from 0 for the last or best'
-            assert target < meta.keep_history, \
-                'target must < keep_history={}'.format(meta.keep_history)
-            if (check_ckpt_exists and
-                target >= len(meta.history_ckpt_files)):
-                raise FileNotFoundError('Last-{} ckpt file missing'.format(target))
-            if is_best:
-                ckpt_file = meta.best_ckpt_files[target]
-            else:
-                ckpt_file = meta.history_ckpt_files[target]
+            try:
+                if is_best:
+                    ckpt_file = meta.best_ckpt_files[target]
+                else:
+                    ckpt_file = meta.history_ckpt_files[target]
+            except IndexError:
+                if check_ckpt_exists:
+                    raise FileNotFoundError('{}-{} ckpt file missing'
+                                .format('Best' if is_best else 'Last', target))
+                else:
+                    ckpt_file = '__DOES_NOT_EXIST__'
         else:
             assert '.ckpt' not in target, 'use restore_full_path() instead'
             if is_best:
                 ckpt_file = self.ckpt_name('best-{}'.format(target))
             else:
                 ckpt_file = self.ckpt_name(target)
-        self._restore(ckpt_file, check_ckpt_exists)
+        return self._restore(ckpt_file, check_ckpt_exists)
 
-    def restore_full_name(self, ckpt_file):
+    def restore_full_name(self, ckpt_file, check_ckpt_exists):
         """
         Args:
             ckpt_file: full name of the ckpt_file in self.folder.
+            check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
 
-        Raises:
-            FileNotFoundError if ckpt_file doesn't exist
+        Returns:
+            True if successfully restored
         """
         self._load_metadata()
-        self._restore(ckpt_file, check_ckpt_exists=True)
+        return self._restore(ckpt_file, check_ckpt_exists)
 
     def _get_path(self, fname):
         return U.f_join(self.folder, fname)
