@@ -538,6 +538,10 @@ class Kubectl(object):
         else:
             return out
 
+    def describe(self, pod_name):
+        return self.run_verbose('describe pod '+pod_name,
+                                print_out=True, raise_on_error=False)
+
     def print_logs(self, pod_name, container_name='',
                    follow=False, since=0, tail=100):
         """

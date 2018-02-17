@@ -149,6 +149,12 @@ def setup_parser():
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
 
+    describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
+    describe_parser.add_argument(
+        'pod_name',
+        help="must be either 'agent-<N>' or 'nonagent'"
+    )
+
     namespace_parser = _add_subparser('ns', kurreal_namespace,
                                       aliases=['exp', 'experiment'])
     # no arg to get the current namespace
@@ -356,6 +362,13 @@ def kurreal_logs(args, _):
         tail=args.tail
     )
 
+
+def kurreal_describe(args, _):
+    """
+    Same as `kubectl describe pod <pod_name>`
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.describe(args.pod_name)
 
 def kurreal_tb(args, _):
     """
