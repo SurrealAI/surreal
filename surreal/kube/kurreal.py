@@ -409,7 +409,7 @@ def kurreal_tb(args, _):
     url = 'http://' + kube.external_ip('tensorboard')
     if url:
         print(url)
-        if not args.url_only:
+        if url and not args.url_only:
             webbrowser.open(url)
 
 
