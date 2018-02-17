@@ -406,10 +406,11 @@ def kurreal_tb(args, _):
     Open tensorboard in your default browser.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    url = 'http://' + kube.external_ip('tensorboard')
+    url = kube.external_ip('tensorboard')
     if url:
+        url = 'http://' + url
         print(url)
-        if url and not args.url_only:
+        if not args.url_only:
             webbrowser.open(url)
 
 
