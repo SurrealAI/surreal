@@ -421,6 +421,8 @@ def kurreal_tb(args):
         print(url)
         if not args.url_only:
             webbrowser.open(url)
+    else:
+        print_err('Tensorboard does not yet have an external IP.')
 
 
 def main():

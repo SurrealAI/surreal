@@ -517,7 +517,6 @@ class Kubectl(object):
         tb = self.query_resources('svc', 'yaml', names=[pod_name])
         conf = tb.status.loadBalancer
         if not ('ingress' in conf and 'ip' in conf.ingress[0]):
-            print_err('Tensorboard does not have an external IP.')
             return ''
         ip = conf.ingress[0].ip
         port = tb.spec.ports[0].port
