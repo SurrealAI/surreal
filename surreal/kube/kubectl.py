@@ -48,6 +48,9 @@ def check_valid_dns(name):
 
 
 class Kubectl(object):
+    NONAGENT_COMPONENTS = ['learner', 'ps', 'replay',
+                           'tensorplex', 'loggerplex', 'tensorboard']
+
     def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
         surreal_yml = U.f_expand(surreal_yml)
         assert U.f_exists(surreal_yml)
@@ -73,15 +76,26 @@ class Kubectl(object):
                              + SURREAL_YML_VERSION)
 
     def run(self, cmd):
+        cmd = 'kubectl ' + cmd
         if self.dry_run:
-            print('kubectl ' + cmd)
+            print(cmd)
             return '', '', 0
         else:
-            out, err, retcode = run_process('kubectl ' + cmd)
+            out, err, retcode = run_process(cmd)
             if 'could not find default credentials' in err:
                 print("Please try `gcloud container clusters get-credentials mycluster` "
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
+
+    def run_raw(self, cmd):
+        """
+        Raw os.system calls
+        """
+        cmd = 'kubectl ' + cmd
+        if self.dry_run:
+            print(cmd)
+        else:
+            os.system(cmd)
 
     def _print_err_return(self, out, err, retcode):
         print_err('error code:', retcode)
@@ -550,7 +564,7 @@ class Kubectl(object):
         """
         cmd = self._get_logs_cmd(pod_name, container_name,
                                  follow=follow, since=since, tail=tail)
-        os.system('kubectl ' + cmd)
+        self.run_raw(cmd)
 
     def logs_surreal(self, component_name, is_print=False,
                      follow=False, since=0, tail=100):
@@ -566,12 +580,29 @@ class Kubectl(object):
         else:
             log_func = self.logs
         log_func = functools.partial(log_func, since=since, tail=tail)
-        if component_name.startswith('agent-'):
-            return log_func(component_name)
-        else:
-            assert component_name in \
-                   ['learner', 'ps', 'replay', 'tensorplex', 'tensorboard']
+        if component_name in self.NONAGENT_COMPONENTS:
             return log_func('nonagent', component_name)
+        else:
+            return log_func(component_name)
+
+    def exec_surreal(self, component_name, cmd):
+        """
+        kubectl exec -ti
+
+        Args:
+            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+            cmd: either a string command or a list of command args
+
+        Returns:
+            stdout string if is_print else None
+        """
+        if U.is_sequence(cmd):
+            cmd = ' '.join(map(shlex.quote, cmd))
+        if component_name in self.NONAGENT_COMPONENTS:
+            self.run_raw(
+                'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
+        else:
+            self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
 
 
 if __name__ == '__main__':

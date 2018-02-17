@@ -35,13 +35,21 @@ def _add_experiment_name(parser, nargs=None):
     )
 
 
-# def _process_labels(label_string):
-#     """
-#     mylabel1=myvalue1,mylabel2=myvalue2
-#     """
-#     assert '=' in label_string
-#     label_pairs = label_string.split(',')
-#     return [label_pair.split('=') for label_pair in label_pairs]
+def _add_component_arg(parser):
+    nonagent_str = ', '.join(map('"{}"'.format, Kubectl.NONAGENT_COMPONENTS))
+    parser.add_argument(
+        'component_name',
+        help="should be either agent-<N> or one of [{}]".format(nonagent_str)
+    )
+
+
+def _process_labels(label_string):
+    """
+    mylabel1=myvalue1,mylabel2=myvalue2
+    """
+    assert '=' in label_string
+    label_pairs = label_string.split(',')
+    return [label_pair.split('=') for label_pair in label_pairs]
 
 
 def setup_parser():
@@ -111,27 +119,8 @@ def setup_parser():
         help='force delete, do not show confirmation message.'
     )
 
-    # you don't need labeling for kube autoscaling
-    # label_parser = _add_subparser('label', kurreal_label)
-    # label_parser.add_argument(
-    #     'old_labels',
-    #     help='select nodes according to their old labels'
-    # )
-    # label_parser.add_argument(
-    #     'new_labels',
-    #     type=_process_labels,
-    #     help='mark the selected nodes with new labels in format '
-    #          '"mylabel1=myvalue1,mylabel2=myvalue2"'
-    # )
-
-    # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
-
     logs_parser = _add_subparser('log', kurreal_logs, aliases=['logs', 'l'])
-    logs_parser.add_argument(
-        'component_name',
-        help="must be either agent-<N> or one of "
-             "'learner', 'ps', 'replay', 'tensorplex', 'tensorboard'"
-    )
+    _add_component_arg(logs_parser)
     logs_parser.add_argument(
         '-f', '--follow',
         action='store_true',
@@ -149,10 +138,16 @@ def setup_parser():
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
 
+    exec_parser = _add_subparser('exec', kurreal_exec, aliases=['x'])
+    _add_component_arg(exec_parser)
+
+    ssh_parser = _add_subparser('ssh', kurreal_ssh, aliases=['login'])
+    _add_component_arg(ssh_parser)
+
     describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
     describe_parser.add_argument(
         'pod_name',
-        help="must be either 'agent-<N>' or 'nonagent'"
+        help="should be either 'agent-<N>' or 'nonagent'"
     )
 
     namespace_parser = _add_subparser('ns', kurreal_namespace,
@@ -178,6 +173,7 @@ def setup_parser():
         help='only show the URL without opening the browser.'
     )
 
+    # ===== debug only =====
     create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
                                        aliases=['cdev', 'devc', 'cd', 'dev-create'])
     _add_experiment_name(create_dev_parser)
@@ -188,6 +184,21 @@ def setup_parser():
                                    default='ddpg_configs.py',
                                    help='which config file in surreal/main to use')
     create_dev_parser.add_argument('num_agents', type=int)
+
+    # you don't need labeling for kube autoscaling
+    # label_parser = _add_subparser('label', kurreal_label)
+    # label_parser.add_argument(
+    #     'old_labels',
+    #     help='select nodes according to their old labels'
+    # )
+    # label_parser.add_argument(
+    #     'new_labels',
+    #     type=_process_labels,
+    #     help='mark the selected nodes with new labels in format '
+    #          '"mylabel1=myvalue1,mylabel2=myvalue2"'
+    # )
+
+    # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
 
     return parser
 
@@ -364,12 +375,31 @@ def kurreal_logs(args, _):
     )
 
 
+def kurreal_exec(args, remainder):
+    """
+    Exec command on a Surreal component: agent-<N>, learner, ps, etc.
+    kubectl exec -ti <component> -- <command>
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.exec_surreal(args.component_name, remainder)
+
+
+def kurreal_ssh(args, _):
+    """
+    Interactive /bin/bash into the pod
+    kubectl exec -ti <component> -- /bin/bash
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.exec_surreal(args.component_name, '/bin/bash')
+
+
 def kurreal_describe(args, _):
     """
     Same as `kubectl describe pod <pod_name>`
     """
     kube = Kubectl(dry_run=args.dry_run)
     kube.describe(args.pod_name)
+
 
 def kurreal_tb(args, _):
     """
