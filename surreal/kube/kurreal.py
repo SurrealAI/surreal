@@ -17,7 +17,11 @@ def _process_experiment_name(experiment_name):
     """
     experiment_name will be used as DNS, so must not have underscore or dot
     """
-    return experiment_name.lower().replace('.', '-').replace('_', '-')
+    new_name = experiment_name.lower().replace('.', '-').replace('_', '-')
+    if new_name != experiment_name:
+        print_err('experiment name string has been fixed: {} -> {}'
+                  .format(experiment_name, new_name))
+    return new_name
 
 
 def _add_experiment_name(parser, nargs=None):
@@ -169,7 +173,7 @@ def setup_parser():
     )
 
     create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
-                                       aliases=['cdev', 'devc', 'dev-create'])
+                                       aliases=['cdev', 'devc', 'cd', 'dev-create'])
     _add_experiment_name(create_dev_parser)
     create_dev_parser.add_argument('-nsn', '--no-snapshot', action='store_true')
     create_dev_parser.add_argument('-f', '--force', action='store_true')
