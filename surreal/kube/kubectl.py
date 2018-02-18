@@ -75,8 +75,8 @@ class Kubectl(object):
                              'sample.surreal.yml and make sure ~/.surreal.yml is '
                              + SURREAL_YML_VERSION)
 
-    def run(self, cmd):
-        cmd = 'kubectl ' + cmd
+    def run(self, cmd, program='kubectl'):
+        cmd = program + ' ' + cmd
         if self.dry_run:
             print(cmd)
             return '', '', 0
@@ -87,11 +87,11 @@ class Kubectl(object):
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
 
-    def run_raw(self, cmd):
+    def run_raw(self, cmd, program='kubectl'):
         """
         Raw os.system calls
         """
-        cmd = 'kubectl ' + cmd
+        cmd = program + ' ' + cmd
         if self.dry_run:
             print(cmd)
         else:
@@ -105,11 +105,14 @@ class Kubectl(object):
         print_err(out)
         print_err('*' * 46)
 
-    def run_verbose(self, cmd, print_out=True, raise_on_error=False):
-        out, err, retcode = self.run(cmd)
+    def run_verbose(self, cmd,
+                    print_out=True,
+                    raise_on_error=False,
+                    program='kubectl'):
+        out, err, retcode = self.run(cmd, program=program)
         if retcode != 0:
             self._print_err_return(out, err, retcode)
-            msg = 'Command `kubectl {}` fails'.format(cmd)
+            msg = 'Command `{} {}` fails'.format(program, cmd)
             if raise_on_error:
                 raise RuntimeError(msg)
             else:
@@ -603,12 +606,76 @@ class Kubectl(object):
         else:
             self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
 
+    def gcloud_get_config(self, config_key):
+        """
+        Returns: value of the gcloud config
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        out, _, _ = self.run_verbose(
+            'config get-value ' + config_key,
+            print_out=False,
+            raise_on_error=True,
+            program='gcloud'
+        )
+        return out.strip()
+
+    def gcloud_zone(self):
+        """
+        Returns: current gcloud zone
+        """
+        return self.gcloud_get_config('compute/zone')
+
+    def gcloud_project(self):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return self.gcloud_get_config('project')
+
+    def gcloud_configure_ssh(self):
+        """
+        Refresh the ssh settings for the current gcloud project
+        populate SSH config files with Host entries from each instance
+        https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
+        """
+        self.run_raw('compute config-ssh', program='gcloud')
+
+    def gcloud_url(self, node_name):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return '{}.{}.{}'.format(
+            node_name, self.gcloud_zone(), self.gcloud_project()
+        )
+
+    def gcloud_ssh_node(self, node_name):
+        """
+        Don't forget to run gcloud_config_ssh() first
+        """
+        url = self.gcloud_url(node_name)
+        print(url)
+        self.run_raw(
+            'ssh -o StrictHostKeyChecking=no ' + url,
+            program=''
+        )
+
+    def gcloud_ssh_fs(self):
+        """
+        ssh into the file system server specified in ~/.surrreal.yml
+        """
+        self.gcloud_ssh_node(self.config.fs.server)
+
 
 if __name__ == '__main__':
     # TODO: save temp file to experiment dir
     import pprint
     pp = pprint.pprint
     kube = Kubectl(dry_run=0)
+    print(kube.gcloud_url('surreal-shared-fs-vm'))
     # 3 different ways to get a list of node names
     # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
     # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))

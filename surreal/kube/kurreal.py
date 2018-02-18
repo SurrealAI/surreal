@@ -147,8 +147,25 @@ def setup_parser():
         help="command to be executed in the pod. You don't have to quote it."
     )
 
-    ssh_parser = _add_subparser('ssh', kurreal_ssh, aliases=['login'])
+    ssh_parser = _add_subparser('ssh', kurreal_ssh, aliases=[])
     _add_component_arg(ssh_parser)
+
+    ssh_node_parser = _add_subparser('ssh-node', kurreal_ssh_node, aliases=['sshnode'])
+    ssh_node_parser.add_argument('node_name', help='gcloud only')
+    ssh_node_parser.add_argument(
+        '-c', '--configure-ssh',
+        action='store_true',
+        help='update ssh configs first if you cannot ssh into the node. '
+             'reconfigure every time you switch project or add new nodes.'
+    )
+
+    ssh_nfs_parser = _add_subparser('ssh-nfs', kurreal_ssh_nfs, aliases=['sshnfs'])
+    ssh_nfs_parser.add_argument(
+        '-c', '--configure-ssh',
+        action='store_true',
+        help='update ssh configs first if you cannot ssh into the node. '
+             'reconfigure every time you switch project or add new nodes.'
+    )
 
     describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
     describe_parser.add_argument(
@@ -400,6 +417,32 @@ def kurreal_ssh(args):
     """
     kube = Kubectl(dry_run=args.dry_run)
     kube.exec_surreal(args.component_name, '/bin/bash')
+
+
+def kurreal_ssh_node(args):
+    """
+    GCloud only, ssh into gcloud nodes.
+    Run `kurreal list node` to get the node name.
+    Run with --configure-ssh if ssh config is outdated
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    if args.configure_ssh:
+        kube.gcloud_configure_ssh()
+        print('GCloud ssh configured successfully')
+    kube.gcloud_ssh_node(args.node_name)
+
+
+def kurreal_ssh_nfs(args):
+    """
+    GCloud only, ssh into gcloud NFS.
+    Its server address should be specified in ~/.surreal.yml
+    Run with --configure-ssh if ssh config is outdated
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    if args.configure_ssh:
+        kube.gcloud_configure_ssh()
+        print('GCloud ssh configured successfully')
+    kube.gcloud_ssh_fs()
 
 
 def kurreal_describe(args):
