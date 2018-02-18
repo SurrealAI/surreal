@@ -140,6 +140,35 @@ def setup_parser():
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
 
+    namespace_parser = _add_subparser('ns', kurreal_namespace,
+                                      aliases=['exp', 'experiment'])
+    # no arg to get the current namespace
+    _add_experiment_name(namespace_parser, nargs='?')
+
+    list_parser = _add_subparser('list', kurreal_list, aliases=['ls'])
+    list_parser.add_argument(
+        'resource',
+        choices=['ns', 'namespace', 'namespaces',
+                 'e', 'exp', 'experiment', 'experiments',
+                 'p', 'pod', 'pods',
+                 'no', 'node', 'nodes',
+                 's', 'service', 'services'],
+        help='list experiment, pod, and node'
+    )
+
+    tb_parser = _add_subparser('tb', kurreal_tb, aliases=['tensorboard'])
+    tb_parser.add_argument(
+        '-u', '--url-only',
+        action='store_true',
+        help='only show the URL without opening the browser.'
+    )
+
+    describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
+    describe_parser.add_argument(
+        'pod_name',
+        help="should be either 'agent-<N>' or 'nonagent'"
+    )
+
     exec_parser = _add_subparser('exec', kurreal_exec, aliases=['x'])
     _add_component_arg(exec_parser)
     exec_parser.add_argument(
@@ -166,35 +195,6 @@ def setup_parser():
         action='store_true',
         help='update ssh configs first if you cannot ssh into the node. '
              'reconfigure every time you switch project or add new nodes.'
-    )
-
-    describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
-    describe_parser.add_argument(
-        'pod_name',
-        help="should be either 'agent-<N>' or 'nonagent'"
-    )
-
-    namespace_parser = _add_subparser('ns', kurreal_namespace,
-                                      aliases=['exp', 'experiment'])
-    # no arg to get the current namespace
-    _add_experiment_name(namespace_parser, nargs='?')
-
-    list_parser = _add_subparser('list', kurreal_list, aliases=['ls'])
-    list_parser.add_argument(
-        'resource',
-        choices=['ns', 'namespace', 'namespaces',
-                 'e', 'exp', 'experiment', 'experiments',
-                 'p', 'pod', 'pods',
-                 'no', 'node', 'nodes',
-                 's', 'service', 'services'],
-        help='list experiment, pod, and node'
-    )
-
-    tb_parser = _add_subparser('tb', kurreal_tb, aliases=['tensorboard'])
-    tb_parser.add_argument(
-        '-u', '--url-only',
-        action='store_true',
-        help='only show the URL without opening the browser.'
     )
 
     # ===== internal dev only =====
