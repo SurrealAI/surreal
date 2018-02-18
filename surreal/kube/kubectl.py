@@ -14,6 +14,7 @@ import os
 import re
 import os.path as path
 from pkg_resources import parse_version
+from collections import OrderedDict
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
@@ -246,7 +247,6 @@ class Kubectl(object):
             prefix = self.username + '-'
             if not experiment_name.startswith(prefix):
                 experiment_name = prefix + experiment_name
-        check_valid_dns(experiment_name)
         return experiment_name
 
     def create_surreal(self,
@@ -369,6 +369,11 @@ class Kubectl(object):
                 return context['context']['namespace']
         raise RuntimeError('INTERNAL: current context not found')
 
+    def list_namespaces(self):
+        all_names = self.query_resources('namespace', output_format='name')
+        # names look like namespace/<actual_name>, need to postprocess
+        return [n.split('/')[-1] for n in all_names]
+
     def set_namespace(self, namespace):
         """
         https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
@@ -382,6 +387,41 @@ class Kubectl(object):
         )
         if not self.dry_run and retcode == 0:
             print('successfully switched to namespace `{}`'.format(namespace))
+
+    def _deduplicate_with_order(self, seq):
+        """
+        https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
+        deduplicate list while preserving order
+        """
+        return list(OrderedDict.fromkeys(seq))
+
+    def fuzzy_match_namespace(self, name, max_matches=10):
+        """
+        Fuzzy match namespace, precedence from high to low:
+        1. exact match of <prefix + name>, if prefix option is turned on in ~/.surreal.yml
+        2. exact match of <name> itself
+        3. starts with <prefix + name>, sorted alphabetically
+        4. starts with <name>, sorted alphabetically
+        5. contains <name>, sorted alphabetically
+        Up to `max_matches` number of matches
+
+        Returns:
+            - string if the matching is exact
+            - OR list of fuzzy matches
+        """
+        all_names = self.list_namespaces()
+        prefixed_name = self.get_experiment_name(name)
+        if prefixed_name in all_names:
+            return prefixed_name
+        if name in all_names:
+            return name
+        # fuzzy matching
+        matches = []
+        matches += sorted([n for n in all_names if n.startswith(prefixed_name)])
+        matches += sorted([n for n in all_names if n.startswith(name)])
+        matches += sorted([n for n in all_names if name in n])
+        matches = self._deduplicate_with_order(matches)
+        return matches[:max_matches]
 
     def label_nodes(self, old_labels, new_label_name, new_label_value):
         """

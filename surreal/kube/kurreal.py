@@ -1,6 +1,7 @@
 import argparse
 import surreal
 import webbrowser
+from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
 
@@ -305,6 +306,37 @@ def kurreal_create_dev(args):
     kurreal_namespace(args)
 
 
+def _interactive_find_ns(kube, name, max_matches=10):
+    """
+    Find partial match of namespace, ask user to verify before switching to
+    ns or delete experiment.
+    Used in:
+    - kurreal delete
+    - kurreal ns
+    Disabled when --force
+    """
+    matches = kube.fuzzy_match_namespace(name, max_matches=max_matches)
+    if isinstance(matches, str):
+        return matches  # exact match
+    if len(matches) == 0:
+        print_err('namespace `{}` not found. '
+                  'Please run `kurreal list ns` and check for typos.'.format(name))
+        return None
+    prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
+    prompt = ('Cannot find exact match. Fuzzy matching: \n'
+              '{}\nEnter your selection 0-{} (q to quit): '
+              .format(prompt, len(matches) - 1))
+    ans = input(prompt)
+    try:
+        ans = int(ans)
+    except ValueError:  # cannot convert to int, quit
+        print_err('aborted')
+        return None
+    if ans >= len(matches):
+        raise IndexError('must enter a number between 0 - {}'.format(len(matches)-1))
+    return matches[ans]
+
+
 def kurreal_delete(args):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
@@ -313,14 +345,23 @@ def kurreal_delete(args):
     kube = Kubectl(dry_run=args.dry_run)
     if args.experiment_name:
         to_delete = args.experiment_name
+        if args.force:
+            assert to_delete in kube.list_namespaces(), \
+                'namespace `{}` not found. ' \
+                'Run without --force to fuzzy match the name.'.format(to_delete)
+        else:  # fuzzy match namespace to delete
+            to_delete = _interactive_find_ns(kube, to_delete)
+            if to_delete is None:
+                return
     else:
         to_delete = kube.current_namespace()
+
     assert to_delete not in ['default', 'kube-public', 'kube-system'], \
         'cannot delete reserved namespaces: default, kube-public, kube-system'
     if not args.force:
         ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
         if ans not in ['', 'y', 'yes', 'Y']:
-            print('Aborted')
+            print('aborted')
             return
     kube.delete(to_delete)
 
@@ -331,8 +372,12 @@ def kurreal_namespace(args):
     `kurreal ns <namespace>`: switch context to another namespace/experiment
     """
     kube = Kubectl(dry_run=args.dry_run)
-    if args.experiment_name:
-        kube.set_namespace(args.experiment_name)
+    name = args.experiment_name
+    if name:
+        name = _interactive_find_ns(kube, name)
+        if name is None:
+            return
+        kube.set_namespace(name)
     else:
         print(kube.current_namespace())
 
