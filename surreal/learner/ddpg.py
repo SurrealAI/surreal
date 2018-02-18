@@ -175,11 +175,21 @@ class DDPGLearner(Learner):
             batch.dones
         )
         self.update_tensorplex(tensorplex_update_dict)
+        self.periodic_checkpoint(
+            global_steps=self.current_iteration,
+            score=None,
+        )
 
     def module_dict(self):
         return {
             'ddpg': self.model,
         }
+
+    def checkpoint_attributes(self):
+        return [
+            'current_iteration',
+            'model', 'model_target'
+        ]
 
     def target_update_init(self):
         target_update_config = self.learner_config.algo.target_update

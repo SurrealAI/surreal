@@ -53,9 +53,6 @@ def run_agent_main(args, config):
         separate_plots=True
     )
 
-    
-
-
     agent_class = agentFactory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
