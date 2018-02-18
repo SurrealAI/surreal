@@ -5,10 +5,10 @@ import torch
 import pickle
 import time
 import datetime
-import surreal.utils as U
 from pkg_resources import parse_version
 from collections import OrderedDict
-from surreal.utils.ezdict import EzDict
+from . import filesys as U
+from .ezdict import EzDict
 
 
 CHEKCPOINT_VERSION = '0.0.1'

@@ -6,11 +6,10 @@ import functools
 import argparse
 import re
 import pprint
-from easydict import EasyDict
 from enum import Enum, EnumMeta
 import time
 from contextlib import contextmanager
-from asyncio import Lock
+
 
 def _get_qualified_type_name(type_):
     name = str(type_)
