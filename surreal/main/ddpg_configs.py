@@ -35,7 +35,7 @@ def generate(argv):
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
             'lr_actor': 1e-4,
-            'lr_critic': 1e-3,
+            'lr_critic': 1e-4,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
