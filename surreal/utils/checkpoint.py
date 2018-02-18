@@ -36,7 +36,8 @@ class Checkpoint(object):
                  tracked_obj,
                  tracked_attrs=None,
                  keep_history=1,
-                 keep_best=1):
+                 keep_best=1,
+                 mkdir=True):
         """
         Args:
             folder: checkpoint folder path
@@ -46,11 +47,13 @@ class Checkpoint(object):
             tracked_attrs: tracked attribute names of the object, can include
                 attrs that point to torch.nn.Module
                 set to None if you will restore from existing checkpoint
-            keep_best: how many best models to keep, sorted by score, must >= 0
-            initial_score: should be specified if keep_best=True
             keep_history: how many checkpoints to keep, must >= 1
+            keep_best: how many best models to keep, sorted by score, must >= 0
+            mkdir: True to create intermediate dirs if the path doesn't exist
         """
         self.folder = U.f_expand(folder)
+        if mkdir:
+            U.f_mkdir(folder)
         self.name = name
         self.tracked_obj = tracked_obj
 
@@ -83,7 +86,7 @@ class Checkpoint(object):
 
     def _check_tracked_attrs(self, tracked_attrs):
         ERR_MSG = 'tracked_attrs must be a list of attribute name strings or None'
-        if U.is_sequence(tracked_attrs):
+        if isinstance(tracked_attrs, (list, tuple)):
             for attr_name in tracked_attrs:
                 assert isinstance(attr_name, str), ERR_MSG
         else:
@@ -98,14 +101,15 @@ class Checkpoint(object):
         """
         helper to be used in self.restore() and self.restore_full_name()
         Returns:
-            True if successfully restored
+            - ckpt file name if successfully restored
+            - None otherwise
         """
         ckpt_path = self._get_path(ckpt_file)
         if not U.f_exists(ckpt_path):
             if check_ckpt_exists:
                 raise FileNotFoundError(ckpt_path + ' missing.')
             else:
-                return False
+                return None
         # overwrite attributes on self.tracked_obj
         with open(ckpt_path, 'rb') as fp:
             data = pickle.load(fp)
@@ -115,7 +119,7 @@ class Checkpoint(object):
                 attr_value.load_state_dict(data[attr_name])
             else:
                 setattr(self.tracked_obj, attr_name, data[attr_name])
-        return True
+        return ckpt_file
 
     def restore(self, target, mode,
                 reload_metadata=True, check_ckpt_exists=False):
