@@ -14,6 +14,7 @@ import os
 import re
 import os.path as path
 from pkg_resources import parse_version
+from collections import OrderedDict
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
@@ -48,6 +49,9 @@ def check_valid_dns(name):
 
 
 class Kubectl(object):
+    NONAGENT_COMPONENTS = ['learner', 'ps', 'replay',
+                           'tensorplex', 'loggerplex', 'tensorboard']
+
     def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
         surreal_yml = U.f_expand(surreal_yml)
         assert U.f_exists(surreal_yml)
@@ -68,18 +72,31 @@ class Kubectl(object):
         """
         assert 'version' in self.config, 'surreal yml version not specified.'
         if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
-            raise ValueError('version incompatible, please check the latest sample.surreal.yml')
+            raise ValueError('version incompatible, please check the latest '
+                             'sample.surreal.yml and make sure ~/.surreal.yml is '
+                             + SURREAL_YML_VERSION)
 
-    def run(self, cmd):
+    def run(self, cmd, program='kubectl'):
+        cmd = program + ' ' + cmd
         if self.dry_run:
-            print('kubectl ' + cmd)
+            print(cmd)
             return '', '', 0
         else:
-            out, err, retcode = run_process('kubectl ' + cmd)
+            out, err, retcode = run_process(cmd)
             if 'could not find default credentials' in err:
                 print("Please try `gcloud container clusters get-credentials mycluster` "
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
+
+    def run_raw(self, cmd, program='kubectl'):
+        """
+        Raw os.system calls
+        """
+        cmd = program + ' ' + cmd
+        if self.dry_run:
+            print(cmd)
+        else:
+            os.system(cmd)
 
     def _print_err_return(self, out, err, retcode):
         print_err('error code:', retcode)
@@ -89,11 +106,14 @@ class Kubectl(object):
         print_err(out)
         print_err('*' * 46)
 
-    def run_verbose(self, cmd, print_out=True, raise_on_error=False):
-        out, err, retcode = self.run(cmd)
+    def run_verbose(self, cmd,
+                    print_out=True,
+                    raise_on_error=False,
+                    program='kubectl'):
+        out, err, retcode = self.run(cmd, program=program)
         if retcode != 0:
             self._print_err_return(out, err, retcode)
-            msg = 'Command `kubectl {}` fails'.format(cmd)
+            msg = 'Command `{} {}` fails'.format(program, cmd)
             if raise_on_error:
                 raise RuntimeError(msg)
             else:
@@ -219,12 +239,14 @@ class Kubectl(object):
 
     def get_experiment_name(self, experiment_name):
         """
-        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml
+        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml.
+        Will prefix the experiment name unless it is already manually prefixed.
         """
         assert 'prefix_experiment_with_username' in self.config
         if self.config.prefix_experiment_with_username:
-            experiment_name = self.username + '-' + experiment_name
-        check_valid_dns(experiment_name)
+            prefix = self.username + '-'
+            if not experiment_name.startswith(prefix):
+                experiment_name = prefix + experiment_name
         return experiment_name
 
     def create_surreal(self,
@@ -347,6 +369,11 @@ class Kubectl(object):
                 return context['context']['namespace']
         raise RuntimeError('INTERNAL: current context not found')
 
+    def list_namespaces(self):
+        all_names = self.query_resources('namespace', output_format='name')
+        # names look like namespace/<actual_name>, need to postprocess
+        return [n.split('/')[-1] for n in all_names]
+
     def set_namespace(self, namespace):
         """
         https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
@@ -358,8 +385,43 @@ class Kubectl(object):
             + namespace,
             print_out=True, raise_on_error=False
         )
-        if retcode == 0:
+        if not self.dry_run and retcode == 0:
             print('successfully switched to namespace `{}`'.format(namespace))
+
+    def _deduplicate_with_order(self, seq):
+        """
+        https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
+        deduplicate list while preserving order
+        """
+        return list(OrderedDict.fromkeys(seq))
+
+    def fuzzy_match_namespace(self, name, max_matches=10):
+        """
+        Fuzzy match namespace, precedence from high to low:
+        1. exact match of <prefix + name>, if prefix option is turned on in ~/.surreal.yml
+        2. exact match of <name> itself
+        3. starts with <prefix + name>, sorted alphabetically
+        4. starts with <name>, sorted alphabetically
+        5. contains <name>, sorted alphabetically
+        Up to `max_matches` number of matches
+
+        Returns:
+            - string if the matching is exact
+            - OR list of fuzzy matches
+        """
+        all_names = self.list_namespaces()
+        prefixed_name = self.get_experiment_name(name)
+        if prefixed_name in all_names:
+            return prefixed_name
+        if name in all_names:
+            return name
+        # fuzzy matching
+        matches = []
+        matches += sorted([n for n in all_names if n.startswith(prefixed_name)])
+        matches += sorted([n for n in all_names if n.startswith(name)])
+        matches += sorted([n for n in all_names if name in n])
+        matches = self._deduplicate_with_order(matches)
+        return matches[:max_matches]
 
     def label_nodes(self, old_labels, new_label_name, new_label_value):
         """
@@ -498,7 +560,6 @@ class Kubectl(object):
         tb = self.query_resources('svc', 'yaml', names=[pod_name])
         conf = tb.status.loadBalancer
         if not ('ingress' in conf and 'ip' in conf.ingress[0]):
-            print_err('Tensorboard does not have an external IP.')
             return ''
         ip = conf.ingress[0].ip
         port = tb.spec.ports[0].port
@@ -533,6 +594,10 @@ class Kubectl(object):
         else:
             return out
 
+    def describe(self, pod_name):
+        return self.run_verbose('describe pod '+pod_name,
+                                print_out=True, raise_on_error=False)
+
     def print_logs(self, pod_name, container_name='',
                    follow=False, since=0, tail=100):
         """
@@ -541,7 +606,7 @@ class Kubectl(object):
         """
         cmd = self._get_logs_cmd(pod_name, container_name,
                                  follow=follow, since=since, tail=tail)
-        os.system('kubectl ' + cmd)
+        self.run_raw(cmd)
 
     def logs_surreal(self, component_name, is_print=False,
                      follow=False, since=0, tail=100):
@@ -557,12 +622,92 @@ class Kubectl(object):
         else:
             log_func = self.logs
         log_func = functools.partial(log_func, since=since, tail=tail)
-        if component_name.startswith('agent-'):
-            return log_func(component_name)
-        else:
-            assert component_name in \
-                   ['learner', 'ps', 'replay', 'tensorplex', 'tensorboard']
+        if component_name in self.NONAGENT_COMPONENTS:
             return log_func('nonagent', component_name)
+        else:
+            return log_func(component_name)
+
+    def exec_surreal(self, component_name, cmd):
+        """
+        kubectl exec -ti
+
+        Args:
+            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+            cmd: either a string command or a list of command args
+
+        Returns:
+            stdout string if is_print else None
+        """
+        if U.is_sequence(cmd):
+            cmd = ' '.join(map(shlex.quote, cmd))
+        if component_name in self.NONAGENT_COMPONENTS:
+            self.run_raw(
+                'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
+        else:
+            self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
+
+    def gcloud_get_config(self, config_key):
+        """
+        Returns: value of the gcloud config
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        out, _, _ = self.run_verbose(
+            'config get-value ' + config_key,
+            print_out=False,
+            raise_on_error=True,
+            program='gcloud'
+        )
+        return out.strip()
+
+    def gcloud_zone(self):
+        """
+        Returns: current gcloud zone
+        """
+        return self.gcloud_get_config('compute/zone')
+
+    def gcloud_project(self):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return self.gcloud_get_config('project')
+
+    def gcloud_configure_ssh(self):
+        """
+        Refresh the ssh settings for the current gcloud project
+        populate SSH config files with Host entries from each instance
+        https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
+        """
+        self.run_raw('compute config-ssh', program='gcloud')
+
+    def gcloud_url(self, node_name):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return '{}.{}.{}'.format(
+            node_name, self.gcloud_zone(), self.gcloud_project()
+        )
+
+    def gcloud_ssh_node(self, node_name):
+        """
+        Don't forget to run gcloud_config_ssh() first
+        """
+        url = self.gcloud_url(node_name)
+        print(url)
+        self.run_raw(
+            'ssh -o StrictHostKeyChecking=no ' + url,
+            program=''
+        )
+
+    def gcloud_ssh_fs(self):
+        """
+        ssh into the file system server specified in ~/.surrreal.yml
+        """
+        self.gcloud_ssh_node(self.config.fs.server)
 
 
 if __name__ == '__main__':
@@ -570,6 +715,7 @@ if __name__ == '__main__':
     import pprint
     pp = pprint.pprint
     kube = Kubectl(dry_run=0)
+    print(kube.gcloud_url('surreal-shared-fs-vm'))
     # 3 different ways to get a list of node names
     # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
     # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))

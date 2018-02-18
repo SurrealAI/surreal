@@ -1,13 +1,15 @@
+import os
 from tensorplex import Tensorplex
 from surreal.session.tensorplex_adapter import *
+
 
 def tensorplex_parser_setup(parser):
     pass
 
-def run_tensorplexserver_main(args, config):
-    folder = config.session_config.folder
-    tensorplex_config = config.session_config.tensorplex
 
+def run_tensorplexserver_main(args, config):
+    folder = os.path.join(config.session_config.folder, 'tensorboard')
+    tensorplex_config = config.session_config.tensorplex
 
     tensorplex = Tensorplex(
         folder,

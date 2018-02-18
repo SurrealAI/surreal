@@ -38,7 +38,7 @@ kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
 * there is one running called surreal-shared-fs-vm
 * Ask Yuke for permission
 * Go to google cloud launcher
-* Search for single node file server
+* Search for ["single node file server"](https://console.cloud.google.com/launcher/details/click-to-deploy-images/singlefs).
 * Follow the instructions
 * Copy the mount command in the completed page
 * Set "startupscript" field of vm to be
@@ -102,9 +102,12 @@ To create the nodes, run
 ```
 gcloud beta container node-pools create agent-pool -m n1-standard-2 --node-labels surreal-node=agent --enable-autoscaling --min-nodes 0 --max-nodes 500 --num-nodes 2 --node-taints surreal=true:NoExecute
 
-gcloud beta container node-pools create nonagent-pool-gpu -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2 --node-taints surreal=true:NoExecute
 
 gcloud beta container node-pools create nonagent-pool-cpu -m n1-highmem-8 --node-labels surreal-node=nonagent-cpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-gpu -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-p100 -m n1-highmem-8 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
 ```
 
 Run the daemon to install nvidia drivers

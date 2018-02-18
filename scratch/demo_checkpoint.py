@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import math
-from surreal.utils.checkpoint import Checkpoint
+from surreal.utils.checkpoint import *
 import surreal.utils as U
 
 
@@ -33,13 +33,14 @@ class Learner():
         self.net1 = MyNet(width1, width2)
         self.net2 = MyNet(width2, width1)
         self._count = 0
-        self.checkpoint = Checkpoint(
-            folder='~/Temp/cartpole',
+        self.checkpoint = PeriodicCheckpoint(
+            folder='~/Temp/' + FOLDER,
             name='learner',
+            period=3,
             tracked_obj=self,
             tracked_attrs=['lr', 'net1', 'eps', 'mylist', 'net2'],
-            keep_history=3,
-            keep_best=True,
+            keep_history=4,
+            keep_best=3,
         )
 
     def get_score(self):
@@ -60,23 +61,25 @@ class Learner():
                 self.mylist[i] += 0.01
             self.net1.set_weight(c)
             self.net2.set_weight(c * 2)
-            self.checkpoint.save(self.get_score(), global_steps=steps)
+            self.checkpoint.save(self.get_score(),
+                                 global_steps=steps,
+                                 reload_metadata=True)
             callback()
 
 LR = 0.1
 EPS = 0.99
 WIDTH1 = 13
 WIDTH2 = 17
+FOLDER = 'otherckpt'
 
 learner_save = Learner(LR, EPS, WIDTH1, WIDTH2)
 learner_load = Learner(LR, EPS, WIDTH1, WIDTH2)
 
 checkpoint = Checkpoint(
-    folder='~/Temp/cartpole',
+    folder='~/Temp/' + FOLDER,
     name='learner',
     tracked_obj=learner_load,
 )
-
 
 def callback():
     print('='*70)
@@ -84,10 +87,18 @@ def callback():
     learner_save.show_weight()
     print('BEFORE load')
     learner_load.show_weight()
-    checkpoint.restore(-2, reload_metadata=True, check_ckpt_exists=True)
+    # checkpoint.restore(0, mode='history', reload_metadata=True, check_ckpt_exists=True)
     print('AFTER load')
     learner_load.show_weight()
     input('continue ...')
 
 
-learner_save.train(callback)
+if 1:
+    learner_save.train(callback)
+else:  # demo restore
+    for i in range(11):
+        ret = checkpoint.restore(i, mode='best', reload_metadata=True, check_ckpt_exists=1)
+        print(ret)
+        if ret:
+            learner_load.show_weight()
+    # checkpoint.restore_full_name('learner.best-16000.ckpt')

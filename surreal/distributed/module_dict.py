@@ -21,12 +21,15 @@ class ModuleDict(object):
         for k,m in self._module_dict.items():
             state_dict = m.state_dict()
             for key in state_dict:
-                state_dict[key] = state_dict[key].cpu()
+                state_dict[key] = state_dict[key].cpu().numpy()
             bin_dict[k] = state_dict
         return U.serialize(bin_dict)
 
     def loads(self, binary):
         bin_dict = U.deserialize(binary)
+        for key in bin_dict:
+            for k in bin_dict[key]:
+                bin_dict[key][k] = U.to_float_tensor(bin_dict[key][k], copy=False)
         for k, m in self._module_dict.items():
             m.load_state_dict(bin_dict[k])
 

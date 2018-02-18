@@ -13,3 +13,6 @@ gitpython
 tensorflow
 tensorboardX
 kubernetes
+imageio
+msgpack
+msgpack-numpy
