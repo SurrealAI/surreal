@@ -225,9 +225,10 @@ class DMControlAdapter(Wrapper):
         for event in pygame.event.get():
             if event.type == pygame.QUIT: sys.exit()
 
-        im = self.env.physics.render(width=width, height=height, camera_id=camera_id).transpose((1,0,2))
+        im = self.env.physics.render(width=width, height=height, camera_id=camera_id)
         pygame.pixelcopy.array_to_surface(self.screen, im)
         pygame.display.update()
+        return im
 
 def flatten_obs(obs):
     return np.concatenate([v.flatten() for k, v in obs.items()])
