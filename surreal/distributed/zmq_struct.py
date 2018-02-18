@@ -111,8 +111,11 @@ class ZmqServer(threading.Thread):
             workers.append(worker)
 
         # http://zguide.zeromq.org/py:mtserver
-        # **WARNING**: zmq.proxy() must be called AFTER the connects are made!
-        # ZMQ will hang if you call proxy() before the threads start.
+        # http://api.zeromq.org/3-2:zmq-proxy
+        # **WARNING**: zmq.proxy() must be called AFTER the threads start,
+        # otherwise the program hangs!
+        # Before calling zmq_proxy() you must set any socket options, and
+        # connect or bind both frontend and backend sockets.
         zmq.proxy(router, dealer)
 
         self.serialize_time = workers[0].serialize_time

@@ -1,3 +1,11 @@
+# Wiki page
+
+Please check the [wiki page](https://github.com/StanfordVL/Surreal/wiki) regularly. 
+
+The wiki will record all performance progress, API changes and important breaking updates.
+
+Make sure you adhere to the [General Guidelines](https://github.com/StanfordVL/Surreal/wiki#general-guidelines)!!!
+
 # Design
 
 This is a quick overview of Surreal core v0.2. 

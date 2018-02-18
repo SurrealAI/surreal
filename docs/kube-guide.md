@@ -38,7 +38,7 @@ kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
 * there is one running called surreal-shared-fs-vm
 * Ask Yuke for permission
 * Go to google cloud launcher
-* Search for single node file server
+* Search for ["single node file server"](https://console.cloud.google.com/launcher/details/click-to-deploy-images/singlefs).
 * Follow the instructions
 * Copy the mount command in the completed page
 * Set "startupscript" field of vm to be

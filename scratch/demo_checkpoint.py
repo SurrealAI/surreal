@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import math
-from surreal.utils.checkpoint import Checkpoint
+from surreal.utils.checkpoint import *
 import surreal.utils as U
 
 
@@ -33,13 +33,14 @@ class Learner():
         self.net1 = MyNet(width1, width2)
         self.net2 = MyNet(width2, width1)
         self._count = 0
-        self.checkpoint = Checkpoint(
-            folder='~/Temp/cartpole',
+        self.checkpoint = PeriodicCheckpoint(
+            folder='~/Temp/' + FOLDER,
             name='learner',
+            period=3,
             tracked_obj=self,
             tracked_attrs=['lr', 'net1', 'eps', 'mylist', 'net2'],
-            keep_history=7,
-            keep_best=5,
+            keep_history=4,
+            keep_best=3,
         )
 
     def get_score(self):
@@ -69,12 +70,13 @@ LR = 0.1
 EPS = 0.99
 WIDTH1 = 13
 WIDTH2 = 17
+FOLDER = 'otherckpt'
 
 learner_save = Learner(LR, EPS, WIDTH1, WIDTH2)
 learner_load = Learner(LR, EPS, WIDTH1, WIDTH2)
 
 checkpoint = Checkpoint(
-    folder='~/Temp/cartpole',
+    folder='~/Temp/' + FOLDER,
     name='learner',
     tracked_obj=learner_load,
 )
@@ -85,17 +87,17 @@ def callback():
     learner_save.show_weight()
     print('BEFORE load')
     learner_load.show_weight()
-    checkpoint.restore(0, is_best=False, reload_metadata=True, check_ckpt_exists=True)
+    # checkpoint.restore(0, mode='history', reload_metadata=True, check_ckpt_exists=True)
     print('AFTER load')
     learner_load.show_weight()
     input('continue ...')
 
 
-if 0:
+if 1:
     learner_save.train(callback)
 else:  # demo restore
     for i in range(11):
-        ret = checkpoint.restore(i, is_best=0, reload_metadata=True, check_ckpt_exists=1)
+        ret = checkpoint.restore(i, mode='best', reload_metadata=True, check_ckpt_exists=1)
         print(ret)
         if ret:
             learner_load.show_weight()

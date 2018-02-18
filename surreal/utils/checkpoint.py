@@ -14,44 +14,6 @@ from surreal.utils.ezdict import EzDict
 CHEKCPOINT_VERSION = '0.0.1'
 
 
-class _ScoreQueue(object):
-    """
-    Reverse score sorting
-    """
-    def __init__(self, max_size):
-        self._queue = []  # large -> small sorted
-        self.max_size = max_size
-
-    def set_queue(self, scores, filepaths):
-        "queue of (score, filepath) tuples"
-        self._queue = list(zip(scores, filepaths))
-        to_delete = self._queue[self.max_size:]
-        del self._queue[self.max_size:]
-        return to_delete
-
-    def add(self, score, filepath):
-        """
-        qu = _ScoreQueue(3)
-        for i in [1,3,2,4,5,7,3, 8, 2, 2, 1]:
-            print(qu.add(i*10, 'path'+str(i)), qu._queue)
-        """
-        i = len(self._queue)
-        while i >= 1:
-            sc, _ = self._queue[i - 1]
-            if sc > score:
-                break
-            i -= 1
-        self._queue = self._queue[:i] + [(score, filepath)] + self._queue[i:]
-        if len(self._queue) > self.max_size:
-            to_delete = self._queue[-1]
-            del self._queue[-1]
-            return to_delete
-
-    def get_scores_filepaths(self):
-        "returns score_list, filepath_list"
-        return tuple(zip(*self._queue))
-
-
 class Checkpoint(object):
     """
     Periodically saves attribute of a learner or agent class.
@@ -74,8 +36,7 @@ class Checkpoint(object):
                  tracked_obj,
                  tracked_attrs=None,
                  keep_history=1,
-                 keep_best=1
-                 ):
+                 keep_best=1):
         """
         Args:
             folder: checkpoint folder path
@@ -92,7 +53,6 @@ class Checkpoint(object):
         self.folder = U.f_expand(folder)
         self.name = name
         self.tracked_obj = tracked_obj
-        self._period_counter = 1
 
         if U.f_exists(self.metadata_path()):
             self._load_metadata()
@@ -100,7 +60,7 @@ class Checkpoint(object):
             # blank-slate checkpoint
             metadata = EzDict()
             metadata.version = CHEKCPOINT_VERSION
-            metadata.save_counter = 1
+            metadata.save_counter = 0
             metadata.history_ckpt_files = []
             metadata.ckpt = {}
             self._check_tracked_attrs(tracked_attrs)
@@ -157,14 +117,14 @@ class Checkpoint(object):
                 setattr(self.tracked_obj, attr_name, data[attr_name])
         return True
 
-    def restore(self, target, is_best,
+    def restore(self, target, mode,
                 reload_metadata=True, check_ckpt_exists=False):
         """
         Args:
             target: can be one of the following semantics
             - int: 0 for the last (or best), 1 for the second last (or best), etc.
             - global steps of the ckpt file, the suffix string right before ".ckpt"
-            is_best: if True, will choose from the best checkpoints
+            mode: "best" or "history", which group to restore
             reload_metadata: overwrite self.metadata with the metadata.yml file content
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
 
@@ -176,6 +136,7 @@ class Checkpoint(object):
             the Module class first, because the checkpoint only saves the
             state_dict, not how to construct your Module
         """
+        assert mode in ['best', 'history']
         if reload_metadata:
             self._load_metadata()
         self._check_version()
@@ -183,19 +144,19 @@ class Checkpoint(object):
         if isinstance(target, int):
             assert target >= 0, 'target int should start from 0 for the last or best'
             try:
-                if is_best:
+                if mode == 'best':
                     ckpt_file = meta.best_ckpt_files[target]
                 else:
                     ckpt_file = meta.history_ckpt_files[target]
             except IndexError:
                 if check_ckpt_exists:
-                    raise FileNotFoundError('{}-{} ckpt file missing'
-                                .format('Best' if is_best else 'Last', target))
+                    raise FileNotFoundError('{} <{}> ckpt file missing'
+                                .format(mode.capitalize(), target))
                 else:
                     ckpt_file = '__DOES_NOT_EXIST__'
         else:
             assert '.ckpt' not in target, 'use restore_full_path() instead'
-            if is_best:
+            if mode == 'best':
                 ckpt_file = self.ckpt_name('best-{}'.format(target))
             else:
                 ckpt_file = self.ckpt_name(target)
@@ -265,6 +226,7 @@ class Checkpoint(object):
         if reload_metadata:
             self._load_metadata()
         meta = self.metadata
+        meta.save_counter += 1
         if global_steps is None:
             global_steps = meta.save_counter
         # save the last step
@@ -314,4 +276,75 @@ class Checkpoint(object):
                 score_queue.get_scores_filepaths()
 
         self._save_metadata()
-        meta.save_counter += 1
+
+
+class PeriodicCheckpoint(Checkpoint):
+    def __init__(self, *args, period, **kwargs):
+        """
+        Same signature as Checkpoint
+        """
+        super().__init__(*args, **kwargs)
+        assert period >= 1
+        self.period = period
+        self._period_counter = 0
+
+    def save(self, *args, **kwargs):
+        """
+        Same as Checkpoint.save() except that it only runs every
+        `period` number of calls.
+
+        Returns:
+            True if actually saved
+        """
+        self._period_counter += 1
+        if self._period_counter % self.period == 0:
+            super().save(*args, **kwargs)
+            return True
+        else:
+            return False
+
+    def reset_period(self):
+        """
+        Set period counter to 0
+        """
+        self._period_counter = 0
+
+
+class _ScoreQueue(object):
+    """
+    Reverse score sorting
+    """
+    def __init__(self, max_size):
+        self._queue = []  # large -> small sorted
+        self.max_size = max_size
+
+    def set_queue(self, scores, filepaths):
+        "queue of (score, filepath) tuples"
+        self._queue = list(zip(scores, filepaths))
+        to_delete = self._queue[self.max_size:]
+        del self._queue[self.max_size:]
+        return to_delete
+
+    def add(self, score, filepath):
+        """
+        qu = _ScoreQueue(3)
+        for i in [1,3,2,4,5,7,3, 8, 2, 2, 1]:
+            print(qu.add(i*10, 'path'+str(i)), qu._queue)
+        """
+        i = len(self._queue)
+        while i >= 1:
+            sc, _ = self._queue[i - 1]
+            if sc > score:
+                break
+            i -= 1
+        self._queue = self._queue[:i] + [(score, filepath)] + self._queue[i:]
+        if len(self._queue) > self.max_size:
+            to_delete = self._queue[-1]
+            del self._queue[-1]
+            return to_delete
+
+    def get_scores_filepaths(self):
+        "returns score_list, filepath_list"
+        return tuple(zip(*self._queue))
+
+
