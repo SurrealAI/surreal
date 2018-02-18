@@ -6,3 +6,4 @@ from .filesys import *
 from .serializer import *
 from .parallel import *
 from .ezdict import EzDict
+from .checkpoint import Checkpoint, PeriodicCheckpoint

@@ -60,8 +60,11 @@ def f_exists(path):
     return os.path.exists(f_expand(path))
 
 
-def f_join(p, *paths):
-    return os.path.join(f_expand(p), *paths)
+def f_join(*fpaths):
+    """
+    join file paths and expand special symbols like `~` for home dir
+    """
+    return f_expand(os.path.join(*fpaths))
 
 
 def f_mkdir(fpath):
@@ -106,13 +109,6 @@ def f_add_ext(fpath, ext):
         return fpath
     else:
         return fpath + ext
-
-
-def f_join_expand(*fpaths):
-    """
-    join file paths and expand special symbols like `~` for home dir
-    """
-    return f_expand(f_join(*fpaths))
 
 
 def f_remove(fpath):
