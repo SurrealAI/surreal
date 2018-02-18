@@ -324,9 +324,11 @@ def _interactive_find_ns(kube, name, max_matches=10):
         return None
     prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
     prompt = ('Cannot find exact match. Fuzzy matching: \n'
-              '{}\nEnter your selection 0-{} (q to quit): '
+              '{}\nEnter your selection 0-{} (enter to select 0, q to quit): '
               .format(prompt, len(matches) - 1))
     ans = input(prompt)
+    if not ans.strip():  # blank
+        ans = '0'
     try:
         ans = int(ans)
     except ValueError:  # cannot convert to int, quit
