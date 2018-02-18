@@ -11,6 +11,9 @@ BASE_LEARNER_CONFIG = {
         'experience': '_str_',
         'n_step': 1,
         'gamma': '_float_',
+        'actor_regularization': 0.0,
+        'critic_regularization': 0.0,
+        'use_batchnorm': False,
         'limit_training_episode_length': 0,
     },
     'replay': {
@@ -24,6 +27,12 @@ BASE_LEARNER_CONFIG = {
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
     'env_name' : '_str_',
+    'video' : {
+        'record_video' : False,
+        'max_videos': 10,
+        'record_every': 10,
+        'save_directory': '/mnt/snaps',
+    },
     'action_spec': {},
     'obs_spec': {},
     # 'action_spec': {
