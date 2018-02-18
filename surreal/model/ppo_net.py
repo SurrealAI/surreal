@@ -47,7 +47,8 @@ class PPOModel(U.Module):
                  init_log_sig,
                  obs_dim,
                  action_dim,
-                 use_z_filter):
+                 use_z_filter,
+                 use_cuda):
         super(PPOModel, self).__init__()
 
         # hyperparameters
@@ -59,17 +60,24 @@ class PPOModel(U.Module):
         self.actor = PPO_ActorNetwork(self.obs_dim, self.action_dim, self.init_log_sig)
         self.critic = PPO_CriticNetwork(self.obs_dim)
         if self.use_z_filter:
-            self.z_filter = ZFilter(obs_dim)
+            self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
 
-    def forward(self, obs):
+    def forward_actor(self, obs):
         shape = obs.size()
         assert len(shape) == 2 and shape[1] == self.obs_dim
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 
-        action = self.actor(obs)
-        value  = self.critic(obs)
-        return (action, value)
+        return self.actor(obs)
+
+    def forward_critic(self, obs):
+        shape = obs.size()
+        assert len(shape) == 2 and shape[1] == self.obs_dim
+        if self.use_z_filter:
+            obs = self.z_filter.forward(obs)
+
+        return self.critic(obs)
+
 
     def z_update(self, obs):
         if self.use_z_filter:

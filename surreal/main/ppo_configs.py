@@ -46,7 +46,7 @@ def generate(argv):
             'n_step': 10,
             'trace_cutoff': 1.2,
             'is_weight_thresh': 1.5, 
-            'is_weight_eps': 1e-5,
+            'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
             'stride': 1,
             'batch_size': 64,
@@ -68,8 +68,8 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 64,
-            'memory_size': 2048,
-            'sampling_start_size':64,
+            'memory_size': 80,
+            'sampling_start_size': 64,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode

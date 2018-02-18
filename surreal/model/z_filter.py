@@ -10,7 +10,7 @@ class ZFilter(U.Module):
         Whitens data and clamps to +/- 5 std
     """
     recurrent = False
-    def __init__(self, in_size, eps=1e-2):
+    def __init__(self, in_size, eps=1e-2, use_cuda=False):
         """
         :param in_size: state dimension
         :param use_cuda: NOT IMPLEMENTED
@@ -27,41 +27,48 @@ class ZFilter(U.Module):
 
         self.in_size = in_size
 
-        # Not Implemented
-        self.use_cuda = False
+        self.use_cuda = use_cuda
+        print(self.use_cuda)
+        if self.use_cuda:
+            self.running_sum   = self.running_sum.cuda()
+            self.running_sumsq = self.running_sumsq.cuda()
+            self.count         = self.count.cuda()
 
     def z_update(self, x):
         """
             Count x into historical average
             Accepts batched input
         """
+        # only called in learner, so we can assume it has the correct type
         self.running_sum += torch.sum(x.data, dim=0)
         self.running_sumsq += torch.sum(x.data * x.data, dim=0)
-        self.count += U.to_float_tensor(np.array([len(x)]))
+        batch_count = U.to_float_tensor(np.array([len(x)]))
+        if self.use_cuda:
+            batch_count = batch_count.cuda()
+        self.count += batch_count
 
     # define forward prop operations in terms of layers
     def forward(self, inputs):
+        if self.count[0]< 100: return inputs
+
         running_mean = (self.running_sum / self.count)
-        running_std = (torch.max((self.running_sumsq / self.count) - running_mean.pow(2), torch.Tensor([self.eps]))).pow(0.5)
+        running_std = (torch.clamp((self.running_sumsq / self.count) - running_mean.pow(2), min=self.eps)).pow(0.5)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
 
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
 
-        if self.training:
-            self.z_update(inputs)
-
         return normed
 
 
     def running_mean(self):
-        return (self.running_sum / self.count).numpy()
+        return (self.running_sum / self.count).cpu().numpy()
 
     def running_std(self):
-        return (torch.max((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), torch.Tensor([self.eps]))).pow(0.5).numpy()
+        return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).cpu().numpy()
 
     def running_square(self):
-        return (self.running_sumsq / self.count).numpy()
+        return (self.running_sumsq / self.count).cpu().numpy()
 
 
 

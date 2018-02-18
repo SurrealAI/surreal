@@ -15,6 +15,15 @@ class PPOLearner(Learner):
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
 
+        # GPU setting
+        self.gpu_id = session_config.learner.gpu
+        self.use_cuda = (self.gpu_id != -1)
+        if not self.use_cuda:
+            self.log.info('Using CPU')
+        else:
+            print('using gp')
+            self.log.info('Using GPU: {}'.format(self.gpu_id))
+
         # RL general parameters
         self.gamma = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
@@ -30,6 +39,7 @@ class PPOLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_cuda = self.use_cuda, 
         )
 
         # PPO parameters
@@ -60,14 +70,6 @@ class PPOLearner(Learner):
             self.clip_adj_thres = self.adj_thres
             self.clip_upper = self.clip_range[1]
             self.clip_lower = self.clip_range[0]
-
-        # GPU settings:
-        self.gpu_id = session_config.learner.gpu
-        if self.gpu_id == -1:
-            self.log.info('Using CPU')
-        else:
-            self.log.info('Using GPU: {}'.format(self.gpu_id))
-
 
         with U.torch_gpu_scope(self.gpu_id):
 
@@ -101,8 +103,8 @@ class PPOLearner(Learner):
         n_samples = obs.size()[0]
         gamma = torch.ones(n_samples, 1) * self.gamma
 
-        values = self.model.critic(Variable(obs)).detach().data
-        next_values = self.model.critic(Variable(obs_next)).detach().data
+        values = self.model.forward_critic(Variable(obs)).detach().data
+        next_values = self.model.forward_critic(Variable(obs_next)).detach().data
         returns = rewards + next_values * (1 - done) * torch.pow(gamma, num_steps) # value bootstrap
         adv = returns - values
 
@@ -115,7 +117,7 @@ class PPOLearner(Learner):
 
 
     def _clip_loss(self, obs, actions, advantages, fixed_dist, fixed_prob): 
-        new_prob = self.model.actor(obs)
+        new_prob = self.model.forward_actor(obs)
         new_p = self.pd.likelihood(actions, new_prob)
         prob_ratio = new_p / fixed_prob
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
@@ -133,48 +135,8 @@ class PPOLearner(Learner):
         return clip_loss, stats
 
 
-    def _clip_update_iter(self, obs, actions, advantages, behave_pol):
-        behave_pol = self.model.actor(obs).detach()
-        fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
-
-        num_batches = obs.size()[0] // self.batch_size + 1
-        for epoch in range(self.epoch_policy):
-            sortinds = np.random.permutation(obs.size()[0])
-            sortinds = Variable(torch.from_numpy(sortinds).long())
-            for batch in range(num_batches):
-                start = batch * self.batch_size
-                end = (batch + 1) * self.batch_size
-                if start >= obs.size()[0]: break
-
-                obs_batch = obs.index_select(0, sortinds[start:end])
-                act_batch = actions.index_select(0, sortinds[start:end])
-                adv_batch = advantages.index_select(0, sortinds[start:end])
-                prb_batch = behave_pol.index_select(0, sortinds[start:end])
-                fix_batch = fixed_prob.index_select(0, sortinds[start:end])
-
-                loss, _ = self._clip_loss(obs_batch, act_batch, adv_batch, prb_batch, fix_batch)
-                self.model.actor.zero_grad()
-                loss.backward()
-                self.actor_optim.step()
-
-            prob = self.model.actor(obs)
-            kl = self.pd.kl(old_prob, prob).mean()
-            if kl.data[0] > 4 * self.kl_targ:
-                break
-
-        if kl.data[0] > self.kl_targ * self.clip_adj_thres[1]:
-            if self.clip_lower < self.clip_epsilon:
-                self.clip_epsilon = self.clip_epsilon / 1.2
-        elif kl.data[0] < self.kl_targ * self.clip_adj_thres[0]:
-            if self.clip_upper > self.clip_epsilon:
-                self.clip_epsilon = self.clip_epsilon * 1.2
-        
-        _, stats = self._clip_loss(obs, actions, advantages, behave_pol, fixed_prob)
-        return stats
-
-
     def _clip_update_full(self, obs, actions, advantages, behave_pol):
-        behave_pol = self.model.actor(obs).detach()
+        behave_pol = self.model.forward_actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
 
@@ -184,7 +146,7 @@ class PPOLearner(Learner):
             nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
-            prob = self.model.actor(obs)
+            prob = self.model.forward_actor(obs)
             kl = self.pd.kl(behave_pol, prob).mean()
             stats['pol_kl'] = kl.data[0]
             if kl.data[0] > 4 * self.kl_targ:
@@ -200,12 +162,12 @@ class PPOLearner(Learner):
         return stats
 
 
-    def _adapt_loss(self, obs, actions, advantages, behave_pol):
-        learn_pol = self.model.actor(obs)
-        logp_behave = torch.log(self.pd.loglikelihood(actions, behave_pol).exp() + self.is_weight_eps)
-        logp_learn  = self.pd.loglikelihood(actions, learn_pol)
-        kl = self.pd.kl(behave_pol, learn_pol).mean()
-        surr = -(advantages * torch.clamp((logp_learn - logp_behave).exp(), max=1e5)).mean()
+    def _adapt_loss(self, obs, actions, advantages, behave_pol, ref_pol):
+        learn_pol = self.model.forward_actor(obs)
+        prob_behave = self.pd.likelihood(actions, behave_pol) + self.is_weight_eps
+        prob_learn  = self.pd.likelihood(actions, learn_pol)
+        kl = self.pd.kl(ref_pol, learn_pol).mean()
+        surr = -(advantages * torch.clamp(prob_learn/prob_behave, max=1e5)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -222,19 +184,29 @@ class PPOLearner(Learner):
 
         return loss, stats
 
-    def _adapt_update_full(self, obs, actions, advantages,behave_pol):
-        behave_pol = self.model.actor(obs).detach()
+
+    def _adapt_update_sim(self, obs, actions, advantages, behave_pol, ref_pol):
+        loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
+        self.model.actor.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
+        self.actor_optim.step()
+        return stats
+
+    def _adapt_update_full(self, obs, actions, advantages, behave_pol):
+        ref_pol = self.model.forward_actor(obs).detach()
+        behave_pol = ref_pol
 
         for epoch in range(self.epoch_policy):
 
-            loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol)
+            loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
             self.model.actor.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
-            prob = self.model.actor(obs)
-            kl = self.pd.kl(behave_pol, prob).mean()
+            curr_pol = self.model.forward_actor(obs)
+            kl = self.pd.kl(ref_pol, curr_pol).mean()
             stats['pol_kl'] = kl.data[0]
             if kl.data[0] > self.kl_targ * 4:
                 break
@@ -249,46 +221,8 @@ class PPOLearner(Learner):
         return stats
 
 
-    def _adapt_update_iter(self, obs, actions, advantages, pds):
-        old_prob = self.model.actor(obs).detach()
-
-        num_batches = obs.size()[0] // self.batch_size + 1
-        for epoch in range(self.epoch_policy):
-            sortinds = np.random.permutation(obs.size()[0])
-            sortinds = torch.autograd.Variable(turn_into_cuda(torch.from_numpy(sortinds).long()))
-            for batch in range(num_batches):
-                start = batch * self.batch_size
-                end = (batch + 1) * self.batch_size
-                if start >= obs.size()[0]: break
-
-                obs_batch = obs.index_select(0, sortinds[start:end])
-                act_batch = actions.index_select(0, sortinds[start:end])
-                adv_batch = advantages.index_select(0, sortinds[start:end])
-                prb_batch = old_prob.index_select(0, sortinds[start:end])
-
-                loss, _ = self._adapt_loss(obs_batch, act_batch, adv_batch, prb_batch)
-                self.model.actor.zero_grad()
-                loss.backward()
-                self.actor_optim.step()
-
-            prob = self.model.actor(obs)
-            kl = self.pd.kl(old_prob, prob).mean()
-            if kl.data[0] > self.kl_targ * 4:
-                break
-
-        if kl.data[0] > self.kl_targ * self.beta_adj_thres[1]:
-            if self.beta_upper > self.beta:
-                self.beta = self.beta * 1.5
-        elif kl.data[0] < self.kl_targ * self.beta_adj_thres[0]:
-            if self.beta_lower < self.beta:
-                self.beta = self.beta / 1.5
-
-        _, stats = self._adapt_loss(obs, actions, advantages, old_prob)
-        return stats
-
-
     def _value_loss(self, obs, returns):
-        values = self.model.critic(obs)
+        values = self.model.forward_critic(obs)
         explained_var = 1 - torch.var(returns - values) / torch.var(returns)
         loss = (values - returns).pow(2).mean()
 
@@ -298,29 +232,6 @@ class PPOLearner(Learner):
         }
         return loss, stats
 
-
-    def _value_update_iter(self, obs, returns):
-        num_batches = obs.size()[0] // self.batch_size + 1
-        for epoch in range(self.epoch_baseline):
-            sortinds = np.random.permutation(obs.size()[0])
-            sortinds = Variable(torch.from_numpy(sortinds).long())
-            for j in range(num_batches):
-                start = j * self.batch_size
-                end = (j + 1) * self.batch_size
-                if start >= obs.size()[0]: break
-
-                obs_batch = obs.index_select(0, sortinds[start:end])
-                ret_batch = returns.index_select(0, sortinds[start:end])
-
-                loss, _ = self._value_loss(obs_batch, ret_batch)
-                self.model.critic.zero_grad()
-                loss.backward()
-                self.critic_optim.step()
-
-        _, stats = self._value_loss(obs, returns)
-        return stats
-
-
     def _value_update_full(self, obs, returns):
         for epoch in range(self.epoch_baseline):
             loss, stats = self._value_loss(obs, returns)
@@ -328,6 +239,16 @@ class PPOLearner(Learner):
             loss.backward()
             nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
             self.critic_optim.step()
+
+        return stats
+
+
+    def _value_update_sim(self, obs, returns):
+        loss, stats = self._value_loss(obs, returns)
+        self.model.critic.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
+        self.critic_optim.step()
 
         return stats
 
@@ -344,7 +265,7 @@ class PPOLearner(Learner):
                 actions_flat = actions.view(batch_size * self.n_step, -1)
 
                 # getting the importance sampling weights
-                curr_pd   = self.model.actor(Variable(obs_flat))
+                curr_pd   = self.model.forward_actor(Variable(obs_flat))
                 curr_prob = self.pd.likelihood(Variable(actions_flat), curr_pd).data # tensor
 
                 behave_pd   = Variable(pds.view(batch_size * self.n_step, -1))
@@ -362,7 +283,7 @@ class PPOLearner(Learner):
 
                 # value estimate
                 obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
-                values = self.model.critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
+                values = self.model.forward_critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
                 values = values.view(batch_size, self.n_step + 1)
                 values[:, :self.n_step] *= 1 - dones
                 values[:, self.n_step]  *= 1 - dones[:, -1]
@@ -373,67 +294,115 @@ class PPOLearner(Learner):
 
                 # More efficient, more biased. run with stride ~= n_step
                 '''
+                v_trace_s_adv = tds
                 for step in range(self.n_step):
                     gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
                     if self.gpu_id >= 0:
                         gamma = gamma.cuda()
-                    adv[:, step] = torch.sum(adv[:, step:] * gamma, dim=1)
+                    v_trace_s_adv[:, step] = torch.sum(v_trace_s_adv[:, step:] * gamma, dim=1)
 
-                v_trace_targ = adv + values[:, :-1]
-                adv = adv.view(-1 , 1)
-                v_trace_targ = v_trace_targ.view(-1, 1)
+                v_trace_s = v_trace_s_adv + values[:, :-1]
+                v_trace_s_adv = v_trace_s_adv.view(-1 , 1)
+                v_trace_s = v_trace_s.view(-1, 1)
                 pds_flat = pds.view(batch_size * self.n_step, -1)
                 '''
 
                 # Less Efficnet, less biased. Run with stride = 1                
-                gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n,)
+                
+                #gamma_s_plus_1 = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n,)
+                gamma_s        = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
                 if self.gpu_id >= 0:
-                    gamma = gamma.cuda()
-                v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma, dim = 1) #(batch_size,)
-                v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
-                v_trace_s_adv = is_weight_trunc[:, 0] * (rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]) # (batch_size,)
+                    gamma_s = gamma_s.cuda()
+                    #gamma_s_plus_1 = gamma_s_plus_1.cuda()
+                #v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma_s_plus_1, dim = 1) #(batch_size,)
+                v_trace_s_adv = torch.sum(tds * gamma_s, dim = 1)
+                v_trace_s     = v_trace_s_adv + values[:, 0]
+                #v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
+                #v_trace_s_adv = rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]  # (batch_size,)
 
                 obs_flat = obs[:, 0, :] # (batch, obs_dim)
                 actions_flat = actions[:, 0, :] # (batch, act_dim)
                 pds_flat = pds[:, 0, :] # (batch, 2* act_dim)
+                v_trace_s_adv = v_trace_s_adv.view(-1, 1)
+                v_trace_s = v_trace_s.view(-1, 1)                
                 
+
                 if self.norm_adv:
                     mean = v_trace_s_adv.mean()
                     std  = v_trace_s_adv.std()
                     v_trace_s_adv  = (v_trace_s_adv - mean)/std  
 
                 avg_trace = trace_c.mean()
-                return obs_flat, actions_flat, v_trace_s_adv.view(-1, 1), v_trace_s.view(-1, 1), pds_flat, avg_trace   
+                return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace   
 
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
-        obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+        #obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+
         with U.torch_gpu_scope(self.gpu_id):
                 # new variables to detach everything
+                '''
                 obs = Variable(obs)
                 actions = Variable(actions)
                 advantages = Variable(advantages)
                 v_trace_targ = Variable(v_trace_targ)
-                pds = Variable(pds)
+                behave_pol = Variable(pds)
 
                 if self.method == 'clip': 
-                    stats = self._clip_update_full(obs, actions, advantages, pds)
+                    stats = self._clip_update_full(obs, actions, advantages, behave_pol)
                 else:
-                    stats = self._adapt_update_full(obs, actions, advantages, pds)
+                    stats = self._adapt_update_full(obs, actions, advantages, behave_pol)
                 baseline_stats = self._value_update_full(obs, v_trace_targ)
+                '''
+
+                done_training = False
+                ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
+                for _ in range(self.epoch_policy):
+                    obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+                    obs_iter = Variable(obs_iter)
+                    actions_iter= Variable(actions_iter)
+                    advantages = Variable(advantages)
+                    v_trace_targ = Variable(v_trace_targ)
+                    behave_pol = Variable(behave_pol)
+
+                    if self.method == 'clip':
+                        stats = self._clip_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                    else:
+                        stats = self._adapt_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                        
+                    curr_pol = self.model.forward_actor(obs_iter).detach()
+                    kl = self.pd.kl(ref_pol, curr_pol).mean()
+                    stats['pol_kl'] = kl.data[0]
+                    if kl.data[0] > self.kl_targ * 4:
+                        done_training = True
+
+                    baseline_stats = self._value_update_sim(obs_iter, v_trace_targ)
+                    if done_training: break
+
+                if self.method == 'clip':
+                    pass 
+                else: # adapt KL divergence penalty before returning the statistics 
+                    if stats['pol_kl'] > self.kl_targ * self.beta_adj_thres[1]:
+                        if self.beta_upper > self.beta:
+                            self.beta = self.beta * 1.5
+                    elif stats['pol_kl'] < self.kl_targ * self.beta_adj_thres[0]:
+                        if self.beta_lower < self.beta:
+                            self.beta = self.beta / 1.5
+
 
                 # updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
                 stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
                 stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
-                stats['avg_behave_prob'] = self.pd.likelihood(actions, pds).mean().data[0]
-                new_pol_pd = self.model.actor(obs)
-                new_likelihood = self.pd.likelihood(actions, new_pol_pd)
-                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions, pds), min = 1e-5)).mean().data[0]
+                stats['avg_behave_prob'] = self.pd.likelihood(actions_iter, behave_pol).mean().data[0]
+                new_pol = self.model.forward_actor(obs_iter).detach()
+                new_likelihood = self.pd.likelihood(actions_iter, new_pol)
+                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions_iter, behave_pol), min = 1e-5)).mean().data[0]
                 stats['avg_trace'] = avg_trace
 
                 if self.use_z_filter:
+                    self.model.z_update(obs_iter)
                     stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                     stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
                     stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
@@ -480,3 +449,7 @@ class PPOLearner(Learner):
             - agent side sleeping?
             - log_sig smaller learning rate
 '''
+# TODAY:
+# reference policy necessary
+# update v-trace for every update
+# simultaneous actor and critic update
