@@ -157,14 +157,14 @@ class Checkpoint(object):
                 setattr(self.tracked_obj, attr_name, data[attr_name])
         return True
 
-    def restore(self, target, is_best,
+    def restore(self, target, mode,
                 reload_metadata=True, check_ckpt_exists=False):
         """
         Args:
             target: can be one of the following semantics
             - int: 0 for the last (or best), 1 for the second last (or best), etc.
             - global steps of the ckpt file, the suffix string right before ".ckpt"
-            is_best: if True, will choose from the best checkpoints
+            mode: "best" or "history", which group to restore
             reload_metadata: overwrite self.metadata with the metadata.yml file content
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
 
@@ -176,6 +176,7 @@ class Checkpoint(object):
             the Module class first, because the checkpoint only saves the
             state_dict, not how to construct your Module
         """
+        assert mode in ['best', 'history']
         if reload_metadata:
             self._load_metadata()
         self._check_version()
@@ -183,19 +184,19 @@ class Checkpoint(object):
         if isinstance(target, int):
             assert target >= 0, 'target int should start from 0 for the last or best'
             try:
-                if is_best:
+                if mode == 'best':
                     ckpt_file = meta.best_ckpt_files[target]
                 else:
                     ckpt_file = meta.history_ckpt_files[target]
             except IndexError:
                 if check_ckpt_exists:
-                    raise FileNotFoundError('{}-{} ckpt file missing'
-                                .format('Best' if is_best else 'Last', target))
+                    raise FileNotFoundError('{} <{}> ckpt file missing'
+                                .format(mode.capitalize(), target))
                 else:
                     ckpt_file = '__DOES_NOT_EXIST__'
         else:
             assert '.ckpt' not in target, 'use restore_full_path() instead'
-            if is_best:
+            if mode == 'best':
                 ckpt_file = self.ckpt_name('best-{}'.format(target))
             else:
                 ckpt_file = self.ckpt_name(target)

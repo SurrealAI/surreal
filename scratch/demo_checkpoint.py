@@ -85,7 +85,7 @@ def callback():
     learner_save.show_weight()
     print('BEFORE load')
     learner_load.show_weight()
-    checkpoint.restore(0, is_best=False, reload_metadata=True, check_ckpt_exists=True)
+    checkpoint.restore(0, mode='history', reload_metadata=True, check_ckpt_exists=True)
     print('AFTER load')
     learner_load.show_weight()
     input('continue ...')
@@ -95,7 +95,7 @@ if 0:
     learner_save.train(callback)
 else:  # demo restore
     for i in range(11):
-        ret = checkpoint.restore(i, is_best=0, reload_metadata=True, check_ckpt_exists=1)
+        ret = checkpoint.restore(i, mode='best', reload_metadata=True, check_ckpt_exists=1)
         print(ret)
         if ret:
             learner_load.show_weight()
