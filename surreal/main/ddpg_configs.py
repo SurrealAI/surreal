@@ -51,7 +51,8 @@ def generate(argv):
             'use_z_filter': False,
             'exploration': {
                 'noise_type': 'normal',
-                'sigma': 0.37,
+                # If only one agent, it uses default 0.37 sigma. 5 agents is recommended
+                'sigma': [0.37, 0.07, 0.17, 0.27, 0.47],
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
                 # 'sigma': 0.3,
@@ -61,6 +62,7 @@ def generate(argv):
             'critic_regularization': 0.0,
             'use_batchnorm': False,
             'limit_training_episode_length': 0, # 0 means no limit
+            'agent_sleep_time': 1/100.0,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',

@@ -15,6 +15,7 @@ BASE_LEARNER_CONFIG = {
         'critic_regularization': 0.0,
         'use_batchnorm': False,
         'limit_training_episode_length': 0,
+        'agent_sleep_time': 0.0,
     },
     'replay': {
         # The replay class to instantiate

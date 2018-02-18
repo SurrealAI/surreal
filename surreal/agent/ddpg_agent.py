@@ -32,6 +32,7 @@ class DDPGAgent(Agent):
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
+        self.sleep_time = self.learner_config.algo.agent_sleep_time
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
@@ -79,6 +80,8 @@ class DDPGAgent(Agent):
 
     def act(self, obs):
         assert torch.is_tensor(obs)
+        if self.sleep_time > 0.0:
+            time.sleep(self.sleep_time)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
