@@ -51,7 +51,9 @@ def generate(argv):
             'use_z_filter': False,
             'exploration': {
                 'noise_type': 'normal',
-                # If only one agent, it uses default 0.37 sigma. 5 agents is recommended
+                # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
+                # 5 agents works well. If you use more than 5 agents, you need to add sigma values
+                # for the additional agents.
                 'sigma': [0.3, 0.0, 0.1, 0.2, 0.4],
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
