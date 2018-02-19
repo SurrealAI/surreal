@@ -399,8 +399,7 @@ class PPOLearner(Learner):
                     adv  = (adv - mean)/std  
 
                 avg_trace = trace_c.mean()
-                return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace   
-
+                return obs_flat, actions_flat, adv, v_trace_targ, pds_flat, avg_trace
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
         obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
@@ -463,7 +462,7 @@ class PPOLearner(Learner):
             * CAN use full trajectory but it also reduces learning frequency (trade off)
 
         Implementation details (compared to regular PPO):
-            - partial trajectoriy (N-step) | bias  ^
+            - partial trajectory (N-step) | bias  ^
             - sample size  v
             - stride match N-step (or truncating)
             - aggregator: multistep aggregator instead of NstepReturnAggregator

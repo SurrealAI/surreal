@@ -51,7 +51,7 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-        return (action_choice, action_pd)
+        return action_choice, action_pd
 
     def module_dict(self):
         return {
