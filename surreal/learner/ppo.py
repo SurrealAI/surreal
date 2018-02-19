@@ -167,7 +167,7 @@ class PPOLearner(Learner):
         prob_behave = self.pd.likelihood(actions, behave_pol) + self.is_weight_eps
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages * torch.clamp(prob_learn/prob_behave, max=1e5)).mean()
+        surr = -(advantages * torch.clamp(prob_learn/prob_behave, max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
