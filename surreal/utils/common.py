@@ -9,7 +9,8 @@ import pprint
 from easydict import EasyDict
 from enum import Enum, EnumMeta
 import time
-
+from contextlib import contextmanager
+from asyncio import Lock
 
 def _get_qualified_type_name(type_):
     name = str(type_)
@@ -449,3 +450,30 @@ class ArgParser(object):
                         parts[-1] += ' default={}'.format(action.default)
                     parts[0] += ' ' + args_string
                 return ', '.join(parts)
+
+
+class TimeRecorder():
+    """
+        Records waited average of whatever context block it is recording
+        Thread unsafe
+    """
+    def __init__(self, decay=0.99):
+        self.cum_count = 0
+        self.cum_time = 0
+        self.decay = decay
+
+    @contextmanager
+    def time(self):
+        pre_time = time.time()
+        yield None
+        post_time = time.time()
+        self.cum_count *= self.decay
+        self.cum_time *= self.decay
+        self.cum_count += 1
+        self.cum_time += post_time - pre_time
+
+    @property
+    def avg(self):
+        if self.cum_count == 0:
+            return 0
+        return self.cum_time / self.cum_count

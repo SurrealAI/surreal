@@ -13,10 +13,15 @@ import functools
 import os
 import re
 import os.path as path
+from pkg_resources import parse_version
+from collections import OrderedDict
 from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
 import surreal.utils as U
+
+
+SURREAL_YML_VERSION = '0.0.1'  # force version check
 
 
 def run_process(cmd):
@@ -44,11 +49,15 @@ def check_valid_dns(name):
 
 
 class Kubectl(object):
+    NONAGENT_COMPONENTS = ['learner', 'ps', 'replay',
+                           'tensorplex', 'loggerplex', 'tensorboard']
+
     def __init__(self, surreal_yml='~/.surreal.yml', dry_run=False):
         surreal_yml = U.f_expand(surreal_yml)
-        assert path.exists(surreal_yml)
+        assert U.f_exists(surreal_yml)
         # persistent config in the home dir that contains git access token
         self.config = YamlList.from_file(surreal_yml)[0]
+        self._check_version()
         self.folder = U.f_expand(self.config.experiment_folder)
         self.dry_run = dry_run
         self._loop_start_time = None
@@ -57,16 +66,37 @@ class Kubectl(object):
         "retrieve from the experiment folder"
         return U.f_join(self.folder, experiment_name, yaml_name)
 
-    def run(self, cmd):
+    def _check_version(self):
+        """
+        Check ~/.surreal.yml `version` key
+        """
+        assert 'version' in self.config, 'surreal yml version not specified.'
+        if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
+            raise ValueError('version incompatible, please check the latest '
+                             'sample.surreal.yml and make sure ~/.surreal.yml is '
+                             + SURREAL_YML_VERSION)
+
+    def run(self, cmd, program='kubectl'):
+        cmd = program + ' ' + cmd
         if self.dry_run:
-            print('kubectl ' + cmd)
+            print(cmd)
             return '', '', 0
         else:
-            out, err, retcode = run_process('kubectl ' + cmd)
+            out, err, retcode = run_process(cmd)
             if 'could not find default credentials' in err:
                 print("Please try `gcloud container clusters get-credentials mycluster` "
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
+
+    def run_raw(self, cmd, program='kubectl'):
+        """
+        Raw os.system calls
+        """
+        cmd = program + ' ' + cmd
+        if self.dry_run:
+            print(cmd)
+        else:
+            os.system(cmd)
 
     def _print_err_return(self, out, err, retcode):
         print_err('error code:', retcode)
@@ -76,11 +106,14 @@ class Kubectl(object):
         print_err(out)
         print_err('*' * 46)
 
-    def run_verbose(self, cmd, print_out=True, raise_on_error=False):
-        out, err, retcode = self.run(cmd)
+    def run_verbose(self, cmd,
+                    print_out=True,
+                    raise_on_error=False,
+                    program='kubectl'):
+        out, err, retcode = self.run(cmd, program=program)
         if retcode != 0:
             self._print_err_return(out, err, retcode)
-            msg = 'Command `kubectl {}` fails'.format(cmd)
+            msg = 'Command `{} {}` fails'.format(program, cmd)
             if raise_on_error:
                 raise RuntimeError(msg)
             else:
@@ -130,7 +163,7 @@ class Kubectl(object):
                experiment_name,
                jinja_template,
                context=None,
-               check_file_exists=True,
+               check_experiment_exists=True,
                **context_kwargs):
         """
         kubectl create namespace <experiment_name>
@@ -146,7 +179,7 @@ class Kubectl(object):
         """
         check_valid_dns(experiment_name)
         rendered_path = self._yaml_path(experiment_name)
-        if check_file_exists and U.f_exists(rendered_path):
+        if check_experiment_exists and U.f_exists(rendered_path):
             raise FileExistsError(rendered_path
                                   + ' already exists, cannot run `create`.')
         U.f_mkdir_in_path(rendered_path)
@@ -176,29 +209,18 @@ class Kubectl(object):
         # the space after colon is necessary for valid yaml
         return '{}: {}'.format(*label_spec)
 
-    def _get_docker_image(self, image_name):
-        """
-        image_name: key in ~/.surreal.yml `images` section that points to docker URL
-            else assume it's a docker image URL itself.
-        """
-        if image_name in self.config.images:
-            return self.config.images[image_name]
-        else:
-            assert '/' in image_name, 'must be a valid docker image URL'
-            return image_name
-
     def _parse_label_strings(self, selector_string):
         """
-            Receives input like:
-                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-            splits by ',' and then parse by = into dictionary 
-            i.e.:
-                surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-                => 
-                {
-                    'surreal-node': 'agent',
-                    'cloud.google.com/gke-accelerator': 'nvidia-tesla-k80'
-                }
+        Receives input like:
+            surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+        splits by ',' and then parse by = into dictionary
+        i.e.:
+            surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
+            =>
+            {
+                'surreal-node': 'agent',
+                'cloud.google.com/gke-accelerator': 'nvidia-tesla-k80'
+            }
         """
         label_strings = selector_string.split(',')
         di = {}
@@ -210,70 +232,46 @@ class Kubectl(object):
             di[k] = v
         return di
 
-    def _create_get_node_selector(self, selector_string):
-        """
-        selector_string: key in ~/.surreal.yml `selectors` section that points to
-            a selector for kubernetes
-            else assume it's a label string itself: 
-            e.g.: surreal-node=agent,cloud.google.com/gke-accelerator=nvidia-tesla-k80
-        """
-        if selector_string in self.config.selectors:
-            return self.config.selectors[selector_string]
-        else:
-            return _parse_label_strings(selector_string)
+    @property
+    def username(self):
+        assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
+        return self.config.username
 
-    def _create_get_node_resource_request(self, request_string):
+    def get_experiment_name(self, experiment_name):
         """
-        selector_string: key in ~/.surreal.yml `resource_requests` section that specifies
-        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
-        On input '' or None, returns empty dictionary, (will be ignored by template)
+        Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml.
+        Will prefix the experiment name unless it is already manually prefixed.
         """
-        if request_string == '' or request_string == None:
-            return {}
-        if request_string in self.config.resource_requests:
-            return self.config.resource_requests[request_string]
-        else:
-            return _parse_label_strings(request_string)
-
-    def _create_get_node_resource_limit(self, limit_string):
-        """
-        selector_string: key in ~/.surreal.yml `resource_limits` section that specifies
-        a cpu/memory requirment for kubernetes, else assume it's a label string itself: 
-        On input '' or None, returns empty dictionary, (will be ignored by template)
-        """
-        if limit_string == '' or limit_string == None:
-            return {}
-        if limit_string in self.config.resource_limits:
-            return self.config.resource_limits[limit_string]
-        else:
-            return _parse_label_strings(limit_string)
+        assert 'prefix_experiment_with_username' in self.config
+        if self.config.prefix_experiment_with_username:
+            prefix = self.username + '-'
+            if not experiment_name.startswith(prefix):
+                experiment_name = prefix + experiment_name
+        return experiment_name
 
     def create_surreal(self,
                        experiment_name,
                        jinja_template,
+                       agent_pod_type,
+                       nonagent_pod_type,
+                       cmd_dict,
                        snapshot=True,
                        mujoco=True,
-                       agent_selector='agent-pool',
-                       nonagent_selector='nonagent-pool',
-                       agent_resource_request='agent',
-                       nonagent_resource_request='nonagent',
-                       agent_resource_limit=None,
-                       nonagent_resource_limit=None,
-                       agent_image='agent',
-                       nonagent_image='nonagent',
-                       context=None,
-                       check_file_exists=True,
-                       **context_kwargs):
+                       check_experiment_exists=True):
         """
         First create a snapshot of the git repos, upload to github
         Then create Kube objects with the git info
         Args:
-            agent_pool_label: surreal-node=<agent_pool_label>
-            nonagent_pool_label: surreal-node=<nonagent_pool_label>
-            agent_image: key in ~/.surreal.yml `images` section.
-                If not a key, assume it's a docker image URL itself
-            nonagent_image: see `agent_image`
-            context: for extra context variables
+            experiment_name: will also be used as hostname for DNS
+            jinja_template: kurreal_template.yml file path
+            agent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            nonagent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            cmd_dict: dict of commands to be run on each container
+            snapshot: True to take a snapshot of git repo and upload
+            mujoco: True to copy mujoco key into the generated yaml
+            prefix_user_name: True to prefix experiment name (and host name)
+                as <myusername>-<experiment_name>
+            check_experiment_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
         repo_paths = self.config.git.get('snapshot_repos', [])
@@ -286,55 +284,53 @@ class Kubectl(object):
                 )
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
-        surreal_context = {
+        context = {
             'GIT_USER': self.config.git.user,
             'GIT_TOKEN': self.config.git.token,
             'GIT_SNAPSHOT_BRANCH': self.config.git.snapshot_branch,
             'GIT_REPOS': repo_names,
         }
-        if context is None:
-            context = {}
         if mujoco:
-            surreal_context['MUJOCO_KEY_TEXT'] = \
+            context['MUJOCO_KEY_TEXT'] = \
                 file_content(self.config.mujoco_key_path)
-        surreal_context.update(context)
+
+        context['CMD_DICT'] = cmd_dict
+        context['NONAGENT_HOST_NAME'] = experiment_name
 
         # Mount file system from 
         if 'fs' in self.config:
-            surreal_context['FILE_SERVER'] = self.config.fs.server
-            surreal_context['PATH_ON_SERVER'] = self.config.fs.path
+            context['FILE_SERVER'] = self.config.fs.server
+            context['PATH_ON_SERVER'] = self.config.fs.path
         else:
-            surreal_context['FILE_SERVER'] = 'temp'
-            surreal_context['PATH_ON_SERVER'] = '/'
+            context['FILE_SERVER'] = 'temp'
+            context['PATH_ON_SERVER'] = '/'
 
+        assert agent_pod_type in self.config.pod_types, \
+            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
+        assert nonagent_pod_type in self.config.pod_types, \
+            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
+        agent_pod_spec = self.config.pod_types[agent_pod_type]
+        nonagent_pod_spec = self.config.pod_types[nonagent_pod_type]
+        context['AGENT_IMAGE'] = agent_pod_spec.image
+        context['NONAGENT_IMAGE'] = nonagent_pod_spec.image
         # select nodes from nodepool label to schedule agent/nonagent pods
-        surreal_context['AGENT_SELECTOR'] = \
-            self._create_get_node_selector(agent_selector)
-            # self._yamlify_label_string('surreal-node=' + agent_pool_label)
-        surreal_context['NONAGENT_SELECTOR'] = \
-            self._create_get_node_selector(nonagent_selector)
-            # self._yamlify_label_string('surreal-node=' + nonagent_pool_label)
-        
-        # Request for nodes so that multiple experiments won't crowd onto one machine
-        surreal_context['AGENT_RESOURCE_REQUEST'] = \
-            self._create_get_node_resource_request(agent_resource_request)
-        surreal_context['NONAGENT_RESOURCE_REQUEST'] = \
-        self._create_get_node_resource_request(nonagent_resource_request)
+        context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
+        context['NONAGENT_SELECTOR'] = nonagent_pod_spec.get('selector', {})
+        # request for nodes so that multiple experiments won't crowd onto one machine
+        context['AGENT_RESOURCE_REQUEST'] = \
+            agent_pod_spec.get('resource_request', {})
+        context['NONAGENT_RESOURCE_REQUEST'] = \
+            nonagent_pod_spec.get('resource_request', {})
+        context['AGENT_RESOURCE_LIMIT'] = \
+            agent_pod_spec.get('resource_limit', {})
+        context['NONAGENT_RESOURCE_LIMIT'] = \
+            nonagent_pod_spec.get('resource_limit', {})
 
-        # Request for nodes so that multiple experiments won't crowd onto one machine
-        surreal_context['AGENT_RESOURCE_LIMIT'] = \
-            self._create_get_node_resource_limit(agent_resource_limit)
-        surreal_context['NONAGENT_RESOURCE_LIMIT'] = \
-        self._create_get_node_resource_limit(nonagent_resource_limit)
-
-        surreal_context['AGENT_IMAGE'] = self._get_docker_image(agent_image)
-        surreal_context['NONAGENT_IMAGE'] = self._get_docker_image(nonagent_image)
         self.create(
             experiment_name,
             jinja_template,
-            context=surreal_context,
-            check_file_exists=check_file_exists,
-            **context_kwargs
+            context=context,
+            check_experiment_exists=check_experiment_exists,
         )
 
     def delete(self, experiment_name):
@@ -373,6 +369,11 @@ class Kubectl(object):
                 return context['context']['namespace']
         raise RuntimeError('INTERNAL: current context not found')
 
+    def list_namespaces(self):
+        all_names = self.query_resources('namespace', output_format='name')
+        # names look like namespace/<actual_name>, need to postprocess
+        return [n.split('/')[-1] for n in all_names]
+
     def set_namespace(self, namespace):
         """
         https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
@@ -384,8 +385,43 @@ class Kubectl(object):
             + namespace,
             print_out=True, raise_on_error=False
         )
-        if retcode == 0:
+        if not self.dry_run and retcode == 0:
             print('successfully switched to namespace `{}`'.format(namespace))
+
+    def _deduplicate_with_order(self, seq):
+        """
+        https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
+        deduplicate list while preserving order
+        """
+        return list(OrderedDict.fromkeys(seq))
+
+    def fuzzy_match_namespace(self, name, max_matches=10):
+        """
+        Fuzzy match namespace, precedence from high to low:
+        1. exact match of <prefix + name>, if prefix option is turned on in ~/.surreal.yml
+        2. exact match of <name> itself
+        3. starts with <prefix + name>, sorted alphabetically
+        4. starts with <name>, sorted alphabetically
+        5. contains <name>, sorted alphabetically
+        Up to `max_matches` number of matches
+
+        Returns:
+            - string if the matching is exact
+            - OR list of fuzzy matches
+        """
+        all_names = self.list_namespaces()
+        prefixed_name = self.get_experiment_name(name)
+        if prefixed_name in all_names:
+            return prefixed_name
+        if name in all_names:
+            return name
+        # fuzzy matching
+        matches = []
+        matches += sorted([n for n in all_names if n.startswith(prefixed_name)])
+        matches += sorted([n for n in all_names if n.startswith(name)])
+        matches += sorted([n for n in all_names if name in n])
+        matches = self._deduplicate_with_order(matches)
+        return matches[:max_matches]
 
     def label_nodes(self, old_labels, new_label_name, new_label_value):
         """
@@ -524,7 +560,6 @@ class Kubectl(object):
         tb = self.query_resources('svc', 'yaml', names=[pod_name])
         conf = tb.status.loadBalancer
         if not ('ingress' in conf and 'ip' in conf.ingress[0]):
-            print_err('Tensorboard does not have an external IP.')
             return ''
         ip = conf.ingress[0].ip
         port = tb.spec.ports[0].port
@@ -559,6 +594,10 @@ class Kubectl(object):
         else:
             return out
 
+    def describe(self, pod_name):
+        return self.run_verbose('describe pod '+pod_name,
+                                print_out=True, raise_on_error=False)
+
     def print_logs(self, pod_name, container_name='',
                    follow=False, since=0, tail=100):
         """
@@ -567,7 +606,7 @@ class Kubectl(object):
         """
         cmd = self._get_logs_cmd(pod_name, container_name,
                                  follow=follow, since=since, tail=tail)
-        os.system('kubectl ' + cmd)
+        self.run_raw(cmd)
 
     def logs_surreal(self, component_name, is_print=False,
                      follow=False, since=0, tail=100):
@@ -583,12 +622,92 @@ class Kubectl(object):
         else:
             log_func = self.logs
         log_func = functools.partial(log_func, since=since, tail=tail)
-        if component_name.startswith('agent-'):
-            return log_func(component_name)
-        else:
-            assert component_name in \
-                   ['learner', 'ps', 'replay', 'tensorplex', 'tensorboard']
+        if component_name in self.NONAGENT_COMPONENTS:
             return log_func('nonagent', component_name)
+        else:
+            return log_func(component_name)
+
+    def exec_surreal(self, component_name, cmd):
+        """
+        kubectl exec -ti
+
+        Args:
+            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+            cmd: either a string command or a list of command args
+
+        Returns:
+            stdout string if is_print else None
+        """
+        if U.is_sequence(cmd):
+            cmd = ' '.join(map(shlex.quote, cmd))
+        if component_name in self.NONAGENT_COMPONENTS:
+            self.run_raw(
+                'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
+        else:
+            self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
+
+    def gcloud_get_config(self, config_key):
+        """
+        Returns: value of the gcloud config
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        out, _, _ = self.run_verbose(
+            'config get-value ' + config_key,
+            print_out=False,
+            raise_on_error=True,
+            program='gcloud'
+        )
+        return out.strip()
+
+    def gcloud_zone(self):
+        """
+        Returns: current gcloud zone
+        """
+        return self.gcloud_get_config('compute/zone')
+
+    def gcloud_project(self):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return self.gcloud_get_config('project')
+
+    def gcloud_configure_ssh(self):
+        """
+        Refresh the ssh settings for the current gcloud project
+        populate SSH config files with Host entries from each instance
+        https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
+        """
+        self.run_raw('compute config-ssh', program='gcloud')
+
+    def gcloud_url(self, node_name):
+        """
+        Returns: current gcloud project
+        https://cloud.google.com/sdk/gcloud/reference/config/get-value
+        for more complex outputs, add --format="json" to gcloud command
+        """
+        return '{}.{}.{}'.format(
+            node_name, self.gcloud_zone(), self.gcloud_project()
+        )
+
+    def gcloud_ssh_node(self, node_name):
+        """
+        Don't forget to run gcloud_config_ssh() first
+        """
+        url = self.gcloud_url(node_name)
+        print(url)
+        self.run_raw(
+            'ssh -o StrictHostKeyChecking=no ' + url,
+            program=''
+        )
+
+    def gcloud_ssh_fs(self):
+        """
+        ssh into the file system server specified in ~/.surrreal.yml
+        """
+        self.gcloud_ssh_node(self.config.fs.server)
 
 
 if __name__ == '__main__':
@@ -596,6 +715,7 @@ if __name__ == '__main__':
     import pprint
     pp = pprint.pprint
     kube = Kubectl(dry_run=0)
+    print(kube.gcloud_url('surreal-shared-fs-vm'))
     # 3 different ways to get a list of node names
     # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
     # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))

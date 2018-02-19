@@ -3,10 +3,16 @@ from surreal.session import *
 import surreal.utils as U
 from surreal.agent import agentFactory
 import argparse
+import time
+import numpy as np
+
+
 def agent_parser_setup(parser):
     parser.add_argument('id', type=int, help='agent id')
 
 def run_agent_main(args, config):
+    np.random.seed(int(time.time() * 100000 % 100000))
+    
     session_config, learner_config, env_config = config.session_config, config.learner_config, config.env_config
     agent_id = args.id
 

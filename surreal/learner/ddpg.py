@@ -7,7 +7,6 @@ from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-import time
 
 class DDPGLearner(Learner):
 
@@ -19,9 +18,11 @@ class DDPGLearner(Learner):
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_batchnorm = self.learner_config.algo.use_batchnorm
 
         self.gpu_id = session_config.learner.gpu
         self.log.info('Initializing DDPG learner')
+
         if self.gpu_id == -1:
             self.log.info('Using CPU')
         else:
@@ -48,26 +49,36 @@ class DDPGLearner(Learner):
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
                 use_z_filter=self.use_z_filter,
+                use_batchnorm=self.use_batchnorm,
+                actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
+            self.model.train()
 
             self.model_target = DDPGModel(
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
                 use_z_filter=self.use_z_filter,
+                use_batchnorm=self.use_batchnorm,
+                actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
+            self.model.eval()
 
             self.critic_criterion = nn.MSELoss()
 
             self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
-                lr=self.learner_config.algo.lr_critic
+                lr=self.learner_config.algo.lr_critic,
+                weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
             )
 
             self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
-                lr=self.learner_config.algo.lr_actor
+                lr=self.learner_config.algo.lr_actor,
+                weight_decay=self.learner_config.algo.actor_regularization # Weight regularization term
             )
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
@@ -154,13 +165,6 @@ class DDPGLearner(Learner):
             return tensorplex_update_dict
 
     def learn(self, batch):
-        if self.current_iteration == 0:
-            print('start timing')
-            self.time = time.time()
-        elif self.current_iteration % 100 == 0:
-            diff = time.time() - self.time
-            print('100 iteration in {:.3f} seconds'.format(diff))
-            self.time = time.time()
         self.current_iteration += 1
         batch = self.aggregator.aggregate(batch)
         tensorplex_update_dict = self._optimize(

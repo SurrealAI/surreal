@@ -34,6 +34,7 @@ class PPOAgent(Agent):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_cuda = False,
         )
 
         self.pd = DiagGauss(self.action_dim)
@@ -41,7 +42,7 @@ class PPOAgent(Agent):
     def act(self, obs):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action_pd = self.model.actor(obs).data.numpy()
+        action_pd = self.model.forward_actor(obs).data.numpy()
 
         if self.agent_mode is not AgentMode.eval_deterministic:
             action_choice = self.pd.sample(action_pd)

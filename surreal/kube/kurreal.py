@@ -1,6 +1,7 @@
 import argparse
 import surreal
 import webbrowser
+from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
 
@@ -17,7 +18,11 @@ def _process_experiment_name(experiment_name):
     """
     experiment_name will be used as DNS, so must not have underscore or dot
     """
-    return experiment_name.lower().replace('.', '-').replace('_', '-')
+    new_name = experiment_name.lower().replace('.', '-').replace('_', '-')
+    if new_name != experiment_name:
+        print_err('experiment name string has been fixed: {} -> {}'
+                  .format(experiment_name, new_name))
+    return new_name
 
 
 def _add_experiment_name(parser, nargs=None):
@@ -31,13 +36,21 @@ def _add_experiment_name(parser, nargs=None):
     )
 
 
-# def _process_labels(label_string):
-#     """
-#     mylabel1=myvalue1,mylabel2=myvalue2
-#     """
-#     assert '=' in label_string
-#     label_pairs = label_string.split(',')
-#     return [label_pair.split('=') for label_pair in label_pairs]
+def _add_component_arg(parser):
+    nonagent_str = ', '.join(map('"{}"'.format, Kubectl.NONAGENT_COMPONENTS))
+    parser.add_argument(
+        'component_name',
+        help="should be either agent-<N> or one of [{}]".format(nonagent_str)
+    )
+
+
+def _process_labels(label_string):
+    """
+    mylabel1=myvalue1,mylabel2=myvalue2
+    """
+    assert '=' in label_string
+    label_pairs = label_string.split(',')
+    return [label_pair.split('=') for label_pair in label_pairs]
 
 
 def setup_parser():
@@ -50,16 +63,17 @@ def setup_parser():
     )
     subparsers.required = True
 
-    def _add_subparser(name, parse_func):
+    def _add_subparser(name, parse_func, **kwargs):
         parser = subparsers.add_parser(
             name,
-            help=parse_func.__doc__
+            help=parse_func.__doc__,
+            **kwargs
         )
         _add_dry_run(parser)
         parser.set_defaults(func=parse_func)
         return parser
 
-    create_parser = _add_subparser('create', kurreal_create)
+    create_parser = _add_subparser('create', kurreal_create, aliases=['c'])
     _add_experiment_name(create_parser)
     create_parser.add_argument(
         'config_py',
@@ -74,80 +88,41 @@ def setup_parser():
         help='number of agents to run in parallel.'
     )
     create_parser.add_argument(
-        '-ap', '--agent-selector',
+        '-at', '--agent-pod-type',
         default='agent',
-        help='key in ~/.surreal.yml `selector` section that points to a node selector'
-             'If key does not exist, assume the string itself is a selector string'
-             'node selector for nodes on which agent processes run. '
-             'Default: "agent"' # TODO
+        help='key in ~/.surreal.yml `pod_types` section that describes spec for agent pod. '
+             'Default: "agent"'
     )
     create_parser.add_argument(
-        '-nap', '--nonagent-selector',
+        '-nt', '--nonagent-pod-type',
         default='nonagent-cpu',
-        help='key in ~/.surreal.yml `selector` section that points to a node selector'
-             'If key does not exist, assume the string itself is a selector string'
-             'node selector label for nodes on which nonagent processes '
-             '(learner, ps, etc.) run. Default: "nonagent-cpu"' # TODO
+        help='key in ~/.surreal.yml `pod_types` section that describes spec for '
+             'nonagent pod with multiple containers: learner, ps, tensorboard, etc. '
+             'Default: "nonagent-cpu"'
     )
     create_parser.add_argument(
-        '-ar', '--agent-resource-request',
-        default='agent',
-        help='key in ~/.surreal.yml `resource_requests` section'
-             'that points to a resource request setting for agent container'
-             'If key does not exist, assume the string itself can be parsed:'
-             'eg: cpu=1.5'
+        '-nos', '--no-snapshot',
+        action='store_true',
+        help='Unless this flag is on, Surreal will take snapshot of the specified '
+             'git repos in ~/.surreal.yml and upload to your remote Github branch.'
     )
     create_parser.add_argument(
-        '-nar', '--nonagent-resource-request',
-        default='nonagent-cpu',
-        help='key in ~/.surreal.yml `resource_requests` section'
-             'that points to a resource request setting for learner container'
-             'If key does not exist, assume the string itself can be parsed:'
-             'eg: cpu=7'
-    )
-    create_parser.add_argument(
-        '-ai', '--agent-image',
-        default='agent',
-        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
-             'If key does not exist, assume the string itself is a docker URL. '
-    )
-    create_parser.add_argument(
-        '-nai', '--nonagent-image',
-        default='nonagent-cpu',
-        help='key in ~/.surreal.yml `images` section that points to a docker image URL. '
-             'If key does not exist, assume the string itself is a docker URL.'
-    )
-    create_parser.add_argument(
-        '--force',
+        '-f', '--force',
         action='store_true',
         help='force overwrite an existing kurreal.yml file '
              'if its experiment folder already exists.'
     )
 
-    delete_parser = _add_subparser('delete', kurreal_delete)
-    _add_experiment_name(delete_parser)
-
-    # you don't need labeling for kube autoscaling
-    # label_parser = _add_subparser('label', kurreal_label)
-    # label_parser.add_argument(
-    #     'old_labels',
-    #     help='select nodes according to their old labels'
-    # )
-    # label_parser.add_argument(
-    #     'new_labels',
-    #     type=_process_labels,
-    #     help='mark the selected nodes with new labels in format '
-    #          '"mylabel1=myvalue1,mylabel2=myvalue2"'
-    # )
-
-    # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
-
-    logs_parser = _add_subparser('logs', kurreal_logs)
-    logs_parser.add_argument(
-        'component_name',
-        help="must be either agent-<N> or one of "
-             "'learner', 'ps', 'replay', 'tensorplex', 'tensorboard'"
+    delete_parser = _add_subparser('delete', kurreal_delete, aliases=['d'])
+    _add_experiment_name(delete_parser, nargs='?')
+    delete_parser.add_argument(
+        '-f', '--force',
+        action='store_true',
+        help='force delete, do not show confirmation message.'
     )
+
+    logs_parser = _add_subparser('log', kurreal_logs, aliases=['logs', 'l'])
+    _add_component_arg(logs_parser)
     logs_parser.add_argument(
         '-f', '--follow',
         action='store_true',
@@ -165,30 +140,89 @@ def setup_parser():
         help='Only show the most recent lines of log. -1 to show all log lines.'
     )
 
-    namespace_parser = _add_subparser('ns', kurreal_namespace)
+    exec_parser = _add_subparser('exec', kurreal_exec, aliases=['x'])
+    _add_component_arg(exec_parser)
+    exec_parser.add_argument(
+        'commands',
+        nargs=argparse.REMAINDER,
+        help="command to be executed in the pod. You don't have to quote it."
+    )
+
+    ssh_parser = _add_subparser('ssh', kurreal_ssh, aliases=[])
+    _add_component_arg(ssh_parser)
+
+    ssh_node_parser = _add_subparser('ssh-node', kurreal_ssh_node, aliases=['sshnode'])
+    ssh_node_parser.add_argument('node_name', help='gcloud only')
+    ssh_node_parser.add_argument(
+        '-c', '--configure-ssh',
+        action='store_true',
+        help='update ssh configs first if you cannot ssh into the node. '
+             'reconfigure every time you switch project or add new nodes.'
+    )
+
+    ssh_nfs_parser = _add_subparser('ssh-nfs', kurreal_ssh_nfs, aliases=['sshnfs'])
+    ssh_nfs_parser.add_argument(
+        '-c', '--configure-ssh',
+        action='store_true',
+        help='update ssh configs first if you cannot ssh into the node. '
+             'reconfigure every time you switch project or add new nodes.'
+    )
+
+    describe_parser = _add_subparser('describe', kurreal_describe, aliases=['des'])
+    describe_parser.add_argument(
+        'pod_name',
+        help="should be either 'agent-<N>' or 'nonagent'"
+    )
+
+    namespace_parser = _add_subparser('ns', kurreal_namespace,
+                                      aliases=['exp', 'experiment'])
     # no arg to get the current namespace
     _add_experiment_name(namespace_parser, nargs='?')
 
-    list_parser = _add_subparser('list', kurreal_list)
+    list_parser = _add_subparser('list', kurreal_list, aliases=['ls'])
     list_parser.add_argument(
         'resource',
-        choices=['ns', 'namespace', 'p', 'pod', 'no', 'node', 's', 'service'],
+        choices=['ns', 'namespace', 'namespaces',
+                 'e', 'exp', 'experiment', 'experiments',
+                 'p', 'pod', 'pods',
+                 'no', 'node', 'nodes',
+                 's', 'service', 'services'],
         help='list experiment, pod, and node'
     )
 
-    tb_parser = _add_subparser('tb', kurreal_tb)
+    tb_parser = _add_subparser('tb', kurreal_tb, aliases=['tensorboard'])
     tb_parser.add_argument(
         '-u', '--url-only',
-        nargs='?',
+        action='store_true',
         help='only show the URL without opening the browser.'
     )
 
-    debug_create_parser = _add_subparser('debug-create', kurreal_debug_create)
-    _add_experiment_name(debug_create_parser)
-    debug_create_parser.add_argument('-sn', '--snapshot', action='store_true')
-    debug_create_parser.add_argument('-g', '--gpu', action='store_true')
-    debug_create_parser.add_argument('-c', '--config_file', default='ddpg_configs.py', help='which config file in surreal/main to use')
-    debug_create_parser.add_argument('num_agents', type=int)
+    # ===== internal dev only =====
+    create_dev_parser = _add_subparser('create-dev', kurreal_create_dev,
+                                       aliases=['cdev', 'devc', 'cd', 'dev-create'])
+    _add_experiment_name(create_dev_parser)
+    create_dev_parser.add_argument('num_agents', type=int)
+    create_dev_parser.add_argument('-nos', '--no-snapshot', action='store_true')
+    create_dev_parser.add_argument('-f', '--force', action='store_true')
+    create_dev_parser.add_argument('-g', '--gpu', action='store_true')
+    create_dev_parser.add_argument('-c', '--config_file',
+                                   default='ddpg_configs.py',
+                                   help='which config file in surreal/main to use')
+
+    # you don't need labeling for kube autoscaling
+    # label_parser = _add_subparser('label', kurreal_label)
+    # label_parser.add_argument(
+    #     'old_labels',
+    #     help='select nodes according to their old labels'
+    # )
+    # label_parser.add_argument(
+    #     'new_labels',
+    #     type=_process_labels,
+    #     help='mark the selected nodes with new labels in format '
+    #          '"mylabel1=myvalue1,mylabel2=myvalue2"'
+    # )
+
+    # label_gcloud_parser = _add_subparser('label-gcloud', kurreal_label_gcloud)
 
     return parser
 
@@ -201,65 +235,58 @@ def _find_kurreal_template():
     return U.f_join(surreal.__path__[0], 'kube', 'kurreal_template.yml')
 
 
-def kurreal_create(args, remainder):
+def kurreal_create(args):
     """
-    Spin up a multi-node distributed Surreal experiment
+    Spin up a multi-node distributed Surreal experiment.
+    Put any command line args that pass to the config script after "--"
     """
     kube = Kubectl(dry_run=args.dry_run)
     if args.config_py.startswith('/'):
         config_py = args.config_py
     else:
         config_py = U.f_join('/root', args.config_py)
+    args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
         config_py,
-        config_command=' '.join(remainder),
+        config_command=' '.join(args.remainder),
         service_url=args.experiment_name + '.surreal'
     )
     cmd_dict = cmd_gen.generate(args.num_agents)
     kube.create_surreal(
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
-        snapshot=args.snapshot,
-        agent_selector=args.agent_pool,
-        nonagent_selector=args.nonagent_pool,
-        agent_resource_request=args.agent_resource_request,
-        nonagent_resource_request=args.nonagent_resource_request,
-        agent_image=args.agent_image,
-        nonagent_image=args.nonagent_image,
-        check_file_exists=not args.force,
-        NONAGENT_HOST_NAME=args.experiment_name,
-        CMD_DICT=cmd_dict
+        snapshot=not args.no_snapshot,
+        agent_pod_type=args.agent_pod_type,
+        nonagent_pod_type=args.nonagent_pod_type,
+        cmd_dict=cmd_dict,
+        check_experiment_exists=not args.force,
     )
     # switch to the experiment namespace just created
-    kurreal_namespace(args, remainder)
+    kurreal_namespace(args)
 
 
-def kurreal_debug_create(args, remainder):
+def kurreal_create_dev(args):
     """
     CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
     config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
     service_url=experiment_name + '.surreal')
     """
     kube = Kubectl(dry_run=args.dry_run)
-    if len(remainder) > 0:
-        config_command = remainder
+    if len(args.remainder) > 0:
+        config_command = args.remainder
     else:
         config_command = ['--env', "'dm_control:cheetah-run'"]
 
     if args.gpu:
-        nonagent_selector = 'nonagent-gpu'
-        nonagent_resource_request = 'nonagent-gpu'
-        nonagent_resource_limit = 'nonagent-gpu'
-        nonagent_image = 'nonagent-gpu'
+        nonagent_pod_type = 'nonagent-gpu'
         config_command += ["--gpu", "0"]
     else:
-        nonagent_selector = 'nonagent-cpu'
-        nonagent_resource_request = 'nonagent-cpu'
-        nonagent_resource_limit = None
-        nonagent_image = 'nonagent-cpu'
+        nonagent_pod_type = 'nonagent-cpu'
 
-    config_command += ["--savefile", "/fs/{}/experiments/{}".format(kube.config.username, args.experiment_name)]
+    config_command += ["--savefile",
+       "/fs/experiments/{}/{}".format(kube.config.username, args.experiment_name)]
 
+    args.experiment_name = kube.get_experiment_name(args.experiment_name)
     cmd_gen = CommandGenerator(
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
         'surreal/surreal/main/' + args.config_file,
@@ -270,60 +297,111 @@ def kurreal_debug_create(args, remainder):
     kube.create_surreal(
         args.experiment_name,
         jinja_template=_find_kurreal_template(),
-        snapshot=args.snapshot,
-        agent_selector='agent',
-        nonagent_selector=nonagent_selector,
-        agent_resource_request='agent',
-        nonagent_resource_request=nonagent_resource_request,
-        nonagent_resource_limit=nonagent_resource_limit,
-        agent_image='agent',
-        nonagent_image=nonagent_image,
-        check_file_exists=False,
-        NONAGENT_HOST_NAME=args.experiment_name,
-        CMD_DICT=cmd_dict
+        snapshot=not args.no_snapshot,
+        agent_pod_type='agent',
+        nonagent_pod_type=nonagent_pod_type,
+        cmd_dict=cmd_dict,
+        check_experiment_exists=not args.force,
     )
-    kurreal_namespace(args, remainder)
+    kurreal_namespace(args)
 
 
-def kurreal_delete(args, _):
+def _interactive_find_ns(kube, name, max_matches=10):
+    """
+    Find partial match of namespace, ask user to verify before switching to
+    ns or delete experiment.
+    Used in:
+    - kurreal delete
+    - kurreal ns
+    Disabled when --force
+    """
+    matches = kube.fuzzy_match_namespace(name, max_matches=max_matches)
+    if isinstance(matches, str):
+        return matches  # exact match
+    if len(matches) == 0:
+        print_err('namespace `{}` not found. '
+                  'Please run `kurreal list ns` and check for typos.'.format(name))
+        return None
+    prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
+    prompt = ('Cannot find exact match. Fuzzy matching: \n'
+              '{}\nEnter your selection 0-{} (q to quit): '
+              .format(prompt, len(matches) - 1))
+    ans = input(prompt)
+    try:
+        ans = int(ans)
+    except ValueError:  # cannot convert to int, quit
+        print_err('aborted')
+        return None
+    if ans >= len(matches):
+        raise IndexError('must enter a number between 0 - {}'.format(len(matches)-1))
+    return matches[ans]
+
+
+def kurreal_delete(args):
     """
     Stop an experiment, delete corresponding pods, services, and namespace.
+    If experiment_name is omitted, default to deleting the current namespace.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    kube.delete(args.experiment_name)
+    if args.experiment_name:
+        to_delete = args.experiment_name
+        if args.force:
+            assert to_delete in kube.list_namespaces(), \
+                'namespace `{}` not found. ' \
+                'Run without --force to fuzzy match the name.'.format(to_delete)
+        else:  # fuzzy match namespace to delete
+            to_delete = _interactive_find_ns(kube, to_delete)
+            if to_delete is None:
+                return
+    else:
+        to_delete = kube.current_namespace()
+
+    assert to_delete not in ['default', 'kube-public', 'kube-system'], \
+        'cannot delete reserved namespaces: default, kube-public, kube-system'
+    if not args.force:
+        ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
+        if ans not in ['', 'y', 'yes', 'Y']:
+            print('aborted')
+            return
+    kube.delete(to_delete)
 
 
-def kurreal_namespace(args, _):
+def kurreal_namespace(args):
     """
     `kurreal ns`: show the current namespace/experiment
     `kurreal ns <namespace>`: switch context to another namespace/experiment
     """
     kube = Kubectl(dry_run=args.dry_run)
-    if args.experiment_name:
-        kube.set_namespace(args.experiment_name)
+    name = args.experiment_name
+    if name:
+        name = _interactive_find_ns(kube, name)
+        if name is None:
+            return
+        kube.set_namespace(name)
     else:
         print(kube.current_namespace())
 
 
-def kurreal_list(args, _):
+def kurreal_list(args):
     """
     List resource information: namespace, pods, nodes, services
     """
     kube = Kubectl(dry_run=args.dry_run)
     run = lambda cmd: kube.run_verbose(cmd, print_out=True, raise_on_error=False)
-    if args.resource in ['ns', 'namespace']:
+    if args.resource in ['ns', 'namespace', 'namespaces',
+                         'e', 'exp', 'experiment', 'experiments']:
         run('get namespace')
-    elif args.resource in ['p', 'pod']:
+    elif args.resource in ['p', 'pod', 'pods']:
         run('get pods -o wide')
-    elif args.resource in ['no', 'node']:
+    elif args.resource in ['no', 'node', 'nodes']:
         run('get nodes -o wide')
-    elif args.resource in ['s', 'service']:
+    elif args.resource in ['s', 'service', 'services']:
         run('get services -o wide')
     else:
         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
 
-def kurreal_label(args, _):
+def kurreal_label(args):
     """
     Label nodes in node pools
     """
@@ -332,7 +410,7 @@ def kurreal_label(args, _):
         kube.label_nodes(args.old_labels, label, value)
 
 
-def kurreal_label_gcloud(args, _):
+def kurreal_label_gcloud(args):
     """
     NOTE: you don't need this for autoscale
 
@@ -351,7 +429,7 @@ def kurreal_label_gcloud(args, _):
                      'surreal-node', 'nonagent-pool')
 
 
-def kurreal_logs(args, _):
+def kurreal_logs(args):
     """
     Show logs of Surreal components: agent-<N>, learner, ps, etc.
     https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
@@ -366,24 +444,88 @@ def kurreal_logs(args, _):
     )
 
 
-def kurreal_tb(args, _):
+def kurreal_exec(args):
+    """
+    Exec command on a Surreal component: agent-<N>, learner, ps, etc.
+    kubectl exec -ti <component> -- <command>
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    if len(args.commands) == 1:
+        args.commands = args.commands[0]  # don't quote the singleton string
+    kube.exec_surreal(args.component_name, args.commands)
+
+
+def kurreal_ssh(args):
+    """
+    Interactive /bin/bash into the pod
+    kubectl exec -ti <component> -- /bin/bash
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.exec_surreal(args.component_name, '/bin/bash')
+
+
+def kurreal_ssh_node(args):
+    """
+    GCloud only, ssh into gcloud nodes.
+    Run `kurreal list node` to get the node name.
+    Run with --configure-ssh if ssh config is outdated
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    if args.configure_ssh:
+        kube.gcloud_configure_ssh()
+        print('GCloud ssh configured successfully')
+    kube.gcloud_ssh_node(args.node_name)
+
+
+def kurreal_ssh_nfs(args):
+    """
+    GCloud only, ssh into gcloud NFS.
+    Its server address should be specified in ~/.surreal.yml
+    Run with --configure-ssh if ssh config is outdated
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    if args.configure_ssh:
+        kube.gcloud_configure_ssh()
+        print('GCloud ssh configured successfully')
+    kube.gcloud_ssh_fs()
+
+
+def kurreal_describe(args):
+    """
+    Same as `kubectl describe pod <pod_name>`
+    """
+    kube = Kubectl(dry_run=args.dry_run)
+    kube.describe(args.pod_name)
+
+
+def kurreal_tb(args):
     """
     Open tensorboard in your default browser.
     """
     kube = Kubectl(dry_run=args.dry_run)
-    url = 'http://' + kube.external_ip('tensorboard')
+    url = kube.external_ip('tensorboard')
     if url:
+        url = 'http://' + url
         print(url)
         if not args.url_only:
             webbrowser.open(url)
+    else:
+        print_err('Tensorboard does not yet have an external IP.')
 
 
 def main():
     parser = setup_parser()
-    args, remainder = parser.parse_known_args()
-    if '--' in remainder:
-        remainder.remove('--')
-    args.func(args, remainder)
+    assert sys.argv.count('--') <= 1, 'command line can only have at most one "--"'
+    if '--' in sys.argv:
+        idx = sys.argv.index('--')
+        remainder = sys.argv[idx+1:]
+        sys.argv = sys.argv[:idx]
+    else:
+        remainder = []
+        
+    args = parser.parse_args()
+    args.remainder = remainder
+    args.func(args)
 
 
 if __name__ == '__main__':

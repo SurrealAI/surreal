@@ -8,6 +8,7 @@ from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
 from surreal.session import ConfigError
+import time
 
 class DDPGAgent(Agent):
 
@@ -26,19 +27,32 @@ class DDPGAgent(Agent):
             agent_mode=agent_mode,
         )
 
+        self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_batchnorm = self.learner_config.algo.use_batchnorm
+        
         self.noise_type = self.learner_config.algo.exploration.noise_type
-        self.sigma = self.learner_config.algo.exploration.sigma
+        if type(self.learner_config.algo.exploration.sigma) == list:
+            if len(self.learner_config.algo.exploration.sigma) <= agent_id:
+                raise ConfigError('Agent {} out of range for sigma of length {}'.format(agent_id, len(self.learner_config.algo.exploration.sigma)))
+            self.sigma = self.learner_config.algo.exploration.sigma[agent_id]
+        elif type(self.learner_config.algo.exploration.sigma) in [int, float]:
+            self.sigma = self.learner_config.algo.exploration.sigma
+        else:
+            raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
 
         self.model = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            use_batchnorm=self.use_batchnorm,
+            actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+            critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
         )
+        self.model.eval()
 
-        
         self.init_noise()
 
     def init_noise(self):
@@ -53,7 +67,7 @@ class DDPGAgent(Agent):
                                            np.ones(self.action_dim) * self.sigma)
         elif self.noise_type == 'ou_noise':
             self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),
-                                                      sigma=self.learner_config.algo.exploration.sigma,
+                                                      sigma=self.sigma,
                                                       theta=self.learner_config.algo.exploration.theta,
                                                       dt=self.learner_config.algo.exploration.dt)
         else:
@@ -64,10 +78,9 @@ class DDPGAgent(Agent):
         #     print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
-
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action = self.model.actor(obs).data.numpy()[0]
+        action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
 
         if self.agent_mode is not AgentMode.eval_deterministic:
@@ -85,7 +98,8 @@ class DDPGAgent(Agent):
         return {
             'model': {
                 'convs': '_list_',
-                'fc_hidden_sizes': '_list_',
+                'actor_fc_hidden_sizes': '_list_',
+                'critic_fc_hidden_sizes': '_list_',
             },
         }
 
@@ -93,3 +107,4 @@ class DDPGAgent(Agent):
         super().pre_episode()
         if self.agent_mode is not AgentMode.eval_deterministic:
             self.noise.reset()
+

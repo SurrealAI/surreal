@@ -18,7 +18,8 @@ def generate(argv):
     learner_config = {
         'model': {
             'convs': [],
-            'fc_hidden_sizes': [128],
+            'actor_fc_hidden_sizes': [300, 200],
+            'critic_fc_hidden_sizes': [400, 300],
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -37,13 +38,13 @@ def generate(argv):
             'lr_critic': 1e-3,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 5.,
+            'actor_gradient_clip_value': 1.,
             'clip_critic_gradient': False,
             'critic_gradient_clip_value': 5.,
             'gamma': .99,
             'target_update': {
                 'type': 'soft',
-                'tau': 1e-2,
+                'tau': 1e-3,
                 # 'type': 'hard',
                 # 'interval': 100,
             },
@@ -56,15 +57,18 @@ def generate(argv):
                 # 'sigma': 0.3,
                 # 'dt': 1e-3,
             },
+            'actor_regularization': 0.0,
+            'critic_regularization': 0.0,
+            'use_batchnorm': False,
             'limit_training_episode_length': 0, # 0 means no limit
-            'n_step': 1,
+            'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
             'stride': 1,
         },
         'replay': {
             'replay_class': 'UniformReplay',
-            'batch_size': 64,
+            'batch_size': 512,
             'memory_size': 1000000,
             'sampling_start_size': 1000,
         },
@@ -75,6 +79,12 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
+        'video': {
+            'record_video': False,
+            'save_directory': '/mnt/snaps/',
+            'max_videos': 100,
+            'record_every': 100,
+        }
     }
 
     session_config = Config({
