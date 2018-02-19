@@ -53,13 +53,14 @@ class ZmqServerWorker(threading.Thread):
     """
     replay -> learner, replay handling learner's requests
     """
-    def __init__(self, context, handler, is_pyobj):
+    def __init__(self, context, handler, is_pyobj, worker_id=''):
         threading.Thread.__init__(self)
         self.context = context
         self._handler = handler
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)
         self.serialize_time = U.TimeRecorder()
+        self.worker_id = worker_id
 
     def run(self):
         socket = self.context.socket(zmq.REP)
@@ -106,10 +107,12 @@ class ZmqServer(threading.Thread):
 
         workers = []
         for worker_id in range(self.num_workers):
-            worker = ZmqServerWorker(context, self.handler, self.is_pyobj)
+            worker = ZmqServerWorker(context, self.handler, self.is_pyobj, id='{}'.format(worker_id))
             worker.start()
             workers.append(worker)
 
+        self.serialize_time = workers[0].serialize_time
+        
         # http://zguide.zeromq.org/py:mtserver
         # http://api.zeromq.org/3-2:zmq-proxy
         # **WARNING**: zmq.proxy() must be called AFTER the threads start,
@@ -117,8 +120,8 @@ class ZmqServer(threading.Thread):
         # Before calling zmq_proxy() you must set any socket options, and
         # connect or bind both frontend and backend sockets.
         zmq.proxy(router, dealer)
-
-        self.serialize_time = workers[0].serialize_time
+        # Loops
+        
 
         # Never reach
         router.close()

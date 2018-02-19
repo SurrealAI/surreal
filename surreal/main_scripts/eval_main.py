@@ -1,6 +1,7 @@
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
+AgentMode = U.AgentMode
 from surreal.agent import agentFactory
 import time
 import numpy as np
@@ -21,6 +22,7 @@ def run_eval_main(args, config):
     agent_mode = AgentMode[args.mode]
     assert agent_mode != AgentMode.training
 
+    # TODO: clean up eval_id and agent_id
     if agent_mode == AgentMode.eval_deterministic:
         eval_id = 'deterministic-{}'.format(args.id)
     else:
@@ -35,25 +37,4 @@ def run_eval_main(args, config):
         agent_mode=agent_mode,
     )
 
-    env = EvalTensorplexMonitor(
-        env,
-        eval_id=eval_id,
-        fetch_parameter=agent.fetch_parameter,
-        session_config=session_config,
-    )
-    
-    while True:
-        obs, info = env.reset()
-        agent.pre_episode()
-        while True:
-            obs = U.to_float_tensor(obs)
-            agent.pre_action(obs)
-            action = agent.act(obs)
-            obs_next, reward, done, info = env.step(action)
-            agent.post_action(obs, action, obs_next, reward, done, info)
-            obs = obs_next
-            if args.render:
-                env.render()
-            if done:
-                break
-        agent.post_episode()
+    agent.main(env, args.render)

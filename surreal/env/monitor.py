@@ -4,7 +4,7 @@ import numpy as np
 from tabulate import tabulate
 from collections import OrderedDict
 from surreal.session import PeriodicTracker, AgentTensorplex, EvalTensorplex
-from surreal.agent import AgentMode
+from surreal.utils import AgentMode
 import surreal.utils as U
 from .wrapper import Wrapper
 

@@ -3,7 +3,9 @@ Actor function
 """
 import torch
 from torch.autograd import Variable
-from .base import Agent, AgentMode
+from .base import Agent
+import surreal.utils as U
+from surreal.utils import AgentMode
 from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
@@ -78,6 +80,7 @@ class DDPGAgent(Agent):
         #     print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
+        obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.forward_actor(obs).data.numpy()[0]

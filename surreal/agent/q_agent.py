@@ -5,8 +5,9 @@ import torch
 import random
 from torch.autograd import Variable
 import surreal.utils as U
+from surreal.utils import AgentMode
 from surreal.model.q_net import build_ffqfunc
-from .base import Agent, AgentMode
+from .base import Agent
 
 
 class QAgent(Agent):
