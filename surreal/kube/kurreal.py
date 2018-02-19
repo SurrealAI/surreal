@@ -44,6 +44,7 @@ class KurrealParser:
         self._setup_ssh()
         self._setup_ssh_node()
         self._setup_ssh_nfs()
+        self._setup_configure_ssh()
         return self._master_parser
 
     def _add_subparser(self, name, aliases, **kwargs):
@@ -196,21 +197,12 @@ class KurrealParser:
     def _setup_ssh_node(self):
         parser = self._add_subparser('ssh-node', aliases=['sshnode'])
         parser.add_argument('node_name', help='gcloud only')
-        parser.add_argument(
-            '-c', '--configure-ssh',
-            action='store_true',
-            help='update ssh configs first if you cannot ssh into the node. '
-                 'reconfigure every time you switch project or add new nodes.'
-        )
 
     def _setup_ssh_nfs(self):
         parser = self._add_subparser('ssh-nfs', aliases=['sshnfs'])
-        parser.add_argument(
-            '-c', '--configure-ssh',
-            action='store_true',
-            help='update ssh configs first if you cannot ssh into the node. '
-                 'reconfigure every time you switch project or add new nodes.'
-        )
+
+    def _setup_configure_ssh(self):
+        parser = self._add_subparser('configure-ssh', aliases=['configssh'])
 
     def _setup_label(self):
         """
@@ -528,11 +520,11 @@ class Kurreal:
         Run `kurreal list node` to get the node name.
         Run with --configure-ssh if ssh config is outdated
         """
-        kube = self.kube
-        if args.configure_ssh:
-            kube.gcloud_configure_ssh()
-            print('GCloud ssh configured successfully')
-        kube.gcloud_ssh_node(args.node_name)
+        errcode = self.kube.gcloud_ssh_node(args.node_name)
+        if errcode != 0:
+            print_err('GCloud ssh aliases might be outdated. Try:\n'
+                      'kurreal configure-ssh && '
+                      'kurreal ssh-node ' + args.node_name)
 
     def kurreal_ssh_nfs(self, args):
         """
@@ -540,11 +532,15 @@ class Kurreal:
         Its server address should be specified in ~/.surreal.yml
         Run with --configure-ssh if ssh config is outdated
         """
-        kube = self.kube
-        if args.configure_ssh:
-            kube.gcloud_configure_ssh()
+        errcode = self.kube.gcloud_ssh_fs()
+        if errcode != 0:
+            print_err('GCloud ssh aliases might be outdated. Try:\n'
+                      'kurreal configure-ssh && kurreal ssh-nfs')
+
+    def kurreal_configure_ssh(self, args):
+        errcode = self.kube.gcloud_configure_ssh()
+        if errcode == 0:
             print('GCloud ssh configured successfully')
-        kube.gcloud_ssh_fs()
 
     def kurreal_describe(self, args):
         """

@@ -88,15 +88,20 @@ class Kubectl(object):
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
 
-    def run_raw(self, cmd, program='kubectl'):
+    def run_raw(self, cmd, program='kubectl', print_cmd=False):
         """
         Raw os.system calls
+
+        Returns:
+            error code
         """
         cmd = program + ' ' + cmd
         if self.dry_run:
             print(cmd)
         else:
-            os.system(cmd)
+            if print_cmd:
+                print(cmd)
+            return os.system(cmd)
 
     def _print_err_return(self, out, err, retcode):
         print_err('error code:', retcode)
@@ -683,10 +688,11 @@ class Kubectl(object):
         if U.is_sequence(cmd):
             cmd = ' '.join(map(shlex.quote, cmd))
         if component_name in self.NONAGENT_COMPONENTS:
-            self.run_raw(
+            return self.run_raw(
                 'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
         else:
-            self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
+            return self.run_raw(
+                'exec -ti {} -- {}'.format(component_name, cmd))
 
     def gcloud_get_config(self, config_key):
         """
@@ -722,7 +728,7 @@ class Kubectl(object):
         populate SSH config files with Host entries from each instance
         https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
         """
-        self.run_raw('compute config-ssh', program='gcloud')
+        return self.run_raw('compute config-ssh', program='gcloud')
 
     def gcloud_url(self, node_name):
         """
@@ -739,17 +745,17 @@ class Kubectl(object):
         Don't forget to run gcloud_config_ssh() first
         """
         url = self.gcloud_url(node_name)
-        print(url)
-        self.run_raw(
+        return self.run_raw(
             'ssh -o StrictHostKeyChecking=no ' + url,
-            program=''
+            program='',
+            print_cmd=True
         )
 
     def gcloud_ssh_fs(self):
         """
         ssh into the file system server specified in ~/.surrreal.yml
         """
-        self.gcloud_ssh_node(self.config.fs.server)
+        return self.gcloud_ssh_node(self.config.fs.server)
 
 
 if __name__ == '__main__':
