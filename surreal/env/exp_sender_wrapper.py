@@ -32,8 +32,8 @@ class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
         self.session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
         self.learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
         self.sender = ExpSender(
-            host=self.session_config.replay.host,
-            port=self.session_config.replay.port,
+            host=self.session_config.replay.collector_frontend_host,
+            port=self.session_config.replay.collector_frontend_port,
             flush_iteration=self.session_config.sender.flush_iteration,
         )
         

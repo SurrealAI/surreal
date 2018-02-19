@@ -69,8 +69,10 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 512,
-            'memory_size': 1000000,
+            # 'memory_size': 1000000,
+            'memory_size': 100000,
             'sampling_start_size': 1000,
+            'replay_shards': 3,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode

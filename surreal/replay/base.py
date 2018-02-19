@@ -28,7 +28,8 @@ class Replay(object, metaclass=ReplayMeta):
     def __init__(self,
                  learner_config,
                  env_config,
-                 session_config):
+                 session_config,
+                 name=''):
         """
         """
         # Note that there're 2 replay configs:
@@ -37,16 +38,21 @@ class Replay(object, metaclass=ReplayMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
+        self.name = name
 
+        exp_queue_add = "tcp://{}:{}".format(self.session_config.replay.collector_backend_host,
+                                            self.session_config.replay.collector_backend_port)
         self._exp_queue = ExpQueue(
-            port=self.session_config.replay.port,
+            address=exp_queue_add,
             max_size=self.session_config.replay.max_puller_queue,
             exp_handler=self._insert_wrapper,
         )
         self._sampler_server = ZmqServer(
-            port=self.session_config.replay.sampler_port,
+            host=self.session_config.replay.sampler_backend_host,
+            port=self.session_config.replay.sampler_backend_port,
             handler=self._sample_request_handler,
-            is_pyobj=True
+            is_pyobj=True,
+            loadbalanced=True,
         )
         self._job_queue = U.JobQueue()
 
@@ -113,11 +119,11 @@ class Replay(object, metaclass=ReplayMeta):
     # ======================== internal methods ========================    
     def _setup_logging(self):
         self.log = Loggerplex(
-            name='replay',
+            name='-'.join(['replay', self.name]),
             session_config=self.session_config
         )
         self.tensorplex = StatsTensorplex(
-            section_name='replay',
+            section_name='-'.join(['replay', self.name]),
             session_config=self.session_config
         )
         self._tensorplex_thread = None
@@ -204,5 +210,3 @@ class Replay(object, metaclass=ReplayMeta):
             'sample_time': self.sample_time.avg,
             'serialize_time': self._sampler_server.serialize_time.avg,
         }
-
-

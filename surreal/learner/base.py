@@ -201,8 +201,8 @@ class Learner(LearnerCore):
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
         super().__init__(
-            sampler_host=self.session_config.replay.sampler_host,
-            sampler_port=self.session_config.replay.sampler_port,
+            sampler_host=self.session_config.replay.sampler_frontend_host,
+            sampler_port=self.session_config.replay.sampler_frontend_port,
             ps_publish_port=self.session_config.ps.publish_port,
             batch_size=self.learner_config.replay.batch_size,
             max_prefetch_batch_queue=self.session_config.replay.max_prefetch_batch_queue
