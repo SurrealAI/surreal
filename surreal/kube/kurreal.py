@@ -34,11 +34,13 @@ class KurrealParser:
         self._setup_create()
         self._setup_create_dev()
         self._setup_restore()
+        self._setup_resume()
         self._setup_delete()
         self._setup_log()
         self._setup_namespace()
         self._setup_tensorboard()
         self._setup_list()
+        self._setup_pod()
         self._setup_describe()
         self._setup_exec()
         self._setup_ssh()
@@ -111,18 +113,20 @@ class KurrealParser:
         parser = self._add_subparser('restore', aliases=[])
         self._add_experiment_name(parser)
         parser.add_argument(
-            'config_py',
-            type=str,
-            help='location of python script **in the Kube pod** that contains the '
-                 'runnable config. If the path does not start with /, defaults to '
-                 'home dir, i.e. /root/ on the pod'
+            'restore_experiment',
+            help="experiment name to restore from. "
+                 "To restore from other people's checkpoint, "
+                 "please give full path to their folder on the shared FS: "
+                 "'/fs/experiments/myfriend/.../'"
         )
-        parser.add_argument(
-            'num_agents',
-            type=int,
-            help='number of agents to run in parallel.'
-        )
+        self._add_restore_args(parser)
         self._add_create_args(parser)
+
+    def _setup_resume(self):
+        parser = self._add_subparser('resume', aliases=['continue'])
+        self._add_experiment_name(parser)
+        self._add_restore_args(parser)
+        self._add_create_args(parser)  # --force is automatically turned on
 
     def _setup_log(self):
         parser = self._add_subparser('log', aliases=['logs', 'l'])
@@ -165,6 +169,10 @@ class KurrealParser:
             nargs='?',
             help='list experiment, pod, and node'
         )
+
+    def _setup_pod(self):
+        "save as 'kurreal list pod'"
+        parser = self._add_subparser('pod', aliases=['p', 'pods'])
 
     def _setup_tensorboard(self):
         parser = self._add_subparser('tensorboard', aliases=['tb'])
@@ -256,6 +264,9 @@ class KurrealParser:
         )
 
     def _add_create_args(self, parser):
+        """
+        Used in create(), restore(), resume()
+        """
         parser.add_argument(
             '-at', '--agent-pod-type',
             default='agent',
@@ -282,6 +293,43 @@ class KurrealParser:
                  'if its experiment folder already exists.'
         )
 
+    def _add_restore_args(self, parser):
+        """
+        Used in restore(), resume()
+        If remainders (cmd line args after "--") are specified,
+        override the saved launch cmd args
+        """
+        parser.add_argument(
+            '--config-py',
+            default=None,
+            help='If unspecified, defaults to the saved launch command. '
+                 'location of python script **in the Kube pod** that contains the '
+                 'runnable config. If the path does not start with /, defaults to '
+                 'home dir, i.e. /root/ on the pod'
+        )
+        parser.add_argument(
+            '-n', '--num-agents',
+            type=int,
+            default=None,
+            help='If unspecified, defaults to the saved launch command. '
+                 'number of agents to run in parallel.'
+        )
+        # the following should not be managed by Kurreal, should be set in config.py
+        # session_config.checkpoint.learner.restore_target
+        # parser.add_argument(
+        #     '--best',
+        #     action='store_true',
+        #     help='restore from the best checkpoint, otherwise from history'
+        # )
+        # parser.add_argument(
+        #     '-t', '--target',
+        #     default='0',
+        #     help='see "Checkpoint" class. Restore target can be one of '
+        #          'the following semantics:\n'
+        #          '- int: 0 for the last (or best), 1 for the second last (or best), etc.'
+        #          '- global steps of the ckpt file, the suffix string right before ".ckpt"'
+        # )
+
 
 class Kurreal:
     def __init__(self, args):
@@ -295,44 +343,74 @@ class Kurreal:
         """
         return U.f_join(surreal.__path__[0], 'kube', 'kurreal_template.yml')
 
-    def kurreal_create(self, args):
-        """
-        Spin up a multi-node distributed Surreal experiment.
-        Put any command line args that pass to the config script after "--"
-        """
+    def _create_helper(self, *,
+                       config_py,
+                       experiment_name,
+                       num_agents,
+                       config_command,
+                       agent_pod_type,
+                       nonagent_pod_type,
+                       restore,
+                       restore_folder,
+                       no_snapshot,
+                       force):
         kube = self.kube
-        if args.config_py.startswith('/'):
-            config_py = args.config_py
+        if config_py.startswith('/'):
+            config_py = config_py
         else:
-            config_py = U.f_join('/root', args.config_py)
+            config_py = U.f_join('/root', config_py)
 
-        prefixed_name = kube.prefix_username(args.experiment_name)
-        stripped_name = kube.strip_username(args.experiment_name)
+        prefixed_name = kube.prefix_username(experiment_name)
+        stripped_name = kube.strip_username(experiment_name)
+        experiment_folder = kube.get_remote_experiment_folder(stripped_name)
 
         cmd_gen = CommandGenerator(
-            num_agents=args.num_agents,
-            experiment_folder=kube.get_remote_experiment_folder(stripped_name),
+            num_agents=num_agents,
+            experiment_folder=experiment_folder,
             config_py=config_py,
-            config_command=args.remainder,
+            config_command=config_command,
             service_url=prefixed_name + '.surreal',
-            restore_ckpt=False,
+            restore=restore,
+            restore_folder=restore_folder,
         )
         # local subfolder of kurreal.yml will strip away "<username>-" prefix
         cmd_dict = cmd_gen.generate(
             kube.get_path(stripped_name, 'launch_commands.yml'))
+        # follow the printing from cmd_gen.generate()
+        print('  agent_pod_type:', agent_pod_type)
+        print('  nonagent_pod_type:', nonagent_pod_type)
+
         rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
         kube.create_surreal(
             prefixed_name,
             jinja_template=self._find_kurreal_template(),
             rendered_path=rendered_path,
-            snapshot=not args.no_snapshot,
-            agent_pod_type=args.agent_pod_type,
-            nonagent_pod_type=args.nonagent_pod_type,
+            snapshot=not no_snapshot,
+            agent_pod_type=agent_pod_type,
+            nonagent_pod_type=nonagent_pod_type,
             cmd_dict=cmd_dict,
-            check_experiment_exists=not args.force,
+            check_experiment_exists=not force,
         )
         # switch to the experiment namespace just created
         kube.set_namespace(prefixed_name)
+
+    def kurreal_create(self, args):
+        """
+        Spin up a multi-node distributed Surreal experiment.
+        Put any command line args that pass to the config script after "--"
+        """
+        self._create_helper(
+            config_py=args.config_py,
+            experiment_name=args.experiment_name,
+            num_agents=args.num_agents,
+            config_command=args.remainder,  # cmd line remainder after "--"
+            agent_pod_type=args.agent_pod_type,
+            nonagent_pod_type=args.nonagent_pod_type,
+            restore=False,
+            restore_folder=None,
+            no_snapshot=args.no_snapshot,
+            force=args.force,
+        )
 
     def kurreal_create_dev(self, args):
         """
@@ -348,13 +426,21 @@ class Kurreal:
             config_command += ["--gpu", "0"]
         else:
             nonagent_pod_type = 'nonagent-cpu'
-
-        args.agent_pod_type = 'agent'
-        args.nonagent_pod_type = nonagent_pod_type
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
-        args.config_py = 'surreal/surreal/main/' + args.config_file
-        args.remainder = config_command
-        self.kurreal_create(args)
+        config_py = 'surreal/surreal/main/' + args.config_file
+
+        self._create_helper(
+            config_py=config_py,
+            experiment_name=args.experiment_name,
+            num_agents=args.num_agents,
+            config_command=config_command,
+            agent_pod_type='agent',
+            nonagent_pod_type=nonagent_pod_type,
+            restore=False,
+            restore_folder=None,
+            no_snapshot=args.no_snapshot,
+            force=args.force,
+        )
 
     def kurreal_restore(self, args):
         """
@@ -362,6 +448,54 @@ class Kurreal:
         Put any command line args that pass to the config script after "--"
         """
         kube = self.kube
+        if '/' in args.restore_experiment:  # full path on remote shared FS
+            saved = None
+            restore_folder = args.restore_experiment
+        else:
+            # yaml save of "kurreal create" command line args
+            saved = CommandGenerator.get_yaml(
+                kube.get_path(kube.strip_username(args.restore_experiment),
+                              'launch_commands.yml')
+            )
+            restore_folder = kube.get_remote_experiment_folder(
+                kube.strip_username(args.restore_experiment)
+            )
+
+        # "kurreal restore" args take precedence unless unspecified
+        if args.config_py:
+            config_py = args.config_py
+        else:
+            assert saved, 'No saved launch, must specify --config-py'
+            config_py = saved.config_py
+        if args.num_agents:
+            num_agents = args.num_agents
+        else:
+            assert saved, 'No saved launch, must specify --num-agents'
+            num_agents = saved.num_agents
+        if args.has_remainder:
+            config_command = args.remainder
+        else:
+            assert saved, 'No saved launch, must specify -- <config commands>'
+            config_command = saved.config_command
+
+        print('Restoring from remote experiment folder "{}"'
+              .format(restore_folder))
+
+        self._create_helper(
+            config_py=config_py,
+            experiment_name=args.experiment_name,
+            num_agents=num_agents,
+            config_command=config_command,
+            agent_pod_type=args.agent_pod_type,
+            nonagent_pod_type=args.nonagent_pod_type,
+            restore=True,
+            restore_folder=restore_folder,
+            no_snapshot=args.no_snapshot,
+            force=args.force,
+        )
+
+    def kurreal_resume(self, args):
+        pass
 
     def _interactive_find_ns(self, name, max_matches=10):
         """
@@ -459,6 +593,11 @@ class Kurreal:
             run('get services -o wide')
         else:
             raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
+
+    def kurreal_pod(self, args):
+        "same as 'kurreal list pod'"
+        self.kube.run_verbose('get pods -o wide',
+                              print_out=True, raise_on_error=False)
 
     def kurreal_label(self, args):
         """
@@ -564,16 +703,20 @@ class Kurreal:
 
 def main():
     parser = KurrealParser().setup_master()
-    assert sys.argv.count('--') <= 1, 'command line can only have at most one "--"'
+    assert sys.argv.count('--') <= 1, \
+        'command line can only have at most one "--"'
     if '--' in sys.argv:
         idx = sys.argv.index('--')
         remainder = sys.argv[idx+1:]
         sys.argv = sys.argv[:idx]
+        has_remainder = True  # even if remainder itself is empty
     else:
         remainder = []
+        has_remainder = False
         
     args = parser.parse_args()
     args.remainder = remainder
+    args.has_remainder = has_remainder
     args.func(args)
 
 

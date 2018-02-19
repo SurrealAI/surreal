@@ -13,7 +13,8 @@ def learner_parser_setup(parser):
     parser.add_argument(
         '--restore-folder',
         default=None,
-        help='load from folder other than the current experiment folder'
+        help='load from folder other than the current experiment folder. '
+             'set None to load from this experiment folder.'
     )
 
 

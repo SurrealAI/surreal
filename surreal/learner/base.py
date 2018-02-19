@@ -315,4 +315,4 @@ class Learner(LearnerCore):
         )
         if restored:
             # TODO loggerplex
-            print('SUCCESSFULLY RESTORED', restored)
+            print('Successfully Restored', restored)
