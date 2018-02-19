@@ -302,7 +302,8 @@ class Learner(LearnerCore):
     def restore_checkpoint(self):
         SC = self.session_config
         restore_folder = SC.checkpoint.restore_folder
-        if U.f_last_part_in_path(restore_folder) != 'checkpoint':
+        if (restore_folder
+            and U.f_last_part_in_path(restore_folder) != 'checkpoint'):
             # automatically append 'checkpoint' subfolder
             restore_folder = U.f_join(restore_folder, 'checkpoint')
         restored = self._periodic_checkpoint.restore(

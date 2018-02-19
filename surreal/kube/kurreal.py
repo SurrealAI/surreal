@@ -245,16 +245,24 @@ def kurreal_create(args):
         config_py = args.config_py
     else:
         config_py = U.f_join('/root', args.config_py)
-    args.experiment_name = kube.get_experiment_name(args.experiment_name)
+    prefixed_name = kube.prefix_username(args.experiment_name)
+    stripped_name = kube.strip_username(args.experiment_name)
+
     cmd_gen = CommandGenerator(
-        config_py,
-        config_command=' '.join(args.remainder),
-        service_url=args.experiment_name + '.surreal'
+        num_agents=args.num_agents,
+        experiment_folder=kube.get_remote_experiment_folder(stripped_name),
+        config_py=config_py,
+        config_command=args.remainder,
+        service_url=prefixed_name + '.surreal',
+        restore_ckpt=False,
     )
-    cmd_dict = cmd_gen.generate(args.num_agents)
+    # local subfolder of kurreal.yml will strip away "<username>-" prefix
+    cmd_dict = cmd_gen.generate(kube.get_path(stripped_name, 'launch_commands.yml'))
+    rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
     kube.create_surreal(
-        args.experiment_name,
+        prefixed_name,
         jinja_template=_find_kurreal_template(),
+        rendered_path=rendered_path,
         snapshot=not args.no_snapshot,
         agent_pod_type=args.agent_pod_type,
         nonagent_pod_type=args.nonagent_pod_type,
@@ -262,20 +270,14 @@ def kurreal_create(args):
         check_experiment_exists=not args.force,
     )
     # switch to the experiment namespace just created
-    kurreal_namespace(args)
+    kube.set_namespace(prefixed_name)
 
 
 def kurreal_create_dev(args):
-    """
-    CommandGenerator('/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
-    config_command="--env 'dm_control:cheetah-run' --savefile /experiment/",
-    service_url=experiment_name + '.surreal')
-    """
-    kube = Kubectl(dry_run=args.dry_run)
-    if len(args.remainder) > 0:
+    if args.remainder:
         config_command = args.remainder
     else:
-        config_command = ['--env', "'dm_control:cheetah-run'"]
+        config_command = ['--env', 'dm_control:cheetah-run']
 
     if args.gpu:
         nonagent_pod_type = 'nonagent-gpu'
@@ -283,27 +285,20 @@ def kurreal_create_dev(args):
     else:
         nonagent_pod_type = 'nonagent-cpu'
 
-    config_command += ["--savefile",
-       "/fs/experiments/{}/{}".format(kube.config.username, args.experiment_name)]
+    args.agent_pod_type = 'agent'
+    args.nonagent_pod_type = nonagent_pod_type
+    # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
+    args.config_py = 'surreal/surreal/main/' + args.config_file
+    args.remainder = config_command
+    kurreal_create(args)
 
-    args.experiment_name = kube.get_experiment_name(args.experiment_name)
-    cmd_gen = CommandGenerator(
-        # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py',
-        'surreal/surreal/main/' + args.config_file,
-        config_command=' '.join(config_command),
-        service_url=args.experiment_name + '.surreal'
-    )
-    cmd_dict = cmd_gen.generate(args.num_agents)
-    kube.create_surreal(
-        args.experiment_name,
-        jinja_template=_find_kurreal_template(),
-        snapshot=not args.no_snapshot,
-        agent_pod_type='agent',
-        nonagent_pod_type=nonagent_pod_type,
-        cmd_dict=cmd_dict,
-        check_experiment_exists=not args.force,
-    )
-    kurreal_namespace(args)
+
+def kurreal_restore(args):
+    """
+    Restore experiment with the saved CommandGenerator and checkpoint
+    Put any command line args that pass to the config script after "--"
+    """
+    kube = Kubectl(dry_run=args.dry_run)
 
 
 def _interactive_find_ns(kube, name, max_matches=10):
@@ -360,12 +355,16 @@ def kurreal_delete(args):
 
     assert to_delete not in ['default', 'kube-public', 'kube-system'], \
         'cannot delete reserved namespaces: default, kube-public, kube-system'
-    if not args.force:
+    if not args.force and not args.dry_run:
         ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
         if ans not in ['', 'y', 'yes', 'Y']:
             print('aborted')
             return
-    kube.delete(to_delete)
+
+    kube.delete(
+        yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
+        namespace=kube.prefix_username(to_delete)
+    )
 
 
 def kurreal_namespace(args):

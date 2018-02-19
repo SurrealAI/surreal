@@ -127,15 +127,15 @@ class Checkpoint(object):
         """
         Temporary change save folder, useful for loading from other folders
         """
-        if new_folder is None:
-            yield  # noop context
-        else:
+        if new_folder:
             old_folder = self.folder
             new_folder = U.f_expand(new_folder)
             assert U.f_exists(new_folder)
             self.folder = new_folder
             yield
             self.folder = old_folder
+        else:
+            yield  # noop context
 
     def restore(self, target,
                 mode,
@@ -145,8 +145,8 @@ class Checkpoint(object):
         """
         Args:
             target: can be one of the following semantics
-            - int: 0 for the last (or best), 1 for the second last (or best), etc.
-            - global steps of the ckpt file, the suffix string right before ".ckpt"
+              - int: 0 for the last (or best), 1 for the second last (or best), etc.
+              - global steps of the ckpt file, the suffix string right before ".ckpt"
             mode: "best" or "history", which group to restore
             reload_metadata: overwrite self.metadata with the metadata.yml file content
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
