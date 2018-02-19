@@ -48,6 +48,10 @@ class ZFilter(U.Module):
 
     # define forward prop operations in terms of layers
     def forward(self, inputs):
+        '''
+            Whiten observation (inputs) to have zero-mean, unit variance.
+            Also clamps output to be within 5 standard deviations
+        '''
         running_mean = (self.running_sum / self.count)
         running_std = (torch.clamp((self.running_sumsq / self.count) - running_mean.pow(2), min=self.eps)).pow(0.5)
         running_mean = Variable(running_mean)
@@ -57,20 +61,49 @@ class ZFilter(U.Module):
 
         return normed
 
+    def cuda(self):
+        '''
+            Converting all properties to be on GPU
+        '''
+        if self.use_cuda:  
+            self.running_sum   = self.running_sum.cuda()
+            self.running_sumsq = self.running_sumsq.cuda()
+            self.count         = self.count.cuda() 
+        else:
+            print('.cuda() has no effect. Config set not to use GPU')
+       
+
+    def cpu(self):
+        '''
+            Converting all properties to be on CPU
+        '''
+        self.running_sum   = self.running_sum.cpu()
+        self.running_sumsq = self.running_sumsq.cpu()
+        self.count         = self.count.cpu() 
+
 
     def running_mean(self):
+        '''
+            returning the running obseravtion mean for Tensorplex logging
+        '''
         if self.use_cuda: 
             return (self.running_sum / self.count).cpu().numpy() 
         else:
             return (self.running_sum / self.count).numpy()
 
     def running_std(self):
+        '''
+            returning the running standard deviation for Tensorplex Logging
+        '''
         if self.use_cuda:
             return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).cpu().numpy() 
         else:
             return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).numpy() 
 
     def running_square(self):
+        '''
+            returning the running square mean for Tensorplex Logging
+        '''
         if self.use_cuda:
             return (self.running_sumsq / self.count).cpu().numpy()
         else: 
