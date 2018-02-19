@@ -36,9 +36,8 @@ class DDPGAgent(Agent):
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
-            if len(self.learner_config.algo.exploration.sigma) <= agent_id:
-                raise ConfigError('Agent {} out of range for sigma of length {}'.format(agent_id, len(self.learner_config.algo.exploration.sigma)))
-            self.sigma = self.learner_config.algo.exploration.sigma[agent_id]
+            # Use mod to wrap around the list of sigmas if the number of agents is greater than the length of the array
+            self.sigma = self.learner_config.algo.exploration.sigma[agent_id % len(self.learner_config.algo.exploration.sigma)]
         elif type(self.learner_config.algo.exploration.sigma) in [int, float]:
             self.sigma = self.learner_config.algo.exploration.sigma
         else:

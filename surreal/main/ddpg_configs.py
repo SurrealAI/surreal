@@ -52,8 +52,8 @@ def generate(argv):
             'exploration': {
                 'noise_type': 'normal',
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
-                # 5 agents works well. If you use more than 5 agents, you need to add sigma values
-                # for the additional agents.
+                # 5 agents works well. If you use more than 5 agents, the sigma values will wrap around.
+                # For example, the sixth agent (with agent_id 5) will have sigma 0.3
                 'sigma': [0.3, 0.0, 0.1, 0.2, 0.4],
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
