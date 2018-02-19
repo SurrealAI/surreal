@@ -301,10 +301,16 @@ class Learner(LearnerCore):
 
     def restore_checkpoint(self):
         SC = self.session_config
+        restore_folder = SC.checkpoint.restore_folder
+        if U.f_last_part_in_path(restore_folder) != 'checkpoint':
+            # automatically append 'checkpoint' subfolder
+            restore_folder = U.f_join(restore_folder, 'checkpoint')
         restored = self._periodic_checkpoint.restore(
             target=SC.checkpoint.learner.restore_target,
             mode=SC.checkpoint.learner.mode,
-            check_ckpt_exists=True
+            reload_metadata=True,
+            check_ckpt_exists=True,  # TODO set to False unless debugging
+            restore_folder=restore_folder,
         )
         if restored:
             # TODO loggerplex

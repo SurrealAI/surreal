@@ -168,7 +168,7 @@ LOCAL_SESSION_CONFIG = {
         'fetch_parameter_interval': 1,
     },
     'checkpoint': {
-        'restore': True,  # if False, ignore the other configs under 'restore'
+        'restore': False,  # if False, ignore the other configs under 'restore'
         'restore_folder': None,
         'learner': {
             'restore_target': 0,

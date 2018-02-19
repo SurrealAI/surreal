@@ -39,7 +39,7 @@ class Learner():
             period=3,
             tracked_obj=self,
             tracked_attrs=['lr', 'net1', 'eps', 'mylist', 'net2'],
-            keep_history=4,
+            keep_history=5,
             keep_best=3,
         )
 
@@ -70,7 +70,7 @@ LR = 0.1
 EPS = 0.99
 WIDTH1 = 13
 WIDTH2 = 17
-FOLDER = 'otherckpt'
+FOLDER = 'otherckpt2'
 
 learner_save = Learner(LR, EPS, WIDTH1, WIDTH2)
 learner_load = Learner(LR, EPS, WIDTH1, WIDTH2)
@@ -93,11 +93,12 @@ def callback():
     input('continue ...')
 
 
-if 1:
+if 0:
     learner_save.train(callback)
 else:  # demo restore
     for i in range(11):
-        ret = checkpoint.restore(i, mode='best', reload_metadata=True, check_ckpt_exists=1)
+        ret = checkpoint.restore(i, mode='history', reload_metadata=True, check_ckpt_exists=1,
+                                 restore_folder='~/Temp/otherckpt')
         print(ret)
         if ret:
             learner_load.show_weight()

@@ -7,6 +7,7 @@ import time
 import datetime
 from pkg_resources import parse_version
 from collections import OrderedDict
+from contextlib import contextmanager
 from . import filesys as U
 from .ezdict import EzDict
 
@@ -119,10 +120,28 @@ class Checkpoint(object):
                 attr_value.load_state_dict(data[attr_name])
             else:
                 setattr(self.tracked_obj, attr_name, data[attr_name])
-        return ckpt_file
+        return ckpt_path
 
-    def restore(self, target, mode,
-                reload_metadata=True, check_ckpt_exists=False):
+    @contextmanager
+    def _change_folder(self, new_folder):
+        """
+        Temporary change save folder, useful for loading from other folders
+        """
+        if new_folder is None:
+            yield  # noop context
+        else:
+            old_folder = self.folder
+            new_folder = U.f_expand(new_folder)
+            assert U.f_exists(new_folder)
+            self.folder = new_folder
+            yield
+            self.folder = old_folder
+
+    def restore(self, target,
+                mode,
+                reload_metadata=True,
+                check_ckpt_exists=False,
+                restore_folder=None):
         """
         Args:
             target: can be one of the following semantics
@@ -131,9 +150,12 @@ class Checkpoint(object):
             mode: "best" or "history", which group to restore
             reload_metadata: overwrite self.metadata with the metadata.yml file content
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
+            restore_folder: if None, use self.folder, else specify a folder to restore from
+                if not None, reload_metadata will be forced to True
 
         Returns:
-            True if successfully restored
+            - full ckpt file path if successfully restored
+            - None otherwise
 
         Warnings:
             to restore attrs that point to pytorch Module, you must initialize
@@ -141,42 +163,49 @@ class Checkpoint(object):
             state_dict, not how to construct your Module
         """
         assert mode in ['best', 'history']
-        if reload_metadata:
-            self._load_metadata()
-        self._check_version()
-        meta = self.metadata
-        if isinstance(target, int):
-            assert target >= 0, 'target int should start from 0 for the last or best'
-            try:
-                if mode == 'best':
-                    ckpt_file = meta.best_ckpt_files[target]
-                else:
-                    ckpt_file = meta.history_ckpt_files[target]
-            except IndexError:
-                if check_ckpt_exists:
-                    raise FileNotFoundError('{} <{}> ckpt file missing'
-                                .format(mode.capitalize(), target))
-                else:
-                    ckpt_file = '__DOES_NOT_EXIST__'
-        else:
-            assert '.ckpt' not in target, 'use restore_full_path() instead'
-            if mode == 'best':
-                ckpt_file = self.ckpt_name('best-{}'.format(target))
+        with self._change_folder(restore_folder):
+            if reload_metadata or restore_folder:
+                self._load_metadata()
+            self._check_version()
+            meta = self.metadata
+            if isinstance(target, int):
+                assert target >= 0, \
+                    'target int should start from 0 for the last or best'
+                try:
+                    if mode == 'best':
+                        ckpt_file = meta.best_ckpt_files[target]
+                    else:
+                        ckpt_file = meta.history_ckpt_files[target]
+                except IndexError:
+                    if check_ckpt_exists:
+                        raise FileNotFoundError('{} [{}] ckpt file missing'
+                                    .format(mode.capitalize(), target))
+                    else:
+                        ckpt_file = '__DOES_NOT_EXIST__'
             else:
-                ckpt_file = self.ckpt_name(target)
-        return self._restore(ckpt_file, check_ckpt_exists)
+                assert '.ckpt' not in target, 'use restore_full_path() instead'
+                if mode == 'best':
+                    ckpt_file = self.ckpt_name('best-{}'.format(target))
+                else:
+                    ckpt_file = self.ckpt_name(target)
+            return self._restore(ckpt_file, check_ckpt_exists)
 
-    def restore_full_name(self, ckpt_file, check_ckpt_exists):
+    def restore_full_name(self,
+                          ckpt_file,
+                          check_ckpt_exists=True,
+                          restore_folder=None):
         """
         Args:
             ckpt_file: full name of the ckpt_file in self.folder.
             check_ckpt_exists: raise FileNotFoundError if the checkpoint target doesn't exist
 
         Returns:
-            True if successfully restored
+            - full ckpt file path if successfully restored
+            - None otherwise
         """
-        self._load_metadata()
-        return self._restore(ckpt_file, check_ckpt_exists)
+        with self._change_folder(restore_folder):
+            self._load_metadata()
+            return self._restore(ckpt_file, check_ckpt_exists)
 
     def _get_path(self, fname):
         return U.f_join(self.folder, fname)
