@@ -66,9 +66,9 @@ class ZFilter(U.Module):
 
     def running_std(self):
         if self.use_cuda:
-            return (torch.clamp((self.running_sumsq / self.count) - running_mean.pow(2), min=self.eps)).pow(0.5).cpu().numpy() 
+            return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).cpu().numpy() 
         else:
-            return (torch.clamp((self.running_sumsq / self.count) - running_mean.pow(2), min=self.eps)).pow(0.5).numpy()
+            return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).numpy() 
 
     def running_square(self):
         if self.use_cuda:
