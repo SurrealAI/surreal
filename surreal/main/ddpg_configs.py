@@ -48,7 +48,7 @@ def generate(argv):
                 # 'type': 'hard',
                 # 'interval': 100,
             },
-            'use_z_filter': False,
+            'use_z_filter': True,
             'exploration': {
                 'noise_type': 'normal',
                 'sigma': 0.37,
