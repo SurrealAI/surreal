@@ -478,8 +478,14 @@ class Kurreal:
             assert saved, 'No saved launch, must specify -- <config commands>'
             config_command = saved.config_command
 
-        print('Restoring from remote experiment folder "{}"'
-              .format(restore_folder))
+        prefix_restored = kube.prefix_username(args.restore_experiment)
+        prefix_current = kube.prefix_username(args.experiment_name)
+        if prefix_restored == prefix_current:
+            print('Resume at experiment folder "{}"'.format(restore_folder))
+        else:
+            print('Restore from remote experiment folder "{}"\n'
+                  'and create new experiment "{}"'
+                  .format(restore_folder, prefix_current))
 
         self._create_helper(
             config_py=config_py,
@@ -495,7 +501,9 @@ class Kurreal:
         )
 
     def kurreal_resume(self, args):
-        pass
+        args.force = True  # always override the generated kurreal.yml
+        args.restore_experiment = args.experiment_name
+        self.kurreal_restore(args)
 
     def _interactive_find_ns(self, name, max_matches=10):
         """
