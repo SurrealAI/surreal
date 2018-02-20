@@ -92,26 +92,6 @@ class CommandGenerator:
             return None
 
 
-    # TODO remove this
-    @classmethod
-    def reconstruct(cls, saved_yaml, *,  # kwargs after this are for init
-                    experiment_folder,
-                    restore_ckpt_folder, restore_ckpt=True,
-                    **kwargs):
-        """
-        CommandGenerator init args from saved yaml
-        kwargs can override any saved init_args
-        """
-        init_kwargs = U.yaml_load(saved_yaml)['init']
-        init_kwargs.update(dict(
-            experiment_folder=experiment_folder,
-            restore_ckpt=restore_ckpt,
-            restore_ckpt_folder=restore_ckpt_folder
-        ))
-        init_kwargs.update(kwargs)
-        return cls(**init_kwargs)
-
-
 if __name__ == "__main__":
     gen = CommandGenerator(config_py='~/.abc',
                            num_agents=3,
@@ -126,10 +106,4 @@ if __name__ == "__main__":
     print(di['learner'])
 
     print(CommandGenerator.get_yaml(save_yaml))
-    gen = CommandGenerator.reconstruct(save_yaml,
-                                       experiment_folder='/new/exp/foder',
-                                       num_agents=4,
-                                       restore_ckpt=True,
-                                       restore_ckpt_folder='my/restore/',
-                                       service_url='this.changed.yo')
     print(vars(gen))
