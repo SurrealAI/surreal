@@ -157,6 +157,7 @@ class KurrealParser:
             default=100,
             help='Only show the most recent lines of log. -1 to show all log lines.'
         )
+        self._add_namespace(parser)
 
     def _setup_namespace(self):
         parser = self._add_subparser(
@@ -179,10 +180,12 @@ class KurrealParser:
             nargs='?',
             help='list experiment, pod, and node'
         )
+        self._add_namespace(parser)
 
     def _setup_pod(self):
         "save as 'kurreal list pod'"
         parser = self._add_subparser('pod', aliases=['p', 'pods'])
+        self._add_namespace(parser)
 
     def _setup_tensorboard(self):
         parser = self._add_subparser('tensorboard', aliases=['tb'])
@@ -191,6 +194,7 @@ class KurrealParser:
             action='store_true',
             help='only show the URL without opening the browser.'
         )
+        self._add_namespace(parser)
 
     def _setup_describe(self):
         parser = self._add_subparser('describe', aliases=['des'])
@@ -198,6 +202,7 @@ class KurrealParser:
             'pod_name',
             help="should be either 'agent-<N>' or 'nonagent'"
         )
+        self._add_namespace(parser)
 
     def _setup_exec(self):
         parser = self._add_subparser('exec', aliases=['x'])
@@ -207,10 +212,12 @@ class KurrealParser:
             nargs=argparse.REMAINDER,
             help="command to be executed in the pod. You don't have to quote it."
         )
+        self._add_namespace(parser)
 
     def _setup_ssh(self):
         parser = self._add_subparser('ssh', aliases=[])
         self._add_component_arg(parser)
+        self._add_namespace(parser)
 
     def _setup_ssh_node(self):
         parser = self._add_subparser('ssh-node', aliases=['sshnode'])
@@ -271,6 +278,15 @@ class KurrealParser:
         parser.add_argument(
             'component_name',
             help="should be either agent-<N> or one of [{}]".format(nonagent_str)
+        )
+
+    def _add_namespace(self, parser):
+        parser.add_argument(
+            '-ns', '--ns', '--namespace', '--experiment',
+            dest='namespace',
+            type=self._process_experiment_name,
+            default='',
+            help='run the command in the designated namespace'
         )
 
     def _add_create_args(self, parser):
@@ -594,53 +610,42 @@ class Kurreal:
         else:
             print(kube.current_namespace())
 
+    def _get_namespace(self, args):
+        "Returns: <fuzzy-matched-name>"
+        name = args.namespace
+        if not name:
+            return ''
+        name = self._interactive_find_ns(name)
+        if not name:
+            sys.exit(1)
+        return name
+
     def kurreal_list(self, args):
         """
         List resource information: namespace, pods, nodes, services
         """
         run = lambda cmd: \
             self.kube.run_verbose(cmd, print_out=True, raise_on_error=False)
+        if args.namespace:
+            ns_cmd = ' --namespace ' + self._get_namespace(args)
+        else:
+            ns_cmd = ''
         if args.resource in ['ns', 'namespace', 'namespaces',
                              'e', 'exp', 'experiment', 'experiments']:
             run('get namespace')
         elif args.resource in ['p', 'pod', 'pods']:
-            run('get pods -o wide')
+            run('get pods -o wide' + ns_cmd)
         elif args.resource in ['no', 'node', 'nodes']:
-            run('get nodes -o wide')
+            run('get nodes -o wide' + ns_cmd)
         elif args.resource in ['s', 'service', 'services']:
-            run('get services -o wide')
+            run('get services -o wide' + ns_cmd)
         else:
             raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
 
     def kurreal_pod(self, args):
         "same as 'kurreal list pod'"
-        self.kube.run_verbose('get pods -o wide',
-                              print_out=True, raise_on_error=False)
-
-    def kurreal_label(self, args):
-        """
-        Label nodes in node pools
-        """
-        for label, value in args.new_labels:
-            self.kube.label_nodes(args.old_labels, label, value)
-
-    def kurreal_label_gcloud(self, args):
-        """
-        NOTE: you don't need this for autoscale
-
-        Add default labels for GCloud cluster.
-        Note that you have to create the node-pools with the exact names:
-        "agent-pool" and "nonagent-pool-cpu"
-        gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
-
-        Command to check whether the labeling is successful:
-        kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
-        """
-        kube = self.kube
-        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-                         'surreal-node', 'agent-pool')
-        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-                         'surreal-node', 'nonagent-pool')
+        args.resource = 'pod'
+        self.kurreal_list(args)
 
     def kurreal_log(self, args):
         """
@@ -652,7 +657,8 @@ class Kurreal:
             is_print=True,
             follow=args.follow,
             since=args.since,
-            tail=args.tail
+            tail=args.tail,
+            namespace=self._get_namespace(args)
         )
 
     def kurreal_exec(self, args):
@@ -662,14 +668,19 @@ class Kurreal:
         """
         if len(args.commands) == 1:
             args.commands = args.commands[0]  # don't quote the singleton string
-        self.kube.exec_surreal(args.component_name, args.commands)
+        self.kube.exec_surreal(
+            args.component_name,
+            args.commands,
+            namespace=self._get_namespace(args)
+        )
 
     def kurreal_ssh(self, args):
         """
         Interactive /bin/bash into the pod
         kubectl exec -ti <component> -- /bin/bash
         """
-        self.kube.exec_surreal(args.component_name, '/bin/bash')
+        args.commands = ['/bin/bash']
+        self.kurreal_exec(args)
 
     def kurreal_ssh_node(self, args):
         """
@@ -703,13 +714,16 @@ class Kurreal:
         """
         Same as `kubectl describe pod <pod_name>`
         """
-        self.kube.describe(args.pod_name)
+        self.kube.describe(args.pod_name, namespace=self._get_namespace(args))
 
     def kurreal_tensorboard(self, args):
         """
         Open tensorboard in your default browser.
         """
-        url = self.kube.external_ip('tensorboard')
+        url = self.kube.external_ip(
+            'tensorboard',
+            namespace=self._get_namespace(args)
+        )
         if url:
             url = 'http://' + url
             print(url)
@@ -717,6 +731,31 @@ class Kurreal:
                 webbrowser.open(url)
         else:
             print_err('Tensorboard does not yet have an external IP.')
+
+    def kurreal_label(self, args):
+        """
+        Label nodes in node pools
+        """
+        for label, value in args.new_labels:
+            self.kube.label_nodes(args.old_labels, label, value)
+
+    def kurreal_label_gcloud(self, args):
+        """
+        NOTE: you don't need this for autoscale
+
+        Add default labels for GCloud cluster.
+        Note that you have to create the node-pools with the exact names:
+        "agent-pool" and "nonagent-pool-cpu"
+        gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
+
+        Command to check whether the labeling is successful:
+        kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
+        """
+        kube = self.kube
+        kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
+                         'surreal-node', 'agent-pool')
+        kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
+                         'surreal-node', 'nonagent-pool')
 
 
 def main():

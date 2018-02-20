@@ -499,8 +499,12 @@ class Kubectl(object):
             cmd += ' --field-selector ' + shlex.quote(fields)
         return cmd
 
-    def query_resources(self, resource, output_format,
-                        names=None, labels='', fields=''):
+    def query_resources(self, resource,
+                        output_format,
+                        names=None,
+                        labels='',
+                        fields='',
+                        namespace=''):
         """
         Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -538,6 +542,7 @@ class Kubectl(object):
         if names and (labels or fields):
             raise ValueError('names and (labels or fields) are mutually exclusive')
         cmd = 'get ' + resource
+        cmd += self._get_ns_cmd(namespace)
         if names is None:
             cmd += self._get_selectors(labels, fields)
         else:
@@ -558,8 +563,12 @@ class Kubectl(object):
         else:
             return out
 
-    def query_jsonpath(self, resource, jsonpath,
-                       names=None, labels='', fields=''):
+    def query_jsonpath(self, resource,
+                       jsonpath,
+                       names=None,
+                       labels='',
+                       fields='',
+                       namespace=''):
         """
         Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -585,7 +594,8 @@ class Kubectl(object):
             names=names,
             output_format=output_format,
             labels=labels,
-            fields=fields
+            fields=fields,
+            namespace=namespace
         )
         return out.split('\n\n')
 
@@ -599,12 +609,13 @@ class Kubectl(object):
         )
         return EzDict.loads_yaml(out)
 
-    def external_ip(self, pod_name):
+    def external_ip(self, pod_name, namespace=''):
         """
         Returns:
             "<ip>:<port>"
         """
-        tb = self.query_resources('svc', 'yaml', names=[pod_name])
+        tb = self.query_resources('svc', 'yaml',
+                                  names=[pod_name], namespace=namespace)
         conf = tb.status.loadBalancer
         if not ('ingress' in conf and 'ip' in conf.ingress[0]):
             return ''
@@ -612,17 +623,28 @@ class Kubectl(object):
         port = tb.spec.ports[0].port
         return '{}:{}'.format(ip, port)
 
+    def _get_ns_cmd(self, namespace):
+        if namespace:
+            return ' --namespace ' + namespace
+        else:
+            return ''
+
     def _get_logs_cmd(self, pod_name, container_name,
-                      follow, since=0, tail=-1):
-        return 'logs {} {} {} --since={} --tail={}'.format(
+                      follow, since=0, tail=-1, namespace=''):
+        return 'logs {} {} {} --since={} --tail={}{}'.format(
             pod_name,
             container_name,
             '--follow' if follow else '',
             since,
-            tail
+            tail,
+            self._get_ns_cmd(namespace)
         )
 
-    def logs(self, pod_name, container_name='', since=0, tail=100):
+    def logs(self, pod_name,
+             container_name='',
+             since=0,
+             tail=100,
+             namespace=''):
         """
         kubectl logs <pod_name> <container_name> --follow --since= --tail=
         https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
@@ -631,8 +653,10 @@ class Kubectl(object):
             stdout string
         """
         out, err, retcode = self.run_verbose(
-            self._get_logs_cmd(pod_name, container_name,
-                               follow=False, since=since, tail=tail),
+            self._get_logs_cmd(
+                pod_name, container_name, follow=False,
+                since=since, tail=tail, namespace=namespace
+            ),
             print_out=False,
             raise_on_error=False
         )
@@ -641,22 +665,28 @@ class Kubectl(object):
         else:
             return out
 
-    def describe(self, pod_name):
-        return self.run_verbose('describe pod '+pod_name,
-                                print_out=True, raise_on_error=False)
+    def describe(self, pod_name, namespace=''):
+        cmd = 'describe pod ' + pod_name + self._get_ns_cmd(namespace)
+        return self.run_verbose(cmd, print_out=True, raise_on_error=False)
 
-    def print_logs(self, pod_name, container_name='',
-                   follow=False, since=0, tail=100):
+    def print_logs(self, pod_name,
+                   container_name='',
+                   follow=False,
+                   since=0,
+                   tail=100,
+                   namespace=''):
         """
         kubectl logs <pod_name> <container_name>
         No error checking, no string caching, delegates to os.system
         """
-        cmd = self._get_logs_cmd(pod_name, container_name,
-                                 follow=follow, since=since, tail=tail)
+        cmd = self._get_logs_cmd(
+            pod_name, container_name, follow=follow,
+            since=since, tail=tail, namespace=namespace
+        )
         self.run_raw(cmd)
 
     def logs_surreal(self, component_name, is_print=False,
-                     follow=False, since=0, tail=100):
+                     follow=False, since=0, tail=100, namespace=''):
         """
         Args:
             component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
@@ -668,13 +698,15 @@ class Kubectl(object):
             log_func = functools.partial(self.print_logs, follow=follow)
         else:
             log_func = self.logs
-        log_func = functools.partial(log_func, since=since, tail=tail)
+        log_func = functools.partial(
+            log_func, since=since, tail=tail, namespace=namespace
+        )
         if component_name in self.NONAGENT_COMPONENTS:
             return log_func('nonagent', component_name)
         else:
             return log_func(component_name)
 
-    def exec_surreal(self, component_name, cmd):
+    def exec_surreal(self, component_name, cmd, namespace=''):
         """
         kubectl exec -ti
 
@@ -687,12 +719,15 @@ class Kubectl(object):
         """
         if U.is_sequence(cmd):
             cmd = ' '.join(map(shlex.quote, cmd))
+        ns_cmd = self._get_ns_cmd(namespace)
         if component_name in self.NONAGENT_COMPONENTS:
             return self.run_raw(
-                'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
+                'exec -ti nonagent -c {}{} -- {}'.format(component_name, ns_cmd, cmd)
+            )
         else:
             return self.run_raw(
-                'exec -ti {} -- {}'.format(component_name, cmd))
+                'exec -ti {}{} -- {}'.format(component_name, ns_cmd, cmd)
+            )
 
     def gcloud_get_config(self, config_key):
         """
