@@ -111,12 +111,22 @@ class KurrealParser:
 
     def _setup_restore(self):
         parser = self._add_subparser('restore', aliases=[])
-        self._add_experiment_name(parser)
         parser.add_argument(
-            'restore_experiment',
-            help="experiment name to restore from. "
-                 "To restore from other people's checkpoint, "
-                 "please give full path to their folder on the shared FS: "
+            '-new', '--new',
+            dest='experiment_name',
+            type=self._process_experiment_name,
+            required=True,
+            help='Start a new experiment from the old checkpoint. '
+                 'experiment name will be used as namespace for DNS. '
+                 'Should only contain lower case letters, digits, and hypen. '
+                 'Underscores and dots are not allowed and will be converted to hyphen.'
+        )
+        parser.add_argument(
+            '-old', '--old',
+            dest='restore_experiment',
+            required=True,
+            help="old experiment name to restore from. "
+                 "you can also give full path to the folder on the shared FS: "
                  "'/fs/experiments/myfriend/.../'"
         )
         self._add_restore_args(parser)
