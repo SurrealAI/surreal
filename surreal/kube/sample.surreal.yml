@@ -19,7 +19,7 @@ fs:
   mount_path: /fs
   # actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
   # see kubectl.get_remote_experiment_folder()
-  experiment_root_subfolder: /experiments/<username>
+  experiment_root_subfolder: experiments/<username>
 
 pod_types:
   agent:
