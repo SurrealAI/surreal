@@ -8,7 +8,7 @@ class UniformReplay(Replay):
                  learner_config,
                  env_config,
                  session_config,
-                 name=''):
+                 index=0):
         """
         Args:
           memory_size: Max number of experience to store in the buffer.
@@ -19,7 +19,7 @@ class UniformReplay(Replay):
             learner_config=learner_config,
             env_config=env_config,
             session_config=session_config,
-            name=name
+            index=index
         )
         self._memory = []
         self.memory_size = self.learner_config.replay.memory_size

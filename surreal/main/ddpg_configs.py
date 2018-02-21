@@ -63,7 +63,8 @@ def generate(argv):
             'critic_regularization': 0.0,
             'use_batchnorm': False,
             'limit_training_episode_length': 0, # 0 means no limit
-            'agent_sleep_time': 1/50.0,
+            # 'agent_sleep_time': 1/50.0,
+            'agent_sleep_time': 0,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
@@ -73,7 +74,7 @@ def generate(argv):
             'replay_class': 'UniformReplay',
             'batch_size': 512,
             # 'memory_size': 1000000,
-            'memory_size': 100000,
+            'memory_size': 330000,
             'sampling_start_size': 1000,
             'replay_shards': 3,
         },

@@ -1,5 +1,5 @@
 from .base import replayFactory
-from .proxy import ZmqLoadBalancerProcess, ZmqLoadBalancerThread
+from surreal.distributed import ZmqLoadBalancerThread
 from multiprocessing import Process
 from threading import Thread
 
@@ -10,7 +10,8 @@ class ShardedReplay(object):
                  session_config,
                  ):
         """
-            TODO: clean up input arguments
+        Args:
+            *_config: passed on to replay
         """
         self.learner_config = learner_config
         self.env_config = env_config
@@ -20,7 +21,6 @@ class ShardedReplay(object):
         
         self.shards = self.learner_config.replay.replay_shards
 
-        # TODO, read these numbers from config
         self.collector_frontend_port = self.session_config.replay.collector_frontend_port
         self.collector_backend_port = self.session_config.replay.collector_backend_port
         self.sampler_frontend_port = self.session_config.replay.sampler_frontend_port
@@ -53,7 +53,7 @@ class ShardedReplay(object):
             processes.append(p)
 
     def start_replay(self, index):
-        replay = self.replay_class(self.learner_config, self.env_config, self.session_config, name=str(index))
+        replay = self.replay_class(self.learner_config, self.env_config, self.session_config, index=index)
         replay.start_threads()
 
     def join(self):

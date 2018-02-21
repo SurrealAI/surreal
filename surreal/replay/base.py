@@ -1,7 +1,7 @@
 import threading
 import time
 import surreal.utils as U
-from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
+from surreal.session import (Loggerplex, TensorplexClient, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from surreal.distributed import ExpQueue, ZmqServer
 
@@ -29,7 +29,7 @@ class Replay(object, metaclass=ReplayMeta):
                  learner_config,
                  env_config,
                  session_config,
-                 name=''):
+                 index=0):
         """
         """
         # Note that there're 2 replay configs:
@@ -38,7 +38,7 @@ class Replay(object, metaclass=ReplayMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
-        self.name = name
+        self.index = index
 
         exp_queue_add = "tcp://{}:{}".format(self.session_config.replay.collector_backend_host,
                                             self.session_config.replay.collector_backend_port)
@@ -119,12 +119,13 @@ class Replay(object, metaclass=ReplayMeta):
     # ======================== internal methods ========================    
     def _setup_logging(self):
         self.log = Loggerplex(
-            name='-'.join(['replay', self.name]),
+            name='{}/{}'.format('replay', self.index),
             session_config=self.session_config
         )
-        self.tensorplex = StatsTensorplex(
-            section_name='-'.join(['replay', self.name]),
-            session_config=self.session_config
+        self.tensorplex = TensorplexClient(
+            '{}/{}'.format('replay', self.index),
+            host=self.session_config.tensorplex.host,
+            port=self.session_config.tensorplex.port,
         )
         self._tensorplex_thread = None
         self._has_tensorplex = self.session_config.replay.tensorboard_display
