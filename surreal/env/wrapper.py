@@ -249,7 +249,7 @@ class ObservationConcatenationWrapper(Wrapper):
     def observation_spec(self):
         return {
             'type': 'continuous',
-            'dim': [sum([functools.reduce(mul, x.shape) for k, x in self.env.observation_spec().items()])],
+            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
         }
 
     def action_spec(self):

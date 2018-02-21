@@ -15,6 +15,7 @@ BASE_LEARNER_CONFIG = {
         'critic_regularization': 0.0,
         'use_batchnorm': False,
         'limit_training_episode_length': 0,
+        'agent_sleep_time': 0.0,
     },
     'replay': {
         # The replay class to instantiate
@@ -81,7 +82,7 @@ BASE_SESSION_CONFIG = {
         'tensorboard_port': '_int_',  # tensorboard port
         'agent_bin_size': 8,
         'max_processes': 4,
-        'update_schedule': {
+        'update_schedule': {  # TODO rename this to 'periodic'
             # for TensorplexWrapper:
             'training_env': '_int_',  # env record every N episodes
             'eval_env': '_int_',
@@ -102,6 +103,25 @@ BASE_SESSION_CONFIG = {
     'agent': {
         'fetch_parameter_mode': '_str_',
         'fetch_parameter_interval': int,
+    },
+    'checkpoint': {
+        'restore': '_bool_',  # if False, ignore the other configs under 'restore'
+        'restore_folder': None,  # if None, use the same session folder.
+                            # Otherwise restore ckpt from another experiment dir.
+        'learner': {
+            'restore_target': '_int_',
+            'mode': '_enum[best,history]_',
+            'keep_history': '_int_',
+            'keep_best': '_int_',
+            'periodic': '_int_',
+        },
+        'agent': {
+            'restore_target': '_int_',
+            'mode': '_enum[best,history]_',
+            'keep_history': '_int_',
+            'keep_best': '_int_',
+            'periodic': '_int_',
+        },
     }
 }
 
@@ -137,7 +157,7 @@ LOCAL_SESSION_CONFIG = {
         'host': 'localhost',
         'port': 7005,
         'tensorboard_port': 6006,
-        'update_schedule': {
+        'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
             'training_env': 20,  # env record every N episodes
             'eval_env': 20,
@@ -157,6 +177,24 @@ LOCAL_SESSION_CONFIG = {
         'fetch_parameter_mode': 'episode',
         'fetch_parameter_interval': 1,
     },
+    'checkpoint': {
+        'restore': False,  # if False, ignore the other configs under 'restore'
+        'restore_folder': None,
+        'learner': {
+            'restore_target': 0,
+            'mode': 'history',
+            'keep_history': 2,
+            'keep_best': 0, # TODO don't keep best unless we solve the learner score issue
+            'periodic': 100,
+        },
+        'agent': {
+            'restore_target': 0,
+            'mode': 'history',
+            'keep_history': 2,
+            'keep_best': 0, # TODO don't keep best unless we solve the learner score issue
+            'periodic': 100,
+        },
+    }
 }
 
 LOCAL_SESSION_CONFIG = extend_config(LOCAL_SESSION_CONFIG, BASE_SESSION_CONFIG)

@@ -34,12 +34,12 @@ class DDPGAgent(Agent):
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
+        self.sleep_time = self.learner_config.algo.agent_sleep_time
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
-            if len(self.learner_config.algo.exploration.sigma) <= agent_id:
-                raise ConfigError('Agent {} out of range for sigma of length {}'.format(agent_id, len(self.learner_config.algo.exploration.sigma)))
-            self.sigma = self.learner_config.algo.exploration.sigma[agent_id]
+            # Use mod to wrap around the list of sigmas if the number of agents is greater than the length of the array
+            self.sigma = self.learner_config.algo.exploration.sigma[agent_id % len(self.learner_config.algo.exploration.sigma)]
         elif type(self.learner_config.algo.exploration.sigma) in [int, float]:
             self.sigma = self.learner_config.algo.exploration.sigma
         else:
@@ -82,6 +82,8 @@ class DDPGAgent(Agent):
     def act(self, obs):
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
+        if self.sleep_time > 0.0:
+            time.sleep(self.sleep_time)
         obs = Variable(obs.unsqueeze(0))
         action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)

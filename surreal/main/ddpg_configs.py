@@ -10,7 +10,6 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
     parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
 
     args = parser.parse_args(args=argv)
@@ -35,7 +34,7 @@ def generate(argv):
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
             'lr_actor': 1e-4,
-            'lr_critic': 1e-3,
+            'lr_critic': 1e-4,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
@@ -51,7 +50,10 @@ def generate(argv):
             'use_z_filter': False,
             'exploration': {
                 'noise_type': 'normal',
-                'sigma': 0.37,
+                # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
+                # 5 agents works well. If you use more than 5 agents, the sigma values will wrap around.
+                # For example, the sixth agent (with agent_id 5) will have sigma 0.3
+                'sigma': [0.3, 0.0, 0.1, 0.2, 0.4],
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
                 # 'sigma': 0.3,
@@ -61,6 +63,7 @@ def generate(argv):
             'critic_regularization': 0.0,
             'use_batchnorm': False,
             'limit_training_episode_length': 0, # 0 means no limit
+            'agent_sleep_time': 1/50.0,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
@@ -90,7 +93,7 @@ def generate(argv):
     }
 
     session_config = Config({
-        'folder': args.savefile,
+        'folder': '_str_',
         'tensorplex': {
             'update_schedule': {
                 # for TensorplexWrapper:

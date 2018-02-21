@@ -13,7 +13,8 @@ def agent_parser_setup(parser):
 def run_agent_main(args, config):
     np.random.seed(int(time.time() * 100000 % 100000))
     
-    session_config, learner_config, env_config = config.session_config, config.learner_config, config.env_config
+    session_config, learner_config, env_config = \
+        config.session_config, config.learner_config, config.env_config
     agent_id = args.id
     agent_mode = AgentMode.training
 
@@ -66,9 +67,6 @@ def run_agent_main(args, config):
     #     session_config=session_config,
     #     separate_plots=True
     # )
-
-    
-
 
     # agent_class = agentFactory(learner_config.algo.agent_class)
     # agent = agent_class(

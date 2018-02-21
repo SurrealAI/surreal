@@ -16,7 +16,7 @@ from surreal.main_scripts.tensorplex_server_main import tensorplex_parser_setup,
 from surreal.main_scripts.tensorboard_wrapper_main import tensorboard_parser_setup, run_tensorboardwrapper_main
 from surreal.main_scripts.loggerplex_server_main import loggerplex_parser_setup, run_loggerplexserver_main
 from surreal.session import Config, BASE_LEARNER_CONFIG, BASE_ENV_CONFIG, BASE_SESSION_CONFIG
-from easydict import EasyDict
+from surreal.utils import EzDict
 
 """
     def *_parser_setup(parser):
@@ -36,8 +36,19 @@ def setup_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('config', help='file name of the config')
-    parser.add_argument('--service-url', type=str, help='override domain name for parameter server and replay server. (Used when they are on the same machine)')
-    subparsers = parser.add_subparsers(help='process type', dest='subcommand_name')
+    parser.add_argument(
+        '--experiment-folder',
+        required=True,
+        help='session_config.folder that has experiment files like checkpoint and logs'
+    )
+    parser.add_argument(
+        '--service-url',
+        required=True,
+        help='override domain name for parameter server and replay server. '
+             '(Used when they are on the same machine)'
+    )
+    subparsers = parser.add_subparsers(help='process type',
+                                       dest='subcommand_name')
 
     agent_parser = subparsers.add_parser('agent')
     agent_parser.set_defaults(function=run_agent_main)
@@ -73,11 +84,13 @@ def setup_parser():
 
     return parser
 
+
 def validate_config(config_module):
     """
         Validates that the config module provides the proper files
     """
     pass
+
 
 def load_config(pathname, config_command):
     """
@@ -99,14 +112,18 @@ def load_config(pathname, config_command):
     config_module = importlib.import_module(basename)
 
     learner_config, env_config, session_config = config_module.generate(config_command)
-    configs = EasyDict({'learner_config': learner_config, 'env_config': env_config, 'session_config': session_config})
+    configs = EzDict(
+        learner_config=learner_config,
+        env_config=env_config,
+        session_config=session_config
+    )
     validate_config(configs)
 
     configs.learner_config = Config(configs.learner_config).extend(BASE_LEARNER_CONFIG)
     configs.env_config = Config(configs.env_config).extend(BASE_ENV_CONFIG)
     configs.session_config = Config(configs.session_config).extend(BASE_SESSION_CONFIG)
-
     return configs
+
 
 def override_urls(configs, url):
     """
@@ -119,18 +136,20 @@ def override_urls(configs, url):
     configs.session_config.tensorplex.host = url
     configs.session_config.loggerplex.host = url
 
+
 def main():
     parser = setup_parser()
     args, remainder = parser.parse_known_args()
     if '--' in remainder:
         remainder.remove('--')
     # remainder args will be passed to user's config generator
-    config = load_config(args.config, remainder)
+    configs = load_config(args.config, remainder)
+    configs.session_config.folder = args.experiment_folder
 
     if args.service_url: 
-        override_urls(config, args.service_url)
+        override_urls(configs, args.service_url)
 
-    args.function(args, config)
+    args.function(args, configs)
 
 if __name__ == '__main__':
     main()

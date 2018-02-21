@@ -6,6 +6,7 @@ builtin methods (items, update) when there's conflict
 import json
 import yaml
 from io import StringIO
+from os.path import expanduser
 
 
 def _get_special_methods():
@@ -161,6 +162,7 @@ class EzDict(dict):
 
     @classmethod
     def load_json(cls, file_path):
+        file_path = expanduser(file_path)
         with open(file_path, 'r') as fp:
             return cls(json.load(fp))
 
@@ -170,6 +172,7 @@ class EzDict(dict):
 
     @classmethod
     def load_yaml(cls, file_path):
+        file_path = expanduser(file_path)
         with open(file_path, 'r') as fp:
             return cls(yaml.load(fp))
 
@@ -178,7 +181,7 @@ class EzDict(dict):
         return cls(yaml.load(string))
 
     def dump_json(self, file_path):
-        "saves to file"
+        file_path = expanduser(file_path)
         with open(file_path, 'w') as fp:
             json.dump(ezdict_to_dict(self), fp, indent=4)
 
@@ -187,7 +190,7 @@ class EzDict(dict):
         return json.dumps(ezdict_to_dict(self))
 
     def dump_yaml(self, file_path):
-        "saves to file"
+        file_path = expanduser(file_path)
         with open(file_path, 'w') as fp:
             yaml.dump(
                 ezdict_to_dict(self),

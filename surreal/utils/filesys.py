@@ -84,6 +84,13 @@ def f_mkdir_in_path(fpath):
     os.makedirs(get_dir(f_expand(fpath)), exist_ok=True)
 
 
+def f_last_part_in_path(fpath):
+    """
+    https://stackoverflow.com/questions/3925096/how-to-get-only-the-last-part-of-a-path-in-python
+    """
+    return os.path.basename(os.path.normpath(f_expand(fpath)))
+
+
 def f_time(fpath):
     "File modification time"
     return str(os.path.getctime(fpath))

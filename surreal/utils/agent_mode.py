@@ -1,4 +1,6 @@
+# TODO let's delete this
 from .common import StringEnum
+
 
 class AgentMode(StringEnum):
     training = ()
