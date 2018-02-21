@@ -52,9 +52,12 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-        time.sleep(self.env_config.sleep_time)
 
-        return (action_choice, action_pd)
+        if self.agent_mode is not AgentMode.training:
+            return action_choice
+        else: 
+            time.sleep(self.env_config.sleep_time)
+            return action_choice, action_pd
 
     def module_dict(self):
         return {

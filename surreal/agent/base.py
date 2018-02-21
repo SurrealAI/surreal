@@ -218,8 +218,6 @@ class Agent(object, metaclass=AgentMeta):
                     env.render()
                 self.pre_action(obs)
                 action = self.act(obs)
-                if type(action) == tuple:
-                    action = action[0]
                 obs_next, reward, done, info = env.step(action)
                 self.post_action(obs, action, obs_next, reward, done, info)
                 obs = obs_next
