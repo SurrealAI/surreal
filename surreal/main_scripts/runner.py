@@ -43,7 +43,7 @@ def setup_parser():
     )
     parser.add_argument(
         '--service-url',
-        required=True,
+        # required=True,
         help='override domain name for parameter server and replay server. '
              '(Used when they are on the same machine)'
     )

@@ -183,7 +183,7 @@ class EvalTensorplexMonitor(EpisodeMonitor):
         """
         super().__init__(env)
         self.tensorplex = EvalTensorplex(
-            eval_id=str(eval_id),
+            eval_id=eval_id,
             session_config=session_config
         )
         interval = session_config['tensorplex']['update_schedule']['eval_env']

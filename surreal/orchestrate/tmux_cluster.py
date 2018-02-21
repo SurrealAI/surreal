@@ -23,6 +23,7 @@ class TmuxCluster(object):
     def __init__(self,
                  cluster_name,
                  config_path,
+                 experiment_folder,
                  start_dir='.',
                  preamble_cmd=None,
                  config_command=None,
@@ -43,6 +44,9 @@ class TmuxCluster(object):
         self.config = self.all_config.session_config
         self.config_path = config_path
         self.config_command = config_command
+        # TODO: This is very error prone, we need to fix it
+        self.experiment_folder = experiment_folder
+        self.config.folder = experiment_folder
 
         self.infras_session = 'infras-' + cluster_name
         self.agent_session = 'agent-' + cluster_name
@@ -60,6 +64,7 @@ class TmuxCluster(object):
             args is the surreal defined argument to give to agent/learner, in a string!!!!
         """
         command = ['python -u -m', 'surreal.main_scripts.runner', self.config_path]
+        command += ['--experiment-folder', self.experiment_folder]
         command += [mode]
         if args is not None:
             command += [args]
