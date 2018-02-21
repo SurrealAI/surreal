@@ -8,10 +8,8 @@ def generate(argv):
     The function name must be `generate`.
     Will be called by `surreal.main_scripts.runner`
     """
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--savefile', type=str, required=True, help='place to save the experiment result file')
     parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
 
     args = parser.parse_args(args=argv)
@@ -44,8 +42,8 @@ def generate(argv):
             'norm_adv': True,
             'init_log_sig': -2.,
             'n_step': 10,
-            'trace_cutoff': 2,
-            'is_weight_thresh': 2.5, 
+            'trace_cutoff': 4,
+            'is_weight_thresh': 5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
             'stride': 1,
