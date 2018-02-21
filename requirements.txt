@@ -1,6 +1,8 @@
 easydict
 gym
 libtmux
+msgpack
+msgpack_numpy
 mujoco_py==0.5.7
 redis
 seaborn

@@ -1,7 +1,7 @@
 # ================== preambles ==================
 # file_server: 'hostPath', 'emptyDir', or NFS server address
 # alias: localhost == hostPath, temp == temporary == emptyDir
-{% macro volume_block(file_server, path_on_server) %}
+{% macro volume_block() %}
 volumes:
 {% for git_repo in GIT_REPOS %}
 - name: {{ git_repo | to_hyphen }}
@@ -10,15 +10,17 @@ volumes:
     revision: {{ GIT_SNAPSHOT_BRANCH }}
 {% endfor %}
 - name: fs
-{% if file_server | lower in ['temp', 'temporary', 'emptydir'] %}
+{% if FS_TYPE == 'emptyDir' %}
   emptyDir: {}
-{% elif file_server | lower in ['localhost', 'hostpath'] %}
+{% elif FS_TYPE == 'hostPath' %}
   hostPath:
-    path: {{ path_on_server }}
-{% else %}
+    path: {{ FS_PATH_ON_SERVER }}
+{% elif FS_TYPE == 'nfs' %}
   nfs:
-    server: {{ file_server }}
-    path: {{ path_on_server }}
+    server: {{ FS_SERVER }}
+    path: {{ FS_PATH_ON_SERVER }}
+{% else %}
+  {{ raise("unknown fs type, please check ~/.surreal.yml:fs.type") }}
 {% endif %}
 {% endmacro %}
 
@@ -63,7 +65,7 @@ volumes:
     mountPath: /mylibs/{{ git_repo }}
   {% endfor %}
   - name: fs
-    mountPath: /fs
+    mountPath: {{ FS_MOUNT_PATH }}
   args: {{ args }}
   {% if resource_request | length > 0 or resource_limit | length > 0 and type in ['agent', 'learner']%}
   resources:
@@ -140,7 +142,7 @@ spec:
   dnsPolicy: ClusterFirstWithHostNet
   hostname: {{ NONAGENT_HOST_NAME }}
   subdomain: surreal
-  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ volume_block() | indent(2) }}
   {{ tolerations_block | indent(2) }}
 
 {% if NONAGENT_SELECTOR | length > 0 %}
@@ -173,7 +175,7 @@ spec:
   hostname: agent-{{N}}
   subdomain: surreal
   restartPolicy: Never
-  {{ volume_block(FILE_SERVER, PATH_ON_SERVER) | indent(2) }}
+  {{ volume_block() | indent(2) }}
   {{ tolerations_block | indent(2) }}
 {% if AGENT_SELECTOR | length > 0 %}
   nodeSelector:

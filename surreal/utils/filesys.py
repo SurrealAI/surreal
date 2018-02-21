@@ -60,8 +60,11 @@ def f_exists(path):
     return os.path.exists(f_expand(path))
 
 
-def f_join(p, *paths):
-    return os.path.join(f_expand(p), *paths)
+def f_join(*fpaths):
+    """
+    join file paths and expand special symbols like `~` for home dir
+    """
+    return f_expand(os.path.join(*fpaths))
 
 
 def f_mkdir(fpath):
@@ -79,6 +82,13 @@ def f_mkdir_in_path(fpath):
     If exist, do nothing.
     """
     os.makedirs(get_dir(f_expand(fpath)), exist_ok=True)
+
+
+def f_last_part_in_path(fpath):
+    """
+    https://stackoverflow.com/questions/3925096/how-to-get-only-the-last-part-of-a-path-in-python
+    """
+    return os.path.basename(os.path.normpath(f_expand(fpath)))
 
 
 def f_time(fpath):
@@ -106,13 +116,6 @@ def f_add_ext(fpath, ext):
         return fpath
     else:
         return fpath + ext
-
-
-def f_join_expand(*fpaths):
-    """
-    join file paths and expand special symbols like `~` for home dir
-    """
-    return f_expand(f_join(*fpaths))
 
 
 def f_remove(fpath):

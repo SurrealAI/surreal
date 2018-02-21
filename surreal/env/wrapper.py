@@ -225,7 +225,7 @@ class DMControlAdapter(Wrapper):
         for event in pygame.event.get():
             if event.type == pygame.QUIT: sys.exit()
 
-        im = self.env.physics.render(width=width, height=height, camera_id=camera_id)
+        im = self.env.physics.render(width=width, height=height, camera_id=camera_id).transpose((1,0,2))
         pygame.pixelcopy.array_to_surface(self.screen, im)
         pygame.display.update()
         return im
@@ -249,7 +249,7 @@ class ObservationConcatenationWrapper(Wrapper):
     def observation_spec(self):
         return {
             'type': 'continuous',
-            'dim': [sum([functools.reduce(mul, x.shape) for k, x in self.env.observation_spec().items()])],
+            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
         }
 
     def action_spec(self):
