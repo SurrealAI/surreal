@@ -22,18 +22,18 @@ class FIFOReplay(Replay):
             env_config=env_config,
             session_config=session_config
         )
-        self.batch_size = self.replay_config.batch_size
+        self.batch_size = self.learner_config.replay.batch_size
         self._memory = deque(maxlen=self.batch_size+3)  # + 3 for a gentle buffering
-        assert self.replay_config.max_puller_queue <= 10
-        assert self.replay_config.max_prefetch_batch_queue == 1 
+        assert self.session_config.replay.max_puller_queue <= 10
+        assert self.session_config.replay.max_prefetch_batch_queue == 1 
         assert not self.session_config.sender.flush_time
         assert self.session_config.sender.flush_iteration <= 10
 
-    def default_config(self):
-        conf = super().default_config()
-        conf.update({
-        })
-        return conf
+    # def default_config(self):
+    #     conf = super().default_config()
+    #     conf.update({
+    #     })
+    #     return conf
 
     def insert(self, exp_tuple):
         self._memory.append(exp_tuple)

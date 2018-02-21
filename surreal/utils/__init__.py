@@ -8,3 +8,4 @@ from .parallel import *
 from .ezdict import EzDict
 from .json_yaml import *
 from .checkpoint import Checkpoint, PeriodicCheckpoint
+from .agent_mode import *

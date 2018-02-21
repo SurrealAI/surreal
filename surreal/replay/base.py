@@ -20,45 +20,51 @@ class ReplayMeta(type):
         register_replay(cls)
         return cls
 
-class ReplayCore(object, metaclass=ReplayMeta):
-    def __init__(self, *,
-                 puller_port,
-                 sampler_port,
-                 max_puller_queue,
-                 evict_interval):
+class Replay(object, metaclass=ReplayMeta):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize the replay server.
+    """
+    def __init__(self,
+                 learner_config,
+                 env_config,
+                 session_config):
         """
-        Args:
-            puller_port: server, pull from agent side
-            sampler_port: server, send to learner side
-            max_puller_queue
-            evict_interval: in seconds, 0 to disable evict
         """
+        # Note that there're 2 replay configs:
+        # one in learner_config that controls algorithmic part of the replay logic
+        # one in session_config that controls system settings
+        self.learner_config = learner_config
+        self.env_config = env_config
+        self.session_config = session_config
+
         self._exp_queue = ExpQueue(
-            port=puller_port,
-            max_size=max_puller_queue,
+            port=self.session_config.replay.port,
+            max_size=self.session_config.replay.max_puller_queue,
             exp_handler=self._insert_wrapper,
         )
         self._sampler_server = ZmqServer(
-            port=sampler_port,
+            port=self.session_config.replay.sampler_port,
             handler=self._sample_request_handler,
             is_pyobj=True
         )
-        self._evict_interval = evict_interval
+        self._job_queue = U.JobQueue()
+
+        self._evict_interval = self.session_config.replay.evict_interval
         self._evict_thread = None
-        # Number of experience collected by agents
-        self.cumulative_experience_count = 0
-        # Number of experience sampled by learner
-        self.cumulative_sampled_count = 0
-        # self._sample_condition = threading.Condition()
-        
-        self.insert_time = U.TimeRecorder()
-        self.sample_time = U.TimeRecorder()
+
+        self._setup_logging()
 
     def start_threads(self):
+        if self._has_tensorplex:
+            self.start_tensorplex_thread()
+        
         self._exp_queue.start_dequeue_thread()
         self._exp_queue.start_enqueue_thread()
+        
         if self._evict_interval:
             self.start_evict_thread()
+
         self._sampler_server.start()
         self._sampler_server.join()
 
@@ -104,7 +110,27 @@ class ReplayCore(object, metaclass=ReplayMeta):
     def __len__(self):
         raise NotImplementedError
 
-    # ======================== internal methods ========================
+    # ======================== internal methods ========================    
+    def _setup_logging(self):
+        self.log = Loggerplex(
+            name='replay',
+            session_config=self.session_config
+        )
+        self.tensorplex = StatsTensorplex(
+            section_name='replay',
+            session_config=self.session_config
+        )
+        self._tensorplex_thread = None
+        self._has_tensorplex = self.session_config.replay.tensorboard_display
+
+        # Number of experience collected by agents
+        self.cumulative_experience_count = 0
+        # Number of experience sampled by learner
+        self.cumulative_sampled_count = 0
+        
+        self.insert_time = U.TimeRecorder()
+        self.sample_time = U.TimeRecorder()
+
     def _insert_wrapper(self, exp_dict):
         """
             Allows us to do some book keeping in the base class
@@ -112,7 +138,6 @@ class ReplayCore(object, metaclass=ReplayMeta):
         self.cumulative_experience_count += 1
         with self.insert_time.time():
             self.insert(exp_dict)
-
 
     def _sample_request_handler(self, batch_size):
         """
@@ -127,71 +152,17 @@ class ReplayCore(object, metaclass=ReplayMeta):
         with self.sample_time.time():
             return self.sample(batch_size)
 
-    def _evict_loop(self):
-        assert self._evict_interval
-        while True:
-            time.sleep(self._evict_interval)
-            self.evict()
-
     def start_evict_thread(self):
         if self._evict_thread is not None:
             raise RuntimeError('evict thread already running')
         self._evict_thread = U.start_thread(self._evict_loop)
         return self._evict_thread
 
-
-class Replay(ReplayCore):
-    """
-        Important: When extending this class, make sure to follow the init method signature so that 
-        orchestrating functions can properly initialize the replay server.
-    """
-    def __init__(self,
-                 learner_config,
-                 env_config,
-                 session_config):
-        """
-        """
-        # Note that there're 2 replay configs:
-        # one in learner_config that controls algorithmic part of the replay logic
-        # one in session_config that controls system settings
-        self.learner_config = Config(learner_config)
-        self.replay_config = self.learner_config.replay
-        self.replay_config.extend(self.default_config())
-        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
-        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        self.replay_config.update(self.session_config.replay)
-
-        super().__init__(
-            puller_port=self.replay_config.port,
-            sampler_port=self.replay_config.sampler_port,
-            max_puller_queue=self.replay_config.max_puller_queue,
-            evict_interval=self.replay_config.evict_interval
-        )
-        self.log = Loggerplex(
-            name='replay',
-            session_config=self.session_config
-        )
-        self.tensorplex = StatsTensorplex(
-            section_name='replay',
-            session_config=self.session_config
-        )
-        self._tensorplex_thread = None
-        self._has_tensorplex = self.replay_config.tensorboard_display
-        self._job_queue = U.JobQueue()
-
-    def start_threads(self):
-        if self._has_tensorplex:
-            self.start_tensorplex_thread()
-        super().start_threads()
-
-    def default_config(self):
-        """
-        Returns:
-            dict of default configs, will be placed in learner_config['replay']
-        """
-        return {
-            'batch_size': '_int_',
-        }
+    def _evict_loop(self):
+        assert self._evict_interval
+        while True:
+            time.sleep(self._evict_interval)
+            self.evict()
 
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
@@ -207,7 +178,8 @@ class Replay(ReplayCore):
         self.last_sample_count = 0
         while True:
             time.sleep(1.)
-            self.tensorplex.add_scalars(self.get_tensorplex_report_dict(), global_step=int(time.time() - init_time))
+            self.tensorplex.add_scalars(self.get_tensorplex_report_dict(),
+                global_step=int(time.time() - init_time))
 
     def get_tensorplex_report_dict(self):
         """ 

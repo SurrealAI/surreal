@@ -1,21 +1,19 @@
 """
 A template class that defines base agent APIs
 """
+import time
 import surreal.utils as U
+from surreal.utils import AgentMode
 from surreal.session import (
     Loggerplex, AgentTensorplex, EvalTensorplex,
     PeriodicTracker, PeriodicTensorplex, extend_config,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
 from surreal.distributed import ParameterClient, ModuleDict
-import time
-
-
-class AgentMode(U.StringEnum):
-    training = ()
-    eval_stochastic = ()
-    eval_deterministic = ()
-
+from surreal.env import (
+    MaxStepWrapper, ConsoleMonitor, TrainingTensorplexMonitor,
+    expSenderWrapperFactory, EvalTensorplexMonitor
+)
 agent_registry = {}
 
 def register_agent(target_class):
@@ -30,54 +28,92 @@ class AgentMeta(U.AutoInitializeMeta):
         register_agent(cls)
         return cls
 
-class AgentCore(metaclass=AgentMeta):
-    def __init__(self, ps_host, ps_port, agent_mode):
-        """
-        Write all logs to self.log
-        """
-        self.agent_mode = AgentMode[agent_mode]
-        self._ps_client = None
-        self._ps_host = ps_host
-        self._ps_port = ps_port
+class Agent(object, metaclass=AgentMeta):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize custom agents.
 
+        TODO: Extend the initilization to allow custom non-config per-agent settings.
+            To be used to have a heterogeneous agent population
+    """
+    def __init__(self,
+                 learner_config,
+                 env_config,
+                 session_config,
+                 agent_id,
+                 agent_mode):
+        """
+            Initialize the agent class, 
+        """
+        self.learner_config = learner_config
+        self.env_config = env_config
+        self.session_config = session_config
+
+        self.agent_mode = AgentMode[agent_mode]
+        self.agent_id = agent_id
+
+        self._setup_parameter_pull()
+        self._setup_logging()
+
+        self.current_episode = 0
+        self.cumulative_steps = 0
+        self.current_step = 0
+
+    #######
+    # Internal initialization methods
+    #######
     def _initialize(self):
         """
             implements AutoInitializeMeta meta class.
+            self.module_dict can only happen after the module is constructed by subclasses.
         """
         self._ps_client = ParameterClient(
-            host=self._ps_host,
-            port=self._ps_port,
+            host=self.session_config.ps.host,
+            port=self.session_config.ps.port,
             module_dict=self.module_dict(),
         )
+    
+    def _setup_parameter_pull(self):
+        self._fetch_parameter_mode = self.session_config.agent.fetch_parameter_mode
+        self._fetch_parameter_interval = self.session_config.agent.fetch_parameter_interval
+        self._fetch_parameter_tracker = PeriodicTracker(self._fetch_parameter_interval)
 
-    def pre_action(self, obs):
+    def _setup_logging(self):
         """
-            Called before act is called by agent main script
+            Creates tensorplex logger and loggerplex logger
+            Initializes bookkeeping values
         """
-        pass
+        if self.agent_mode == AgentMode.training:
+            logger_name = 'agent-{}'.format(self.agent_id)
+            self.tensorplex = AgentTensorplex(
+                agent_id=self.agent_id,
+                session_config=self.session_config
+            )
+        else:
+            logger_name = 'eval-{}'.format(self.agent_id)
+            self.tensorplex = EvalTensorplex(
+                eval_id=self.agent_id,
+                session_config=self.session_config
+            )
+        self._periodic_tensorplex = PeriodicTensorplex(
+            tensorplex=self.tensorplex,
+            period=self.session_config.tensorplex.update_schedule.agent,
+            is_average=True,
+            keep_full_history=False
+        )
+        self.log = Loggerplex(
+            name=logger_name,
+            session_config=self.session_config
+        )
+        # record how long the current parameter have been used
+        self.actions_per_param_update = 0
+        self.episodes_per_param_update = 0
 
-    def post_action(self, obs, action, obs_next, reward, done, info):
-        """
-            Called before act is called by agent main script.
-            TODO: move experience generation to here so that agent has control over it.
-        """
-        pass
-
-    def pre_episode(self):
-        """
-            Called by agent process.
-            Can beused to reset internal states before an episode starts
-        """
-        pass
-
-    def post_episode(self):
-        """
-            Called by agent process.
-            Can beused to reset internal states after an episode ends
-            I.e. after the post_action when done = True
-        """
-        pass
-
+    #######
+    # Exposed abstract methods
+    # Override in subclass, no need to call super().act etc.
+    # Enough for basic usage
+    #######
     def act(self, obs):
         """
         Abstract method for taking actions.
@@ -93,6 +129,7 @@ class AgentCore(metaclass=AgentMeta):
         """
         raise NotImplementedError
 
+
     def module_dict(self):
         """
         Returns:
@@ -100,99 +137,12 @@ class AgentCore(metaclass=AgentMeta):
         """
         raise NotImplementedError
 
-    def fetch_parameter(self):
-        """
-        Update agent by pulling parameters from parameter server.
-        """
-        params, info = self._ps_client.fetch_parameter_with_info()
-        return params, info
-
-    def fetch_parameter_info(self):
-        """
-        Update agent by pulling parameters from parameter server.
-        """
-        return self._ps_client.fetch_info()
-
-    def set_agent_mode(self, agent_mode):
-        """
-        Args:
-            agent_mode: enum of AgentMode class
-        """
-        self.agent_mode = AgentMode[agent_mode]
-
-class Agent(AgentCore):
-    """
-        Important: When extending this class, make sure to follow the init method signature so that 
-        orchestrating functions can properly initialize custom agents.
-
-        TODO: Extend the initilization to allow custom non-config per-agent settings.
-            To be used to have a heterogeneous agent population
-    """
-    def __init__(self,
-                 learner_config,
-                 env_config,
-                 session_config,
-                 agent_id,
-                 agent_mode):
-        """
-        Write all logs to self.log
-        """
-        self.learner_config = extend_config(learner_config, self.default_config())
-        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
-        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        super().__init__(
-            ps_host=self.session_config.ps.host,
-            ps_port=self.session_config.ps.port,
-            agent_mode=agent_mode,
-        )
-        if self.agent_mode == AgentMode.training:
-            U.assert_type(agent_id, int)
-            logger_name = 'agent-{}'.format(agent_id)
-            self.tensorplex = AgentTensorplex(
-                agent_id=agent_id,
-                session_config=self.session_config
-            )
-        else:
-            logger_name = 'eval-{}'.format(agent_id)
-            self.tensorplex = EvalTensorplex(
-                eval_id=str(agent_id),
-                session_config=self.session_config
-            )
-        self._periodic_tensorplex = PeriodicTensorplex(
-            tensorplex=self.tensorplex,
-            period=self.session_config.tensorplex.update_schedule.agent,
-            is_average=True,
-            keep_full_history=False
-        )
-        self.log = Loggerplex(
-            name=logger_name,
-            session_config=self.session_config
-        )
-
-        # Parameter update related logging
-        self.last_parameter_time = None
-        # record how long the current parameter have been used
-        self.actions_per_param_update = 0
-        self.episodes_per_param_update = 0
-
-    def update_tensorplex(self, tag_value_dict, global_step=None):
-        self._periodic_tensorplex.update(tag_value_dict, global_step)
-
-    def default_config(self):
-        """
-        Returns:
-            a dict of defaults.
-        """
-        return BASE_LEARNER_CONFIG
-
-    def fetch_parameter(self):
-        """
-            Extends base class fetch_parameters to add some logging
-        """
-        params, info = super().fetch_parameter()
-        if params:
-            self.on_parameter_fetched(params, info)
-
+    #######
+    # Advanced exposed methods
+    # Override in subclass, NEED to call super().on_parameter_fetched() etc.
+    # User need to take care of agent mode
+    # For advanced usage
+    #######
     def on_parameter_fetched(self, params, info):
         """
             Method called when a new parameter is fetched. Free to be inherited by subclasses.
@@ -208,9 +158,171 @@ class Agent(AgentCore):
             self.episodes_per_param_update = 0
 
 
+    def pre_action(self, obs):
+        """
+            Called before act is called by agent main script
+        """
+        if self.agent_mode == AgentMode.training:
+            if self._fetch_parameter_mode == 'step' and \
+                    self._fetch_parameter_tracker.track_increment():
+                self.fetch_parameter()
+
     def post_action(self, obs, action, obs_next, reward, done, info):
-        super().post_action(obs, action, obs_next, reward, done, info)
+        """
+            Called after act is called by agent main script
+        """
+        self.current_step += 1
+        self.cumulative_steps += 1
         if self.agent_mode == AgentMode.training:
             self.actions_per_param_update += 1
             if done:
                 self.episodes_per_param_update += 1
+
+    def pre_episode(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states before an episode starts
+        """
+        if self.agent_mode == AgentMode.training:
+            if self._fetch_parameter_mode == 'episode' and \
+                    self._fetch_parameter_tracker.track_increment():
+                self.fetch_parameter()
+
+    def post_episode(self):
+        """
+            Called by agent process.
+            Can beused to reset internal states after an episode ends
+            I.e. after the post_action when done = True
+        """
+        self.current_episode += 1
+
+
+    #######
+    # Main loops. 
+    # Customize this to fully customize the agent process
+    #######
+    def main(self, env, render=False):
+        """
+            Default Main loop
+        Args:
+            @env: the environment to run agent on
+        """
+        env = self.prepare_env(env)
+        self.env = env
+        self.fetch_parameter()
+        while True:
+            self.pre_episode()
+            obs, info = env.reset()
+            while True:
+                if render:
+                    env.render()
+                self.pre_action(obs)
+                action = self.act(obs)
+                obs_next, reward, done, info = env.step(action)
+                self.post_action(obs, action, obs_next, reward, done, info)
+                obs = obs_next
+                if done:
+                    break
+            self.post_episode()
+
+    def prepare_env(self, env):
+        """
+            Applies custom wrapper to the environment as necessary
+        Returns:
+            @env: The (possibly wrapped) environment
+        """
+        if self.agent_mode == AgentMode.training:
+            return self.prepare_env_agent(env)
+        else:
+            return self.prepare_env_eval(env)
+
+    def prepare_env_agent(self, env):
+        """
+            Applies custom wrapper to the environment as necessary
+            Only changes agent behavior
+        """
+        # This has to go first as it alters step() return value
+        limit_training_episode_length = self.learner_config.algo.limit_training_episode_length
+        if limit_training_episode_length > 0:
+            env = MaxStepWrapper(env, limit_training_episode_length)
+
+        env = ConsoleMonitor(
+            env,
+            update_interval=10,
+            average_over=10,
+            extra_rows=None,
+            # Can be OrderedDict(
+            #     Exploration=show_exploration
+            # )
+        )
+        
+        expSenderWrapper = expSenderWrapperFactory(self.learner_config.algo.experience)
+        env = expSenderWrapper(env, self.learner_config, self.session_config)
+        env = TrainingTensorplexMonitor(
+            env,
+            agent_id=self.agent_id,
+            session_config=self.session_config,
+            separate_plots=True
+        )
+        return env
+
+    def prepare_env_eval(self, env):
+        """
+            Applies custom wrapper to the environment as necessary
+            Only changes eval behavior
+        """
+        env = EvalTensorplexMonitor(
+            env,
+            eval_id=self.agent_id,
+            fetch_parameter=self.fetch_parameter,
+            session_config=self.session_config,
+        )
+        return env
+
+    def main_agent(self, env):
+        """
+            Main loop ran by the agent script
+            Override if you want to customize agent behavior completely
+        """
+        self.main(env)
+
+    def main_eval(self, env):
+        """
+            Main loop ran by the eval script
+            Override if you want to customize eval behavior completely
+        """
+        self.main(env)
+    
+    #######
+    # Exposed public methods
+    #######
+    def fetch_parameter(self):
+        """
+            Extends base class fetch_parameters to add some logging
+        """
+        params, info = self._ps_client.fetch_parameter_with_info()
+        if params:
+            self.on_parameter_fetched(params, info)
+
+    def fetch_parameter_info(self):
+        """
+            Fetch information about the parameters currently held by the parameter server
+        """
+        return self._ps_client.fetch_info()
+
+    def update_tensorplex(self, tag_value_dict, global_step=None):
+        """
+            Send information in tag_value_dict to tensorplex
+        Args:
+            tag_value_dict: {metric_name: metric_value}
+            global_step: 
+        """
+        self._periodic_tensorplex.update(tag_value_dict, global_step)
+
+    def set_agent_mode(self, agent_mode):
+        """
+        Args:
+            agent_mode: enum of AgentMode class
+        """
+        self.agent_mode = AgentMode[agent_mode]
+
