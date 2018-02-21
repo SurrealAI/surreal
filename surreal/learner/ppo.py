@@ -21,7 +21,6 @@ class PPOLearner(Learner):
         if not self.use_cuda:
             self.log.info('Using CPU')
         else:
-            print('using gp')
             self.log.info('Using GPU: {}'.format(self.gpu_id))
 
         # RL general parameters
@@ -330,8 +329,7 @@ class PPOLearner(Learner):
                     v_trace_s_adv  = (v_trace_s_adv - mean)/std  
 
                 avg_trace = trace_c.mean()
-                return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace   
-
+                return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
         #obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
