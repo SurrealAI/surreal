@@ -165,6 +165,12 @@ class JinjaYaml(object):
             'to_hyphen': lambda s: s.replace('_', '-')
         }
         _env.filters.update(FILTERS)
+
+        # https://stackoverflow.com/questions/21778252/how-to-raise-an-exception-in-a-jinja2-macro
+        def _raise_jinja(msg):
+            raise RuntimeError(msg)
+        _env.globals['raise'] = _raise_jinja
+
         JinjaYaml._env = _env
 
     def render(self, context=None, **context_kwargs):

@@ -1,6 +1,6 @@
 # this file should be saved at ~/.surreal.yml
-version: 0.0.1
-experiment_folder: ~/Temp/kurreal
+version: 0.0.2
+local_kurreal_folder: ~/Temp/kurreal
 username: <user_name_for_experiments_and_fs>
 prefix_experiment_with_username: True
 mujoco_key_path: ~/.mujoco/mjkey.txt
@@ -13,8 +13,13 @@ git:
   - ~/my/repo/path/surreal
   - ~/my/repo/path/tensorplex
 fs:
+  type: nfs
   server: surreal-shared-fs-vm
-  path: /data
+  path_on_server: /data
+  mount_path: /fs
+  # actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
+  # see kubectl.get_remote_experiment_folder()
+  experiment_root_subfolder: experiments/<username>
 
 pod_types:
   agent:
