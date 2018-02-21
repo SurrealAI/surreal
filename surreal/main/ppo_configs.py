@@ -44,8 +44,8 @@ def generate(argv):
             'norm_adv': True,
             'init_log_sig': -2.,
             'n_step': 10,
-            'trace_cutoff': 1.2,
-            'is_weight_thresh': 1.5, 
+            'trace_cutoff': 2,
+            'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
             'stride': 1,
@@ -55,8 +55,8 @@ def generate(argv):
             'lr_policy': 2e-4,
             'lr_baseline': 2e-4,
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
-            'epoch_policy': 5,
-            'epoch_baseline': 5,
+            'epoch_policy': 10,
+            'epoch_baseline': 10,
             'kl_targ': 0.01, # target KL divergence between before and after
             'kl_cutoff_coeff': 50, # penalty coeff when kl large
             'clip_epsilon_init': 0.2, # factor of clipped loss
@@ -68,7 +68,7 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 64,
-            'memory_size': 80,
+            'memory_size': 4096,
             'sampling_start_size': 64,
         },
         'eval': {
@@ -79,6 +79,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
+        'sleep_time': 1/250,
     }
 
 
@@ -103,7 +104,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 200,
+            'fetch_parameter_interval': 100,
         },
     })
 

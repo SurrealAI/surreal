@@ -7,7 +7,7 @@ from .base import Agent, AgentMode
 from surreal.model.ppo_net import PPOModel, DiagGauss
 import numpy as np
 from surreal.session import ConfigError
-
+import time
 
 class PPOAgent(Agent):
 
@@ -52,6 +52,9 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
+
+        time.sleep(self.env_config.sleep_time)
+
         return (action_choice, action_pd)
 
     def module_dict(self):

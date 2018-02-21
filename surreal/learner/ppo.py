@@ -164,7 +164,7 @@ class PPOLearner(Learner):
 
     def _adapt_loss(self, obs, actions, advantages, behave_pol, ref_pol):
         learn_pol = self.model.forward_actor(obs)
-        prob_behave = self.pd.likelihood(actions, behave_pol) + self.is_weight_eps
+        prob_behave = self.pd.likelihood(actions, behave_pol)
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         kl = self.pd.kl(ref_pol, learn_pol).mean()
         surr = -(advantages * torch.clamp(prob_learn/prob_behave, max=self.is_weight_thresh)).mean()
@@ -195,7 +195,6 @@ class PPOLearner(Learner):
 
     def _adapt_update_full(self, obs, actions, advantages, behave_pol):
         ref_pol = self.model.forward_actor(obs).detach()
-        behave_pol = ref_pol
 
         for epoch in range(self.epoch_policy):
 
@@ -278,47 +277,45 @@ class PPOLearner(Learner):
             
                 is_weight_trunc = is_weight_trunc.view(batch_size, self.n_step)
                 log_trace_c     = torch.log(trace_c.view(batch_size, self.n_step)) # for numeric stability
-                log_trace_c = log_trace_c.cumsum(1)
-                trace_c = log_trace_c.exp()[:,:-1] # (batch_size, n-1)
+                log_trace_c     = log_trace_c.cumsum(1)
+                trace_c         = log_trace_c.exp()[:,:-1] # (batch_size, n-1)
 
                 # value estimate
                 obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
                 values = self.model.forward_critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
                 values = values.view(batch_size, self.n_step + 1)
                 values[:, :self.n_step] *= 1 - dones
-                values[:, self.n_step]  *= 1 - dones[:, -1]
+                values[:, self.n_step]  *= 1 - dones[:, -1] # this is because we dont have whether S_next is terminal
 
                 # computing trace
                 tds = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
                 tds[:, 1:] *= trace_c
 
                 # More efficient, more biased. run with stride ~= n_step
-                '''
-                v_trace_s_adv = tds
-                for step in range(self.n_step):
-                    gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
-                    if self.gpu_id >= 0:
-                        gamma = gamma.cuda()
-                    v_trace_s_adv[:, step] = torch.sum(v_trace_s_adv[:, step:] * gamma, dim=1)
+                # v_trace_s_adv = tds
+                # for step in range(self.n_step):
+                #     gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
+                #     if self.gpu_id >= 0:
+                #         gamma = gamma.cuda()
+                #     v_trace_s_adv[:, step] = torch.sum(v_trace_s_adv[:, step:] * gamma, dim=1)
 
-                v_trace_s = v_trace_s_adv + values[:, :-1]
-                v_trace_s_adv = v_trace_s_adv.view(-1 , 1)
-                v_trace_s = v_trace_s.view(-1, 1)
-                pds_flat = pds.view(batch_size * self.n_step, -1)
-                '''
+                # v_trace_s = v_trace_s_adv + values[:, :-1]
+                # v_trace_s_adv = v_trace_s_adv.view(-1 , 1)
+                # v_trace_s = v_trace_s.view(-1, 1)
+                # pds_flat = pds.view(batch_size * self.n_step, -1)
 
                 # Less Efficnet, less biased. Run with stride = 1                
-                
-                #gamma_s_plus_1 = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n,)
+                gamma_s_plus_1 = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n-1,)
                 gamma_s        = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
                 if self.gpu_id >= 0:
                     gamma_s = gamma_s.cuda()
-                    #gamma_s_plus_1 = gamma_s_plus_1.cuda()
-                #v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma_s_plus_1, dim = 1) #(batch_size,)
+                    gamma_s_plus_1 = gamma_s_plus_1.cuda()
+
+                v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma_s_plus_1, dim = 1) #(batch_size,)
                 v_trace_s_adv = torch.sum(tds * gamma_s, dim = 1)
                 v_trace_s     = v_trace_s_adv + values[:, 0]
-                #v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
-                #v_trace_s_adv = rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]  # (batch_size,)
+                # v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
+                v_trace_s_adv = rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]  # (batch_size,)
 
                 obs_flat = obs[:, 0, :] # (batch, obs_dim)
                 actions_flat = actions[:, 0, :] # (batch, act_dim)
@@ -357,6 +354,7 @@ class PPOLearner(Learner):
 
                 done_training = False
                 ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
+                # ref_pol = self.model.forward_actor(Variable(obs.view(self.learner_config.replay.batch_size * self.n_step, -1))).detach()
                 for _ in range(self.epoch_policy):
                     obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
                     obs_iter = Variable(obs_iter)
@@ -395,7 +393,7 @@ class PPOLearner(Learner):
                     stats[k] = baseline_stats[k]
                 stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
                 stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
-                stats['avg_behave_prob'] = self.pd.likelihood(actions_iter, behave_pol).mean().data[0]
+                stats['avg_behave_likelihood'] = self.pd.likelihood(actions_iter, behave_pol).mean().data[0]
                 new_pol = self.model.forward_actor(obs_iter).detach()
                 new_likelihood = self.pd.likelihood(actions_iter, new_pol)
                 stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions_iter, behave_pol), min = 1e-5)).mean().data[0]
@@ -403,9 +401,9 @@ class PPOLearner(Learner):
 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
-                    stats['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
-                    stats['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-                    stats['observation_0_running_std'] = self.model.z_filter.running_std()[0]
+                    stats['observation_running_mean'] = self.model.z_filter.running_mean()[0]
+                    stats['observation_running_square'] =  self.model.z_filter.running_square()[0]
+                    stats['observation_running_std'] = self.model.z_filter.running_std()[0]
 
                 self.update_tensorplex(stats)
 
@@ -425,31 +423,3 @@ class PPOLearner(Learner):
             'ppo': self.model,
         }
 
-'''
-    off-policy bias corrected PPO: -> custom V-trace aggregator 
-        1) V-trace integration:
-            * advantage estimate with V-trace
-            * value update with V-trace
-            * epsilon variance reduction in IS weights
-        2) Trajectory: using partial trajectories instead full trajectories
-            * Caveat: introduces bias
-            * CAN use full trajectory but it also reduces learning frequency (trade off)
-
-        Implementation details (compared to regular PPO):
-            - partial trajectoriy (N-step) | bias  ^
-            - sample size  v
-            - stride match N-step (or truncating)
-            - aggregator: multistep aggregator instead of NstepReturnAggregator
-
-
-        TODO:
-            - √ custom sender
-            - √ high bias, efficient implementation
-            - low bias, inefficient implementation
-            - agent side sleeping?
-            - log_sig smaller learning rate
-'''
-# TODAY:
-# reference policy necessary
-# update v-trace for every update
-# simultaneous actor and critic update
