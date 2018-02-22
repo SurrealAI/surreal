@@ -82,41 +82,6 @@ class LearnerMeta(U.AutoInitializeMeta):
         register_learner(cls)
         return cls
 
-# class LearnerCore(metaclass=LearnerMeta):
-#     def __init__(self, *,
-#                  sampler_host,
-#                  sampler_port,
-#                  ps_publish_port,
-#                  batch_size,
-#                  max_prefetch_batch_queue):
-#         """
-#         Write log to self.log
-
-#         Args:
-#             sampler_host: client to connect to replay node sampler
-#             sampler_port: client to connect to replay node
-#             ps_pub_port: parameter server PUBLISH port
-#         """
-#         self._ps_publisher = None  # in _initialize()
-#         self._ps_port = ps_publish_port
-#         self._prefetch_queue = PrefetchBatchQueue(
-#             sampler_host=sampler_host,
-#             sampler_port=sampler_port,
-#             batch_size=batch_size,
-#             max_size=max_prefetch_batch_queue,
-#         )
-
-#         self.learn_timer = U.TimeRecorder()
-#         self.fetch_timer = self._prefetch_queue.timer
-#         self.iter_timer = U.TimeRecorder()
-
-#     def _initialize(self):
-#         """
-#         For AutoInitializeMeta interface
-#         """
-
-
-
 
 class Learner(metaclass=LearnerMeta):
     """
