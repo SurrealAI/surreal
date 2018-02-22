@@ -180,11 +180,21 @@ class KurrealParser:
             nargs='?',
             help='list experiment, pod, and node'
         )
+        parser.add_argument(
+            '-a', '--all',
+            action='store_true',
+            help='show all resources from all namespace.'
+        )
         self._add_namespace(parser)
 
     def _setup_pod(self):
         "save as 'kurreal list pod'"
         parser = self._add_subparser('pod', aliases=['p', 'pods'])
+        parser.add_argument(
+            '-a', '--all',
+            action='store_true',
+            help='show all pods from all namespace.'
+        )
         self._add_namespace(parser)
 
     def _setup_tensorboard(self):
@@ -626,7 +636,9 @@ class Kurreal:
         """
         run = lambda cmd: \
             self.kube.run_verbose(cmd, print_out=True, raise_on_error=False)
-        if args.namespace:
+        if args.all:
+            ns_cmd = ' --all-namespaces'
+        elif args.namespace:
             ns_cmd = ' --namespace ' + self._get_namespace(args)
         else:
             ns_cmd = ''
@@ -637,7 +649,7 @@ class Kurreal:
             run('get pods -o wide' + ns_cmd)
         elif args.resource in ['no', 'node', 'nodes']:
             run('get nodes -o wide' + ns_cmd)
-        elif args.resource in ['s', 'service', 'services']:
+        elif args.resource in ['s', 'svc', 'service', 'services']:
             run('get services -o wide' + ns_cmd)
         else:
             raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
