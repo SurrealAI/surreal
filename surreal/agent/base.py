@@ -3,7 +3,6 @@ A template class that defines base agent APIs
 """
 import time
 import surreal.utils as U
-from surreal.utils import AgentMode
 from surreal.session import (
     TensorplexClient, LoggerplexClient,
     PeriodicTracker, PeriodicTensorplex, extend_config,
@@ -16,17 +15,24 @@ from surreal.env import (
 )
 agent_registry = {}
 
+
+AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
+
+
 def register_agent(target_class):
     agent_registry[target_class.__name__] = target_class
 
+
 def agent_factory(agent_name):
     return agent_registry[agent_name]
+
 
 class AgentMeta(U.AutoInitializeMeta):
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
         register_agent(cls)
         return cls
+
 
 class Agent(object, metaclass=AgentMeta):
     """
@@ -49,7 +55,8 @@ class Agent(object, metaclass=AgentMeta):
         self.env_config = env_config
         self.session_config = session_config
 
-        self.agent_mode = AgentMode[agent_mode]
+        assert agent_mode in AGENT_MODES
+        self.agent_mode = agent_mode
         self.agent_id = agent_id
 
         self._setup_parameter_pull()
@@ -83,7 +90,7 @@ class Agent(object, metaclass=AgentMeta):
             Creates tensorplex logger and loggerplex logger
             Initializes bookkeeping values
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             logger_name = 'agent-{}'.format(self.agent_id)
             self.tensorplex = TensorplexClient(
                 '{}/{}'.format('agent', self.agent_id),
@@ -151,7 +158,7 @@ class Agent(object, metaclass=AgentMeta):
             Method called when a new parameter is fetched. Free to be inherited by subclasses.
         """
         # The time it takes for parameter to go from learner to agent
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             delay = time.time() - info['time']
             self.update_tensorplex({'parameter_publish_delay': delay,
                                     'actions_per_param_update': self.actions_per_param_update,
@@ -165,7 +172,7 @@ class Agent(object, metaclass=AgentMeta):
         """
             Called before act is called by agent main script
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             if self._fetch_parameter_mode == 'step' and \
                     self._fetch_parameter_tracker.track_increment():
                 self.fetch_parameter()
@@ -176,7 +183,7 @@ class Agent(object, metaclass=AgentMeta):
         """
         self.current_step += 1
         self.cumulative_steps += 1
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             self.actions_per_param_update += 1
             if done:
                 self.episodes_per_param_update += 1
@@ -186,7 +193,7 @@ class Agent(object, metaclass=AgentMeta):
             Called by agent process.
             Can beused to reset internal states before an episode starts
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             if self._fetch_parameter_mode == 'episode' and \
                     self._fetch_parameter_tracker.track_increment():
                 self.fetch_parameter()
@@ -234,7 +241,7 @@ class Agent(object, metaclass=AgentMeta):
         Returns:
             @env: The (possibly wrapped) environment
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             return self.prepare_env_agent(env)
         else:
             return self.prepare_env_eval(env)
@@ -325,7 +332,8 @@ class Agent(object, metaclass=AgentMeta):
     def set_agent_mode(self, agent_mode):
         """
         Args:
-            agent_mode: enum of AgentMode class
+            agent_mode: 'training', 'eval_deterministic', or 'eval_stochastic'
         """
-        self.agent_mode = AgentMode[agent_mode]
+        assert agent_mode in AGENT_MODES
+        self.agent_mode = agent_mode
 

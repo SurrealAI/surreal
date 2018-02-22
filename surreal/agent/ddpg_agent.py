@@ -5,7 +5,6 @@ import torch
 from torch.autograd import Variable
 from .base import Agent
 import surreal.utils as U
-from surreal.utils import AgentMode
 from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
@@ -62,22 +61,22 @@ class DDPGAgent(Agent):
             initializes exploration noise
             and populates self.noise, a callable that returns noise of dimension same as action
         """
-        if self.agent_mode is AgentMode.eval_deterministic:
+        if self.agent_mode == 'eval_deterministic':
             return
         if self.noise_type == 'normal':
-            self.noise = NormalActionNoise(np.zeros(self.action_dim),
-                                           np.ones(self.action_dim) * self.sigma)
+            self.noise = NormalActionNoise(
+                np.zeros(self.action_dim),
+                np.ones(self.action_dim) * self.sigma
+            )
         elif self.noise_type == 'ou_noise':
-            self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),
-                                                      sigma=self.sigma,
-                                                      theta=self.learner_config.algo.exploration.theta,
-                                                      dt=self.learner_config.algo.exploration.dt)
+            self.noise = OrnsteinUhlenbeckActionNoise(
+                mu=np.zeros(self.action_dim),
+                sigma=self.sigma,
+                theta=self.learner_config.algo.exploration.theta,
+                dt=self.learner_config.algo.exploration.dt
+            )
         else:
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
-
-        # if agent_mode == AgentMode.training:
-        #     self.noise_sigma = self.learner_config.algo.exploration_sigma * (agent_id + 1e-4)
-        #     print('noise_sigma', self.noise_sigma)
 
     def act(self, obs):
         obs = U.to_float_tensor(obs)
@@ -88,7 +87,7 @@ class DDPGAgent(Agent):
         action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
 
-        if self.agent_mode is not AgentMode.eval_deterministic:
+        if self.agent_mode != 'eval_deterministic':
             action += self.noise()
 
         action = action.clip(-1, 1)
@@ -110,6 +109,6 @@ class DDPGAgent(Agent):
 
     def pre_episode(self):
         super().pre_episode()
-        if self.agent_mode is not AgentMode.eval_deterministic:
+        if self.agent_mode != 'eval_deterministic':
             self.noise.reset()
 
