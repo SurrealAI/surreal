@@ -168,6 +168,3 @@ class PrioritizedReplay(Replay):
 
     def __len__(self):
         return len(self._memory)
-
-    # def getBatch(self, batch_size, beta):
-    # def add(self, *args, **kwargs):
