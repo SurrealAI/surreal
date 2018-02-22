@@ -82,50 +82,31 @@ class LearnerMeta(U.AutoInitializeMeta):
         register_learner(cls)
         return cls
 
-class LearnerCore(metaclass=LearnerMeta):
-    def __init__(self, *,
-                 sampler_host,
-                 sampler_port,
-                 ps_publish_port,
-                 batch_size,
-                 max_prefetch_batch_queue):
+
+class Learner(metaclass=LearnerMeta):
+    """
+        Important: When extending this class, make sure to follow the init method signature so that 
+        orchestrating functions can properly initialize the learner.
+    """
+    def __init__(self,
+                 learner_config,
+                 env_config,
+                 session_config):
         """
         Write log to self.log
 
         Args:
-            sampler_host: client to connect to replay node sampler
-            sampler_port: client to connect to replay node
-            ps_pub_port: parameter server PUBLISH port
+            config: a dictionary of hyperparameters. It can include a special
+                section "log": {logger configs}
+            model: utils.pytorch.Module for the policy network
         """
-        self._ps_publisher = None  # in _initialize()
-        self._ps_port = ps_publish_port
-        self._prefetch_queue = PrefetchBatchQueue(
-            sampler_host=sampler_host,
-            sampler_port=sampler_port,
-            batch_size=batch_size,
-            max_size=max_prefetch_batch_queue,
-        )
+        self.learner_config = learner_config
+        self.env_config = env_config
+        self.session_config = session_config
 
-        self.learn_timer = U.TimeRecorder()
-        self.fetch_timer = self._prefetch_queue.timer
-        self.iter_timer = U.TimeRecorder()
-
-    def _initialize(self):
-        """
-        For AutoInitializeMeta interface
-        """
-        self._ps_publisher = ParameterPublisher(
-            port=self._ps_port,
-            module_dict=self.module_dict()
-        )
-        self._prefetch_queue.start_enqueue_thread()
-
-    def default_config(self):
-        """
-        Returns:
-            a dict of defaults.
-        """
-        return BASE_LEARNER_CONFIG
+        self._setup_connection()
+        self._setup_logging()
+        self._setup_checkpoint()
 
     def learn(self, batch_exp):
         """
@@ -152,6 +133,47 @@ class LearnerCore(metaclass=LearnerMeta):
         """
         raise NotImplementedError
 
+    def checkpoint_attributes(self):
+        """
+        Returns:
+            list of attributes to be tracked by checkpoint
+        """
+        return []
+
+    ######
+    # Internal, including Communication, etc.
+    ######
+    def _setup_connection(self):  
+        sampler_host = self.session_config.replay.sampler_host
+        sampler_port = self.session_config.replay.sampler_port
+        ps_publish_port = self.session_config.ps.publish_port
+        batch_size = self.learner_config.replay.batch_size
+        max_prefetch_batch_queue = self.session_config.replay.max_prefetch_batch_queue
+
+        self._ps_publisher = None  # in _initialize()
+        self._ps_port = ps_publish_port
+        self._prefetch_queue = PrefetchBatchQueue(
+            sampler_host=sampler_host,
+            sampler_port=sampler_port,
+            batch_size=batch_size,
+            max_size=max_prefetch_batch_queue,
+        )
+
+    def _initialize(self):
+        """
+        For AutoInitializeMeta interface
+        """
+        # Module dict can only be acquired after subclass __init__
+        self._ps_publisher = ParameterPublisher(
+            port=self._ps_port,
+            module_dict=self.module_dict()
+        )
+        self._prefetch_queue.start_enqueue_thread()
+        # restore_checkpoint should be called _after_ subclass __init__
+        # that's why we put it in _initialize()
+        if self.session_config.checkpoint.restore:
+            self.restore_checkpoint()
+
     def publish_parameter(self, iteration, message=''):
         """
         Learner publishes latest parameters to the parameter server.
@@ -169,95 +191,29 @@ class LearnerCore(metaclass=LearnerMeta):
         while True:
             yield self.fetch_batch()
 
-    def main_loop(self):    
-        """
-            Main loop that defines learner process
-        """
-        for i, batch in enumerate(self.fetch_iterator()):
-            with self.iter_timer.time():
-                with self.learn_timer.time():
-                    self.learn(batch)
-                self.publish_parameter(i, message='batch '+str(i))
 
+    ######
+    # Logging
+    ######
+    def _setup_logging(self):
+        self.learn_timer = U.TimeRecorder()
+        self.fetch_timer = self._prefetch_queue.timer
+        self.iter_timer = U.TimeRecorder()
 
-class Learner(LearnerCore):
-    """
-        Important: When extending this class, make sure to follow the init method signature so that 
-        orchestrating functions can properly initialize the learner.
-    """
-    def __init__(self,
-                 learner_config,
-                 env_config,
-                 session_config):
-        """
-        Write log to self.log
-
-        Args:
-            config: a dictionary of hyperparameters. It can include a special
-                section "log": {logger configs}
-            model: utils.pytorch.Module for the policy network
-        """
-        self.learner_config = extend_config(learner_config, self.default_config())
-        self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
-        self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
-        SC = self.session_config
-        super().__init__(
-            sampler_host=SC.replay.sampler_host,
-            sampler_port=SC.replay.sampler_port,
-            ps_publish_port=SC.ps.publish_port,
-            batch_size=self.learner_config.replay.batch_size,
-            max_prefetch_batch_queue=SC.replay.max_prefetch_batch_queue
-        )
         self.log = Loggerplex(
             name='learner',
-            session_config=SC
+            session_config=self.session_config
         )
         self.tensorplex = StatsTensorplex(
             section_name='learner',
-            session_config=SC
+            session_config=self.session_config
         )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
-            period=SC.tensorplex.update_schedule.learner,
+            period=self.session_config.tensorplex.update_schedule.learner,
             is_average=True,
             keep_full_history=False
         )
-        tracked_attrs = self.checkpoint_attributes()
-        assert U.is_sequence(tracked_attrs), \
-            'checkpoint_attributes must return a list of string attr names'
-        self._periodic_checkpoint = U.PeriodicCheckpoint(
-            U.f_join(SC.folder, 'checkpoint'),
-            name='learner',
-            period=SC.checkpoint.learner.periodic,
-            tracked_obj=self,
-            tracked_attrs=tracked_attrs,
-            keep_history=SC.checkpoint.learner.keep_history,
-            keep_best=SC.checkpoint.learner.keep_best  # TODO figure out how to add score to learner
-        )
-
-    def _initialize(self):
-        """
-        For AutoInitializeMeta interface
-        """
-        super()._initialize()  # TODO merge with LearnerCore
-        # restore_checkpoint should be called _after_ subclass __init__
-        # that's why we put it in _initialize()
-        if self.session_config.checkpoint.restore:
-            self.restore_checkpoint()
-
-    def default_config(self):
-        """
-        Returns:
-            a dict of defaults.
-        """
-        return BASE_LEARNER_CONFIG
-
-    def checkpoint_attributes(self):
-        """
-        Returns:
-            list of attributes to be tracked by checkpoint
-        """
-        return []
 
     def update_tensorplex(self, tag_value_dict, global_step=None):
         """
@@ -279,6 +235,26 @@ class Learner(LearnerCore):
         # Percent of time spent on IO
         tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
         self._periodic_tensorplex.update(tag_value_dict, global_step)
+
+
+    ######
+    # Checkpoint
+    ######
+    def _setup_checkpoint(self):
+        tracked_attrs = self.checkpoint_attributes()
+        assert U.is_sequence(tracked_attrs), \
+            'checkpoint_attributes must return a list of string attr names'
+        self._periodic_checkpoint = U.PeriodicCheckpoint(
+            U.f_join(self.session_config.folder, 'checkpoint'),
+            name='learner',
+            period=self.session_config.checkpoint.learner.periodic,
+            tracked_obj=self,
+            tracked_attrs=tracked_attrs,
+            keep_history=self.session_config.checkpoint.learner.keep_history,
+            keep_best=self.session_config.checkpoint.learner.keep_best  
+            # TODO figure out how to add score to learner
+        )
+
 
     def periodic_checkpoint(self, global_steps, score=None, **info):
         """
@@ -316,3 +292,17 @@ class Learner(LearnerCore):
         if restored:
             # TODO loggerplex
             print('Successfully Restored', restored)
+
+    ######
+    # Main Loop
+    # Override to completely change learner behavior
+    ######
+    def main_loop(self):    
+        """
+            Main loop that defines learner process
+        """
+        for i, batch in enumerate(self.fetch_iterator()):
+            with self.iter_timer.time():
+                with self.learn_timer.time():
+                    self.learn(batch)
+                self.publish_parameter(i, message='batch '+str(i))
