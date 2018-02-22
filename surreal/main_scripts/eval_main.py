@@ -22,18 +22,18 @@ def run_eval_main(args, config):
     agent_mode = AgentMode[args.mode]
     assert agent_mode != AgentMode.training
 
-    # TODO: clean up eval_id and agent_id
-    if agent_mode == AgentMode.eval_deterministic:
-        eval_id = 'deterministic-{}'.format(args.id)
-    else:
-        eval_id = 'stochastic-{}'.format(args.id)
+    # # TODO: clean up eval_id and agent_id
+    # if agent_mode == AgentMode.eval_deterministic:
+    #     eval_id = 'deterministic-{}'.format(args.id)
+    # else:
+    #     eval_id = 'stochastic-{}'.format(args.id)
 
     agent_class = agent_factory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
         session_config=session_config,
-        agent_id=eval_id,
+        agent_id=args.id,
         agent_mode=agent_mode,
     )
 

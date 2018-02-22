@@ -33,7 +33,7 @@ class AgentTensorplex(TensorplexClient):
 
 class EvalTensorplex(TensorplexClient):
     def __init__(self, eval_id, session_config):
-        U.assert_type(eval_id, str)
+        U.assert_type(eval_id, int)
         C = Config(session_config).extend(BASE_SESSION_CONFIG)
         super().__init__(
             '{}/{}'.format(EVAL_GROUP_NAME, eval_id),
