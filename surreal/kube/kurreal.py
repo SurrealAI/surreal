@@ -141,6 +141,7 @@ class KurrealParser:
     def _setup_log(self):
         parser = self._add_subparser('log', aliases=['logs', 'l'])
         self._add_component_arg(parser)
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-f', '--follow',
             action='store_true',
@@ -157,7 +158,6 @@ class KurrealParser:
             default=100,
             help='Only show the most recent lines of log. -1 to show all log lines.'
         )
-        self._add_namespace(parser)
 
     def _setup_namespace(self):
         parser = self._add_subparser(
@@ -180,31 +180,31 @@ class KurrealParser:
             nargs='?',
             help='list experiment, pod, and node'
         )
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-a', '--all',
             action='store_true',
             help='show all resources from all namespace.'
         )
-        self._add_namespace(parser)
 
     def _setup_pod(self):
         "save as 'kurreal list pod'"
         parser = self._add_subparser('pod', aliases=['p', 'pods'])
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-a', '--all',
             action='store_true',
             help='show all pods from all namespace.'
         )
-        self._add_namespace(parser)
 
     def _setup_tensorboard(self):
         parser = self._add_subparser('tensorboard', aliases=['tb'])
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-u', '--url-only',
             action='store_true',
             help='only show the URL without opening the browser.'
         )
-        self._add_namespace(parser)
 
     def _setup_describe(self):
         parser = self._add_subparser('describe', aliases=['des'])
@@ -212,22 +212,21 @@ class KurrealParser:
             'pod_name',
             help="should be either 'agent-<N>' or 'nonagent'"
         )
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
 
     def _setup_exec(self):
+        """
+        Actual exec commands must be added after "--"
+        will throw error if no "--" in command args
+        """
         parser = self._add_subparser('exec', aliases=['x'])
         self._add_component_arg(parser)
-        parser.add_argument(
-            'commands',
-            nargs=argparse.REMAINDER,
-            help="command to be executed in the pod. You don't have to quote it."
-        )
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
 
     def _setup_ssh(self):
         parser = self._add_subparser('ssh', aliases=[])
         self._add_component_arg(parser)
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
 
     def _setup_ssh_node(self):
         parser = self._add_subparser('ssh-node', aliases=['sshnode'])
@@ -290,14 +289,24 @@ class KurrealParser:
             help="should be either agent-<N> or one of [{}]".format(nonagent_str)
         )
 
-    def _add_namespace(self, parser):
-        parser.add_argument(
-            '-ns', '--ns', '--namespace', '--experiment',
-            dest='namespace',
-            type=self._process_experiment_name,
-            default='',
-            help='run the command in the designated namespace'
-        )
+    def _add_namespace(self, parser, positional=True):
+        help='run the command in the designated namespace'
+        if positional:
+            parser.add_argument(
+                'namespace',
+                type=self._process_experiment_name,
+                nargs='?',
+                default='',
+                help=help,
+            )
+        else:
+            parser.add_argument(
+                '-ns', '--ns', '--namespace',
+                dest='namespace',
+                type=self._process_experiment_name,
+                default='',
+                help=help,
+            )
 
     def _add_create_args(self, parser):
         """
@@ -683,11 +692,18 @@ class Kurreal:
         Exec command on a Surreal component: agent-<N>, learner, ps, etc.
         kubectl exec -ti <component> -- <command>
         """
-        if len(args.commands) == 1:
-            args.commands = args.commands[0]  # don't quote the singleton string
+        if not args.has_remainder:
+            raise RuntimeError(
+                'please enter your command after "--". '
+                'One and only one "--" must be present. \n'
+                'Example: kurreal exec learner [optional-namespace] -- ls -alf /fs/'
+            )
+        commands = args.remainder
+        if len(commands) == 1:
+            commands = commands[0]  # don't quote the singleton string
         self.kube.exec_surreal(
             args.component_name,
-            args.commands,
+            commands,
             namespace=self._get_namespace(args)
         )
 
