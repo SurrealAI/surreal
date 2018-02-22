@@ -3,7 +3,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 from collections import OrderedDict
-from surreal.session import PeriodicTracker, AgentTensorplex, EvalTensorplex
+from surreal.session import PeriodicTracker, TensorplexClient
 from surreal.utils import AgentMode
 import surreal.utils as U
 from .wrapper import Wrapper
@@ -131,9 +131,10 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
         """
         super().__init__(env)
         U.assert_type(agent_id, int)
-        self.tensorplex = AgentTensorplex(
-            agent_id=agent_id,
-            session_config=session_config
+        self.tensorplex = TensorplexClient(
+            '{}/{}'.format('agent', agent_id),
+            host=session_config.tensorplex.host,
+            port=session_config.tensorplex.port,
         )
         interval = session_config['tensorplex']['update_schedule']['training_env']
         self._periodic = PeriodicTracker(interval)
@@ -182,9 +183,10 @@ class EvalTensorplexMonitor(EpisodeMonitor):
                 False to keep all plots in the same section.
         """
         super().__init__(env)
-        self.tensorplex = EvalTensorplex(
-            eval_id=eval_id,
-            session_config=session_config
+        self.tensorplex = TensorplexClient(
+            '{}/{}'.format('eval', eval_id),
+            host=session_config.tensorplex.host,
+            port=session_config.tensorplex.port
         )
         interval = session_config['tensorplex']['update_schedule']['eval_env']
         self._periodic = PeriodicTracker(interval)
