@@ -16,10 +16,10 @@ def run_tensorplexserver_main(args, config):
     )
 
     (tensorplex
-        .register_normal_group('stats')
-        .register_indexed_group('agents', tensorplex_config.agent_bin_size)
+        .register_normal_group('learner')
+        .register_indexed_group('agent', tensorplex_config.agent_bin_size)
         .register_indexed_group('eval', 4)
-        .register_indexed_group('replay', 99)
+        .register_indexed_group('replay', 10)
     )
 
     tensorplex.start_server(

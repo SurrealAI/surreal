@@ -7,7 +7,7 @@ from surreal.session import (
     extend_config, PeriodicTracker, PeriodicTensorplex,
     BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
 )
-from surreal.session import StatsTensorplex, Loggerplex
+from surreal.session import TensorplexClient, LoggerplexClient
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
 
 
@@ -200,13 +200,15 @@ class Learner(metaclass=LearnerMeta):
         self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
 
-        self.log = Loggerplex(
-            name='learner',
-            session_config=self.session_config
+        self.log = LoggerplexClient(
+            'learner',
+            host=self.session_config.loggerplex.host,
+            port=self.session_config.loggerplex.port
         )
-        self.tensorplex = StatsTensorplex(
-            section_name='learner',
-            session_config=self.session_config
+        self.tensorplex = TensorplexClient(
+            'learner/learner',
+            host=self.session_config.tensorplex.host,
+            port=self.session_config.tensorplex.port
         )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
