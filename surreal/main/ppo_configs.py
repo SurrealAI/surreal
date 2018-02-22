@@ -42,7 +42,7 @@ def generate(argv):
             'norm_adv': True,
             'init_log_sig': -2.,
             'n_step': 10,
-            'trace_cutoff': 2,0,
+            'trace_cutoff': 2.0,
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
