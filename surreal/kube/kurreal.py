@@ -175,7 +175,7 @@ class KurrealParser:
                      'e', 'exp', 'experiment', 'experiments',
                      'p', 'pod', 'pods',
                      'no', 'node', 'nodes',
-                     's', 'service', 'services'],
+                     's', 'svc', 'service', 'services'],
             default='ns',
             nargs='?',
             help='list experiment, pod, and node'
@@ -600,10 +600,15 @@ class Kurreal:
                 print('aborted')
                 return
 
+        to_delete = kube.prefix_username(to_delete)
         kube.delete(
-            yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
-            namespace=kube.prefix_username(to_delete)
+            namespace=to_delete,
+            # don't need to specify yaml cause deleting a namespace
+            # auto-deletes all resources under it
+            # yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
+            yaml_path=None
         )
+        print('deleting all resources under namespace "{}"'.format(to_delete))
 
     def kurreal_namespace(self, args):
         """

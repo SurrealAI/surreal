@@ -379,19 +379,27 @@ class Kubectl(object):
             check_experiment_exists=check_experiment_exists,
         )
 
-    def delete(self, yaml_path, namespace):
+    def delete(self, namespace, yaml_path=None):
         """
         kubectl delete -f kurreal.yml --namespace <experiment_name>
         kubectl delete namespace <experiment_name>
+
+        Notes:
+            Delete a namespace will automatically delete all resources under it.
+
+        Args:
+            namespace
+            yaml_path: if None, delete the namespace.
         """
         check_valid_dns(namespace)
-        if not U.f_exists(yaml_path) and not self.dry_run:
-            raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
-        self.run_verbose(
-            'delete -f "{}" --namespace {}'
-                .format(yaml_path, namespace),
-            print_out=True, raise_on_error=False
-        )
+        if yaml_path:
+            if not U.f_exists(yaml_path) and not self.dry_run:
+                raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
+            self.run_verbose(
+                'delete -f "{}" --namespace {}'
+                    .format(yaml_path, namespace),
+                print_out=True, raise_on_error=False
+            )
         self.run_verbose(
             'delete namespace {}'.format(namespace),
             print_out=True, raise_on_error=False
