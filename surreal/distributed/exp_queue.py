@@ -7,13 +7,15 @@ from .zmq_struct import ZmqQueue
 
 class ExpQueue(object):
     def __init__(self,
-                 address,
+                 host,
+                 port,
                  max_size,
                  exp_handler):
         assert callable(exp_handler)
         self.max_size = max_size
         self._queue = ZmqQueue(
-            address=address,
+            host=host,
+            port=port,
             max_size=max_size,
             start_thread=False,
             is_pyobj=True

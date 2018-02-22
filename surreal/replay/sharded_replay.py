@@ -1,4 +1,4 @@
-from .base import replayFactory
+from .base import replay_factory
 from surreal.distributed import ZmqLoadBalancerThread
 from multiprocessing import Process
 from threading import Thread
@@ -17,7 +17,7 @@ class ShardedReplay(object):
         self.env_config = env_config
         self.session_config = session_config
 
-        self.replay_class = replayFactory(self.learner_config.replay.replay_class)
+        self.replay_class = replay_factory(self.learner_config.replay.replay_class)
         
         self.shards = self.learner_config.replay.replay_shards
 
@@ -60,7 +60,4 @@ class ShardedReplay(object):
         self.collector_proxy.join()
         self.sampler_proxy.join()
         
-
-
-
-
+        

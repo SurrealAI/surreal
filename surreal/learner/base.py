@@ -73,7 +73,7 @@ learner_registry = {}
 def register_learner(target_class):
     learner_registry[target_class.__name__] = target_class
 
-def learnerFactory(learner_name):
+def learner_factory(learner_name):
     return learner_registry[learner_name]
 
 class LearnerMeta(U.AutoInitializeMeta):

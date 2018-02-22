@@ -133,11 +133,11 @@ LOCAL_SESSION_CONFIG = {
         'collector_frontend_host': 'localhost',  # upstream from agents' pusher
         'collector_frontend_port': 7001,
         'collector_backend_host': 'localhost',  # upstream from agents' pusher
-        'collector_backend_port': 7007,
+        'collector_backend_port': 7002,
         'sampler_frontend_host': 'localhost',  # downstream to Learner request
-        'sampler_frontend_port': 7002,
+        'sampler_frontend_port': 7003,
         'sampler_backend_host': 'localhost',  # downstream to Learner request
-        'sampler_backend_port': 7008,
+        'sampler_backend_port': 7004,
         'max_puller_queue': 10000,  # replay side: pull queue size
         'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
         'evict_interval': 0.,  # in seconds
@@ -149,13 +149,13 @@ LOCAL_SESSION_CONFIG = {
     },
     'ps': {
         'host': 'localhost',  # downstream to agent requests
-        'port': 7003,
+        'port': 7005,
         'publish_host': 'localhost',  # upstream from learner
-        'publish_port': 7004
+        'publish_port': 7006
     },
     'tensorplex': {
         'host': 'localhost',
-        'port': 7005,
+        'port': 7007,
         'tensorboard_port': 6006,
         'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
@@ -169,7 +169,7 @@ LOCAL_SESSION_CONFIG = {
     },
     'loggerplex': {
         'host': 'localhost',
-        'port': 7006,
+        'port': 7008,
     },
     'agent': {
         # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'

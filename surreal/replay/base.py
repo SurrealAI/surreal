@@ -11,7 +11,7 @@ replay_registry = {}
 def register_replay(target_class):
     replay_registry[target_class.__name__] = target_class
 
-def replayFactory(replay_name):
+def replay_factory(replay_name):
     return replay_registry[replay_name]
 
 class ReplayMeta(type):
@@ -40,10 +40,9 @@ class Replay(object, metaclass=ReplayMeta):
         self.session_config = session_config
         self.index = index
 
-        exp_queue_add = "tcp://{}:{}".format(self.session_config.replay.collector_backend_host,
-                                            self.session_config.replay.collector_backend_port)
         self._exp_queue = ExpQueue(
-            address=exp_queue_add,
+            host=self.session_config.replay.collector_backend_host,
+            port=self.session_config.replay.collector_backend_port,
             max_size=self.session_config.replay.max_puller_queue,
             exp_handler=self._insert_wrapper,
         )
@@ -52,7 +51,7 @@ class Replay(object, metaclass=ReplayMeta):
             port=self.session_config.replay.sampler_backend_port,
             handler=self._sample_request_handler,
             is_pyobj=True,
-            loadbalanced=True,
+            load_balanced=True,
         )
         self._job_queue = U.JobQueue()
 

@@ -1,7 +1,7 @@
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
-from surreal.replay import replayFactory, ShardedReplay
+from surreal.replay import replay_factory, ShardedReplay
 
 def replay_parser_setup(parser):
     pass
@@ -18,7 +18,7 @@ def run_replay_main(args, config):
     sharded.launch()
     sharded.join()
 
-    # replay_class = replayFactory(learner_config.replay.replay_class)
+    # replay_class = replay_factory(learner_config.replay.replay_class)
     # replay = replay_class(
     #     learner_config=learner_config,
     #     env_config=env_config,

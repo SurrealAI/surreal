@@ -40,10 +40,11 @@ class ZmqPullServer(object):
     """
     replay <- agent
     """
-    def __init__(self, address, is_pyobj=True):
+    def __init__(self, host, port, is_pyobj=True):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
+        address = "tcp://{}:{}".format(host, port)
         print('Pulling from {}'.format(address))
         self.socket.connect(address)
         self._deserialize = _get_deserializer(is_pyobj)
@@ -86,7 +87,7 @@ class ZmqServer(threading.Thread):
     replay -> learner, manages ZmqServerWorker pool
     Async REQ-REP server
     """
-    def __init__(self, port, handler, host='*', is_pyobj=True, num_workers=5, loadbalanced=False):
+    def __init__(self, port, handler, host='*', is_pyobj=True, num_workers=5, load_balanced=False):
         """
         Args:
             port:
@@ -99,16 +100,19 @@ class ZmqServer(threading.Thread):
         self.is_pyobj = is_pyobj
         self.num_workers = num_workers
         self.serialize_time = U.TimeRecorder()
-        self.loadbalanced = loadbalanced
+        self.load_balanced = load_balanced
 
     def run(self):
         context = zmq.Context()
         router = context.socket(zmq.ROUTER)
         address = "tcp://{}:{}".format(self.host, self.port)
         print('Listening on {}'.format(address))
-        if self.loadbalanced:
+        if self.load_balanced:
+            # When we are using loadbalancing, the server is ephemeral and connects
+            # to a predefined load balancing proxy
             router.connect(address)
         else:
+            # When we are not load balancing, the server binds to a static address
             router.bind(address)
 
         dealer = context.socket(zmq.DEALER)
@@ -301,7 +305,8 @@ class ZmqQueue(object):
     Replay side
     """
     def __init__(self,
-                 address,
+                 host,
+                 port,
                  max_size,
                  is_pyobj=True,
                  start_thread=True):
@@ -313,7 +318,7 @@ class ZmqQueue(object):
             start_thread:
             is_pyobj: pull and convert to python object
         """
-        self._puller = ZmqPullServer(address=address, is_pyobj=is_pyobj)
+        self._puller = ZmqPullServer(host=host, port=port, is_pyobj=is_pyobj)
         self._queue = U.FlushQueue(max_size=max_size)
         # start
         self._enqueue_thread = None
