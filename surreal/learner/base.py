@@ -73,7 +73,7 @@ learner_registry = {}
 def register_learner(target_class):
     learner_registry[target_class.__name__] = target_class
 
-def learnerFactory(learner_name):
+def learner_factory(learner_name):
     return learner_registry[learner_name]
 
 class LearnerMeta(U.AutoInitializeMeta):
@@ -144,8 +144,8 @@ class Learner(metaclass=LearnerMeta):
     # Internal, including Communication, etc.
     ######
     def _setup_connection(self):  
-        sampler_host = self.session_config.replay.sampler_host
-        sampler_port = self.session_config.replay.sampler_port
+        sampler_host = self.session_config.replay.sampler_frontend_host
+        sampler_port = self.session_config.replay.sampler_frontend_port
         ps_publish_port = self.session_config.ps.publish_port
         batch_size = self.learner_config.replay.batch_size
         max_prefetch_batch_queue = self.session_config.replay.max_prefetch_batch_queue

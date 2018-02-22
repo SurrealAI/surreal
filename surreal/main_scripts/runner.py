@@ -129,8 +129,8 @@ def override_urls(configs, url):
     """
         Override all urls
     """
-    configs.session_config.replay.host = url
-    configs.session_config.replay.sampler_host = url
+    configs.session_config.replay.collector_frontend_host = url
+    configs.session_config.replay.sampler_frontend_host = url
     configs.session_config.ps.host = url
     configs.session_config.ps.publish_host = url
     configs.session_config.tensorplex.host = url

@@ -14,13 +14,15 @@ class FIFOReplay(Replay):
     def __init__(self,
                  learner_config,
                  env_config,
-                 session_config):
+                 session_config,
+                 index=0):
         """
         """
         super().__init__(
             learner_config=learner_config,
             env_config=env_config,
-            session_config=session_config
+            session_config=session_config,
+            index=index,
         )
         self.batch_size = self.learner_config.replay.batch_size
         self._memory = deque(maxlen=self.batch_size+3)  # + 3 for a gentle buffering

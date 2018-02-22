@@ -2,7 +2,7 @@ from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
 AgentMode = U.AgentMode
-from surreal.agent import agentFactory
+from surreal.agent import agent_factory
 import time
 import numpy as np
 
@@ -28,7 +28,7 @@ def run_eval_main(args, config):
     # else:
     #     eval_id = 'stochastic-{}'.format(args.id)
 
-    agent_class = agentFactory(learner_config.algo.agent_class)
+    agent_class = agent_factory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,

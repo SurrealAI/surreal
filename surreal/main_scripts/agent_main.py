@@ -1,7 +1,7 @@
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
-from surreal.agent import agentFactory
+from surreal.agent import agent_factory
 import argparse
 import time
 import numpy as np
@@ -20,7 +20,7 @@ def run_agent_main(args, config):
 
     env, env_config = make_env(env_config)
 
-    agent_class = agentFactory(learner_config.algo.agent_class)
+    agent_class = agent_factory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -68,7 +68,7 @@ def run_agent_main(args, config):
     #     separate_plots=True
     # )
 
-    # agent_class = agentFactory(learner_config.algo.agent_class)
+    # agent_class = agent_factory(learner_config.algo.agent_class)
     # agent = agent_class(
     #     learner_config=learner_config,
     #     env_config=env_config,

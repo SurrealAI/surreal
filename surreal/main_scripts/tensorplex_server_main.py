@@ -1,6 +1,5 @@
 import os
 from tensorplex import Tensorplex
-from surreal.session.tensorplex_adapter import *
 
 
 def tensorplex_parser_setup(parser):
@@ -17,9 +16,10 @@ def run_tensorplexserver_main(args, config):
     )
 
     (tensorplex
-        .register_normal_group(STATS_GROUP_NAME)
-        .register_indexed_group(AGENT_GROUP_NAME, tensorplex_config.agent_bin_size)
-        .register_combined_group(EVAL_GROUP_NAME, lambda tag: 'all')
+        .register_normal_group('stats')
+        .register_indexed_group('agents', tensorplex_config.agent_bin_size)
+        .register_indexed_group('eval', 4)
+        .register_indexed_group('replay', 99)
     )
 
     tensorplex.start_server(

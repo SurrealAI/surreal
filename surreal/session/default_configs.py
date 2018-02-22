@@ -21,6 +21,7 @@ BASE_LEARNER_CONFIG = {
         # The replay class to instantiate
         'replay_class': '_str_',
         'batch_size': '_int_',
+        'replay_shards': 1,
     }
 }
 
@@ -52,10 +53,14 @@ BASE_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'host': '_str_',  # upstream from agents' pusher
-        'port': '_int_',
-        'sampler_host': '_str_',  # downstream to Learner request
-        'sampler_port': '_int_',
+        'collector_backend_host': '_str_',  # upstream from agents' pusher
+        'collector_frontend_port': '_int_',
+        'collector_backend_host': '_str_',  # upstream from agents' pusher
+        'collector_backend_port': '_int_',
+        'sampler_frontend_host': '_str_',  # downstream to Learner request
+        'sampler_frontend_port': '_int_',
+        'sampler_backend_host': '_str_',  # downstream to Learner request
+        'sampler_backend_port': '_int_',
         'max_puller_queue': '_int_',  # replay side: pull queue size
         'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
         'evict_interval': '_float_',  # in seconds
@@ -125,10 +130,14 @@ LOCAL_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'host': 'localhost',  # upstream from agents' pusher
-        'port': 7001,
-        'sampler_host': 'localhost',  # downstream to Learner request
-        'sampler_port': 7002,
+        'collector_frontend_host': 'localhost',  # upstream from agents' pusher
+        'collector_frontend_port': 7001,
+        'collector_backend_host': 'localhost',  # upstream from agents' pusher
+        'collector_backend_port': 7002,
+        'sampler_frontend_host': 'localhost',  # downstream to Learner request
+        'sampler_frontend_port': 7003,
+        'sampler_backend_host': 'localhost',  # downstream to Learner request
+        'sampler_backend_port': 7004,
         'max_puller_queue': 10000,  # replay side: pull queue size
         'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
         'evict_interval': 0.,  # in seconds
@@ -140,13 +149,13 @@ LOCAL_SESSION_CONFIG = {
     },
     'ps': {
         'host': 'localhost',  # downstream to agent requests
-        'port': 7003,
+        'port': 7005,
         'publish_host': 'localhost',  # upstream from learner
-        'publish_port': 7004
+        'publish_port': 7006
     },
     'tensorplex': {
         'host': 'localhost',
-        'port': 7005,
+        'port': 7007,
         'tensorboard_port': 6006,
         'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
@@ -160,7 +169,7 @@ LOCAL_SESSION_CONFIG = {
     },
     'loggerplex': {
         'host': 'localhost',
-        'port': 7006,
+        'port': 7008,
     },
     'agent': {
         # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
@@ -195,8 +204,8 @@ KUBE_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'host': '_str_',  # upstream from agents' pusher
-        'sampler_host': '_str_',  # downstream to Learner request
+        'collector_frontend_host': '_str_',  # upstream from agents' pusher
+        'sampler_frontend_host': '_str_',  # downstream to Learner request
     },
     'sender': {
         'flush_iteration': '_int_',

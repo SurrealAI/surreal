@@ -19,7 +19,7 @@ agent_registry = {}
 def register_agent(target_class):
     agent_registry[target_class.__name__] = target_class
 
-def agentFactory(agent_name):
+def agent_factory(agent_name):
     return agent_registry[agent_name]
 
 class AgentMeta(U.AutoInitializeMeta):

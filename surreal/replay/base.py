@@ -1,7 +1,7 @@
 import threading
 import time
 import surreal.utils as U
-from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
+from surreal.session import (Loggerplex, TensorplexClient, Config, extend_config,
                              BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
 from surreal.distributed import ExpQueue, ZmqServer
 
@@ -11,7 +11,7 @@ replay_registry = {}
 def register_replay(target_class):
     replay_registry[target_class.__name__] = target_class
 
-def replayFactory(replay_name):
+def replay_factory(replay_name):
     return replay_registry[replay_name]
 
 class ReplayMeta(type):
@@ -28,7 +28,8 @@ class Replay(object, metaclass=ReplayMeta):
     def __init__(self,
                  learner_config,
                  env_config,
-                 session_config):
+                 session_config,
+                 index=0):
         """
         """
         # Note that there're 2 replay configs:
@@ -37,16 +38,20 @@ class Replay(object, metaclass=ReplayMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
+        self.index = index
 
         self._exp_queue = ExpQueue(
-            port=self.session_config.replay.port,
+            host=self.session_config.replay.collector_backend_host,
+            port=self.session_config.replay.collector_backend_port,
             max_size=self.session_config.replay.max_puller_queue,
             exp_handler=self._insert_wrapper,
         )
         self._sampler_server = ZmqServer(
-            port=self.session_config.replay.sampler_port,
+            host=self.session_config.replay.sampler_backend_host,
+            port=self.session_config.replay.sampler_backend_port,
             handler=self._sample_request_handler,
-            is_pyobj=True
+            is_pyobj=True,
+            load_balanced=True,
         )
         self._job_queue = U.JobQueue()
 
@@ -113,12 +118,13 @@ class Replay(object, metaclass=ReplayMeta):
     # ======================== internal methods ========================    
     def _setup_logging(self):
         self.log = Loggerplex(
-            name='replay',
+            name='{}/{}'.format('replay', self.index),
             session_config=self.session_config
         )
-        self.tensorplex = StatsTensorplex(
-            section_name='replay',
-            session_config=self.session_config
+        self.tensorplex = TensorplexClient(
+            '{}/{}'.format('replay', self.index),
+            host=self.session_config.tensorplex.host,
+            port=self.session_config.tensorplex.port,
         )
         self._tensorplex_thread = None
         self._has_tensorplex = self.session_config.replay.tensorboard_display
@@ -204,5 +210,3 @@ class Replay(object, metaclass=ReplayMeta):
             'sample_time': self.sample_time.avg,
             'serialize_time': self._sampler_server.serialize_time.avg,
         }
-
-
