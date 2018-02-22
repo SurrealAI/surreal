@@ -311,7 +311,7 @@ class PPOLearner(Learner):
                     gamma_s_plus_1 = gamma_s_plus_1.cuda()
 
                 v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma_s_plus_1, dim = 1) #(batch_size,)
-                v_trace_s_adv = torch.sum(tds * gamma_s, dim = 1)
+                # v_trace_s_adv = torch.sum(tds * gamma_s, dim = 1)
                 v_trace_s     = v_trace_s_adv + values[:, 0]
                 # v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
                 v_trace_s_adv = rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]  # (batch_size,)

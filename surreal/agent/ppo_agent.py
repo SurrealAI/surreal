@@ -5,6 +5,7 @@ import torch
 from torch.autograd import Variable
 from .base import Agent, AgentMode
 from surreal.model.ppo_net import PPOModel, DiagGauss
+import surreal.utils as U
 import numpy as np
 from surreal.session import ConfigError
 import time
@@ -40,6 +41,7 @@ class PPOAgent(Agent):
         self.pd = DiagGauss(self.action_dim)
 
     def act(self, obs):
+        obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
         action_pd = self.model.forward_actor(obs).data.numpy()
