@@ -1,6 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 
+
 def make_env(env_config):
     """
     Makes an environment and populates related fields in env_config
@@ -21,6 +22,7 @@ def make_env(env_config):
         env = VideoWrapper(env, env_config)
     return env, env_config
 
+
 def make_gym(env_name, env_config):
     import gym
     env = gym.make(env_name)
@@ -29,10 +31,12 @@ def make_gym(env_name, env_config):
     env_config.obs_spec = env.observation_spec()
     return env, env_config
 
+
 def make_mujocomanip(env_name, env_config):
     # import mujocomanip
     raise NotImplementedError()
     pass
+
 
 def make_dm_control(env_name, env_config):
     from dm_control import suite
