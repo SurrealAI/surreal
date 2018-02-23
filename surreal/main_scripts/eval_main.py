@@ -7,8 +7,8 @@ import numpy as np
 
 
 def eval_parser_setup(parser):
+    parser.add_argument('id', type=int)
     parser.add_argument('--mode', type=str, required=True)
-    parser.add_argument('--id', type=int, default=0)
     parser.add_argument('--render', action='store_true', default=False)
 
 
