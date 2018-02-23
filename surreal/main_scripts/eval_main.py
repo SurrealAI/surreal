@@ -15,7 +15,8 @@ def eval_parser_setup(parser):
 def run_eval_main(args, config):
     np.random.seed(int(time.time() * 100000 % 100000))
 
-    session_config, learner_config, env_config = config.session_config, config.learner_config, config.env_config
+    session_config, learner_config, env_config = \
+        config.session_config, config.learner_config, config.env_config
 
     env, env_config = make_env(env_config)
 

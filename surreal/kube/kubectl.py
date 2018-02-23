@@ -308,6 +308,9 @@ class Kubectl(object):
             check_experiment_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
+        if check_experiment_exists and U.f_exists(rendered_path):
+            raise FileExistsError(rendered_path
+                      + ' already exists, cannot run `create_surreal`.')
         C = self.config
         repo_paths = C.git.get('snapshot_repos', [])
         repo_paths = [U.f_expand(p) for p in repo_paths]
