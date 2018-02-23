@@ -96,25 +96,6 @@ class PPOLearner(Learner):
             # probability distribution. Gaussian only for now
             self.pd = DiagGauss(self.action_dim)
 
-
-    def _advantage_and_return(self, obs, actions, rewards, obs_next, done, num_steps):
-        # deprecated 
-        n_samples = obs.size()[0]
-        gamma = torch.ones(n_samples, 1) * self.gamma
-
-        values = self.model.forward_critic(Variable(obs)).detach().data
-        next_values = self.model.forward_critic(Variable(obs_next)).detach().data
-        returns = rewards + next_values * (1 - done) * torch.pow(gamma, num_steps) # value bootstrap
-        adv = returns - values
-
-        if self.norm_adv:
-            std = adv.std()
-            mean = adv.mean()
-            adv = (adv - mean) / std
-
-        return adv, returns
-
-
     def _clip_loss(self, obs, actions, advantages, fixed_dist, fixed_prob): 
         new_prob = self.model.forward_actor(obs)
         new_p = self.pd.likelihood(actions, new_prob)
@@ -250,6 +231,33 @@ class PPOLearner(Learner):
 
         return stats
 
+    def _advantage_and_return(self, obs, obs_next, actions, rewards, pds, dones):
+        with U.torch_gpu_scope(self.gpu_id):
+            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+            if self.gpu_id >= 0: 
+                rewards = rewards.cuda()
+                dones = dones.cuda()
+                gamma = gamma.cuda()
+
+            done_0 = dones[:, 0].contiguous()
+            done_n = dones[:, -1].contiguous()
+            obs_flat = obs[:, 0, :] # (batch, obs_dim)
+            actions_flat = actions[:, 0, :] # (batch, act_dim)
+            pds_flat = pds[:, 0, :] # (batch, 2* act_dim)
+
+            values   = self.model.forward_critic(Variable(obs_flat)).data * (1 - done_0.view(-1, 1))
+            next_val = self.model.forward_critic(Variable(obs_next.squeeze(1))).data * (1 - done_n.view(-1, 1))
+
+            returns = torch.sum(rewards * gamma, 1).view(-1, 1)
+            returns = returns + next_val * (self.gamma ** self.n_step) # value bootstrap
+            adv = returns - values
+
+            if self.norm_adv:
+                std = adv.std()
+                mean = adv.mean()
+                adv = (adv - mean) / std
+                
+            return obs_flat, actions_flat, adv, returns, pds_flat, 0
 
     def _V_trace_compute_target(self, obs, obs_next, actions, rewards, pds, dones):
         with U.torch_gpu_scope(self.gpu_id):
@@ -312,8 +320,8 @@ class PPOLearner(Learner):
 
                 v_trace_s_plus_1 = values[:, 1] + torch.sum(tds[:, 1:] * gamma_s_plus_1, dim = 1) #(batch_size,)
                 # v_trace_s_adv = torch.sum(tds * gamma_s, dim = 1)
-                v_trace_s     = v_trace_s_adv + values[:, 0]
-                # v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
+                # v_trace_s     = v_trace_s_adv + values[:, 0]
+                v_trace_s = values[:, 0] + tds[:, 0] + self.gamma * trace_c[:, 0] * (v_trace_s_plus_1 - values[:, 1]) # (batch_size,)
                 v_trace_s_adv = rewards[:, 0] + self.gamma * v_trace_s_plus_1 - values[:, 0]  # (batch_size,)
 
                 obs_flat = obs[:, 0, :] # (batch, obs_dim)
@@ -352,14 +360,15 @@ class PPOLearner(Learner):
 
                 done_training = False
                 ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
-                # ref_pol = self.model.forward_actor(Variable(obs.view(self.learner_config.replay.batch_size * self.n_step, -1))).detach()
                 for _ in range(self.epoch_policy):
                     obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+                    # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._advantage_and_return(obs, obs_next, actions, rewards, pds, dones)
                     obs_iter = Variable(obs_iter)
                     actions_iter= Variable(actions_iter)
                     advantages = Variable(advantages)
                     v_trace_targ = Variable(v_trace_targ)
                     behave_pol = Variable(behave_pol)
+                    # done_iter = Variable(dones[:,0].contiguous()).view(-1, 1)
 
                     if self.method == 'clip':
                         stats = self._clip_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
