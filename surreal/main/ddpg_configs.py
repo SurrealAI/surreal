@@ -47,7 +47,7 @@ def generate(argv):
                 # 'type': 'hard',
                 # 'interval': 100,
             },
-            'use_z_filter': True,
+            'use_z_filter': False,
             'exploration': {
                 'noise_type': 'normal',
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
