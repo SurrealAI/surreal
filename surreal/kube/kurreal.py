@@ -92,9 +92,10 @@ class KurrealParser:
         parser = self._add_subparser('create-dev', aliases=['cd'])
         self._add_experiment_name(parser)
         parser.add_argument('num_agents', type=int)
+        parser.add_argument('-e', '--env', default='cheetah')
+        parser.add_argument('-g', '--gpu', nargs='?', default='cpu')
         parser.add_argument('-nos', '--no-snapshot', action='store_true')
         parser.add_argument('-f', '--force', action='store_true')
-        parser.add_argument('-g', '--gpu', action='store_true')
         parser.add_argument(
             '-c', '--config_file',
             default='ddpg_configs.py',
@@ -474,16 +475,32 @@ class Kurreal:
         """
         << internal dev only >>
         """
-        if args.remainder:
-            config_command = args.remainder
+        assert not args.has_remainder, \
+            'create_dev cannot have "--". Use --env and --gpu'
+        ENV_ALIAS = {
+            # dm_control:cartpole-swingup
+            'ca': 'dm_control:cartpole-balance',
+            'cartpole': 'dm_control:cartpole-balance',
+            'ch': 'dm_control:cheetah-run',
+            'cheetah': 'dm_control:cheetah-run',
+        }
+        if args.env:
+            env = args.env
         else:
-            config_command = ['--env', 'dm_control:cheetah-run']
+            env = 'cheetah'
+        config_command = ['--env', ENV_ALIAS[env]]
 
+        POD_TYPE_ALIAS = {
+            '': 'nonagent-gpu',
+            None: 'nonagent-gpu',
+            '1': 'nonagent-gpu',
+            '2': 'nonagent-2k80-16cpu',
+            '4': 'nonagent-4k80-32cpu',
+            'cpu': 'nonagent-cpu'
+        }
+        nonagent_pod_type = POD_TYPE_ALIAS[args.gpu]
         if args.gpu:
-            nonagent_pod_type = 'nonagent-gpu'
             config_command += ["--gpu", "0"]
-        else:
-            nonagent_pod_type = 'nonagent-cpu'
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
