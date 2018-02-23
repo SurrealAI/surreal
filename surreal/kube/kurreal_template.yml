@@ -69,7 +69,7 @@ volumes:
   args: {{ args }}
   {% if resource_request | length > 0 or resource_limit | length > 0 and type in ['agent', 'learner']%}
   resources:
-    {% if resource_request | length > 0 and type in ['agent', 'learner']%}
+    {% if resource_request | length > 0 and type in ['agent', 'eval', 'learner']%}
     requests:
       {% for req_key, req_val in resource_request.items() %}
       {{req_key}}: {{req_val}}
