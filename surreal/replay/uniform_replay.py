@@ -20,16 +20,16 @@ class UniformReplay(Replay):
             session_config=session_config
         )
         self._memory = []
-        self.memory_size = self.replay_config.memory_size
+        self.memory_size = self.learner_config.replay.memory_size
         self._next_idx = 0
 
-    def default_config(self):
-        conf = super().default_config()
-        conf.update({
-            'memory_size': '_int_',
-            'sampling_start_size': '_int_'
-        })
-        return conf
+    # def default_config(self):
+    #     conf = super().default_config()
+    #     conf.update({
+    #         'memory_size': '_int_',
+    #         'sampling_start_size': '_int_'
+    #     })
+    #     return conf
 
     def insert(self, exp_dict):
         with self.insert_time.time():
@@ -68,7 +68,7 @@ class UniformReplay(Replay):
         return evicted
 
     def start_sample_condition(self):
-        return len(self) > self.replay_config.sampling_start_size
+        return len(self) > self.learner_config.replay.sampling_start_size
 
     def __len__(self):
         return len(self._memory)

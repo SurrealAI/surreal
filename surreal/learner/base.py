@@ -1,6 +1,7 @@
 """
 Template class for all learners
 """
+import queue
 import surreal.utils as U
 from surreal.session import (
     extend_config, PeriodicTracker, PeriodicTensorplex,
@@ -8,8 +9,7 @@ from surreal.session import (
 )
 from surreal.session import StatsTensorplex, Loggerplex
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
-import queue
-from easydict import EasyDict
+
 
 class PrefetchBatchQueue(object):
     """
@@ -200,27 +200,50 @@ class Learner(LearnerCore):
         self.learner_config = extend_config(learner_config, self.default_config())
         self.env_config = extend_config(env_config, BASE_ENV_CONFIG)
         self.session_config = extend_config(session_config, BASE_SESSION_CONFIG)
+        SC = self.session_config
         super().__init__(
-            sampler_host=self.session_config.replay.sampler_host,
-            sampler_port=self.session_config.replay.sampler_port,
-            ps_publish_port=self.session_config.ps.publish_port,
+            sampler_host=SC.replay.sampler_host,
+            sampler_port=SC.replay.sampler_port,
+            ps_publish_port=SC.ps.publish_port,
             batch_size=self.learner_config.replay.batch_size,
-            max_prefetch_batch_queue=self.session_config.replay.max_prefetch_batch_queue
+            max_prefetch_batch_queue=SC.replay.max_prefetch_batch_queue
         )
         self.log = Loggerplex(
             name='learner',
-            session_config=self.session_config
+            session_config=SC
         )
         self.tensorplex = StatsTensorplex(
             section_name='learner',
-            session_config=self.session_config
+            session_config=SC
         )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
-            period=self.session_config.tensorplex.update_schedule.learner,
+            period=SC.tensorplex.update_schedule.learner,
             is_average=True,
             keep_full_history=False
         )
+        tracked_attrs = self.checkpoint_attributes()
+        assert U.is_sequence(tracked_attrs), \
+            'checkpoint_attributes must return a list of string attr names'
+        self._periodic_checkpoint = U.PeriodicCheckpoint(
+            U.f_join(SC.folder, 'checkpoint'),
+            name='learner',
+            period=SC.checkpoint.learner.periodic,
+            tracked_obj=self,
+            tracked_attrs=tracked_attrs,
+            keep_history=SC.checkpoint.learner.keep_history,
+            keep_best=SC.checkpoint.learner.keep_best  # TODO figure out how to add score to learner
+        )
+
+    def _initialize(self):
+        """
+        For AutoInitializeMeta interface
+        """
+        super()._initialize()  # TODO merge with LearnerCore
+        # restore_checkpoint should be called _after_ subclass __init__
+        # that's why we put it in _initialize()
+        if self.session_config.checkpoint.restore:
+            self.restore_checkpoint()
 
     def default_config(self):
         """
@@ -228,6 +251,13 @@ class Learner(LearnerCore):
             a dict of defaults.
         """
         return BASE_LEARNER_CONFIG
+
+    def checkpoint_attributes(self):
+        """
+        Returns:
+            list of attributes to be tracked by checkpoint
+        """
+        return []
 
     def update_tensorplex(self, tag_value_dict, global_step=None):
         """
@@ -249,3 +279,40 @@ class Learner(LearnerCore):
         # Percent of time spent on IO
         tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
         self._periodic_tensorplex.update(tag_value_dict, global_step)
+
+    def periodic_checkpoint(self, global_steps, score=None, **info):
+        """
+        Will only save at the end of each period
+
+        Args:
+            global_steps: 
+            score: None when session_config.checkpoint.keep_best=False
+            **info: other meta info you want to save in checkpoint metadata
+
+        Returns:
+            whether save() is actually called or not
+        """
+        return self._periodic_checkpoint.save(
+            score=score,
+            global_steps=global_steps,
+            reload_metadata=False,
+            **info,
+        )
+
+    def restore_checkpoint(self):
+        SC = self.session_config
+        restore_folder = SC.checkpoint.restore_folder
+        if (restore_folder
+            and U.f_last_part_in_path(restore_folder) != 'checkpoint'):
+            # automatically append 'checkpoint' subfolder
+            restore_folder = U.f_join(restore_folder, 'checkpoint')
+        restored = self._periodic_checkpoint.restore(
+            target=SC.checkpoint.learner.restore_target,
+            mode=SC.checkpoint.learner.mode,
+            reload_metadata=True,
+            check_ckpt_exists=True,  # TODO set to False unless debugging
+            restore_folder=restore_folder,
+        )
+        if restored:
+            # TODO loggerplex
+            print('Successfully Restored', restored)

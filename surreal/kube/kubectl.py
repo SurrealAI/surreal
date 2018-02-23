@@ -21,7 +21,7 @@ from surreal.utils.ezdict import EzDict
 import surreal.utils as U
 
 
-SURREAL_YML_VERSION = '0.0.1'  # force version check
+SURREAL_YML_VERSION = '0.0.2'  # force version check
 
 
 def run_process(cmd):
@@ -58,13 +58,13 @@ class Kubectl(object):
         # persistent config in the home dir that contains git access token
         self.config = YamlList.from_file(surreal_yml)[0]
         self._check_version()
-        self.folder = U.f_expand(self.config.experiment_folder)
+        self.folder = U.f_expand(self.config.local_kurreal_folder)
         self.dry_run = dry_run
         self._loop_start_time = None
 
-    def _yaml_path(self, experiment_name, yaml_name='kurreal.yml'):
-        "retrieve from the experiment folder"
-        return U.f_join(self.folder, experiment_name, yaml_name)
+    def get_path(self, subfolder, file_name):
+        "file under local_kurreal_folder"
+        return U.f_join(self.folder, subfolder, file_name)
 
     def _check_version(self):
         """
@@ -88,15 +88,20 @@ class Kubectl(object):
                       "to fix credential error")
             return out.strip(), err.strip(), retcode
 
-    def run_raw(self, cmd, program='kubectl'):
+    def run_raw(self, cmd, program='kubectl', print_cmd=False):
         """
         Raw os.system calls
+
+        Returns:
+            error code
         """
         cmd = program + ' ' + cmd
         if self.dry_run:
             print(cmd)
         else:
-            os.system(cmd)
+            if print_cmd:
+                print(cmd)
+            return os.system(cmd)
 
     def _print_err_return(self, out, err, retcode):
         print_err('error code:', retcode)
@@ -132,6 +137,7 @@ class Kubectl(object):
                 break
             time.sleep(poll_interval)
 
+    # TODO remove this
     def _create_loop(self, yaml_file, namespace):
         """
         Useful for restarting a kube service.
@@ -160,8 +166,9 @@ class Kubectl(object):
             return True
 
     def create(self,
-               experiment_name,
+               namespace,
                jinja_template,
+               rendered_path,
                context=None,
                check_experiment_exists=True,
                **context_kwargs):
@@ -170,30 +177,28 @@ class Kubectl(object):
         kubectl create -f kurreal.yml --namespace <experiment_name>
 
         Args:
-            jinja_template: Jinja template kurreal.yml
+            jinja_template: Jinja kurreal_template.yml
             context: see `YamlList`
             **context_kwargs: see `YamlList`
 
         Returns:
             path for the rendered kurreal.yml in the experiment folder
         """
-        check_valid_dns(experiment_name)
-        rendered_path = self._yaml_path(experiment_name)
+        check_valid_dns(namespace)
         if check_experiment_exists and U.f_exists(rendered_path):
             raise FileExistsError(rendered_path
                                   + ' already exists, cannot run `create`.')
-        U.f_mkdir_in_path(rendered_path)
         JinjaYaml.from_file(jinja_template).render_file(
             rendered_path, context=context, **context_kwargs
         )
         if self.dry_run:
             print(file_content(rendered_path))
         else:
-            self.run('create namespace ' + experiment_name)
+            self.run('create namespace ' + namespace)
             self.run_event_loop(
                 self._create_loop,
                 rendered_path,
-                namespace=experiment_name,
+                namespace=namespace,
                 poll_interval=5
             )
 
@@ -237,7 +242,7 @@ class Kubectl(object):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
 
-    def get_experiment_name(self, experiment_name):
+    def prefix_username(self, experiment_name):
         """
         Set boolean flag `prefix_experiment_with_username` in ~/.surreal.yml.
         Will prefix the experiment name unless it is already manually prefixed.
@@ -249,9 +254,37 @@ class Kubectl(object):
                 experiment_name = prefix + experiment_name
         return experiment_name
 
+    def strip_username(self, experiment_name):
+        """
+        Will remove the "<username>-" prefix
+        """
+        assert 'prefix_experiment_with_username' in self.config
+        if self.config.prefix_experiment_with_username:
+            prefix = self.username + '-'
+            if experiment_name.startswith(prefix):
+                experiment_name = experiment_name[len(prefix):]
+        return experiment_name
+
+    def get_remote_experiment_folder(self, experiment_name):
+        """
+        actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
+        """
+        # DON'T use U.f_join because we don't want to expand the path locally
+        root_subfolder = self.config.fs.experiment_root_subfolder
+        assert not root_subfolder.startswith('/'), \
+            'experiment_root_subfolder should not start with "/". ' \
+            'Actual experiment folder path will be ' \
+            '<mount_path>/<root_subfolder>/<experiment_name>/'
+        return os.path.join(
+            self.config.fs.mount_path,
+            self.config.fs.experiment_root_subfolder,
+            experiment_name
+        )
+
     def create_surreal(self,
                        experiment_name,
                        jinja_template,
+                       rendered_path,
                        agent_pod_type,
                        nonagent_pod_type,
                        cmd_dict,
@@ -264,6 +297,7 @@ class Kubectl(object):
         Args:
             experiment_name: will also be used as hostname for DNS
             jinja_template: kurreal_template.yml file path
+            rendered_path: rendered yaml file path
             agent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
             nonagent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
             cmd_dict: dict of commands to be run on each container
@@ -274,43 +308,54 @@ class Kubectl(object):
             check_experiment_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
-        repo_paths = self.config.git.get('snapshot_repos', [])
+        C = self.config
+        repo_paths = C.git.get('snapshot_repos', [])
         repo_paths = [U.f_expand(p) for p in repo_paths]
         if snapshot and not self.dry_run:
             for repo_path in repo_paths:
                 push_snapshot(
-                    snapshot_branch=self.config.git.snapshot_branch,
+                    snapshot_branch=C.git.snapshot_branch,
                     repo_path=repo_path
                 )
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
         context = {
-            'GIT_USER': self.config.git.user,
-            'GIT_TOKEN': self.config.git.token,
-            'GIT_SNAPSHOT_BRANCH': self.config.git.snapshot_branch,
+            'GIT_USER': C.git.user,
+            'GIT_TOKEN': C.git.token,
+            'GIT_SNAPSHOT_BRANCH': C.git.snapshot_branch,
             'GIT_REPOS': repo_names,
         }
         if mujoco:
             context['MUJOCO_KEY_TEXT'] = \
-                file_content(self.config.mujoco_key_path)
+                file_content(C.mujoco_key_path)
 
         context['CMD_DICT'] = cmd_dict
         context['NONAGENT_HOST_NAME'] = experiment_name
 
         # Mount file system from 
-        if 'fs' in self.config:
-            context['FILE_SERVER'] = self.config.fs.server
-            context['PATH_ON_SERVER'] = self.config.fs.path
+        if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
+            context['FS_TYPE'] = 'emptyDir'
+            context['FS_SERVER'] = None
+            context['FS_PATH_ON_SERVER'] = None
+        elif C.fs.type.lower() in ['localhost', 'hostpath']:
+            context['FS_TYPE'] = 'hostPath'
+            context['FS_SERVER'] = None
+            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
+        elif C.fs.type.lower() in ['nfs']:
+            context['FS_TYPE'] = 'nfs'
+            context['FS_SERVER'] = C.fs.server
+            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
         else:
-            context['FILE_SERVER'] = 'temp'
-            context['PATH_ON_SERVER'] = '/'
+            raise NotImplementedError('Unsupported file server type: "{}". '
+              'Supported options are [emptyDir, hostPath, nfs]'.format(C.fs.type))
+        context['FS_MOUNT_PATH'] = C.fs.mount_path
 
-        assert agent_pod_type in self.config.pod_types, \
+        assert agent_pod_type in C.pod_types, \
             'agent pod type not found in `pod_types` section in ~/.surreal.yml'
-        assert nonagent_pod_type in self.config.pod_types, \
+        assert nonagent_pod_type in C.pod_types, \
             'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
-        agent_pod_spec = self.config.pod_types[agent_pod_type]
-        nonagent_pod_spec = self.config.pod_types[nonagent_pod_type]
+        agent_pod_spec = C.pod_types[agent_pod_type]
+        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
         context['AGENT_IMAGE'] = agent_pod_spec.image
         context['NONAGENT_IMAGE'] = nonagent_pod_spec.image
         # select nodes from nodepool label to schedule agent/nonagent pods
@@ -327,28 +372,28 @@ class Kubectl(object):
             nonagent_pod_spec.get('resource_limit', {})
 
         self.create(
-            experiment_name,
-            jinja_template,
+            namespace=experiment_name,
+            jinja_template=jinja_template,
+            rendered_path=rendered_path,
             context=context,
             check_experiment_exists=check_experiment_exists,
         )
 
-    def delete(self, experiment_name):
+    def delete(self, yaml_path, namespace):
         """
         kubectl delete -f kurreal.yml --namespace <experiment_name>
         kubectl delete namespace <experiment_name>
         """
-        check_valid_dns(experiment_name)
-        yaml_path = self._yaml_path(experiment_name)
-        if not U.f_exists(yaml_path):
+        check_valid_dns(namespace)
+        if not U.f_exists(yaml_path) and not self.dry_run:
             raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
         self.run_verbose(
             'delete -f "{}" --namespace {}'
-                .format(yaml_path, experiment_name),
+                .format(yaml_path, namespace),
             print_out=True, raise_on_error=False
         )
         self.run_verbose(
-            'delete namespace {}'.format(experiment_name),
+            'delete namespace {}'.format(namespace),
             print_out=True, raise_on_error=False
         )
 
@@ -364,6 +409,8 @@ class Kubectl(object):
         """
         config = self.config_view()
         current_context = self.current_context()
+        if self.dry_run:
+            return 'dummy-namespace'
         for context in config['contexts']:
             if context['name'] == current_context:
                 return context['context']['namespace']
@@ -410,7 +457,7 @@ class Kubectl(object):
             - OR list of fuzzy matches
         """
         all_names = self.list_namespaces()
-        prefixed_name = self.get_experiment_name(name)
+        prefixed_name = self.prefix_username(name)
         if prefixed_name in all_names:
             return prefixed_name
         if name in all_names:
@@ -452,8 +499,12 @@ class Kubectl(object):
             cmd += ' --field-selector ' + shlex.quote(fields)
         return cmd
 
-    def query_resources(self, resource, output_format,
-                        names=None, labels='', fields=''):
+    def query_resources(self, resource,
+                        output_format,
+                        names=None,
+                        labels='',
+                        fields='',
+                        namespace=''):
         """
         Query all items in the resource with `output_format`
         JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -491,6 +542,7 @@ class Kubectl(object):
         if names and (labels or fields):
             raise ValueError('names and (labels or fields) are mutually exclusive')
         cmd = 'get ' + resource
+        cmd += self._get_ns_cmd(namespace)
         if names is None:
             cmd += self._get_selectors(labels, fields)
         else:
@@ -511,8 +563,12 @@ class Kubectl(object):
         else:
             return out
 
-    def query_jsonpath(self, resource, jsonpath,
-                       names=None, labels='', fields=''):
+    def query_jsonpath(self, resource,
+                       jsonpath,
+                       names=None,
+                       labels='',
+                       fields='',
+                       namespace=''):
         """
         Query items in the resource with jsonpath
         https://kubernetes.io/docs/reference/kubectl/jsonpath/
@@ -538,7 +594,8 @@ class Kubectl(object):
             names=names,
             output_format=output_format,
             labels=labels,
-            fields=fields
+            fields=fields,
+            namespace=namespace
         )
         return out.split('\n\n')
 
@@ -552,12 +609,13 @@ class Kubectl(object):
         )
         return EzDict.loads_yaml(out)
 
-    def external_ip(self, pod_name):
+    def external_ip(self, pod_name, namespace=''):
         """
         Returns:
             "<ip>:<port>"
         """
-        tb = self.query_resources('svc', 'yaml', names=[pod_name])
+        tb = self.query_resources('svc', 'yaml',
+                                  names=[pod_name], namespace=namespace)
         conf = tb.status.loadBalancer
         if not ('ingress' in conf and 'ip' in conf.ingress[0]):
             return ''
@@ -565,17 +623,28 @@ class Kubectl(object):
         port = tb.spec.ports[0].port
         return '{}:{}'.format(ip, port)
 
+    def _get_ns_cmd(self, namespace):
+        if namespace:
+            return ' --namespace ' + namespace
+        else:
+            return ''
+
     def _get_logs_cmd(self, pod_name, container_name,
-                      follow, since=0, tail=-1):
-        return 'logs {} {} {} --since={} --tail={}'.format(
+                      follow, since=0, tail=-1, namespace=''):
+        return 'logs {} {} {} --since={} --tail={}{}'.format(
             pod_name,
             container_name,
             '--follow' if follow else '',
             since,
-            tail
+            tail,
+            self._get_ns_cmd(namespace)
         )
 
-    def logs(self, pod_name, container_name='', since=0, tail=100):
+    def logs(self, pod_name,
+             container_name='',
+             since=0,
+             tail=100,
+             namespace=''):
         """
         kubectl logs <pod_name> <container_name> --follow --since= --tail=
         https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
@@ -584,8 +653,10 @@ class Kubectl(object):
             stdout string
         """
         out, err, retcode = self.run_verbose(
-            self._get_logs_cmd(pod_name, container_name,
-                               follow=False, since=since, tail=tail),
+            self._get_logs_cmd(
+                pod_name, container_name, follow=False,
+                since=since, tail=tail, namespace=namespace
+            ),
             print_out=False,
             raise_on_error=False
         )
@@ -594,22 +665,28 @@ class Kubectl(object):
         else:
             return out
 
-    def describe(self, pod_name):
-        return self.run_verbose('describe pod '+pod_name,
-                                print_out=True, raise_on_error=False)
+    def describe(self, pod_name, namespace=''):
+        cmd = 'describe pod ' + pod_name + self._get_ns_cmd(namespace)
+        return self.run_verbose(cmd, print_out=True, raise_on_error=False)
 
-    def print_logs(self, pod_name, container_name='',
-                   follow=False, since=0, tail=100):
+    def print_logs(self, pod_name,
+                   container_name='',
+                   follow=False,
+                   since=0,
+                   tail=100,
+                   namespace=''):
         """
         kubectl logs <pod_name> <container_name>
         No error checking, no string caching, delegates to os.system
         """
-        cmd = self._get_logs_cmd(pod_name, container_name,
-                                 follow=follow, since=since, tail=tail)
+        cmd = self._get_logs_cmd(
+            pod_name, container_name, follow=follow,
+            since=since, tail=tail, namespace=namespace
+        )
         self.run_raw(cmd)
 
     def logs_surreal(self, component_name, is_print=False,
-                     follow=False, since=0, tail=100):
+                     follow=False, since=0, tail=100, namespace=''):
         """
         Args:
             component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
@@ -621,13 +698,15 @@ class Kubectl(object):
             log_func = functools.partial(self.print_logs, follow=follow)
         else:
             log_func = self.logs
-        log_func = functools.partial(log_func, since=since, tail=tail)
+        log_func = functools.partial(
+            log_func, since=since, tail=tail, namespace=namespace
+        )
         if component_name in self.NONAGENT_COMPONENTS:
             return log_func('nonagent', component_name)
         else:
             return log_func(component_name)
 
-    def exec_surreal(self, component_name, cmd):
+    def exec_surreal(self, component_name, cmd, namespace=''):
         """
         kubectl exec -ti
 
@@ -640,11 +719,15 @@ class Kubectl(object):
         """
         if U.is_sequence(cmd):
             cmd = ' '.join(map(shlex.quote, cmd))
+        ns_cmd = self._get_ns_cmd(namespace)
         if component_name in self.NONAGENT_COMPONENTS:
-            self.run_raw(
-                'exec -ti nonagent -c {} -- {}'.format(component_name, cmd))
+            return self.run_raw(
+                'exec -ti nonagent -c {}{} -- {}'.format(component_name, ns_cmd, cmd)
+            )
         else:
-            self.run_raw('exec -ti {} -- {}'.format(component_name, cmd))
+            return self.run_raw(
+                'exec -ti {}{} -- {}'.format(component_name, ns_cmd, cmd)
+            )
 
     def gcloud_get_config(self, config_key):
         """
@@ -680,7 +763,7 @@ class Kubectl(object):
         populate SSH config files with Host entries from each instance
         https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
         """
-        self.run_raw('compute config-ssh', program='gcloud')
+        return self.run_raw('compute config-ssh', program='gcloud')
 
     def gcloud_url(self, node_name):
         """
@@ -697,21 +780,20 @@ class Kubectl(object):
         Don't forget to run gcloud_config_ssh() first
         """
         url = self.gcloud_url(node_name)
-        print(url)
-        self.run_raw(
+        return self.run_raw(
             'ssh -o StrictHostKeyChecking=no ' + url,
-            program=''
+            program='',
+            print_cmd=True
         )
 
     def gcloud_ssh_fs(self):
         """
         ssh into the file system server specified in ~/.surrreal.yml
         """
-        self.gcloud_ssh_node(self.config.fs.server)
+        return self.gcloud_ssh_node(self.config.fs.server)
 
 
 if __name__ == '__main__':
-    # TODO: save temp file to experiment dir
     import pprint
     pp = pprint.pprint
     kube = Kubectl(dry_run=0)
