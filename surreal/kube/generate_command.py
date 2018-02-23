@@ -63,7 +63,7 @@ class CommandGenerator:
 
         cmd_dict['agent'] = [self.get_command('agent', [str(i)])
                              for i in range(self.num_agents)]
-        cmd_dict['eval'] = [self.get_command('eval', ['--mode', 'eval_deterministic', '--id', '0'])]
+        cmd_dict['eval'] = [self.get_command('eval', ['0', '--mode', 'eval_deterministic'])]
 
         for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:
             cmd_dict[role] = self.get_command(role)
