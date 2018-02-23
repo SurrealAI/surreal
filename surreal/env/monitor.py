@@ -3,7 +3,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 from collections import OrderedDict
-from surreal.session import PeriodicTracker, TensorplexClient
+from surreal.session import (PeriodicTracker, get_tensorplex_client)
 import surreal.utils as U
 from .wrapper import Wrapper
 
@@ -125,15 +125,14 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
-            separate_plots: True to separate plots into sections on Tensorboard,
-                False to keep all plots in the same section.
+            separate_plots: True to put reward plot in a separate section on
+                Tensorboard, False to put all plots together
         """
         super().__init__(env)
         U.assert_type(agent_id, int)
-        self.tensorplex = TensorplexClient(
+        self.tensorplex = get_tensorplex_client(
             '{}/{}'.format('agent', agent_id),
-            host=session_config.tensorplex.host,
-            port=session_config.tensorplex.port,
+            session_config
         )
         interval = session_config['tensorplex']['update_schedule']['training_env']
         self._periodic = PeriodicTracker(interval)
@@ -152,7 +151,7 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
             scalar_values = {
                 self._get_tag('reward'):
                     U.mean(self.episode_rewards[-self._avg:]),
-                self._get_tag('step_per_s'):
+                'step_per_s':
                     self.step_per_sec(self._avg),
             }
             self.tensorplex.add_scalars(
