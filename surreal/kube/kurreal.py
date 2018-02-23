@@ -43,6 +43,7 @@ class KurrealParser:
         self._setup_pod()
         self._setup_describe()
         self._setup_exec()
+        self._setup_scp()
         self._setup_ssh()
         self._setup_ssh_node()
         self._setup_ssh_nfs()
@@ -221,6 +222,18 @@ class KurrealParser:
         """
         parser = self._add_subparser('exec', aliases=['x'])
         self._add_component_arg(parser)
+        self._add_namespace(parser, positional=True)
+
+    def _setup_scp(self):
+        parser = self._add_subparser('scp', aliases=['cp'])
+        parser.add_argument(
+            'src_file',
+            help='source file or folder. "<component>:/file/path" denotes remote.'
+        )
+        parser.add_argument(
+            'dest_file',
+            help='destination file or folder. "<component>:/file/path" denotes remote.'
+        )
         self._add_namespace(parser, positional=True)
 
     def _setup_ssh(self):
@@ -705,6 +718,17 @@ class Kurreal:
             args.component_name,
             commands,
             namespace=self._get_namespace(args)
+        )
+
+    def kurreal_scp(self, args):
+        """
+        https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
+        kurreal cp /my/local/file learner:/remote/file mynamespace
+        is the same as
+        kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
+        """
+        self.kube.scp_surreal(
+            args.src_file, args.dest_file, self._get_namespace(args)
         )
 
     def kurreal_ssh(self, args):
