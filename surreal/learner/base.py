@@ -199,7 +199,8 @@ class Learner(metaclass=LearnerMeta):
     ######
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
-        self.fetch_timer = self._prefetch_queue.timer
+        # Don't do it here so that we don't require _prefetch_queue to be setup beforehands
+        # self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
 
         self.log = get_loggerplex_client('learner', self.session_config)
@@ -221,7 +222,8 @@ class Learner(metaclass=LearnerMeta):
             global_step: None to use internal tracker value
         """
         learn_time = self.learn_timer.avg + 1e-6
-        fetch_time = self.fetch_timer.avg + 1e-6
+        fetch_timer = self._prefetch_queue.timer
+        fetch_time = fetch_timer.avg + 1e-6
         iter_time = self.iter_timer.avg + 1e-6
         # Time it takes to learn from a batch
         tag_value_dict['speed/learn_time'] = learn_time
