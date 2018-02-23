@@ -622,7 +622,6 @@ class Kurreal:
                 print('aborted')
                 return
 
-        to_delete = kube.prefix_username(to_delete)
         kube.delete(
             namespace=to_delete,
             # don't need to specify yaml cause deleting a namespace
