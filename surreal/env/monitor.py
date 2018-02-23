@@ -125,8 +125,8 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
             session_config: to construct AgentTensorplex
             - interval: log to Tensorplex every N episodes.
             - average_episodes: average rewards/speed over the last N episodes
-            separate_plots: True to separate plots into sections on Tensorboard,
-                False to keep all plots in the same section.
+            separate_plots: True to put reward plot in a separate section on
+                Tensorboard, False to put all plots together
         """
         super().__init__(env)
         U.assert_type(agent_id, int)
@@ -151,7 +151,7 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
             scalar_values = {
                 self._get_tag('reward'):
                     U.mean(self.episode_rewards[-self._avg:]),
-                self._get_tag('step_per_s'):
+                'step_per_s':
                     self.step_per_sec(self._avg),
             }
             self.tensorplex.add_scalars(

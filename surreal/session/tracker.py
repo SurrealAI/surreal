@@ -1,7 +1,7 @@
-from tensorplex import TensorplexClient, LoggerplexClient
-import surreal.utils as U
-from collections import deque
 import itertools
+from collections import deque
+import surreal.utils as U
+from tensorplex import TensorplexClient, LoggerplexClient
 
 
 class PeriodicTracker(object):
