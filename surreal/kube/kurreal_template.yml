@@ -192,3 +192,35 @@ spec:
     AGENT_RESOURCE_LIMIT)
     | indent(2) }}
 {% endfor %}
+
+# ================== evals, each on separate pod ==================
+{% for N in range(CMD_DICT.eval | length) %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eval-{{N}}
+  labels:
+    type: eval
+spec:
+  hostNetwork: false
+  hostname: eval-{{N}}
+  subdomain: surreal
+  restartPolicy: Never
+  {{ volume_block() | indent(2) }}
+  {{ tolerations_block | indent(2) }}
+{% if AGENT_SELECTOR | length > 0 %}
+  nodeSelector:
+    {% for selector_key, selector_val in AGENT_SELECTOR.items() %}
+    {{selector_key}}: {{selector_val}}
+    {% endfor %}
+{% endif %}
+  containers:
+  {{ container_block('eval', 
+    'eval-' + (N|string),
+    AGENT_IMAGE,
+    ["--cmd", CMD_DICT.eval[N]],
+    AGENT_RESOURCE_REQUEST,
+    AGENT_RESOURCE_LIMIT)
+    | indent(2) }}
+{% endfor %}
