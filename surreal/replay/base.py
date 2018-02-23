@@ -134,9 +134,15 @@ class Replay(object, metaclass=ReplayMeta):
         self.cumulative_experience_count = 0
         # Number of experience sampled by learner
         self.cumulative_sampled_count = 0
+        # Timer for tensorplex reporting
+        self.last_tensorplex_iter_time = None
         
-        self.insert_time = U.TimeRecorder()
+        self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
+
+        # moving avrage of about 20s
+        self.exp_in_speed = U.MovingAverageRecorder(decay=0.95)
+        self.exp_out_speed = U.MovingAverageRecorder(decay=0.95)
 
     def _insert_wrapper(self, exp_dict):
         """
@@ -183,15 +189,18 @@ class Replay(object, metaclass=ReplayMeta):
     def _tensorplex_loop(self, init_time):
         self.last_experience_count = 0
         self.last_sample_count = 0
+        self.last_tensorplex_iter_time = time.time()
         while True:
             time.sleep(1.)
             self.tensorplex.add_scalars(self.get_tensorplex_report_dict(),
                 global_step=int(time.time() - init_time))
+            self.last_tensorplex_iter_time = time.time()
 
     def get_tensorplex_report_dict(self):
         """ 
             Returns a dictionary containing data to be reported to tensorplex
         """
+        time_elapsed = time.time() - self.last_tensorplex_iter_time + 1e-6
                     
         cum_count_exp = self.cumulative_experience_count
         new_exp_count = cum_count_exp - self.last_experience_count
@@ -201,12 +210,15 @@ class Replay(object, metaclass=ReplayMeta):
         new_sample_count = cum_count_sample - self.last_sample_count
         self.last_sample_count = cum_count_sample
 
+        exp_in_speed = self.exp_in_speed.add_value(new_exp_count / time_elapsed)
+        exp_out_speed = self.exp_out_speed.add_value(new_sample_count / time_elapsed)
+
         return {
             'exp_queue_occupancy': self._exp_queue.occupancy(),
             'num_exps': len(self),
             'cumulative_exps': self.cumulative_experience_count,
-            'exp_in/s': new_exp_count,
-            'exp_out/s': new_sample_count,
+            'exp_in/s': exp_in_speed,
+            'exp_out/s': exp_out_speed,
             'insert_time': self.insert_time.avg,
             'sample_time': self.sample_time.avg,
             'serialize_time': self._sampler_server.serialize_time.avg,

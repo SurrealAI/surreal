@@ -479,7 +479,7 @@ class TimeRecorder():
         self.cum_count *= self.decay
         self.cum_time *= self.decay
         self.cum_count += 1
-        self.cum_time += min(max_seconds, post_time - pre_time)
+        self.cum_time += min(self.max_seconds, post_time - pre_time)
 
     @property
     def avg(self):
@@ -491,4 +491,25 @@ class MovingAverageRecorder():
     """
         Records moving average 
     """
-    pass
+    def __init__(self, decay=0.95):
+        self.decay = decay
+        self.cum_value = 0
+        self.normalization = 0
+
+    def add_value(self, value):
+        self.cum_value *= self.decay
+        self.cum_value += value
+
+        self.normalization *= self.decay
+        self.normalization += 1
+
+        return self.cum_value / self.normalization
+
+    def cur_value(self):
+        """
+            Returns current moving average, 0 if no records
+        """
+        if self.normalization == 0:
+            return 0
+        else:
+            return self.cum_value / self.normalization
