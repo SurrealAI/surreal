@@ -37,7 +37,7 @@ class ZmqLoadBalancer(object):
         backend  = self.context.socket(self.backend_protocol)
         backend.bind(self.out_add)
 
-        print('Forwarding traffic from {} to {}. Patter: {}'.format(self.in_add,
+        print('Forwarding traffic from {} to {}. Pattern: {}'.format(self.in_add,
                                                                  self.out_add,
                                                                  self.pattern))
         zmq.proxy(frontend, backend)
