@@ -11,7 +11,7 @@ def run_loggerplexserver_main(args, config):
     loggerplex_config = config.session_config.loggerplex
 
     loggerplex = Loggerplex(
-        path.join(folder, 'log'),
+        path.join(folder, 'logs'),
         level=loggerplex_config.level,
         overwrite=loggerplex_config.overwrite,
         show_level=loggerplex_config.show_level,

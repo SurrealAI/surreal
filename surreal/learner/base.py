@@ -204,7 +204,10 @@ class Learner(metaclass=LearnerMeta):
         self.iter_timer = U.TimeRecorder()
 
         self.log = get_loggerplex_client('learner', self.session_config)
-        self.tensorplex = get_tensorplex_client('learner', self.session_config)
+        self.tensorplex = get_tensorplex_client(
+            'learner/learner',
+            self.session_config
+        )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
             period=self.session_config.tensorplex.update_schedule.learner,
@@ -287,8 +290,7 @@ class Learner(metaclass=LearnerMeta):
             restore_folder=restore_folder,
         )
         if restored:
-            # TODO loggerplex
-            print('Successfully Restored', restored)
+            self.log.info('successfully restored from checkpoint', restored)
 
     ######
     # Main Loop

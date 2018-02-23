@@ -152,7 +152,8 @@ spec:
     {% endfor %}
 {% endif %}
   containers:
-{% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
+{% for ENTITY in ['ps', 'learner', 'replay',
+                  'tensorboard', 'tensorplex', 'loggerplex'] %}
   {{ container_block(ENTITY,ENTITY,
     NONAGENT_IMAGE,
     ["--cmd", CMD_DICT[ENTITY]],

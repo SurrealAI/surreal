@@ -100,6 +100,8 @@ BASE_SESSION_CONFIG = {
         'show_level': True,
         'time_format': 'hms',
         'enable_local_logger': '_bool_',
+        'local_logger_level': 'info',
+        'local_logger_time_format': 'hms'
     },
     'agent': {
         'fetch_parameter_mode': '_str_',

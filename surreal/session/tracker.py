@@ -153,7 +153,9 @@ def get_loggerplex_client(name, session_config):
         host=C.host,
         port=C.port,
         enable_local_logger=C.enable_local_logger,
-        local_logger_stream='stdout'
+        local_logger_stream='stdout',
+        local_logger_level=C.local_logger_level,
+        local_logger_time_format=C.local_logger_time_format,
     )
 
 

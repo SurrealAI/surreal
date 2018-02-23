@@ -1,6 +1,15 @@
 import zmq
 import threading
 import surreal.utils as U
+from tensorplex import Logger
+
+
+zmq_logger = Logger.get_logger(
+    'zmq',
+    stream='stdout',
+    time_format='hms',
+    show_level=True,
+)
 
 
 def _get_serializer(is_pyobj):
@@ -28,7 +37,7 @@ class ZmqPushClient(object):
         self.socket = context.socket(zmq.PUSH)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         address = "tcp://{}:{}".format(host, port)
-        print('Pusing to {}'.format(address))
+        zmq_logger.infofmt('Pushing to {}', address)
         self.socket.connect(address)
         self._serialize = _get_serializer(is_pyobj)
 
@@ -45,7 +54,7 @@ class ZmqPullServer(object):
         self.socket = context.socket(zmq.PULL)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         address = "tcp://{}:{}".format(host, port)
-        print('Pulling from {}'.format(address))
+        zmq_logger.infofmt('Pulling from {}', address)
         self.socket.connect(address)
         self._deserialize = _get_deserializer(is_pyobj)
 
@@ -106,7 +115,7 @@ class ZmqServer(threading.Thread):
         context = zmq.Context()
         router = context.socket(zmq.ROUTER)
         address = "tcp://{}:{}".format(self.host, self.port)
-        print('Listening on {}'.format(address))
+        zmq_logger.infofmt('Listening on {}', address)
         if self.load_balanced:
             # When we are using loadbalancing, the server is ephemeral and connects
             # to a predefined load balancing proxy
@@ -133,10 +142,7 @@ class ZmqServer(threading.Thread):
         # Before calling zmq_proxy() you must set any socket options, and
         # connect or bind both frontend and backend sockets.
         zmq.proxy(router, dealer)
-        # Loops
-        
-
-        # Never reach
+        # should never reach
         router.close()
         dealer.close()
         context.term()
@@ -152,7 +158,7 @@ class ZmqClientTask(threading.Thread):
         self.context = context
         self.id = identifier
         self.address = "tcp://{}:{}".format(host, port)
-        print('Requesting to {}'.format(self.address))
+        zmq_logger.infofmt('Requesting to {}', self.address)
         self._handler = handler
         self._serialize = _get_serializer(is_pyobj)
         self._deserialize = _get_deserializer(is_pyobj)

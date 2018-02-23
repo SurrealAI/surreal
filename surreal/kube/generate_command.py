@@ -1,6 +1,7 @@
-import sys
 import shlex
+import sys
 from collections import OrderedDict
+
 import surreal.utils as U
 
 
