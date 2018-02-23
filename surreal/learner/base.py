@@ -5,7 +5,7 @@ import queue
 import surreal.utils as U
 from surreal.session import (
     extend_config, PeriodicTracker, PeriodicTensorplex,
-    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
+    get_loggerplex_client, get_tensorplex_client
 )
 from surreal.session import TensorplexClient, LoggerplexClient
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
@@ -70,11 +70,14 @@ class PrefetchBatchQueue(object):
 
 learner_registry = {}
 
+
 def register_learner(target_class):
     learner_registry[target_class.__name__] = target_class
 
+
 def learner_factory(learner_name):
     return learner_registry[learner_name]
+
 
 class LearnerMeta(U.AutoInitializeMeta):
     def __new__(meta, name, bases, class_dict):
@@ -200,16 +203,8 @@ class Learner(metaclass=LearnerMeta):
         self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
 
-        self.log = LoggerplexClient(
-            'learner',
-            host=self.session_config.loggerplex.host,
-            port=self.session_config.loggerplex.port
-        )
-        self.tensorplex = TensorplexClient(
-            'learner/learner',
-            host=self.session_config.tensorplex.host,
-            port=self.session_config.tensorplex.port
-        )
+        self.log = get_loggerplex_client('learner', self.session_config)
+        self.tensorplex = get_tensorplex_client('learner', self.session_config)
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
             period=self.session_config.tensorplex.update_schedule.learner,

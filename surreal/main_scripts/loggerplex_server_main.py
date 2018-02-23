@@ -1,8 +1,10 @@
 import os.path as path
 from tensorplex import Loggerplex
 
+
 def loggerplex_parser_setup(parser):
     pass
+
 
 def run_loggerplexserver_main(args, config):
     folder = config.session_config.folder

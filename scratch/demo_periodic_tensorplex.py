@@ -1,4 +1,4 @@
-from surreal.session.scalar_tracker import *
+from surreal.session.tracker import *
 import surreal.utils
 
 

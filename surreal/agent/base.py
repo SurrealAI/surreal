@@ -5,8 +5,8 @@ import time
 import surreal.utils as U
 from surreal.session import (
     TensorplexClient, LoggerplexClient,
-    PeriodicTracker, PeriodicTensorplex, extend_config,
-    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
+    PeriodicTracker, PeriodicTensorplex,
+    get_loggerplex_client, get_tensorplex_client,
 )
 from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
@@ -92,17 +92,15 @@ class Agent(object, metaclass=AgentMeta):
         """
         if self.agent_mode == 'training':
             logger_name = 'agent-{}'.format(self.agent_id)
-            self.tensorplex = TensorplexClient(
+            self.tensorplex = get_tensorplex_client(
                 '{}/{}'.format('agent', self.agent_id),
-                host=self.session_config.tensorplex.host,
-                port=self.session_config.tensorplex.port
+                session_config=self.session_config,
             )
         else:
             logger_name = 'eval-{}'.format(self.agent_id)
-            self.tensorplex = TensorplexClient(
+            self.tensorplex = get_tensorplex_client(
                 '{}/{}'.format('eval', self.agent_id),
-                host=self.session_config.tensorplex.host,
-                port=self.session_config.tensorplex.port
+                session_config=self.session_config,
             )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
@@ -110,11 +108,7 @@ class Agent(object, metaclass=AgentMeta):
             is_average=True,
             keep_full_history=False
         )
-        self.log = LoggerplexClient(
-            logger_name,
-            host=self.session_config.loggerplex.host,
-            port=self.session_config.loggerplex.port
-        )
+        self.log = get_loggerplex_client(logger_name, self.session_config)
         # record how long the current parameter have been used
         self.actions_per_param_update = 0
         self.episodes_per_param_update = 0

@@ -53,7 +53,7 @@ BASE_SESSION_CONFIG = {
     'folder': '_str_',
 
     'replay': {
-        'collector_backend_host': '_str_',  # upstream from agents' pusher
+        'collector_frontend_host': '_str_',  # upstream from agents' pusher
         'collector_frontend_port': '_int_',
         'collector_backend_host': '_str_',  # upstream from agents' pusher
         'collector_backend_port': '_int_',
@@ -98,7 +98,8 @@ BASE_SESSION_CONFIG = {
         'overwrite': False,
         'level': 'info',
         'show_level': True,
-        'time_format': 'hms'
+        'time_format': 'hms',
+        'enable_local_logger': '_bool_',
     },
     'agent': {
         'fetch_parameter_mode': '_str_',
@@ -170,6 +171,7 @@ LOCAL_SESSION_CONFIG = {
     'loggerplex': {
         'host': 'localhost',
         'port': 7008,
+        'enable_local_logger': True,
     },
     'agent': {
         # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
