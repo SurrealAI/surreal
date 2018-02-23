@@ -712,8 +712,11 @@ class Kurreal:
         Interactive /bin/bash into the pod
         kubectl exec -ti <component> -- /bin/bash
         """
-        args.commands = ['/bin/bash']
-        self.kurreal_exec(args)
+        self.kube.exec_surreal(
+            args.component_name,
+            '/bin/bash',
+            namespace=self._get_namespace(args)
+        )
 
     def kurreal_ssh_node(self, args):
         """
