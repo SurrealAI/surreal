@@ -453,13 +453,23 @@ class ArgParser(object):
 
 class TimeRecorder():
     """
-        Records waited average of whatever context block it is recording
+        Records average of whatever context block it is recording
         Thread unsafe
     """
-    def __init__(self, decay=0.99):
+    def __init__(self, decay=0.9995, max_seconds=1):
+        """
+        Args:
+            decay: Decay factor of smoothed moving average
+                    Default is 0.9995, which is approximately moving average 
+                    of 2000 samples
+            max_seconds: round down all time differences larger than specified
+                        Useful when the application just started and there are long waits 
+                        that might throw off the average
+        """
         self.cum_count = 0
         self.cum_time = 0
         self.decay = decay
+        self.max_seconds = max_seconds
 
     @contextmanager
     def time(self):
@@ -469,10 +479,16 @@ class TimeRecorder():
         self.cum_count *= self.decay
         self.cum_time *= self.decay
         self.cum_count += 1
-        self.cum_time += post_time - pre_time
+        self.cum_time += min(max_seconds, post_time - pre_time)
 
     @property
     def avg(self):
         if self.cum_count == 0:
             return 0
         return self.cum_time / self.cum_count
+
+class MovingAverageRecorder():
+    """
+        Records moving average 
+    """
+    pass
