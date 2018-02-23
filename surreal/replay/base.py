@@ -138,8 +138,8 @@ class Replay(object, metaclass=ReplayMeta):
         self.sample_time = U.TimeRecorder()
 
         # moving avrage of about 20s
-        self.exp_in_speed = U.MovingAverageRecorder(decay=0.95)
-        self.exp_out_speed = U.MovingAverageRecorder(decay=0.95)
+        self.exp_in_speed = U.MovingAverageRecorder(decay=0.99)
+        self.exp_out_speed = U.MovingAverageRecorder(decay=0.99)
 
     def _insert_wrapper(self, exp_dict):
         """
