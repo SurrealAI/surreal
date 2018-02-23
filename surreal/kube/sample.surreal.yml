@@ -43,3 +43,21 @@ pod_types:
       cpu: 7
     resource_limit:
       nvidia.com/gpu: 1
+  nonagent-2k80-16cpu:
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu:latest
+    selector:
+      surreal-node: nonagent-gpu
+      cloud.google.com/gke-accelerator: nvidia-tesla-k80 # This k80 can be changed to p100
+    resource_request:
+      cpu: 14
+    resource_limit:
+      nvidia.com/gpu: 2
+  nonagent-4k80-32cpu:
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu:latest
+    selector:
+      surreal-node: nonagent-gpu
+      cloud.google.com/gke-accelerator: nvidia-tesla-k80 # This k80 can be changed to p100
+    resource_request:
+      cpu: 28
+    resource_limit:
+      nvidia.com/gpu: 4
