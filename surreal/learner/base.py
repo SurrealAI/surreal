@@ -4,10 +4,9 @@ Template class for all learners
 import queue
 import surreal.utils as U
 from surreal.session import (
-    extend_config, PeriodicTracker, PeriodicTensorplex,
+    PeriodicTensorplex,
     get_loggerplex_client, get_tensorplex_client
 )
-from surreal.session import TensorplexClient, LoggerplexClient
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
 
 

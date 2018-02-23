@@ -4,7 +4,6 @@ A template class that defines base agent APIs
 import time
 import surreal.utils as U
 from surreal.session import (
-    TensorplexClient, LoggerplexClient,
     PeriodicTracker, PeriodicTensorplex,
     get_loggerplex_client, get_tensorplex_client,
 )

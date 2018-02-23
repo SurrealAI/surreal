@@ -1,10 +1,7 @@
 import threading
 import time
 import surreal.utils as U
-from surreal.session import (
-    LoggerplexClient, TensorplexClient,
-    get_tensorplex_client, get_loggerplex_client
-)
+from surreal.session import get_tensorplex_client, get_loggerplex_client
 from surreal.distributed import ExpQueue, ZmqServer
 
 
