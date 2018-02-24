@@ -606,6 +606,11 @@ class Kurreal:
             print_err('namespace `{}` not found. '
                       'Please run `kurreal list ns` and check for typos.'.format(name))
             return None
+        elif len(matches) == 1:
+            match = matches[0]
+            print_err('No exact match. Fuzzy match only finds one candidate: "{}"'
+                      .format(match))
+            return match
         prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
         prompt = ('Cannot find exact match. Fuzzy matching: \n'
                   '{}\nEnter your selection 0-{} (enter to select 0, q to quit): '
