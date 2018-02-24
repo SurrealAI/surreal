@@ -93,7 +93,13 @@ class KurrealParser:
         self._add_experiment_name(parser)
         parser.add_argument('num_agents', type=int)
         parser.add_argument('-e', '--env', default='cheetah')
-        parser.add_argument('-g', '--gpu', nargs='?', default='cpu')
+        parser.add_argument(
+            '-g', '--gpu', '--num-gpus',
+            dest='num_gpus',
+            type=int,
+            nargs='?',
+            default=0
+        )
         parser.add_argument('-nos', '--no-snapshot', action='store_true')
         parser.add_argument('-f', '--force', action='store_true')
         parser.add_argument(
@@ -490,17 +496,21 @@ class Kurreal:
             env = 'cheetah'
         config_command = ['--env', ENV_ALIAS[env]]
 
-        POD_TYPE_ALIAS = {
-            '': 'nonagent-gpu',
-            None: 'nonagent-gpu',
-            '1': 'nonagent-gpu',
-            '2': 'nonagent-2k80-16cpu',
-            '4': 'nonagent-4k80-32cpu',
-            'cpu': 'nonagent-cpu'
+        if args.num_gpus is None:  # nargs=?, num gpu should be 1 when omitted
+            num_gpus = 1
+        else:
+            num_gpus = args.num_gpus
+        POD_TYPES = {
+            0: 'nonagent-cpu',
+            1: 'nonagent-gpu',
+            2: 'nonagent-2k80-16cpu',
+            4: 'nonagent-4k80-32cpu',
         }
-        nonagent_pod_type = POD_TYPE_ALIAS[args.gpu]
-        if args.gpu:
-            config_command += ["--gpu", "0"]
+        if num_gpus not in POD_TYPES:
+            raise ValueError('invalid number of GPUs, choose from {}'
+                             .format(list(POD_TYPES.keys())))
+        nonagent_pod_type = POD_TYPES[num_gpus]
+        config_command += ["--num-gpus", str(num_gpus)]
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 

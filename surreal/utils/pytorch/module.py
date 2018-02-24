@@ -1,13 +1,16 @@
+"""
+Hack torch.autograd.Variable:
+from surreal.utils.pytorch import GpuVariable as Variable
+"""
 import os
 import torch
+import torch.nn as nn
 from .gpu import get_scope_gpu
 from .compute import torch_clip_norm
 from surreal.utils.common import SaveInitArgs
-from surreal.utils.serializer import binary_hash
 from collections import OrderedDict
 import numpy as np
 import threading
-from io import BytesIO
 
 
 def _net_or_parameters(net):
@@ -107,15 +110,16 @@ def hard_update(target, source):
             target_param.data.copy_(param.data)
 
 
-class Module(torch.nn.Module, SaveInitArgs):
+class Module(nn.Module, SaveInitArgs):
     """
     All models in Surreal should extend this module, not pytorch one
     """
     def __init__(self):
         super().__init__()
-        # Locks forward prop to avoid race condition with parameter server recv
-        self._forward_lock = threading.Lock()
-        self.gpu_index = -1
+        self._gpu_ids = [-1]
+        # guard is for nn.DataParallel in __call__, because we override
+        # nn.Module's __call__ and the wrapper gets confused.
+        self._infinite_recursion_guard = False
 
     def freeze(self):
         return net_freeze(self)
@@ -131,24 +135,29 @@ class Module(torch.nn.Module, SaveInitArgs):
         net_copy(self, other_net)
         return self
 
-    def scoped_cuda(self):
-        """
-        Unlike the builtin .cuda(), this call sends to the device specified
-        in the `with torch_gpu_scope` contextk
-        """
-        scope_gpu_index = get_scope_gpu()  # from torch_gpu_scope() context
-        if scope_gpu_index >= 0 and self.gpu_index < 0:
-            self.gpu_index = scope_gpu_index
-            self.cuda(self.gpu_index)
-        return self
-
     def __call__(self, *args, **kwargs):
         """
         transfer to GPU before forward pass
+        - if scope_gpu list has only one ID, send Module to that device
+        - if scope_gpu list has more than one, automatically wrap with nn.DataParallel
         """
-        self.scoped_cuda()
-        with self._forward_lock:
+        if self._infinite_recursion_guard:
             return super().__call__(*args, **kwargs)
+        scope_gpu_ids = get_scope_gpu()  # from torch_gpu_scope() context
+        assert isinstance(scope_gpu_ids, list), 'internal error, must be list'
+        self._gpu_ids = scope_gpu_ids
+        if len(scope_gpu_ids) == 1:  # simply send to that device
+            gpu_id = self._gpu_ids[0]
+            if gpu_id >= 0:
+                self.cuda(gpu_id)
+            return super().__call__(*args, **kwargs)
+        else:  # DataParallel
+            parallel_wrapped = nn.DataParallel(self, device_ids=self._gpu_ids)
+            parallel_wrapped.cuda()
+            self._infinite_recursion_guard = True
+            result = parallel_wrapped(*args, **kwargs)
+            self._infinite_recursion_guard = False
+            return result
 
     def clip_grad_value(self, clip):
         return net_clip_grad_value(self, clip)
@@ -159,10 +168,9 @@ class Module(torch.nn.Module, SaveInitArgs):
     def save(self, fname):
         save_dict = OrderedDict()
         # from meta class SaveInitArgs
-        with self._forward_lock:
-            save_dict['init_args'] = self.init_args
-            save_dict['torch'] = self.state_dict()
-            torch.save(save_dict, fname)
+        save_dict['init_args'] = self.init_args
+        save_dict['torch'] = self.state_dict()
+        torch.save(save_dict, fname)
 
     def load(self, fname):
         save_dict = torch.load(os.path.expanduser(fname))
@@ -209,4 +217,4 @@ class Module(torch.nn.Module, SaveInitArgs):
 
     @property
     def is_cuda(self):
-        return self.gpu_index >= 0
+        return self._gpu_ids[0] >= 0
