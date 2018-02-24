@@ -117,7 +117,9 @@ class Module(nn.Module, SaveInitArgs):
     def __init__(self):
         super().__init__()
         self._gpu_ids = [-1]
-        self._infinite_recursion_guard = False  # for nn.DataParallel calls
+        # guard is for nn.DataParallel in __call__, because we override
+        # nn.Module's __call__ and the wrapper gets confused.
+        self._infinite_recursion_guard = False
 
     def freeze(self):
         return net_freeze(self)
