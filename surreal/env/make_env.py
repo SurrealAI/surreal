@@ -2,7 +2,7 @@ from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 
 
-def make_env(env_config):
+def make_env(env_config, eval_mode=False):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
@@ -18,7 +18,7 @@ def make_env(env_config):
         env, env_config = make_dm_control(env_name, env_config)
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
-    if record_video:
+    if record_video and eval_mode: # Video recording should only be done in eval agents
         env = VideoWrapper(env, env_config)
     return env, env_config
 

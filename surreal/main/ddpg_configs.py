@@ -1,5 +1,6 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 import argparse
+import os
 
 # TODO：Documentation on config files
 
@@ -86,10 +87,10 @@ def generate(argv):
     env_config = {
         'env_name': args.env,
         'video': {
-            'record_video': False,
-            'save_directory': '/mnt/snaps/',
+            'record_video': True,
+            'save_directory': os.path.expanduser('~/snaps/'),
             'max_videos': 100,
-            'record_every': 100,
+            'record_every': 10,
         }
     }
 
