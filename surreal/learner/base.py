@@ -256,7 +256,6 @@ class Learner(metaclass=LearnerMeta):
             # TODO figure out how to add score to learner
         )
 
-
     def periodic_checkpoint(self, global_steps, score=None, **info):
         """
         Will only save at the end of each period

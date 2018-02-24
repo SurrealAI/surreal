@@ -107,6 +107,9 @@ BASE_SESSION_CONFIG = {
         'fetch_parameter_mode': '_str_',
         'fetch_parameter_interval': int,
     },
+    'learner': {
+        'num_gpus': '_int_'
+    },
     'checkpoint': {
         'restore': '_bool_',  # if False, ignore the other configs under 'restore'
         'restore_folder': None,  # if None, use the same session folder.
@@ -180,6 +183,9 @@ LOCAL_SESSION_CONFIG = {
         # every episode, every n episodes, every step, every n steps
         'fetch_parameter_mode': 'episode',
         'fetch_parameter_interval': 1,
+    },
+    'learner': {
+        'num_gpus': 0
     },
     'checkpoint': {
         'restore': False,  # if False, ignore the other configs under 'restore'

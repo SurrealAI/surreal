@@ -10,7 +10,8 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
+    parser.add_argument('--num-gpus', type=int, default=0,
+                        help='number of GPUs to use, 0 for CPU only.')
 
     args = parser.parse_args(args=argv)
 
@@ -110,7 +111,7 @@ def generate(argv):
             'flush_iteration': 100,
         },
         'learner': {
-            'gpu': args.gpu,
+            'num_gpus': args.num_gpus,
         },
     })
 

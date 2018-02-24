@@ -68,6 +68,8 @@ def torch_gpu_scope(gpu, override_parent=True):
     """
     global _PYTORCH_GPU_
     count = torch.cuda.device_count()
+    if gpu is None or gpu == []:
+        gpu = -1
     if isinstance(gpu, int):
         gpu = [gpu]
     else:
