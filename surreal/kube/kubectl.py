@@ -308,6 +308,9 @@ class Kubectl(object):
             check_experiment_exists: check if the Kube yaml has already been generated.
         """
         check_valid_dns(experiment_name)
+        if check_experiment_exists and U.f_exists(rendered_path):
+            raise FileExistsError(rendered_path
+                      + ' already exists, cannot run `create_surreal`.')
         C = self.config
         repo_paths = C.git.get('snapshot_repos', [])
         repo_paths = [U.f_expand(p) for p in repo_paths]
@@ -379,19 +382,27 @@ class Kubectl(object):
             check_experiment_exists=check_experiment_exists,
         )
 
-    def delete(self, yaml_path, namespace):
+    def delete(self, namespace, yaml_path=None):
         """
         kubectl delete -f kurreal.yml --namespace <experiment_name>
         kubectl delete namespace <experiment_name>
+
+        Notes:
+            Delete a namespace will automatically delete all resources under it.
+
+        Args:
+            namespace
+            yaml_path: if None, delete the namespace.
         """
         check_valid_dns(namespace)
-        if not U.f_exists(yaml_path) and not self.dry_run:
-            raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
-        self.run_verbose(
-            'delete -f "{}" --namespace {}'
-                .format(yaml_path, namespace),
-            print_out=True, raise_on_error=False
-        )
+        if yaml_path:
+            if not U.f_exists(yaml_path) and not self.dry_run:
+                raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
+            self.run_verbose(
+                'delete -f "{}" --namespace {}'
+                    .format(yaml_path, namespace),
+                print_out=True, raise_on_error=False
+            )
         self.run_verbose(
             'delete namespace {}'.format(namespace),
             print_out=True, raise_on_error=False
@@ -729,6 +740,38 @@ class Kubectl(object):
                 'exec -ti {}{} -- {}'.format(component_name, ns_cmd, cmd)
             )
 
+    def scp_surreal(self, src_file, dest_file, namespace=''):
+        """
+        https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
+        kurreal cp /my/local/file learner:/remote/file mynamespace
+        is the same as
+        kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
+        """
+        def _split(f):
+            if ':' in f:
+                pod, path = f.split(':')
+                container = None
+                if pod in self.NONAGENT_COMPONENTS:
+                    container = pod
+                    pod = 'nonagent'
+            else:
+                pod, path, container = None, f, None
+            if pod and namespace:
+                pod = namespace + '/' + pod
+            if pod:
+                path = pod + ':' + path
+            return pod, path, container
+
+        src_pod, src_path, src_container = _split(src_file)
+        dest_pod, dest_path, dest_container = _split(dest_file)
+        assert bool(src_pod) != bool(dest_pod), \
+            'one of "src_file" and "dest_file" must be remote and the other local.'
+        container = src_container or dest_container  # at least one is None
+        cmd = 'cp {} {}'.format(src_path, dest_path)
+        if container:
+            cmd += ' -c ' + container
+        self.run_raw(cmd, print_cmd=True)
+
     def gcloud_get_config(self, config_key):
         """
         Returns: value of the gcloud config
@@ -797,7 +840,11 @@ if __name__ == '__main__':
     import pprint
     pp = pprint.pprint
     kube = Kubectl(dry_run=0)
-    print(kube.gcloud_url('surreal-shared-fs-vm'))
+    # kube.scp_surreal('/my/local', 'learner:/my/remote', 'myNS')
+    # kube.scp_surreal('/my/local', 'agent-0:/my/remote', 'myNS')
+    # kube.scp_surreal('/my/local', 'agent-0:/my/remote', '')
+    # kube.scp_surreal('loggerplex:/my/remote', '/my/local', 'NS')
+    # print(kube.gcloud_url('surreal-shared-fs-vm'))
     # 3 different ways to get a list of node names
     # pp(kube.query_jsonpath('nodes', '{.metadata.name}'))
     # pp(kube.query_jsonpath('nodes', "{.metadata.labels['kubernetes\.io/hostname']}"))

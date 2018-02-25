@@ -5,7 +5,6 @@ import torch
 import random
 from torch.autograd import Variable
 import surreal.utils as U
-from surreal.utils import AgentMode
 from surreal.model.q_net import build_ffqfunc
 from .base import Agent
 
@@ -33,13 +32,12 @@ class QAgent(Agent):
 
     def act(self, obs):
         assert torch.is_tensor(obs)
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             eps = self.exploration.value(self.T)
         else:
             eps = self.learner_config.eval.eps
         self.T += 1
-        if (self.agent_mode == AgentMode.eval_deterministic
-                or random.random() > eps):
+        if self.agent_mode == 'eval_deterministic' or random.random() > eps:
             obs = obs[None]  # vectorize
             obs = Variable(obs, volatile=True)
             q_values = self.q_func(obs)

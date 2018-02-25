@@ -3,11 +3,9 @@ A template class that defines base agent APIs
 """
 import time
 import surreal.utils as U
-from surreal.utils import AgentMode
 from surreal.session import (
-    Loggerplex, AgentTensorplex, EvalTensorplex,
-    PeriodicTracker, PeriodicTensorplex, extend_config,
-    BASE_ENV_CONFIG, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG
+    PeriodicTracker, PeriodicTensorplex,
+    get_loggerplex_client, get_tensorplex_client,
 )
 from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
@@ -16,17 +14,24 @@ from surreal.env import (
 )
 agent_registry = {}
 
+
+AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
+
+
 def register_agent(target_class):
     agent_registry[target_class.__name__] = target_class
 
-def agentFactory(agent_name):
+
+def agent_factory(agent_name):
     return agent_registry[agent_name]
+
 
 class AgentMeta(U.AutoInitializeMeta):
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
         register_agent(cls)
         return cls
+
 
 class Agent(object, metaclass=AgentMeta):
     """
@@ -49,7 +54,8 @@ class Agent(object, metaclass=AgentMeta):
         self.env_config = env_config
         self.session_config = session_config
 
-        self.agent_mode = AgentMode[agent_mode]
+        assert agent_mode in AGENT_MODES
+        self.agent_mode = agent_mode
         self.agent_id = agent_id
 
         self._setup_parameter_pull()
@@ -83,17 +89,17 @@ class Agent(object, metaclass=AgentMeta):
             Creates tensorplex logger and loggerplex logger
             Initializes bookkeeping values
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             logger_name = 'agent-{}'.format(self.agent_id)
-            self.tensorplex = AgentTensorplex(
-                agent_id=self.agent_id,
-                session_config=self.session_config
+            self.tensorplex = get_tensorplex_client(
+                '{}/{}'.format('agent', self.agent_id),
+                session_config=self.session_config,
             )
         else:
             logger_name = 'eval-{}'.format(self.agent_id)
-            self.tensorplex = EvalTensorplex(
-                eval_id=self.agent_id,
-                session_config=self.session_config
+            self.tensorplex = get_tensorplex_client(
+                '{}/{}'.format('eval', self.agent_id),
+                session_config=self.session_config,
             )
         self._periodic_tensorplex = PeriodicTensorplex(
             tensorplex=self.tensorplex,
@@ -101,10 +107,7 @@ class Agent(object, metaclass=AgentMeta):
             is_average=True,
             keep_full_history=False
         )
-        self.log = Loggerplex(
-            name=logger_name,
-            session_config=self.session_config
-        )
+        self.log = get_loggerplex_client(logger_name, self.session_config)
         # record how long the current parameter have been used
         self.actions_per_param_update = 0
         self.episodes_per_param_update = 0
@@ -148,7 +151,7 @@ class Agent(object, metaclass=AgentMeta):
             Method called when a new parameter is fetched. Free to be inherited by subclasses.
         """
         # The time it takes for parameter to go from learner to agent
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             delay = time.time() - info['time']
             self.update_tensorplex({'parameter_publish_delay': delay,
                                     'actions_per_param_update': self.actions_per_param_update,
@@ -162,7 +165,7 @@ class Agent(object, metaclass=AgentMeta):
         """
             Called before act is called by agent main script
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             if self._fetch_parameter_mode == 'step' and \
                     self._fetch_parameter_tracker.track_increment():
                 self.fetch_parameter()
@@ -173,7 +176,7 @@ class Agent(object, metaclass=AgentMeta):
         """
         self.current_step += 1
         self.cumulative_steps += 1
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             self.actions_per_param_update += 1
             if done:
                 self.episodes_per_param_update += 1
@@ -183,7 +186,7 @@ class Agent(object, metaclass=AgentMeta):
             Called by agent process.
             Can beused to reset internal states before an episode starts
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             if self._fetch_parameter_mode == 'episode' and \
                     self._fetch_parameter_tracker.track_increment():
                 self.fetch_parameter()
@@ -231,7 +234,7 @@ class Agent(object, metaclass=AgentMeta):
         Returns:
             @env: The (possibly wrapped) environment
         """
-        if self.agent_mode == AgentMode.training:
+        if self.agent_mode == 'training':
             return self.prepare_env_agent(env)
         else:
             return self.prepare_env_eval(env)
@@ -322,7 +325,8 @@ class Agent(object, metaclass=AgentMeta):
     def set_agent_mode(self, agent_mode):
         """
         Args:
-            agent_mode: enum of AgentMode class
+            agent_mode: 'training', 'eval_deterministic', or 'eval_stochastic'
         """
-        self.agent_mode = AgentMode[agent_mode]
+        assert agent_mode in AGENT_MODES
+        self.agent_mode = agent_mode
 

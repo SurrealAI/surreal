@@ -1,8 +1,7 @@
 import threading
 import time
 import surreal.utils as U
-from surreal.session import (Loggerplex, StatsTensorplex, Config, extend_config,
-                             BASE_SESSION_CONFIG, BASE_ENV_CONFIG)
+from surreal.session import get_tensorplex_client, get_loggerplex_client
 from surreal.distributed import ExpQueue, ZmqServer
 
 
@@ -11,7 +10,7 @@ replay_registry = {}
 def register_replay(target_class):
     replay_registry[target_class.__name__] = target_class
 
-def replayFactory(replay_name):
+def replay_factory(replay_name):
     return replay_registry[replay_name]
 
 class ReplayMeta(type):
@@ -28,7 +27,8 @@ class Replay(object, metaclass=ReplayMeta):
     def __init__(self,
                  learner_config,
                  env_config,
-                 session_config):
+                 session_config,
+                 index=0):
         """
         """
         # Note that there're 2 replay configs:
@@ -37,16 +37,20 @@ class Replay(object, metaclass=ReplayMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
+        self.index = index
 
         self._exp_queue = ExpQueue(
-            port=self.session_config.replay.port,
+            host=self.session_config.replay.collector_backend_host,
+            port=self.session_config.replay.collector_backend_port,
             max_size=self.session_config.replay.max_puller_queue,
             exp_handler=self._insert_wrapper,
         )
         self._sampler_server = ZmqServer(
-            port=self.session_config.replay.sampler_port,
+            host=self.session_config.replay.sampler_backend_host,
+            port=self.session_config.replay.sampler_backend_port,
             handler=self._sample_request_handler,
-            is_pyobj=True
+            is_pyobj=True,
+            load_balanced=True,
         )
         self._job_queue = U.JobQueue()
 
@@ -112,13 +116,13 @@ class Replay(object, metaclass=ReplayMeta):
 
     # ======================== internal methods ========================    
     def _setup_logging(self):
-        self.log = Loggerplex(
-            name='replay',
-            session_config=self.session_config
+        self.log = get_loggerplex_client(
+            '{}/{}'.format('replay', self.index),
+            self.session_config
         )
-        self.tensorplex = StatsTensorplex(
-            section_name='replay',
-            session_config=self.session_config
+        self.tensorplex = get_tensorplex_client(
+            '{}/{}'.format('replay', self.index),
+            self.session_config
         )
         self._tensorplex_thread = None
         self._has_tensorplex = self.session_config.replay.tensorboard_display
@@ -127,9 +131,15 @@ class Replay(object, metaclass=ReplayMeta):
         self.cumulative_experience_count = 0
         # Number of experience sampled by learner
         self.cumulative_sampled_count = 0
+        # Timer for tensorplex reporting
+        self.last_tensorplex_iter_time = None
         
-        self.insert_time = U.TimeRecorder()
+        self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
+
+        # moving avrage of about 20s
+        self.exp_in_speed = U.MovingAverageRecorder(decay=0.99)
+        self.exp_out_speed = U.MovingAverageRecorder(decay=0.99)
 
     def _insert_wrapper(self, exp_dict):
         """
@@ -176,15 +186,18 @@ class Replay(object, metaclass=ReplayMeta):
     def _tensorplex_loop(self, init_time):
         self.last_experience_count = 0
         self.last_sample_count = 0
+        self.last_tensorplex_iter_time = time.time()
         while True:
             time.sleep(1.)
             self.tensorplex.add_scalars(self.get_tensorplex_report_dict(),
                 global_step=int(time.time() - init_time))
+            self.last_tensorplex_iter_time = time.time()
 
     def get_tensorplex_report_dict(self):
         """ 
             Returns a dictionary containing data to be reported to tensorplex
         """
+        time_elapsed = time.time() - self.last_tensorplex_iter_time + 1e-6
                     
         cum_count_exp = self.cumulative_experience_count
         new_exp_count = cum_count_exp - self.last_experience_count
@@ -194,15 +207,16 @@ class Replay(object, metaclass=ReplayMeta):
         new_sample_count = cum_count_sample - self.last_sample_count
         self.last_sample_count = cum_count_sample
 
+        exp_in_speed = self.exp_in_speed.add_value(new_exp_count / time_elapsed)
+        exp_out_speed = self.exp_out_speed.add_value(new_sample_count / time_elapsed)
+
         return {
             'exp_queue_occupancy': self._exp_queue.occupancy(),
             'num_exps': len(self),
             'cumulative_exps': self.cumulative_experience_count,
-            'exp_in/s': new_exp_count,
-            'exp_out/s': new_sample_count,
+            'exp_in/s': exp_in_speed,
+            'exp_out/s': exp_out_speed,
             'insert_time': self.insert_time.avg,
             'sample_time': self.sample_time.avg,
             'serialize_time': self._sampler_server.serialize_time.avg,
         }
-
-

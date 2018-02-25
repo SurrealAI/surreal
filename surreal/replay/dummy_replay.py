@@ -9,7 +9,7 @@ class DummyReplay(Replay):
         self._sampling_start_size = sampling_start_size
         self._memory = {}
 
-    def _insert(self, exp_dict):
+    def insert(self, exp_dict):
         print('INSERT', exp_dict['exp_pointer'])
         time.sleep(0.2)
         evicted = []
@@ -21,7 +21,7 @@ class DummyReplay(Replay):
             print('INSERT passive evict', evicted[0]['exp_pointer'])
         return evicted
 
-    def _sample(self, batch_size, batch_i):
+    def sample(self, batch_size, batch_i):
         samps = []
         print('SAMPLE START total memory', len(self._memory), 'batch_i', batch_i)
         assert self._start_sample_condition()
@@ -34,7 +34,7 @@ class DummyReplay(Replay):
         print('SAMPLE DONE')
         return samps
 
-    def _evict(self, evict_size):
+    def evict(self, evict_size):
         evict_keys = list(self._memory.keys())[:evict_size]
         print('EVICT START')
         time.sleep(1)
@@ -45,5 +45,5 @@ class DummyReplay(Replay):
               [exp['obs_pointers'] for exp in exps])
         return exps
 
-    def _start_sample_condition(self):
+    def start_sample_condition(self):
         return len(self._memory) > self._sampling_start_size

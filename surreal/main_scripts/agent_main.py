@@ -1,7 +1,7 @@
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
-from surreal.agent import agentFactory
+from surreal.agent import agent_factory
 import argparse
 import time
 import numpy as np
@@ -10,17 +10,18 @@ import numpy as np
 def agent_parser_setup(parser):
     parser.add_argument('id', type=int, help='agent id')
 
+
 def run_agent_main(args, config):
     np.random.seed(int(time.time() * 100000 % 100000))
     
     session_config, learner_config, env_config = \
         config.session_config, config.learner_config, config.env_config
     agent_id = args.id
-    agent_mode = AgentMode.training
+    agent_mode = 'training'
 
     env, env_config = make_env(env_config)
 
-    agent_class = agentFactory(learner_config.algo.agent_class)
+    agent_class = agent_factory(learner_config.algo.agent_class)
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -57,8 +58,7 @@ def run_agent_main(args, config):
     #     raise ValueError('invalid fetch_parameter_mode: {}.'.format(fetch_parameter_mode))
     # _fetch_interval = fetch_parameter_interval
 
-    # agent_mode = AgentMode.training
-    
+    # agent_mode = 'training'
     # expSenderWrapper = expSenderWrapperFactory(learner_config.algo.experience)
     # env = expSenderWrapper(env, learner_config, session_config)    
     # env = TrainingTensorplexMonitor(
@@ -68,7 +68,7 @@ def run_agent_main(args, config):
     #     separate_plots=True
     # )
 
-    # agent_class = agentFactory(learner_config.algo.agent_class)
+    # agent_class = agent_factory(learner_config.algo.agent_class)
     # agent = agent_class(
     #     learner_config=learner_config,
     #     env_config=env_config,
@@ -89,12 +89,10 @@ def run_agent_main(args, config):
     #         agent.post_action(obs, action, obs_next, reward, done, info)
     #         obs = obs_next
     #         #time.sleep(0.1)
-    #         # TODO: put this into agent.
     #         if _fetch_mode == 'step' and pull_tracker.track_increment():
     #             is_fetched = agent.fetch_parameter()
     #         if done:
     #             break
     #     agent.post_episode()
-    #     # TODO: put this into agent
     #     if _fetch_mode == 'episode' and pull_tracker.track_increment():
     #         is_fetched = agent.fetch_parameter()

@@ -1,7 +1,7 @@
 from surreal.env import *
 from surreal.session import *
 import surreal.utils as U
-from surreal.learner import learnerFactory
+from surreal.learner import learner_factory
 
 
 def learner_parser_setup(parser):
@@ -28,7 +28,7 @@ def run_learner_main(args, config):
         session_config.checkpoint.restore = True
         session_config.checkpoint.restore_folder = args.restore_folder
 
-    learner_class = learnerFactory(learner_config.algo.learner_class)
+    learner_class = learner_factory(learner_config.algo.learner_class)
     learner = learner_class(
         learner_config=learner_config,
         env_config=env_config,

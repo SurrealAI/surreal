@@ -43,6 +43,7 @@ class KurrealParser:
         self._setup_pod()
         self._setup_describe()
         self._setup_exec()
+        self._setup_scp()
         self._setup_ssh()
         self._setup_ssh_node()
         self._setup_ssh_nfs()
@@ -91,9 +92,16 @@ class KurrealParser:
         parser = self._add_subparser('create-dev', aliases=['cd'])
         self._add_experiment_name(parser)
         parser.add_argument('num_agents', type=int)
+        parser.add_argument('-e', '--env', default='cheetah')
+        parser.add_argument(
+            '-g', '--gpu', '--num-gpus',
+            dest='num_gpus',
+            type=int,
+            nargs='?',
+            default=0
+        )
         parser.add_argument('-nos', '--no-snapshot', action='store_true')
         parser.add_argument('-f', '--force', action='store_true')
-        parser.add_argument('-g', '--gpu', action='store_true')
         parser.add_argument(
             '-c', '--config_file',
             default='ddpg_configs.py',
@@ -141,6 +149,7 @@ class KurrealParser:
     def _setup_log(self):
         parser = self._add_subparser('log', aliases=['logs', 'l'])
         self._add_component_arg(parser)
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-f', '--follow',
             action='store_true',
@@ -157,7 +166,6 @@ class KurrealParser:
             default=100,
             help='Only show the most recent lines of log. -1 to show all log lines.'
         )
-        self._add_namespace(parser)
 
     def _setup_namespace(self):
         parser = self._add_subparser(
@@ -175,26 +183,36 @@ class KurrealParser:
                      'e', 'exp', 'experiment', 'experiments',
                      'p', 'pod', 'pods',
                      'no', 'node', 'nodes',
-                     's', 'service', 'services'],
+                     's', 'svc', 'service', 'services'],
             default='ns',
             nargs='?',
             help='list experiment, pod, and node'
         )
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
+        parser.add_argument(
+            '-a', '--all',
+            action='store_true',
+            help='show all resources from all namespace.'
+        )
 
     def _setup_pod(self):
         "save as 'kurreal list pod'"
         parser = self._add_subparser('pod', aliases=['p', 'pods'])
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
+        parser.add_argument(
+            '-a', '--all',
+            action='store_true',
+            help='show all pods from all namespace.'
+        )
 
     def _setup_tensorboard(self):
         parser = self._add_subparser('tensorboard', aliases=['tb'])
+        self._add_namespace(parser, positional=True)
         parser.add_argument(
             '-u', '--url-only',
             action='store_true',
             help='only show the URL without opening the browser.'
         )
-        self._add_namespace(parser)
 
     def _setup_describe(self):
         parser = self._add_subparser('describe', aliases=['des'])
@@ -202,22 +220,33 @@ class KurrealParser:
             'pod_name',
             help="should be either 'agent-<N>' or 'nonagent'"
         )
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
 
     def _setup_exec(self):
+        """
+        Actual exec commands must be added after "--"
+        will throw error if no "--" in command args
+        """
         parser = self._add_subparser('exec', aliases=['x'])
         self._add_component_arg(parser)
+        self._add_namespace(parser, positional=True)
+
+    def _setup_scp(self):
+        parser = self._add_subparser('scp', aliases=['cp'])
         parser.add_argument(
-            'commands',
-            nargs=argparse.REMAINDER,
-            help="command to be executed in the pod. You don't have to quote it."
+            'src_file',
+            help='source file or folder. "<component>:/file/path" denotes remote.'
         )
-        self._add_namespace(parser)
+        parser.add_argument(
+            'dest_file',
+            help='destination file or folder. "<component>:/file/path" denotes remote.'
+        )
+        self._add_namespace(parser, positional=True)
 
     def _setup_ssh(self):
         parser = self._add_subparser('ssh', aliases=[])
         self._add_component_arg(parser)
-        self._add_namespace(parser)
+        self._add_namespace(parser, positional=True)
 
     def _setup_ssh_node(self):
         parser = self._add_subparser('ssh-node', aliases=['sshnode'])
@@ -280,14 +309,24 @@ class KurrealParser:
             help="should be either agent-<N> or one of [{}]".format(nonagent_str)
         )
 
-    def _add_namespace(self, parser):
-        parser.add_argument(
-            '-ns', '--ns', '--namespace', '--experiment',
-            dest='namespace',
-            type=self._process_experiment_name,
-            default='',
-            help='run the command in the designated namespace'
-        )
+    def _add_namespace(self, parser, positional=True):
+        help='run the command in the designated namespace'
+        if positional:
+            parser.add_argument(
+                'namespace',
+                type=self._process_experiment_name,
+                nargs='?',
+                default='',
+                help=help,
+            )
+        else:
+            parser.add_argument(
+                '-ns', '--ns', '--namespace',
+                dest='namespace',
+                type=self._process_experiment_name,
+                default='',
+                help=help,
+            )
 
     def _add_create_args(self, parser):
         """
@@ -442,16 +481,36 @@ class Kurreal:
         """
         << internal dev only >>
         """
-        if args.remainder:
-            config_command = args.remainder
+        assert not args.has_remainder, \
+            'create_dev cannot have "--". Use --env and --gpu'
+        ENV_ALIAS = {
+            # dm_control:cartpole-swingup
+            'ca': 'dm_control:cartpole-balance',
+            'cartpole': 'dm_control:cartpole-balance',
+            'ch': 'dm_control:cheetah-run',
+            'cheetah': 'dm_control:cheetah-run',
+        }
+        if args.env:
+            env = args.env
         else:
-            config_command = ['--env', 'dm_control:cheetah-run']
+            env = 'cheetah'
+        config_command = ['--env', ENV_ALIAS[env]]
 
-        if args.gpu:
-            nonagent_pod_type = 'nonagent-gpu'
-            config_command += ["--gpu", "0"]
+        if args.num_gpus is None:  # nargs=?, num gpu should be 1 when omitted
+            num_gpus = 1
         else:
-            nonagent_pod_type = 'nonagent-cpu'
+            num_gpus = args.num_gpus
+        POD_TYPES = {
+            0: 'nonagent-cpu',
+            1: 'nonagent-gpu',
+            2: 'nonagent-2k80-16cpu',
+            4: 'nonagent-4k80-32cpu',
+        }
+        if num_gpus not in POD_TYPES:
+            raise ValueError('invalid number of GPUs, choose from {}'
+                             .format(list(POD_TYPES.keys())))
+        nonagent_pod_type = POD_TYPES[num_gpus]
+        config_command += ["--num-gpus", str(num_gpus)]
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
@@ -547,6 +606,11 @@ class Kurreal:
             print_err('namespace `{}` not found. '
                       'Please run `kurreal list ns` and check for typos.'.format(name))
             return None
+        elif len(matches) == 1:
+            match = matches[0]
+            print_err('No exact match. Fuzzy match only finds one candidate: "{}"'
+                      .format(match))
+            return match
         prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
         prompt = ('Cannot find exact match. Fuzzy matching: \n'
                   '{}\nEnter your selection 0-{} (enter to select 0, q to quit): '
@@ -591,9 +655,13 @@ class Kurreal:
                 return
 
         kube.delete(
-            yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
-            namespace=kube.prefix_username(to_delete)
+            namespace=to_delete,
+            # don't need to specify yaml cause deleting a namespace
+            # auto-deletes all resources under it
+            # yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
+            yaml_path=None
         )
+        print('deleting all resources under namespace "{}"'.format(to_delete))
 
     def kurreal_namespace(self, args):
         """
@@ -626,7 +694,9 @@ class Kurreal:
         """
         run = lambda cmd: \
             self.kube.run_verbose(cmd, print_out=True, raise_on_error=False)
-        if args.namespace:
+        if args.all:
+            ns_cmd = ' --all-namespaces'
+        elif args.namespace:
             ns_cmd = ' --namespace ' + self._get_namespace(args)
         else:
             ns_cmd = ''
@@ -637,7 +707,7 @@ class Kurreal:
             run('get pods -o wide' + ns_cmd)
         elif args.resource in ['no', 'node', 'nodes']:
             run('get nodes -o wide' + ns_cmd)
-        elif args.resource in ['s', 'service', 'services']:
+        elif args.resource in ['s', 'svc', 'service', 'services']:
             run('get services -o wide' + ns_cmd)
         else:
             raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
@@ -666,12 +736,30 @@ class Kurreal:
         Exec command on a Surreal component: agent-<N>, learner, ps, etc.
         kubectl exec -ti <component> -- <command>
         """
-        if len(args.commands) == 1:
-            args.commands = args.commands[0]  # don't quote the singleton string
+        if not args.has_remainder:
+            raise RuntimeError(
+                'please enter your command after "--". '
+                'One and only one "--" must be present. \n'
+                'Example: kurreal exec learner [optional-namespace] -- ls -alf /fs/'
+            )
+        commands = args.remainder
+        if len(commands) == 1:
+            commands = commands[0]  # don't quote the singleton string
         self.kube.exec_surreal(
             args.component_name,
-            args.commands,
+            commands,
             namespace=self._get_namespace(args)
+        )
+
+    def kurreal_scp(self, args):
+        """
+        https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
+        kurreal cp /my/local/file learner:/remote/file mynamespace
+        is the same as
+        kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
+        """
+        self.kube.scp_surreal(
+            args.src_file, args.dest_file, self._get_namespace(args)
         )
 
     def kurreal_ssh(self, args):
@@ -679,8 +767,11 @@ class Kurreal:
         Interactive /bin/bash into the pod
         kubectl exec -ti <component> -- /bin/bash
         """
-        args.commands = ['/bin/bash']
-        self.kurreal_exec(args)
+        self.kube.exec_surreal(
+            args.component_name,
+            '/bin/bash',
+            namespace=self._get_namespace(args)
+        )
 
     def kurreal_ssh_node(self, args):
         """

@@ -10,7 +10,8 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
+    parser.add_argument('--num-gpus', type=int, default=0,
+                        help='number of GPUs to use, 0 for CPU only.')
 
     args = parser.parse_args(args=argv)
 
@@ -63,7 +64,8 @@ def generate(argv):
             'critic_regularization': 0.0,
             'use_batchnorm': False,
             'limit_training_episode_length': 0, # 0 means no limit
-            'agent_sleep_time': 1/50.0,
+            # 'agent_sleep_time': 1/50.0,
+            'agent_sleep_time': 0,
             'n_step': 5,
             'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
@@ -72,8 +74,10 @@ def generate(argv):
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 512,
-            'memory_size': 1000000,
+            # 'memory_size': 1000000,
+            'memory_size': 330000, # Note that actual replay size is memory_size * replay_shards
             'sampling_start_size': 1000,
+            'replay_shards': 3,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -107,7 +111,7 @@ def generate(argv):
             'flush_iteration': 100,
         },
         'learner': {
-            'gpu': args.gpu,
+            'num_gpus': args.num_gpus,
         },
     })
 

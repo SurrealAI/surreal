@@ -31,6 +31,7 @@ class Checkpoint(object):
     - global_steps: current global_steps counter
     - ckpt: dict of ckpt file names -> info
     """
+    # TODO support register custom object serializer method
     def __init__(self, folder,
                  name,
                  *,
@@ -116,7 +117,7 @@ class Checkpoint(object):
             data = pickle.load(fp)
         for attr_name in self.metadata.tracked_attrs:
             attr_value = getattr(self.tracked_obj, attr_name)
-            if isinstance(attr_value, torch.nn.Module):
+            if isinstance(attr_value, (torch.nn.Module, torch.optim.Optimizer)):
                 attr_value.load_state_dict(data[attr_name])
             else:
                 setattr(self.tracked_obj, attr_name, data[attr_name])
@@ -236,7 +237,7 @@ class Checkpoint(object):
             'Did you forget to restore from an existing checkpoint?'
         for attr_name in self.metadata.tracked_attrs:
             attr_value = getattr(self.tracked_obj, attr_name)
-            if isinstance(attr_value, torch.nn.Module):
+            if isinstance(attr_value, (torch.nn.Module, torch.optim.Optimizer)):
                 data[attr_name] = attr_value.state_dict()
             else:
                 data[attr_name] = attr_value
@@ -303,8 +304,9 @@ class Checkpoint(object):
                 ckpt_path_to_delete = self._get_path(ckpt_to_delete)
                 if U.f_exists(ckpt_path_to_delete):
                     U.f_remove(ckpt_path_to_delete)
+                if ckpt_to_delete in meta.ckpt:
                     del meta.ckpt[ckpt_to_delete]
-            print(score_queue.get_scores_filepaths(), best_ckpt_name)
+            # print(score_queue.get_scores_filepaths(), best_ckpt_name)
             meta.best_scores, meta.best_ckpt_files = \
                 score_queue.get_scores_filepaths()
 

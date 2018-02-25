@@ -69,7 +69,7 @@ volumes:
   args: {{ args }}
   {% if resource_request | length > 0 or resource_limit | length > 0 and type in ['agent', 'learner']%}
   resources:
-    {% if resource_request | length > 0 and type in ['agent', 'learner']%}
+    {% if resource_request | length > 0 and type in ['agent', 'eval', 'learner']%}
     requests:
       {% for req_key, req_val in resource_request.items() %}
       {{req_key}}: {{req_val}}
@@ -152,7 +152,8 @@ spec:
     {% endfor %}
 {% endif %}
   containers:
-{% for ENTITY in ['ps', 'learner', 'replay', 'tensorboard', 'tensorplex'] %}
+{% for ENTITY in ['ps', 'learner', 'replay',
+                  'tensorboard', 'tensorplex', 'loggerplex'] %}
   {{ container_block(ENTITY,ENTITY,
     NONAGENT_IMAGE,
     ["--cmd", CMD_DICT[ENTITY]],
@@ -188,6 +189,38 @@ spec:
     'agent-' + (N|string),
     AGENT_IMAGE,
     ["--cmd", CMD_DICT.agent[N]],
+    AGENT_RESOURCE_REQUEST,
+    AGENT_RESOURCE_LIMIT)
+    | indent(2) }}
+{% endfor %}
+
+# ================== evals, each on separate pod ==================
+{% for N in range(CMD_DICT.eval | length) %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eval-{{N}}
+  labels:
+    type: eval
+spec:
+  hostNetwork: false
+  hostname: eval-{{N}}
+  subdomain: surreal
+  restartPolicy: Never
+  {{ volume_block() | indent(2) }}
+  {{ tolerations_block | indent(2) }}
+{% if AGENT_SELECTOR | length > 0 %}
+  nodeSelector:
+    {% for selector_key, selector_val in AGENT_SELECTOR.items() %}
+    {{selector_key}}: {{selector_val}}
+    {% endfor %}
+{% endif %}
+  containers:
+  {{ container_block('eval', 
+    'eval-' + (N|string),
+    AGENT_IMAGE,
+    ["--cmd", CMD_DICT.eval[N]],
     AGENT_RESOURCE_REQUEST,
     AGENT_RESOURCE_LIMIT)
     | indent(2) }}

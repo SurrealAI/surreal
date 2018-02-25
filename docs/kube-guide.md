@@ -107,7 +107,11 @@ gcloud beta container node-pools create nonagent-pool-cpu -m n1-highmem-8 --node
 
 gcloud beta container node-pools create nonagent-pool-gpu -m n1-highmem-8 --accelerator type=nvidia-tesla-k80,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 2 --node-taints surreal=true:NoExecute
 
-gcloud beta container node-pools create nonagent-pool-p100 -m n1-highmem-8 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+gcloud beta container node-pools create nonagent-pool-gpu-2k80-16cpu -m n1-standard-16 --accelerator type=nvidia-tesla-k80,count=2 --node-labels surreal-node=nonagent-gpu-2k80-16cpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-gpu-4k80-32cpu -m n1-standard-32 --accelerator type=nvidia-tesla-k80,count=4 --node-labels surreal-node=nonagent-gpu-4k80-32cpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create nonagent-pool-gpu-1p100-16cpu -m n1-standard-16 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
 ```
 
 Run the daemon to install nvidia drivers
