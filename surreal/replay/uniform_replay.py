@@ -34,18 +34,16 @@ class UniformReplay(Replay):
     #     return conf
 
     def insert(self, exp_dict):
-        with self.insert_time.time():
-            if self._next_idx >= len(self._memory):
-                self._memory.append(exp_dict)
-            else:
-                self._memory[self._next_idx] = exp_dict
-            self._next_idx = (self._next_idx + 1) % self.memory_size
+        if self._next_idx >= len(self._memory):
+            self._memory.append(exp_dict)
+        else:
+            self._memory[self._next_idx] = exp_dict
+        self._next_idx = (self._next_idx + 1) % self.memory_size
 
-    def sample(self, batch_size):
-        with self.sample_time.time():
-            indices = [random.randint(0, len(self._memory) - 1)
-                       for _ in range(batch_size)]
-            response = [self._memory[i] for i in indices]
+    def sample(self, batch_size):    
+        indices = [random.randint(0, len(self._memory) - 1)
+                   for _ in range(batch_size)]
+        response = [self._memory[i] for i in indices]
         return response
 
     def evict(self):

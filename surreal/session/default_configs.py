@@ -88,8 +88,8 @@ BASE_SESSION_CONFIG = {
             'eval_env': '_int_',
             'eval_env_sleep': '_int_',  # throttle eval by sleep n seconds
             # for manual updates:
-            'agent': '_int_',  # agent.update_tensorplex()
-            'learner': '_int_',  # learner.update_tensorplex()
+            'agent': '_int_',  # agent.tensorplex.add_scalars()
+            'learner': '_int_',  # learner.tensorplex.add_scalars()
         }
     },
     'loggerplex': {
@@ -169,8 +169,8 @@ LOCAL_SESSION_CONFIG = {
             'eval_env': 20,
             'eval_env_sleep': 30,  # throttle eval by sleep n seconds
             # for manual updates:
-            'agent': 20,  # agent.update_tensorplex()
-            'learner': 20,  # learner.update_tensorplex()
+            'agent': 20,  # agent.tensorplex.add_scalars()
+            'learner': 20,  # learner.tensorplex.add_scalars()
         }
     },
     'loggerplex': {

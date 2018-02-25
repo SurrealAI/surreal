@@ -38,12 +38,12 @@ Public methods:
     - `message`: optional message sent by the learner. Empty string is default.
     - `hash`: hash signature of the parameter binary blob.
     
-- `update_tensorplex(tag_value_dict)`: update distributed Tensorboard every interval. The interval is specified in `session_config`.
+- `tensorplex.add_scalars(tag_value_dict)`: update distributed Tensorboard every interval. The interval is specified in `session_config`.
 
 Public attribute:
 
 - `.log`: [Loggerplex](https://github.com/stanfordvl/tensorplex) instance. You can record any agent activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
-- `.tensorplex`: instead of interacting with this attribute, you typically call `update_tensorplex()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
+- `.tensorplex`: instead of interacting with this attribute, you typically call `tensorplex.add_scalars()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
 
 Agent also encapsulates exploration logic. It needs to have support for both the training and evaluation mode, e.g. epsilon greedy during training but `argmax` at evaluation. 
 Agent process should use `AgentMode.training` while evaluator process should use `AgentMode.eval_***`. 
@@ -109,12 +109,12 @@ Public methods:
 - `learn(batch_exp)`
 - `publish_parameter(iteration, message='')`: pushes the latest parameters to the parameter server. Message is optional.
 - `save(file_path)`
--  `update_tensorplex(tag_value_dict)`: same as agent's.
+-  `tensorplex.add_scalars(tag_value_dict)`: same as agent's.
 
 Public attribute:
 
 - `.log`: [Loggerplex](https://github.com/stanfordvl/tensorplex) instance. You can record any learner activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
-- `.tensorplex`: instead of interacting with this attribute, you typically call `update_tensorplex()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
+- `.tensorplex`: instead of interacting with this attribute, you typically call `tensorplex.add_scalars()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
 
 Learner main entry:
 
