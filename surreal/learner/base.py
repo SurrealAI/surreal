@@ -204,16 +204,28 @@ class Learner(metaclass=LearnerMeta):
         self.iter_timer = U.TimeRecorder()
 
         self.log = get_loggerplex_client('learner', self.session_config)
-        self.tensorplex = get_tensorplex_client(
-            'learner/learner',
+
+        self.tensorplex = self._get_tensorplex('learner/0')
+        self.tensorplex_core = self._get_tensorplex('learner_core/0')
+        self.tensorplex_system = self._get_tensorplex('learner_system/0')
+
+    def _get_tensorplex(self, name):
+        """
+            Get the periodic tensorplex object
+        Args:
+            @name: The name of the collection of metrics
+        """
+        tp = get_tensorplex_client(
+            name,
             self.session_config
         )
-        self._periodic_tensorplex = PeriodicTensorplex(
-            tensorplex=self.tensorplex,
+        periodic_tp = PeriodicTensorplex(
+            tensorplex=tp,
             period=self.session_config.tensorplex.update_schedule.learner,
             is_average=True,
             keep_full_history=False
         )
+        return periodic_tp
 
     def update_tensorplex(self, tag_value_dict, global_step=None):
         """
@@ -221,21 +233,30 @@ class Learner(metaclass=LearnerMeta):
             tag_value_dict:
             global_step: None to use internal tracker value
         """
+        self.tensorplex.update(tag_value_dict, global_step)
+
+        core_metrics = {}
+        system_metrics = {}
+        
         learn_time = self.learn_timer.avg + 1e-6
         fetch_timer = self._prefetch_queue.timer
         fetch_time = fetch_timer.avg + 1e-6
         iter_time = self.iter_timer.avg + 1e-6
         # Time it takes to learn from a batch
-        tag_value_dict['speed/learn_time'] = learn_time
+        core_metrics['learn_time_s'] = learn_time
         # Time it takes to fetch a batch
-        tag_value_dict['speed/fetch_time'] = fetch_time
+        core_metrics['fetch_time_s'] = fetch_time
         # Time it takes to complete one full iteration
-        tag_value_dict['speed/iter_time'] = iter_time
+        core_metrics['iter_time_s'] = iter_time
+
+        self.tensorplex_core.update(core_metrics, global_step)
+
         # Percent of time spent on learning
-        tag_value_dict['speed/compute_bound_percent'] = min(learn_time / iter_time * 100, 100)
+        system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
-        tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
-        self._periodic_tensorplex.update(tag_value_dict, global_step)
+        system_metrics['io_load_percent'] = min(fetch_time / iter_time * 100, 100)
+
+        self.tensorplex_system.update(system_metrics, global_step)
 
 
     ######

@@ -91,26 +91,47 @@ class Agent(object, metaclass=AgentMeta):
         """
         if self.agent_mode == 'training':
             logger_name = 'agent-{}'.format(self.agent_id)
-            self.tensorplex = get_tensorplex_client(
-                '{}/{}'.format('agent', self.agent_id),
-                session_config=self.session_config,
-            )
+            self.tensorplex = self._get_tensorplex(
+                '{}/{}'.format('agent', self.agent_id))
+            self.tensorplex_core = self._get_tensorplex(
+                '{}/{}'.format('agent_core', self.agent_id))
+            self.tensorplex_system = self._get_tensorplex(
+                '{}/{}'.format('agent_system', self.agent_id))
         else:
             logger_name = 'eval-{}'.format(self.agent_id)
-            self.tensorplex = get_tensorplex_client(
-                '{}/{}'.format('eval', self.agent_id),
-                session_config=self.session_config,
-            )
-        self._periodic_tensorplex = PeriodicTensorplex(
-            tensorplex=self.tensorplex,
+            self.tensorplex = self._get_tensorplex(
+                '{}/{}'.format('eval', self.agent_id))
+            self.tensorplex_core = self._get_tensorplex(
+                '{}/{}'.format('eval_core', self.agent_id))
+            self.tensorplex_system = self._get_tensorplex(
+                '{}/{}'.format('eval_system', self.agent_id))
+
+        self.log = get_loggerplex_client(logger_name, self.session_config)
+        # record how long the current parameter have been used
+        self.actions_since_param_update = 0
+        self.episodes_since_param_update = 0
+        # Weighted Average over ~100 parameter updates.
+        self.actions_per_param_update = U.MovingAverageRecorder(decay=0.99)
+        self.episodes_per_param_update = U.MovingAverageRecorder(decay=0.99)
+
+
+    def _get_tensorplex(self, name):
+        """
+            Get the periodic tensorplex object
+        Args:
+            @name: The name of the collection of metrics
+        """
+        tp = get_tensorplex_client(
+            name,
+            self.session_config
+        )
+        periodic_tp = PeriodicTensorplex(
+            tensorplex=tp,
             period=self.session_config.tensorplex.update_schedule.agent,
             is_average=True,
             keep_full_history=False
         )
-        self.log = get_loggerplex_client(logger_name, self.session_config)
-        # record how long the current parameter have been used
-        self.actions_per_param_update = 0
-        self.episodes_per_param_update = 0
+        return periodic_tp
 
     #######
     # Exposed abstract methods
@@ -153,12 +174,14 @@ class Agent(object, metaclass=AgentMeta):
         # The time it takes for parameter to go from learner to agent
         if self.agent_mode == 'training':
             delay = time.time() - info['time']
-            self.update_tensorplex({'parameter_publish_delay': delay,
-                                    'actions_per_param_update': self.actions_per_param_update,
-                                    'episodes_per_param_update': self.episodes_per_param_update
-                                    })
-            self.actions_per_param_update = 0
-            self.episodes_per_param_update = 0
+            self.actions_per_param_update.add_value(self.actions_since_param_update)
+            self.episodes_per_param_update.add_value(self.episodes_since_param_update)
+            self.tensorplex_core.update({'parameter_publish_delay_s': delay,
+                        'actions_per_param_update': self.actions_per_param_update.cur_value(),
+                        'episodes_per_param_update': self.episodes_per_param_update.cur_value()
+                        })
+            self.actions_since_param_update = 0
+            self.episodes_since_param_update = 0
 
 
     def pre_action(self, obs):
@@ -177,9 +200,9 @@ class Agent(object, metaclass=AgentMeta):
         self.current_step += 1
         self.cumulative_steps += 1
         if self.agent_mode == 'training':
-            self.actions_per_param_update += 1
+            self.actions_since_param_update += 1
             if done:
-                self.episodes_per_param_update += 1
+                self.episodes_since_param_update += 1
 
     def pre_episode(self):
         """
@@ -320,7 +343,7 @@ class Agent(object, metaclass=AgentMeta):
             tag_value_dict: {metric_name: metric_value}
             global_step: 
         """
-        self._periodic_tensorplex.update(tag_value_dict, global_step)
+        self.tensorplex.update(tag_value_dict, global_step)
 
     def set_agent_mode(self, agent_mode):
         """
