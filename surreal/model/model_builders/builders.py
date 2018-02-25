@@ -88,7 +88,7 @@ class PPO_CriticNetwork(U.Module):
     def __init__(self, D_obs):
         super(PPO_CriticNetwork, self).__init__()
         hid_1 = D_obs * 10
-        hid_3 = 5
+        hid_3 = 64
         hid_2 = int(np.sqrt(hid_1 * hid_3))
 
         self.fc_h1 = nn.Linear(D_obs, hid_1)

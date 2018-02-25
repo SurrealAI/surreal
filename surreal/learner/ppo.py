@@ -340,26 +340,26 @@ class PPOLearner(Learner):
                 return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
-        #obs, actions, advantages, v_trace_targ, pds, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+        # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
 
         with U.torch_gpu_scope(self.gpu_id):
                 # new variables to detach everything
-                '''
-                obs = Variable(obs)
-                actions = Variable(actions)
-                advantages = Variable(advantages)
-                v_trace_targ = Variable(v_trace_targ)
-                behave_pol = Variable(pds)
+                # obs_iter = Variable(obs_iter)
+                # actions_iter = Variable(actions_iter)
+                # advantages = Variable(advantages)
+                # v_trace_targ = Variable(v_trace_targ)
+                # behave_pol = Variable(behave_pol)
 
-                if self.method == 'clip': 
-                    stats = self._clip_update_full(obs, actions, advantages, behave_pol)
-                else:
-                    stats = self._adapt_update_full(obs, actions, advantages, behave_pol)
-                baseline_stats = self._value_update_full(obs, v_trace_targ)
-                '''
+
+                # if self.method == 'clip': 
+                #     stats = self._clip_update_full(obs_iter, actions_iter, advantages, behave_pol)
+                # else:
+                #     stats = self._adapt_update_full(obs_iter, actions_iter, advantages, behave_pol)
+                # baseline_stats = self._value_update_full(obs_iter, v_trace_targ)
 
                 done_training = False
                 ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
+                # ref_pol = self.model.forward_actor(Variable(obs.view(self.learner_config.replay.batch_size * self.n_step, -1))).detach()
                 for _ in range(self.epoch_policy):
                     obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
                     # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._advantage_and_return(obs, obs_next, actions, rewards, pds, dones)
@@ -394,7 +394,6 @@ class PPOLearner(Learner):
                         if self.beta_lower < self.beta:
                             self.beta = self.beta / 1.5
 
-
                 # updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
@@ -408,9 +407,9 @@ class PPOLearner(Learner):
 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
-                    stats['observation_running_mean'] = self.model.z_filter.running_mean()[0]
-                    stats['observation_running_square'] =  self.model.z_filter.running_square()[0]
-                    stats['observation_running_std'] = self.model.z_filter.running_std()[0]
+                    stats['obs_running_mean'] = self.model.z_filter.running_mean()[0]
+                    stats['obs_running_square'] =  self.model.z_filter.running_square()[0]
+                    stats['obs_running_std'] = self.model.z_filter.running_std()[0]
 
                 self.update_tensorplex(stats)
 

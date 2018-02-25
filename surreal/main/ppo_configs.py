@@ -34,27 +34,27 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 5.,
+            'actor_gradient_clip_value': 10.,
             'clip_critic_gradient': True,
-            'critic_gradient_clip_value': 5.,
+            'critic_gradient_clip_value': 10.,
             'gamma': .995,
             'use_z_filter': False,
             'norm_adv': True,
-            'init_log_sig': -2.,
-            'n_step': 5,
+            'init_log_sig': -1.,
+            'n_step': 10,
             'trace_cutoff': 2.0,
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 1,
+            'stride': 3,
             'batch_size': 64,
             # ppo specific parameters:
             'method': 'adapt',
             'lr_policy': 2e-4,
-            'lr_baseline': 2e-4,
+            'lr_baseline': 3e-4,
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
-            'epoch_policy': 10,
-            'epoch_baseline': 10,
+            'epoch_policy': 5,
+            'epoch_baseline': 5,
             'kl_targ': 0.01, # target KL divergence between before and after
             'kl_cutoff_coeff': 50, # penalty coeff when kl large
             'clip_epsilon_init': 0.2, # factor of clipped loss
@@ -64,7 +64,7 @@ def generate(argv):
             'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
         },
         'replay': {
-            'replay_class': 'UniformReplay',
+            'replay_class': 'FIFOReplay',
             'batch_size': 64,
             'memory_size': 4096,
             'sampling_start_size': 64,
@@ -77,7 +77,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/250,
+        'sleep_time': 1/350,
     }
 
 
@@ -95,14 +95,18 @@ def generate(argv):
             }
         },
         'sender': {
-            'flush_iteration': 5,
+            'flush_iteration': 3,
         },
         'learner': {
             'gpu': args.gpu,
         },
         'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 100,
+            'fetch_parameter_mode': 'episode',
+            'fetch_parameter_interval': 1,
+        },
+        'replay' : {
+            'max_puller_queue': 3,
+            'max_prefetch_batch_queue': 1,
         },
     })
 
