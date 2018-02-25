@@ -153,8 +153,23 @@ def f_move(fsrc, fdst):
         shutil.move(f, fdst)
 
 
-def f_size(fpath):
-    return os.path.getsize(fpath)
+def f_split_path(fpath):
+    """
+    Splits path into a list of its component folders
+    """
+    allparts = []
+    while 1:
+        parts = os.path.split(fpath)
+        if parts[0] == fpath:  # sentinel for absolute paths
+            allparts.insert(0, parts[0])
+            break
+        elif parts[1] == fpath:  # sentinel for relative paths
+            allparts.insert(0, parts[1])
+            break
+        else:
+            fpath = parts[0]
+            allparts.insert(0, parts[1])
+    return allparts
 
 
 def script_dir():

@@ -6,7 +6,6 @@ from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
 
 
-
 def _process_labels(label_string):
     """
     mylabel1=myvalue1,mylabel2=myvalue2
@@ -39,6 +38,7 @@ class KurrealParser:
         self._setup_log()
         self._setup_namespace()
         self._setup_tensorboard()
+        self._setup_create_tensorboard()
         self._setup_list()
         self._setup_pod()
         self._setup_describe()
@@ -212,6 +212,25 @@ class KurrealParser:
             '-u', '--url-only',
             action='store_true',
             help='only show the URL without opening the browser.'
+        )
+
+    def _setup_create_tensorboard(self):
+        parser = self._add_subparser('create-tensorboard', aliases=['ctb'])
+        parser.add_argument(
+            'remote_experiment_subfolder',
+            help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
+        )
+        parser.add_argument(
+            '-a', '--absolute-path',
+            action='store_true',
+            help='use absolute remote path instead of '
+                 '<fs_mount_path>/<root_subfolder>/<remote_folder>'
+        )
+        parser.add_argument(
+            '-p', '--pod-type',
+            default='agent',
+            help='pod type for the tensorboard pod (specified in ~/.surreal.yml). '
+                 'please use the smallest compute instance possible.'
         )
 
     def _setup_describe(self):
@@ -401,12 +420,12 @@ class Kurreal:
         self.kube = Kubectl(dry_run=args.dry_run)
 
     @staticmethod
-    def _find_kurreal_template():
+    def _find_kurreal_template(template_name):
         """
         https://stackoverflow.com/questions/20298729/pip-installing-data-files-to-the-wrong-place
         make sure the path is consistent with MANIFEST.in
         """
-        return U.f_join(surreal.__path__[0], 'kube', 'kurreal_template.yml')
+        return U.f_join(surreal.__path__[0], 'kube', template_name)
 
     def _create_helper(self, *,
                        config_py,
@@ -428,6 +447,8 @@ class Kurreal:
         prefixed_name = kube.prefix_username(experiment_name)
         stripped_name = kube.strip_username(experiment_name)
         experiment_folder = kube.get_remote_experiment_folder(stripped_name)
+        rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
+        U.f_mkdir_in_path(rendered_path)
 
         cmd_gen = CommandGenerator(
             num_agents=num_agents,
@@ -445,10 +466,9 @@ class Kurreal:
         print('  agent_pod_type:', agent_pod_type)
         print('  nonagent_pod_type:', nonagent_pod_type)
 
-        rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
         kube.create_surreal(
             prefixed_name,
-            jinja_template=self._find_kurreal_template(),
+            jinja_template=self._find_kurreal_template('kurreal_template.yml'),
             rendered_path=rendered_path,
             snapshot=not no_snapshot,
             agent_pod_type=agent_pod_type,
@@ -822,6 +842,37 @@ class Kurreal:
                 webbrowser.open(url)
         else:
             print_err('Tensorboard does not yet have an external IP.')
+
+    def kurreal_create_tensorboard(self, args):
+        """
+        Create a single pod that displays tensorboard of an old experiment.
+        After the service is up and running, run `kurreal tb` to open the external
+        URL in your browser
+        """
+        kube = self.kube
+        remote_subfolder = args.remote_experiment_subfolder
+        rendered_name = (remote_subfolder.replace('/', '-')
+                         .replace('.', '-').replace('_', '-'))
+        rendered_path = kube.get_path('kurreal-tensorboard', rendered_name + '.yml')
+        U.f_mkdir_in_path(rendered_path)
+        if not args.absolute_path:
+            remote_path = kube.get_remote_experiment_folder(remote_subfolder)
+        else:
+            remote_path = remote_subfolder
+        namespace = kube.create_tensorboard(
+            remote_path=remote_path,
+            jinja_template=self._find_kurreal_template('tensorboard_template.yml'),
+            rendered_path=rendered_path,
+            tensorboard_pod_type=args.pod_type
+        )
+        print('Creating standalone tensorboard pod. ')
+        print('Please run `kurreal tb` to open the tensorboard URL in your browser '
+              'when the service is up and running. '
+              'You can check service by `kurreal list service`')
+        print('  remote_path:', remote_path)
+        print('  tensorboard_pod_type:', args.pod_type)
+        # switch to the standalone pod namespace just created
+        kube.set_namespace(namespace)
 
     def kurreal_label(self, args):
         """

@@ -70,7 +70,6 @@ class CommandGenerator:
             cmd_dict[role] = self.get_command(role)
 
         if save_yaml:
-            U.f_mkdir_in_path(save_yaml)
             init_dict = OrderedDict()
             for attr in ['num_agents', 'config_py', 'config_command', 'service_url']:
                 init_dict[attr] = getattr(self, attr)
