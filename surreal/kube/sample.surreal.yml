@@ -61,3 +61,7 @@ pod_types:
       cpu: 28
     resource_limit:
       nvidia.com/gpu: 4
+  tensorboard:
+    image: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
+    resource_request:
+      cpu: 0.3
