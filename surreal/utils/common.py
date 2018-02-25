@@ -9,7 +9,7 @@ import pprint
 from enum import Enum, EnumMeta
 import time
 from contextlib import contextmanager
-
+from threading import Thread
 
 def _get_qualified_type_name(type_):
     name = str(type_)
@@ -450,43 +450,6 @@ class ArgParser(object):
                     parts[0] += ' ' + args_string
                 return ', '.join(parts)
 
-
-class TimeRecorder():
-    """
-        Records average of whatever context block it is recording
-        Thread unsafe
-    """
-    def __init__(self, decay=0.9995, max_seconds=1):
-        """
-        Args:
-            decay: Decay factor of smoothed moving average
-                    Default is 0.9995, which is approximately moving average 
-                    of 2000 samples
-            max_seconds: round down all time differences larger than specified
-                        Useful when the application just started and there are long waits 
-                        that might throw off the average
-        """
-        self.cum_count = 0
-        self.cum_time = 0
-        self.decay = decay
-        self.max_seconds = max_seconds
-
-    @contextmanager
-    def time(self):
-        pre_time = time.time()
-        yield None
-        post_time = time.time()
-        self.cum_count *= self.decay
-        self.cum_time *= self.decay
-        self.cum_count += 1
-        self.cum_time += min(self.max_seconds, post_time - pre_time)
-
-    @property
-    def avg(self):
-        if self.cum_count == 0:
-            return 0
-        return self.cum_time / self.cum_count
-
 class MovingAverageRecorder():
     """
         Records moving average 
@@ -513,3 +476,73 @@ class MovingAverageRecorder():
             return 0
         else:
             return self.cum_value / self.normalization
+
+class TimeRecorder():
+    """
+        Records average of whatever context block it is recording
+        Don't call time in two threads
+    """
+    def __init__(self, decay=0.9995, max_seconds=1):
+        """
+        Args:
+            decay: Decay factor of smoothed moving average
+                    Default is 0.9995, which is approximately moving average 
+                    of 2000 samples
+            max_seconds: round down all time differences larger than specified
+                        Useful when the application just started and there are long waits 
+                        that might throw off the average
+        """
+        self.moving_average = MovingAverageRecorder(decay)
+        self.max_seconds = max_seconds
+        self.started = False
+
+    @contextmanager
+    def time(self):
+        self.start()
+        yield None
+        self.stop()
+
+    def start(self):
+        if self.started:
+            raise RuntimeError('Starting a started timer')
+        self.pre_time = time.time()
+        self.started = True
+
+    def stop(self):
+        if not self.started:
+            raise RuntimeError('Stopping a timer that is not started')
+        self.post_time = time.time()
+        self.started = False
+    
+        interval = min(self.max_seconds, self.post_time - self.pre_time)
+        self.moving_average.add_value(interval)
+
+    @property
+    def avg(self):
+        return self.moving_average.cur_value()
+
+# class TimeRecorder():
+
+class PeriodicWakeUpWorker(Thread):
+    """
+    Args:
+        @target: The function to be called periodically
+        @interval: Time between two calls 
+        @args: Args to feed to target()
+        @kwargs: Key word Args to feed to target()
+    """
+    def __init__(self, target, interval=1, args=None, kwargs=None):
+        Thread.__init__(self)
+        self.target = target
+        self.interval = interval
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        if self.args is None:
+            self.args = []
+        if self.kwargs is None:
+            self.kwargs = {}
+        while True:
+            self.target(*self.args, **self.kwargs)
+            time.sleep(self.interval)

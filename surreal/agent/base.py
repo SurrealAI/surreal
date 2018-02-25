@@ -93,18 +93,10 @@ class Agent(object, metaclass=AgentMeta):
             logger_name = 'agent-{}'.format(self.agent_id)
             self.tensorplex = self._get_tensorplex(
                 '{}/{}'.format('agent', self.agent_id))
-            self.tensorplex_core = self._get_tensorplex(
-                '{}/{}'.format('agent_core', self.agent_id))
-            self.tensorplex_system = self._get_tensorplex(
-                '{}/{}'.format('agent_system', self.agent_id))
         else:
             logger_name = 'eval-{}'.format(self.agent_id)
             self.tensorplex = self._get_tensorplex(
                 '{}/{}'.format('eval', self.agent_id))
-            self.tensorplex_core = self._get_tensorplex(
-                '{}/{}'.format('eval_core', self.agent_id))
-            self.tensorplex_system = self._get_tensorplex(
-                '{}/{}'.format('eval_system', self.agent_id))
 
         self.log = get_loggerplex_client(logger_name, self.session_config)
         # record how long the current parameter have been used
@@ -113,7 +105,6 @@ class Agent(object, metaclass=AgentMeta):
         # Weighted Average over ~100 parameter updates.
         self.actions_per_param_update = U.MovingAverageRecorder(decay=0.99)
         self.episodes_per_param_update = U.MovingAverageRecorder(decay=0.99)
-
 
     def _get_tensorplex(self, name):
         """
@@ -176,9 +167,9 @@ class Agent(object, metaclass=AgentMeta):
             delay = time.time() - info['time']
             self.actions_per_param_update.add_value(self.actions_since_param_update)
             self.episodes_per_param_update.add_value(self.episodes_since_param_update)
-            self.tensorplex_core.update({'parameter_publish_delay_s': delay,
-                        'actions_per_param_update': self.actions_per_param_update.cur_value(),
-                        'episodes_per_param_update': self.episodes_per_param_update.cur_value()
+            self.tensorplex.add_scalars({'.core/parameter_publish_delay_s': delay,
+                        '.core/actions_per_param_update': self.actions_per_param_update.cur_value(),
+                        '.core/episodes_per_param_update': self.episodes_per_param_update.cur_value()
                         })
             self.actions_since_param_update = 0
             self.episodes_since_param_update = 0
@@ -335,15 +326,6 @@ class Agent(object, metaclass=AgentMeta):
             Fetch information about the parameters currently held by the parameter server
         """
         return self._ps_client.fetch_info()
-
-    def update_tensorplex(self, tag_value_dict, global_step=None):
-        """
-            Send information in tag_value_dict to tensorplex
-        Args:
-            tag_value_dict: {metric_name: metric_value}
-            global_step: 
-        """
-        self.tensorplex.update(tag_value_dict, global_step)
 
     def set_agent_mode(self, agent_mode):
         """

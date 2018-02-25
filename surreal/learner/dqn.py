@@ -87,7 +87,7 @@ class DQNLearner(Learner):
             # Update target network periodically.
             self._update_target()
         mean_td_error = U.to_scalar(torch.mean(torch.abs(td_errors)))
-        self.update_tensorplex({
+        self.tensorplex.add_scalars({
             'td_error': mean_td_error
         })
 

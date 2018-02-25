@@ -175,7 +175,7 @@ class DDPGLearner(Learner):
             batch.obs_next,
             batch.dones
         )
-        self.update_tensorplex(tensorplex_update_dict)
+        self.tensorplex.add_scalars(tensorplex_update_dict)
         self.periodic_checkpoint(
             global_steps=self.current_iteration,
             score=None,

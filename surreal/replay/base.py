@@ -124,17 +124,11 @@ class Replay(object, metaclass=ReplayMeta):
             '{}/{}'.format('replay', self.index),
             self.session_config
         )
-        self.tensorplex_core = get_tensorplex_client(
-            '{}/{}'.format('replay_core', self.index),
-            self.session_config
-        )
-        self.tensorplex_system = get_tensorplex_client(
-            '{}/{}'.format('replay_system', self.index),
-            self.session_config
-        )
         self._tensorplex_thread = None
         self._has_tensorplex = self.session_config.replay.tensorboard_display
 
+        # Origin of all global steps
+        self.init_time = time.time()
         # Number of experience collected by agents
         self.cumulative_collected_count = 0
         # Number of experience sampled by learner
@@ -142,7 +136,11 @@ class Replay(object, metaclass=ReplayMeta):
         # Number of sampling requests from the learner
         self.cumulative_request_count = 0
         # Timer for tensorplex reporting
-        self.last_tensorplex_iter_time = None
+        self.last_tensorplex_iter_time = time.time()
+        # Last reported values used for speed computation
+        self.last_experience_count = 0
+        self.last_sample_count = 0
+        self.last_request_count = 0
         
         self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
@@ -189,22 +187,9 @@ class Replay(object, metaclass=ReplayMeta):
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
             raise RuntimeError('tensorplex thread already running')
-        self._tensorplex_thread = U.start_thread(
-            self._tensorplex_loop,
-            args=(time.time(),)
-        )
+        self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
+        self._tensorplex_thread.start()
         return self._tensorplex_thread
-
-    def _tensorplex_loop(self, init_time):
-        self.init_time = init_time
-        self.last_experience_count = 0
-        self.last_sample_count = 0
-        self.last_request_count = 0
-        self.last_tensorplex_iter_time = time.time()
-        while True:
-            time.sleep(1.)
-            self.generate_tensorplex_report()
-            self.last_tensorplex_iter_time = time.time()
 
     def generate_tensorplex_report(self):
         """ 
@@ -262,6 +247,12 @@ class Replay(object, metaclass=ReplayMeta):
             'exp_queue_occupancy_percent': self._exp_queue.occupancy() * 100,
         }
 
-        self.tensorplex_core.add_scalars(core_metrics, global_step=global_step)
-        self.tensorplex_system.add_scalars(system_metrics, global_step=global_step)
+        all_metrics = {}
+        for k in core_metrics:
+            all_metrics['.core/' + k] = core_metrics[k]
+        for k in system_metrics:
+            all_metrics['.system/' + k] = system_metrics[k]
+        self.tensorplex.add_scalars(all_metrics, global_step=global_step)
+
+        self.last_tensorplex_iter_time = time.time()
 
