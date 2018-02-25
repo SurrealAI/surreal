@@ -1,5 +1,6 @@
 import os.path as path
 from tensorplex import Loggerplex
+from surreal.kube.tar_snapshot import tar_kurreal_repo
 
 
 def loggerplex_parser_setup(parser):
@@ -7,8 +8,14 @@ def loggerplex_parser_setup(parser):
 
 
 def run_loggerplexserver_main(args, config):
+    """
+    Loggerplex is also responsible for creating a tar.gz snapshot of
+    the mounted kurreal git repos
+    """
     folder = config.session_config.folder
     loggerplex_config = config.session_config.loggerplex
+
+    tar_kurreal_repo(folder)
 
     loggerplex = Loggerplex(
         path.join(folder, 'logs'),
