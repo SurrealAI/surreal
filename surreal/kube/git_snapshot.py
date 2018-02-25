@@ -1,13 +1,16 @@
 from git import Repo
 import sys
 import time
+import uuid
+import surreal.utils as U
 
 
 def print_err(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
+def push_snapshot(snapshot_branch, repo_path='.', verbose=True,
+                  *, __push_temp_file=None):
     """
     Save a snapshot of the current codebase (with uncommitted changes and untracked
     files) to a temporary branch and then push to github.
@@ -15,6 +18,12 @@ def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
 
     https://stackoverflow.com/questions/5717026/how-to-git-cherry-pick-only-changes-to-certain-files
     https://stackoverflow.com/questions/48511079/git-commands-to-save-current-files-in-temporary-branch-without-committing-to-mas
+
+    Args:
+        snapshot_branch:
+        repo_path:
+        verbose:
+        __push_temp_file: workaround cherry-pick + merge commit, do not touch
     """
     repo = Repo(repo_path)
     git = repo.git
@@ -46,9 +55,33 @@ def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
     except Exception as e:
         print_err('push to remote failed', e)
     git.checkout(work_branch)
-    git.cherry_pick('-n', snapshot_branch)
+    try:
+        git.cherry_pick('-n', snapshot_branch)
+    except Exception as e:
+        if __push_temp_file:
+            raise  # temp_file doesn't help cherry-pick + merge
+        if 'merge' in str(e):
+            # known problem: cherry-pick cannot pick a merge commit
+            # hacky solution: create an empty temporary file, and then remove it
+            temp_file = 'git-snapshot-temp-' + str(uuid.uuid4())
+            temp_file = U.f_join(repo_path, temp_file)
+            print_err('git cherry-pick cannot handle merge commit. '
+                      'Workaround: creating a temporary file', temp_file)
+            with open(temp_file, 'w') as f:
+                f.write('git cherry-pick + merge workaround')
+            push_snapshot(
+                snapshot_branch=snapshot_branch,
+                repo_path=repo_path,
+                verbose=verbose,
+                __push_temp_file=temp_file
+            )
+        else:
+            raise
     msg = git.reset('HEAD')
     if verbose: print(msg)
+    if __push_temp_file:
+        U.f_remove(__push_temp_file)
+        if verbose: print('removed', __push_temp_file)
 
 
 def main():
