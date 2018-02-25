@@ -44,6 +44,7 @@ class KurrealParser:
         self._setup_describe()
         self._setup_exec()
         self._setup_scp()
+        self._setup_download_experiment()
         self._setup_ssh()
         self._setup_ssh_node()
         self._setup_ssh_nfs()
@@ -261,6 +262,30 @@ class KurrealParser:
             help='destination file or folder. "<component>:/file/path" denotes remote.'
         )
         self._add_namespace(parser, positional=True)
+
+    def _setup_download_experiment(self):
+        parser = self._add_subparser('download-experiment',
+                                     aliases=['de', 'download'])
+        parser.add_argument(
+            'remote_experiment_subfolder',
+            help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
+        )
+        parser.add_argument(
+            '-a', '--absolute-path',
+            action='store_true',
+            help='use absolute remote path instead of '
+                 '<fs_mount_path>/<root_subfolder>/<remote_folder>'
+        )
+        parser.add_argument(
+            '-o', '--output-path',
+            default='.',
+            help='local folder path to download to'
+        )
+        parser.add_argument(
+            '-m', '--match-fuzzy',
+            action='store_true',
+            help='enable fuzzy matching with the currently running namespaces'
+        )
 
     def _setup_ssh(self):
         parser = self._add_subparser('ssh', aliases=[])
@@ -780,6 +805,29 @@ class Kurreal:
         """
         self.kube.scp_surreal(
             args.src_file, args.dest_file, self._get_namespace(args)
+        )
+
+    def kurreal_download_experiment(self, args):
+        """
+        Same as `kurreal scp learner:<mount_path>/<root_subfolder>/experiment-folder .`
+        """
+        kube = self.kube
+        remote_subfolder = args.remote_experiment_subfolder
+        if not args.absolute_path:
+            if args.match_fuzzy:
+                assert '/' not in remote_subfolder, \
+                    "fuzzy match does not allow '/' in experiment name"
+                remote_subfolder = self._interactive_find_ns(remote_subfolder)
+                remote_subfolder = kube.strip_username(remote_subfolder)
+            remote_path = kube.get_remote_experiment_folder(remote_subfolder)
+        else:
+            assert not args.match_fuzzy, \
+                'cannot fuzzy match when --absolute-path is turned on.'
+            remote_path = remote_subfolder
+        # the experiment folder will be unpacked if directly scp to "."
+        output_path = U.f_join(args.output_path, U.f_last_part_in_path(remote_path))
+        kube.scp_surreal(
+            'learner:' + remote_path, output_path
         )
 
     def kurreal_ssh(self, args):
