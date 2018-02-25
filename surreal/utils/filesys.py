@@ -9,6 +9,7 @@ import glob
 import pwd
 import codecs
 import hashlib
+import tarfile
 from socket import gethostname
 
 f_ext = os.path.splitext
@@ -153,10 +154,16 @@ def f_move(fsrc, fdst):
         shutil.move(f, fdst)
 
 
-def f_split_path(fpath):
+def f_split_path(fpath, normpath=True):
     """
     Splits path into a list of its component folders
+
+    Args:
+        normpath: call os.path.normpath to remove redundant '/' and
+            up-level references like ".."
     """
+    if normpath:
+        fpath = os.path.normpath(fpath)
     allparts = []
     while 1:
         parts = os.path.split(fpath)
@@ -200,3 +207,28 @@ def f_md5(fpath):
         for chunk in iter(lambda: f.read(65536), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+
+def compress_tar(source_file, output_tarball, compress_mode='gz'):
+    """
+    Args:
+        source_file: source file or folder
+        output_tarball: output tar file name
+        compress_mode: "gz", "bz2", "xz" or "" (empty for uncompressed write)
+    """
+    source_file, output_tarball = f_expand(source_file), f_expand(output_tarball)
+    assert compress_mode in ['gz', 'bz2', 'xz', '']
+    with tarfile.open(output_tarball, 'w:'+compress_mode) as tar:
+        tar.add(source_file, arcname=os.path.basename(source_file))
+
+
+def extract_tar(source_tarball, output_dir='.', members=None):
+    """
+    Args:
+        source_tarball: extract members from archive
+        output_dir: default to current working dir
+        members: must be a subset of the list returned by getmembers()
+    """
+    source_tarball, output_dir = f_expand(source_tarball), f_expand(output_dir)
+    with tarfile.open(source_tarball, 'r:*')  as tar:
+        tar.extractall(output_dir, members=members)

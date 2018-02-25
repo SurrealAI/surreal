@@ -404,7 +404,7 @@ class Kubectl(object):
         Returns:
             newly created namespace for the tensorboard pod
         """
-        remote_parts = U.f_split_path(remote_path)
+        remote_parts = U.f_split_path(remote_path, normpath=True)
         namespace = 'tb-' + '-'.join(remote_parts[-2:])
         namespace = namespace.replace('.', '-').replace('_', '-')
         C = self.config
