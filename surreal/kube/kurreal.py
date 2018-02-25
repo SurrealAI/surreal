@@ -228,7 +228,7 @@ class KurrealParser:
         )
         parser.add_argument(
             '-p', '--pod-type',
-            default='agent',
+            default='tensorboard',
             help='pod type for the tensorboard pod (specified in ~/.surreal.yml). '
                  'please use the smallest compute instance possible.'
         )
