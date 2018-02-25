@@ -209,6 +209,7 @@ class Learner(metaclass=LearnerMeta):
         self.init_time = time.time()
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
+        self.tensorplex_system = self._get_tensorplex('learner/learner_system')
 
         self._tensorplex_thread = None
 
@@ -274,7 +275,7 @@ class Learner(metaclass=LearnerMeta):
         for k in system_metrics:
             all_metrics['.system/' + k] = system_metrics[k]
 
-        self.tensorplex.add_scalars(all_metrics, global_step=global_step)
+        self.tensorplex_system.add_scalars(all_metrics, global_step=global_step)
 
     ######
     # Checkpoint
