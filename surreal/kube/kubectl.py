@@ -902,6 +902,18 @@ class Kubectl(object):
         """
         return self.gcloud_ssh_node(self.config.fs.server)
 
+    def capture_tensorboard(self, namespace):
+        node_path = self.config.capture_tensorboard.node_path
+        library_path = self.config.capture_tensorboard.library_path
+        url = 'http://{}'.format(self.external_ip('tensorboard',namespace=namespace))
+        save_path = os.path.join(os.getcwd(), '{}.jpg'.format(namespace))
+        WIDTH = 5000
+        HEIGHT = 3300
+        cmd = [node_path, library_path, url, save_path, str(WIDTH), str(HEIGHT)]
+        print('>> {:s}'.format(' '.join(cmd)))
+        p = pc.Popen(cmd)
+        return p
+
 
 if __name__ == '__main__':
     import pprint

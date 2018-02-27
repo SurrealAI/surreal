@@ -1,6 +1,7 @@
 import argparse
 import surreal
 import webbrowser
+import re
 from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
@@ -35,6 +36,7 @@ class KurrealParser:
         self._setup_restore()
         self._setup_resume()
         self._setup_delete()
+        self._setup_delete_batch()
         self._setup_log()
         self._setup_namespace()
         self._setup_tensorboard()
@@ -49,6 +51,7 @@ class KurrealParser:
         self._setup_ssh_node()
         self._setup_ssh_nfs()
         self._setup_configure_ssh()
+        self._setup_capture_tensorboard()
         return self._master_parser
 
     def _add_subparser(self, name, aliases, **kwargs):
@@ -112,6 +115,15 @@ class KurrealParser:
     def _setup_delete(self):
         parser = self._add_subparser('delete', aliases=['d'])
         self._add_experiment_name(parser, nargs='?')
+        parser.add_argument(
+            '-f', '--force',
+            action='store_true',
+            help='force delete, do not show confirmation message.'
+        )
+
+    def _setup_delete_batch(self):
+        parser = self._add_subparser('delete-batch', aliases=['db'])
+        parser.add_argument('experiment_name', type=str)
         parser.add_argument(
             '-f', '--force',
             action='store_true',
@@ -316,6 +328,14 @@ class KurrealParser:
             type=_process_labels,
             help='mark the selected nodes with new labels in format '
                  '"mylabel1=myvalue1,mylabel2=myvalue2"'
+        )
+
+    def _setup_capture_tensorboard(self):
+        parser = self._add_subparser('capture-tensorboard', aliases=['cptb'])
+        parser.add_argument(
+            'experiment_prefix',
+            help='capture tensorboard screenshot for all prefix matched experiments,\
+                  one can also use regex'  
         )
 
     # ==================== helpers ====================
@@ -672,15 +692,15 @@ class Kurreal:
             raise IndexError('must enter a number between 0 - {}'.format(len(matches)-1))
         return matches[ans]
 
-    def kurreal_delete(self, args):
+    def _kurreal_delete(self, experiment_name, force, dry_run):
         """
         Stop an experiment, delete corresponding pods, services, and namespace.
         If experiment_name is omitted, default to deleting the current namespace.
         """
         kube = self.kube
-        if args.experiment_name:
-            to_delete = args.experiment_name
-            if args.force:
+        if experiment_name:
+            to_delete = experiment_name
+            if force:
                 assert to_delete in kube.list_namespaces(), \
                     'namespace `{}` not found. ' \
                     'Run without --force to fuzzy match the name.'.format(to_delete)
@@ -693,7 +713,7 @@ class Kurreal:
 
         assert to_delete not in ['default', 'kube-public', 'kube-system'], \
             'cannot delete reserved namespaces: default, kube-public, kube-system'
-        if not args.force and not args.dry_run:
+        if not force and not dry_run:
             ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
             if ans not in ['', 'y', 'yes', 'Y']:
                 print('aborted')
@@ -707,6 +727,28 @@ class Kurreal:
             yaml_path=None
         )
         print('deleting all resources under namespace "{}"'.format(to_delete))
+
+    def kurreal_delete(self, args):
+        """
+        Stop an experiment, delete corresponding pods, services, and namespace.
+        If experiment_name is omitted, default to deleting the current namespace.
+        """
+        self._kurreal_delete(args.experiment_name, args.force, args.dry_run)
+
+    def kurreal_delete_batch(self, args):
+        """
+        Stop an experiment, delete corresponding pods, services, and namespace.
+        If experiment_name is omitted, default to deleting the current namespace.
+        Matches all possible experiments
+        """
+        out, _, _ = self.kube.run_verbose('get namespace -o name',
+                        print_out=False,raise_on_error=True)
+        namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
+        cwd = os.getcwd()
+        processes = []
+        for namespace in namespaces:
+            if re.match(args.experiment_name, namespace):
+                self._kurreal_delete(namespace, args.force, args.dry_run)
 
     def kurreal_namespace(self, args):
         """
@@ -921,6 +963,23 @@ class Kurreal:
         print('  tensorboard_pod_type:', args.pod_type)
         # switch to the standalone pod namespace just created
         kube.set_namespace(namespace)
+
+    def kurreal_capture_tensorboard(self, args):
+        pattern = args.experiment_prefix
+        out, _, _ = self.kube.run_verbose('get namespace -o name',
+                                print_out=False,raise_on_error=True)
+        # out is in format namespaces/[namespace_name]
+        namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
+        cwd = os.getcwd()
+        processes = []
+        for namespace in namespaces:
+            if re.match(pattern, namespace):
+                job = self.kube.capture_tensorboard(namespace)
+                processes.append(job)
+                # My computer cannot do everything at the same time unfortunately
+                job.wait()
+        # for process in processes:
+        #     process.wait()
 
     def kurreal_label(self, args):
         """
