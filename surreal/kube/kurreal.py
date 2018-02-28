@@ -965,6 +965,12 @@ class Kurreal:
         kube.set_namespace(namespace)
 
     def kurreal_capture_tensorboard(self, args):
+        print('############### \n '
+            'If this command fails, check that your surreal.yml contains\n'
+            'capture_tensorboard:'
+            '  node_path: ...'
+            '  library_path: ...'
+            '###############')
         pattern = args.experiment_prefix
         out, _, _ = self.kube.run_verbose('get namespace -o name',
                                 print_out=False,raise_on_error=True)
