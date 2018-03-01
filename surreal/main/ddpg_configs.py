@@ -90,8 +90,8 @@ def generate(argv):
         'video': {
             'record_video': True,
             'save_directory': os.path.expanduser('~/snaps/'),
-            'max_videos': 100,
-            'record_every': 10,
+            'max_videos': 500,
+            'record_every': 100,
         }
     }
 
