@@ -189,6 +189,7 @@ class DMControlAdapter(Wrapper):
 
     def _step(self, action):
         ts = self.env.step(action)
+        print(ts.observation)
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none

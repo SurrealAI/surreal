@@ -1,6 +1,6 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
-
+from dm_control.suite.wrappers import pixels
 
 def make_env(env_config):
     """
@@ -40,10 +40,14 @@ def make_mujocomanip(env_name, env_config):
 
 def make_dm_control(env_name, env_config):
     from dm_control import suite
+    pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
     env = suite.load(domain_name=domain_name, task_name=task_name)
+    if pixel_input:
+        env = pixels.Wrapper(env)
     env = DMControlAdapter(env)
-    env = ObservationConcatenationWrapper(env)
+    if not pixel_input:
+        env = ObservationConcatenationWrapper(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
