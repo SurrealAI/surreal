@@ -1,5 +1,5 @@
 from surreal.env.video_env import VideoWrapper
-from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
+from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper, DMControlDummyWrapper
 from dm_control.suite.wrappers import pixels
 import os
 
@@ -44,6 +44,8 @@ def make_dm_control(env_name, env_config):
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
     env = suite.load(domain_name=domain_name, task_name=task_name)
+    print(env.action_spec())
+    print(env.observation_spec())
     if pixel_input:
         if os.getenv('DISABLE_MUJOCO_RENDERING'):
             # We are asking for rendering on a pod that cannot support rendering, 
@@ -51,15 +53,18 @@ def make_dm_control(env_name, env_config):
             # to see the dimensions.
             # So we will add a dummy environment
             # TODO: add a dummy wrapper that only contains the correct specs
-            env = Dummy() #...
+            env = DMControlDummyWrapper(env) #...
         else:
             env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
+            print(env.action_spec())
+            print(env.observation_spec())
         # TODO: add our custom frame stacking wrapper
             
         
     env = DMControlAdapter(env)
-    if not pixel_input:
-        env = ObservationConcatenationWrapper(env)
+    print(env.action_spec())
+    print(env.observation_spec())
+    env = ObservationConcatenationWrapper(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config

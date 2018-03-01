@@ -1,12 +1,14 @@
 from .base import Env, ActionType, ObsType
 import numpy as np
 import surreal.utils as U
+import collections
 from operator import mul
 import functools
 import pygame
 import sys
 import gym
 import dm_control
+from dm_control.suite.wrappers import pixels
 from dm_control.rl.environment import StepType
 
 class SpecFormat(U.StringEnum):
@@ -179,17 +181,41 @@ class GymAdapter(Wrapper):
     def spec_format(self):
         return SpecFormat.SURREAL_CLASSIC
 
+class DMControlDummyWrapper(Wrapper):
+    '''
+    Dummy wrapper for deepmind control environment using pixels.  The output of
+    observation_spec and action_spec will match the output for a dm_control environment
+    using pixels.Wrapper().  This is used by the learner to get the action and observation
+    specs without initializing a pixels wrapper.
+    '''
+
+    def __init__(self, env):
+        # dm_control envs don't have metadata
+        env.metadata = {}
+        super().__init__(env)
+
+    @property
+    def spec_format(self):
+        return SpecFormat.DM_CONTROL
+
+    def observation_spec(self):
+        return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=dtype('float64'), name=None, minimum=[-1. -1. -1. -1. -1. -1.], maximum=[1. 1. 1. 1. 1. 1.])
+
+    def action_spec(self):
+        return collections.OrderedDict([('pixels', ArraySpec(shape=(84, 84, 3), dtype=dtype('uint8'), name='pixels'))])
+
 class DMControlAdapter(Wrapper):
     def __init__(self, env):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
         self.screen = None
-        assert isinstance(env, dm_control.rl.control.Environment)
+        assert isinstance(env, dm_control.rl.control.Environment) or \
+            isinstance(env, pixels.Wrapper) or \
+            isinstance(env, DMControlDummyWrapper)
 
     def _step(self, action):
         ts = self.env.step(action)
-        print(ts.observation)
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none
@@ -259,3 +285,28 @@ class ObservationConcatenationWrapper(Wrapper):
             'dim': self.env.action_spec().shape,
         }
     # TODO: what about upper/lower bound information
+
+class FrameStackWrapper(Wrapper):
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return flatten_obs(obs), reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return flatten_obs(obs), info
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+    def observation_spec(self):
+        return {
+            'type': 'continuous',
+            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
+        }
+
+    def action_spec(self):
+        return {
+            'type': ActionType.continuous,
+            'dim': self.env.action_spec().shape,
+        }
