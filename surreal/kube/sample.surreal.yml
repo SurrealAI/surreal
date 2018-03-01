@@ -61,3 +61,14 @@ pod_types:
       cpu: 28
     resource_limit:
       nvidia.com/gpu: 4
+  tensorboard:
+    image: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
+    resource_request:
+      cpu: 0.3
+
+
+capture_tensorboard:
+  # bash >> which node
+  node_path: .../v9.6.1/bin/node
+  # https://github.com/jirenz/tensorboard_screenshot
+  library_path: .../tensorboard_screenshot/screenshot.js

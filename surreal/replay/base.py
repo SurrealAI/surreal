@@ -127,25 +127,34 @@ class Replay(object, metaclass=ReplayMeta):
         self._tensorplex_thread = None
         self._has_tensorplex = self.session_config.replay.tensorboard_display
 
+        # Origin of all global steps
+        self.init_time = time.time()
         # Number of experience collected by agents
-        self.cumulative_experience_count = 0
+        self.cumulative_collected_count = 0
         # Number of experience sampled by learner
         self.cumulative_sampled_count = 0
+        # Number of sampling requests from the learner
+        self.cumulative_request_count = 0
         # Timer for tensorplex reporting
-        self.last_tensorplex_iter_time = None
+        self.last_tensorplex_iter_time = time.time()
+        # Last reported values used for speed computation
+        self.last_experience_count = 0
+        self.last_sample_count = 0
+        self.last_request_count = 0
         
         self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
 
-        # moving avrage of about 20s
+        # moving avrage of about 100s
         self.exp_in_speed = U.MovingAverageRecorder(decay=0.99)
         self.exp_out_speed = U.MovingAverageRecorder(decay=0.99)
+        self.handle_sample_request_speed = U.MovingAverageRecorder(decay=0.99)
 
     def _insert_wrapper(self, exp_dict):
         """
             Allows us to do some book keeping in the base class
         """
-        self.cumulative_experience_count += 1
+        self.cumulative_collected_count += 1
         with self.insert_time.time():
             self.insert(exp_dict)
 
@@ -159,6 +168,7 @@ class Replay(object, metaclass=ReplayMeta):
         while not self.start_sample_condition():
             time.sleep(0.01)
         self.cumulative_sampled_count += batch_size
+        self.cumulative_request_count += 1
         with self.sample_time.time():
             return self.sample(batch_size)
 
@@ -177,46 +187,72 @@ class Replay(object, metaclass=ReplayMeta):
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
             raise RuntimeError('tensorplex thread already running')
-        self._tensorplex_thread = U.start_thread(
-            self._tensorplex_loop,
-            args=(time.time(),)
-        )
+        self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
+        self._tensorplex_thread.start()
         return self._tensorplex_thread
 
-    def _tensorplex_loop(self, init_time):
-        self.last_experience_count = 0
-        self.last_sample_count = 0
-        self.last_tensorplex_iter_time = time.time()
-        while True:
-            time.sleep(1.)
-            self.tensorplex.add_scalars(self.get_tensorplex_report_dict(),
-                global_step=int(time.time() - init_time))
-            self.last_tensorplex_iter_time = time.time()
-
-    def get_tensorplex_report_dict(self):
+    def generate_tensorplex_report(self):
         """ 
-            Returns a dictionary containing data to be reported to tensorplex
+            Generates tensorplex reports
         """
-        time_elapsed = time.time() - self.last_tensorplex_iter_time + 1e-6
-                    
-        cum_count_exp = self.cumulative_experience_count
-        new_exp_count = cum_count_exp - self.last_experience_count
-        self.last_experience_count = cum_count_exp
+        global_step=int(time.time() - self.init_time)
 
-        cum_count_sample = self.cumulative_sampled_count
-        new_sample_count = cum_count_sample - self.last_sample_count
-        self.last_sample_count = cum_count_sample
+        time_elapsed = time.time() - self.last_tensorplex_iter_time + 1e-6
+
+        cum_count_collected = self.cumulative_collected_count
+        new_exp_count = cum_count_collected - self.last_experience_count
+        self.last_experience_count = cum_count_collected
+
+        cum_count_sampled = self.cumulative_sampled_count
+        new_sample_count = cum_count_sampled - self.last_sample_count
+        self.last_sample_count = cum_count_sampled
+
+        cum_count_requests = self.cumulative_request_count
+        new_request_count = cum_count_requests - self.last_request_count
+        self.last_request_count = cum_count_requests
 
         exp_in_speed = self.exp_in_speed.add_value(new_exp_count / time_elapsed)
         exp_out_speed = self.exp_out_speed.add_value(new_sample_count / time_elapsed)
+        handle_sample_request_speed = self.handle_sample_request_speed.add_value(
+                                                    new_request_count / time_elapsed)
 
-        return {
-            'exp_queue_occupancy': self._exp_queue.occupancy(),
+        insert_time = self.insert_time.avg
+        sample_time = self.sample_time.avg
+        serialize_time = self._sampler_server.serialize_time.avg
+
+        core_metrics = {
             'num_exps': len(self),
-            'cumulative_exps': self.cumulative_experience_count,
-            'exp_in/s': exp_in_speed,
-            'exp_out/s': exp_out_speed,
-            'insert_time': self.insert_time.avg,
-            'sample_time': self.sample_time.avg,
-            'serialize_time': self._sampler_server.serialize_time.avg,
+            'total_collected_exps': cum_count_collected,
+            'total_sampled_exps': cum_count_sampled,
+            'total_sample_requests': self.cumulative_request_count,
+            'exp_in_per_s': exp_in_speed,
+            'exp_out_per_s': exp_out_speed,
+            'requests_per_s': handle_sample_request_speed,
+            'insert_time_s': insert_time,
+            'sample_time_s': sample_time,
+            'serialize_time_s': serialize_time,
         }
+
+        serialization_load = serialize_time * handle_sample_request_speed / time_elapsed
+        collect_exp_load = insert_time * exp_in_speed / time_elapsed
+        sample_exp_load = sample_time * handle_sample_request_speed / time_elapsed
+        
+        system_metrics = {
+            'lifetime_experience_utilization_percent': \
+                cum_count_sampled / (cum_count_collected + 1) * 100,
+            'current_experience_utilization_percent': exp_out_speed / (exp_in_speed + 1) * 100,
+            'serialization_load_percent': serialization_load * 100,
+            'collect_exp_load_percent': collect_exp_load * 100,
+            'sample_exp_load_percent': sample_exp_load * 100,
+            'exp_queue_occupancy_percent': self._exp_queue.occupancy() * 100,
+        }
+
+        all_metrics = {}
+        for k in core_metrics:
+            all_metrics['.core/' + k] = core_metrics[k]
+        for k in system_metrics:
+            all_metrics['.system/' + k] = system_metrics[k]
+        self.tensorplex.add_scalars(all_metrics, global_step=global_step)
+
+        self.last_tensorplex_iter_time = time.time()
+

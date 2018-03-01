@@ -2,6 +2,7 @@
 Template class for all learners
 """
 import queue
+import time
 import surreal.utils as U
 from surreal.session import (
     PeriodicTensorplex,
@@ -171,6 +172,7 @@ class Learner(metaclass=LearnerMeta):
             module_dict=self.module_dict()
         )
         self._prefetch_queue.start_enqueue_thread()
+        self.start_tensorplex_thread()
         # restore_checkpoint should be called _after_ subclass __init__
         # that's why we put it in _initialize()
         if self.session_config.checkpoint.restore:
@@ -199,44 +201,81 @@ class Learner(metaclass=LearnerMeta):
     ######
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
-        # Don't do it here so that we don't require _prefetch_queue to be setup beforehands
+        # We don't do it here so that we don't require _prefetch_queue to be setup beforehands
         # self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
+        self.publish_timer = U.TimeRecorder()
 
+        self.init_time = time.time()
         self.log = get_loggerplex_client('learner', self.session_config)
-        self.tensorplex = get_tensorplex_client(
-            'learner/learner',
+        self.tensorplex = self._get_tensorplex('learner/learner')
+        self.tensorplex_system = self._get_tensorplex('learner/learner_system')
+
+        self._tensorplex_thread = None
+
+    def _get_tensorplex(self, name):
+        """
+            Get the periodic tensorplex object
+        Args:
+            @name: The name of the collection of metrics
+        """
+        tp = get_tensorplex_client(
+            name,
             self.session_config
         )
-        self._periodic_tensorplex = PeriodicTensorplex(
-            tensorplex=self.tensorplex,
+        periodic_tp = PeriodicTensorplex(
+            tensorplex=tp,
             period=self.session_config.tensorplex.update_schedule.learner,
             is_average=True,
             keep_full_history=False
         )
+        return periodic_tp
 
-    def update_tensorplex(self, tag_value_dict, global_step=None):
+    def start_tensorplex_thread(self):
+        if self._tensorplex_thread is not None:
+            raise RuntimeError('tensorplex thread already running')
+        self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
+        self._tensorplex_thread.start()
+        return self._tensorplex_thread
+
+    def generate_tensorplex_report(self):
         """
-        Args:
-            tag_value_dict:
-            global_step: None to use internal tracker value
+            Adds core and system level tensorplex stats
         """
+        global_step = time.time() - self.init_time
+
+        core_metrics = {}
+        system_metrics = {}
+        
         learn_time = self.learn_timer.avg + 1e-6
         fetch_timer = self._prefetch_queue.timer
         fetch_time = fetch_timer.avg + 1e-6
         iter_time = self.iter_timer.avg + 1e-6
+        publish_time = self.publish_timer.avg + 1e-6
         # Time it takes to learn from a batch
-        tag_value_dict['speed/learn_time'] = learn_time
+        core_metrics['learn_time_s'] = learn_time
         # Time it takes to fetch a batch
-        tag_value_dict['speed/fetch_time'] = fetch_time
+        core_metrics['fetch_time_s'] = fetch_time
+        # Time it takes to publish parameters
+        core_metrics['publish_time_s'] = publish_time
         # Time it takes to complete one full iteration
-        tag_value_dict['speed/iter_time'] = iter_time
-        # Percent of time spent on learning
-        tag_value_dict['speed/compute_bound_percent'] = min(learn_time / iter_time * 100, 100)
-        # Percent of time spent on IO
-        tag_value_dict['speed/io_bound_percent'] = min(fetch_time / iter_time * 100, 100)
-        self._periodic_tensorplex.update(tag_value_dict, global_step)
+        core_metrics['iter_time_s'] = iter_time
 
+
+        # Percent of time spent on learning
+        system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
+        # Percent of time spent on IO
+        system_metrics['io_fetch_experience_load_percent'] = min(fetch_time / iter_time * 100, 100)
+        # Percent of time spent on publishing
+        system_metrics['io_publish_load_percent'] = min(publish_time / iter_time * 100, 100)
+
+        all_metrics = {}
+        for k in core_metrics:
+            all_metrics['.core/' + k] = core_metrics[k]
+        for k in system_metrics:
+            all_metrics['.system/' + k] = system_metrics[k]
+
+        self.tensorplex_system.add_scalars(all_metrics, global_step=global_step)
 
     ######
     # Checkpoint
@@ -255,7 +294,6 @@ class Learner(metaclass=LearnerMeta):
             keep_best=self.session_config.checkpoint.learner.keep_best  
             # TODO figure out how to add score to learner
         )
-
 
     def periodic_checkpoint(self, global_steps, score=None, **info):
         """
@@ -302,7 +340,10 @@ class Learner(metaclass=LearnerMeta):
             Main loop that defines learner process
         """
         for i, batch in enumerate(self.fetch_iterator()):
-            with self.iter_timer.time():
-                with self.learn_timer.time():
-                    self.learn(batch)
+            if i != 0:
+                self.iter_timer.stop()
+            self.iter_timer.start()
+            with self.learn_timer.time():
+                self.learn(batch)
+            with self.publish_timer.time():
                 self.publish_parameter(i, message='batch '+str(i))

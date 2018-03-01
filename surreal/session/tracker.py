@@ -101,7 +101,7 @@ class PeriodicTensorplex(object):
         self._history = {}
         self._max_deque_size = None if keep_full_history else period
 
-    def update(self, tag_value_dict, global_step=None):
+    def add_scalars(self, tag_value_dict, global_step=None):
         """
 
         Args:

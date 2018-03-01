@@ -8,6 +8,7 @@ from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEA
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 
+
 class DDPGLearner(Learner):
 
     def __init__(self, learner_config, env_config, session_config):
@@ -20,16 +21,16 @@ class DDPGLearner(Learner):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
 
-        self.gpu_id = session_config.learner.gpu
         self.log.info('Initializing DDPG learner')
+        num_gpus = session_config.learner.num_gpus
+        self.gpu_ids = list(range(num_gpus))
 
-        if self.gpu_id == -1:
+        if not self.gpu_ids:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using GPU: {}'.format(self.gpu_id))
+            self.log.info('Using GPU: {}'.format(self.gpu_ids))
 
-        with U.torch_gpu_scope(self.gpu_id):
-
+        with U.torch_gpu_scope(self.gpu_ids):
             self.target_update_init()
 
             self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
@@ -83,15 +84,15 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
-            self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-            # self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+            self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
             # self.train_iteration = 0
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
-        with U.torch_gpu_scope(self.gpu_id):
+        with U.torch_gpu_scope(self.gpu_ids):
             obs = Variable(obs)
             actions = Variable(actions)
             rewards = Variable(rewards)
@@ -174,7 +175,7 @@ class DDPGLearner(Learner):
             batch.obs_next,
             batch.dones
         )
-        self.update_tensorplex(tensorplex_update_dict)
+        self.tensorplex.add_scalars(tensorplex_update_dict)
         self.periodic_checkpoint(
             global_steps=self.current_iteration,
             score=None,
