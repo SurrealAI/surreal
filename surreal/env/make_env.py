@@ -1,6 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 from dm_control.suite.wrappers import pixels
+import os
 
 def make_env(env_config):
     """
@@ -44,7 +45,18 @@ def make_dm_control(env_name, env_config):
     domain_name, task_name = env_name.split('-')
     env = suite.load(domain_name=domain_name, task_name=task_name)
     if pixel_input:
-        env = pixels.Wrapper(env)
+        if os.getenv('DISABLE_MUJOCO_RENDERING'):
+            # We are asking for rendering on a pod that cannot support rendering, 
+            # This happens in GPU based learners when we only want to create the environment
+            # to see the dimensions.
+            # So we will add a dummy environment
+            # TODO: add a dummy wrapper that only contains the correct specs
+            env = Dummy() #...
+        else:
+            env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
+        # TODO: add our custom frame stacking wrapper
+            
+        
     env = DMControlAdapter(env)
     if not pixel_input:
         env = ObservationConcatenationWrapper(env)
