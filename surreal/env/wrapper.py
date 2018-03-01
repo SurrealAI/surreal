@@ -179,6 +179,17 @@ class GymAdapter(Wrapper):
     def spec_format(self):
         return SpecFormat.SURREAL_CLASSIC
 
+class DMControlDummyWrapper(Wrapper):
+    @property
+    def spec_format(self):
+        return SpecFormat.DM_CONTROL
+
+    def observation_spec(self):
+        return self.env.observation_spec()
+
+    def action_spec(self):
+        return self.env.action_spec()
+
 class DMControlAdapter(Wrapper):
     def __init__(self, env):
         # dm_control envs don't have metadata
@@ -259,3 +270,28 @@ class ObservationConcatenationWrapper(Wrapper):
             'dim': self.env.action_spec().shape,
         }
     # TODO: what about upper/lower bound information
+
+class FrameStackWrapper(Wrapper):
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return flatten_obs(obs), reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return flatten_obs(obs), info
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+    def observation_spec(self):
+        return {
+            'type': 'continuous',
+            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
+        }
+
+    def action_spec(self):
+        return {
+            'type': ActionType.continuous,
+            'dim': self.env.action_spec().shape,
+        }
