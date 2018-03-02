@@ -3,7 +3,7 @@ Actor function
 """
 import torch
 from torch.autograd import Variable
-from .base import Agent, AgentMode
+from .base import Agent
 from surreal.model.ppo_net import PPOModel, DiagGauss
 import surreal.utils as U
 import numpy as np
@@ -46,7 +46,7 @@ class PPOAgent(Agent):
         obs = Variable(obs.unsqueeze(0))
         action_pd = self.model.forward_actor(obs).data.numpy()
 
-        if self.agent_mode is not AgentMode.eval_deterministic:
+        if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)
         else:
             action_choice = self.pd.maxprob(action_pd)
@@ -55,7 +55,7 @@ class PPOAgent(Agent):
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
 
-        if self.agent_mode is not AgentMode.training:
+        if self.agent_mode != 'training':
             return action_choice
         else: 
             time.sleep(self.env_config.sleep_time)

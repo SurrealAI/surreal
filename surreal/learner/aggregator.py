@@ -119,7 +119,6 @@ class MultistepWithBehaviorPolicyAggregator():
     """
         Accepts input by ExpSenderWrapperMultiStep
         aggregate() returns float Tensors
-        TODO: make them Tensors
         EasyDict{
             obs = batch_size * n_step * observation
             next_obs = batch_size * 1 * next_observation

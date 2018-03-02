@@ -10,10 +10,11 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--gpu', type=int, default=-1, help='device id for the gpu to use, -1 for cpu')
+    parser.add_argument('--num-gpus', type=int, default=0,
+                        help='number of GPUs to use, 0 for CPU only.')
 
     args = parser.parse_args(args=argv)
-
+    
     learner_config = {
         'model': {
             'convs': [],
@@ -34,10 +35,11 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 10.,
+            'actor_gradient_clip_value': 5.,
             'clip_critic_gradient': True,
-            'critic_gradient_clip_value': 10.,
+            'critic_gradient_clip_value': 5.,
             'gamma': .995,
+            'lam': 0.97,
             'use_z_filter': False,
             'norm_adv': True,
             'init_log_sig': -1.,
@@ -46,7 +48,7 @@ def generate(argv):
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 3,
+            'stride': 1,
             'batch_size': 64,
             # ppo specific parameters:
             'method': 'adapt',
@@ -65,9 +67,9 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 64,
-            'memory_size': 4096,
-            'sampling_start_size': 64,
+            'batch_size': 256,
+            'memory_size': 512,
+            'sampling_start_size': 256,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -78,6 +80,12 @@ def generate(argv):
     env_config = {
         'env_name': args.env,  
         'sleep_time': 1/350,
+        'video': {
+            'record_video': False,
+            'save_directory': '/mnt/snaps/',
+            'max_videos': 100,
+            'record_every': 100,
+        },
     }
 
 
@@ -98,11 +106,11 @@ def generate(argv):
             'flush_iteration': 3,
         },
         'learner': {
-            'gpu': args.gpu,
+            'num_gpus': args.num_gpus,
         },
         'agent' : {
-            'fetch_parameter_mode': 'episode',
-            'fetch_parameter_interval': 1,
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 25,
         },
         'replay' : {
             'max_puller_queue': 3,

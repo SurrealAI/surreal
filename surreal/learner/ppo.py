@@ -16,8 +16,10 @@ class PPOLearner(Learner):
         super().__init__(learner_config, env_config, session_config)
 
         # GPU setting
-        self.gpu_id = session_config.learner.gpu
-        self.use_cuda = (self.gpu_id != -1)
+        num_gpus = session_config.learner.num_gpus
+        self.gpu_id = list(range(num_gpus))
+        self.use_cuda = len(self.gpu_id) > 0
+
         if not self.use_cuda:
             self.log.info('Using CPU')
         else:
@@ -25,6 +27,7 @@ class PPOLearner(Learner):
 
         # RL general parameters
         self.gamma = self.learner_config.algo.gamma
+        self.lam   = self.learner_config.algo.lam
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.norm_adv = self.learner_config.algo.norm_adv
@@ -74,12 +77,9 @@ class PPOLearner(Learner):
 
             # Learning parameters
             self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
-            if self.clip_actor_gradient:
-                self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
-
+            self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
             self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
-            if self.clip_critic_gradient:
-                self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+            self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
 
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
@@ -115,7 +115,7 @@ class PPOLearner(Learner):
         return clip_loss, stats
 
 
-    def _clip_update_full(self, obs, actions, advantages, behave_pol):
+    def _clip_update_full(self, obs, actions, advantages, behave_pol, ref_pol):
         behave_pol = self.model.forward_actor(obs).detach()
         fixed_prob = self.pd.likelihood(actions, behave_pol).detach() + self.is_weight_eps # variance reduction step
         for epoch in range(self.epoch_policy):
@@ -155,11 +155,11 @@ class PPOLearner(Learner):
             loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
 
         stats = {
-            'kl_loss_adapt': loss.data[0], 
-            'surr_loss': surr.data[0], 
-            'pol_kl': kl.data[0], 
-            'entropy': entropy.data[0],
-            'beta': self.beta
+            '_kl_loss_adapt': loss.data[0], 
+            '_surr_loss': surr.data[0], 
+            '_pol_kl': kl.data[0], 
+            '_entropy': entropy.data[0],
+            '_beta': self.beta
         }
 
         return loss, stats
@@ -169,24 +169,24 @@ class PPOLearner(Learner):
         loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
         self.model.actor.zero_grad()
         loss.backward()
-        nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
+        if self.clip_actor_gradient:
+            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
-    def _adapt_update_full(self, obs, actions, advantages, behave_pol):
-        ref_pol = self.model.forward_actor(obs).detach()
+    def _adapt_update_full(self, obs, actions, advantages, behave_pol, ref_pol):
 
         for epoch in range(self.epoch_policy):
-
             loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
             self.model.actor.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
+            if self.clip_actor_gradient:
+                nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
             self.actor_optim.step()
 
             curr_pol = self.model.forward_actor(obs)
             kl = self.pd.kl(ref_pol, curr_pol).mean()
-            stats['pol_kl'] = kl.data[0]
+            stats['_pol_kl'] = kl.data[0]
             if kl.data[0] > self.kl_targ * 4:
                 break
 
@@ -206,8 +206,8 @@ class PPOLearner(Learner):
         loss = (values - returns).pow(2).mean()
 
         stats = {
-            'val_loss': loss.data[0],
-            'val_explained_var': explained_var.data[0]
+            '_val_loss': loss.data[0],
+            '_val_explained_var': explained_var.data[0]
         }
         return loss, stats
 
@@ -216,7 +216,8 @@ class PPOLearner(Learner):
             loss, stats = self._value_loss(obs, returns)
             self.model.critic.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
+            if self.clip_critic_gradient:
+                nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
             self.critic_optim.step()
 
         return stats
@@ -226,15 +227,47 @@ class PPOLearner(Learner):
         loss, stats = self._value_loss(obs, returns)
         self.model.critic.zero_grad()
         loss.backward()
-        nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
+        if self.clip_critic_gradient:
+            nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
         self.critic_optim.step()
 
         return stats
 
-    def _advantage_and_return(self, obs, obs_next, actions, rewards, pds, dones):
+    def _gae_and_return(self, obs, obs_next, actions, rewards, pds, dones):
+
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-            if self.gpu_id >= 0: 
+            lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
+            batch_size =self.learner_config.replay.batch_size 
+                
+            if self.use_cuda: 
+                rewards = rewards.cuda()
+                dones = dones.cuda()
+                gamma = gamma.cuda()
+                lam   = lam.cuda()
+
+            obs_concat = torch.cat([obs, obs_next], dim=1).view(batch_size * (self.n_step + 1), -1)
+            values = self.model.forward_critic(Variable(obs_concat)).data # (batch * (n+1), 1)
+            values = values.view(batch_size, self.n_step + 1)
+            values[:, 1:] *= 1 - dones
+
+            returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+
+            tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
+            gae = torch.sum(tds * gamma * lam, 1)
+
+            if self.norm_adv:
+                std = gae.std()
+                mean = gae.mean()
+                gae = (gae - mean) / std
+
+            return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), pds[:, 0, :], 0
+
+    def _advantage_and_return(self, obs, obs_next, actions, rewards, pds, dones):
+        # assumes obs come in the shape of (batch_size, n_step, obs_dim)
+        with U.torch_gpu_scope(self.gpu_id):
+            gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+            if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
                 gamma = gamma.cuda()
@@ -262,7 +295,7 @@ class PPOLearner(Learner):
     def _V_trace_compute_target(self, obs, obs_next, actions, rewards, pds, dones):
         with U.torch_gpu_scope(self.gpu_id):
 
-                if self.gpu_id >= 0: 
+                if self.use_cuda: 
                     rewards = rewards.cuda()
                     dones = dones.cuda()
 
@@ -291,8 +324,7 @@ class PPOLearner(Learner):
                 obs_concat_flat = torch.cat((obs, obs_next), dim = 1).view(batch_size * (self.n_step + 1), -1)
                 values = self.model.forward_critic(Variable(obs_concat_flat)).data # (batch * (n+1), 1)
                 values = values.view(batch_size, self.n_step + 1)
-                values[:, :self.n_step] *= 1 - dones
-                values[:, self.n_step]  *= 1 - dones[:, -1] # this is because we dont have whether S_next is terminal
+                values[:, 1:] *= 1 - dones
 
                 # computing trace
                 tds = is_weight_trunc * (rewards + self.gamma * values[:, 1:] - values[:, :-1]) # (batch, n)
@@ -302,7 +334,7 @@ class PPOLearner(Learner):
                 # v_trace_s_adv = tds
                 # for step in range(self.n_step):
                 #     gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - step))) # (n - i,)
-                #     if self.gpu_id >= 0:
+                #     if self.use_cuda:
                 #         gamma = gamma.cuda()
                 #     v_trace_s_adv[:, step] = torch.sum(v_trace_s_adv[:, step:] * gamma, dim=1)
 
@@ -314,7 +346,7 @@ class PPOLearner(Learner):
                 # Less Efficnet, less biased. Run with stride = 1                
                 gamma_s_plus_1 = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step - 1))) # (n-1,)
                 gamma_s        = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
-                if self.gpu_id >= 0:
+                if self.use_cuda:
                     gamma_s = gamma_s.cuda()
                     gamma_s_plus_1 = gamma_s_plus_1.cuda()
 
@@ -340,76 +372,82 @@ class PPOLearner(Learner):
                 return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
-        # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+        # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._advantage_and_return(obs, obs_next, actions, rewards, pds, dones)
+        obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._gae_and_return(obs, obs_next, actions, rewards, pds, dones)
 
         with U.torch_gpu_scope(self.gpu_id):
-                # new variables to detach everything
-                # obs_iter = Variable(obs_iter)
-                # actions_iter = Variable(actions_iter)
-                # advantages = Variable(advantages)
-                # v_trace_targ = Variable(v_trace_targ)
-                # behave_pol = Variable(behave_pol)
+                obs_iter = Variable(obs_iter)
+                actions_iter = Variable(actions_iter)
+                advantages = Variable(advantages)
+                v_trace_targ = Variable(v_trace_targ)
+                behave_pol = Variable(behave_pol)
+
+                ref_pol = self.model.forward_actor(obs_iter).detach()
+
+                if self.method == 'clip': 
+                    stats = self._clip_update_full(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                else:
+                    stats = self._adapt_update_full(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                baseline_stats = self._value_update_full(obs_iter, v_trace_targ)
 
 
-                # if self.method == 'clip': 
-                #     stats = self._clip_update_full(obs_iter, actions_iter, advantages, behave_pol)
-                # else:
-                #     stats = self._adapt_update_full(obs_iter, actions_iter, advantages, behave_pol)
-                # baseline_stats = self._value_update_full(obs_iter, v_trace_targ)
+                # Simultaneous updates - updates actor and critic each for one step and computes the advantage again
+                # uses ExpSenderWrapperMultiStepBehavePolicyMovingWindow exp_sender and MultistepWithBehaviorPolicyAggregator
+                # done_training = False
+                # ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
+                # for _ in range(self.epoch_policy):
+                #     obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
+                #     obs_iter = Variable(obs_iter)
+                #     actions_iter= Variable(actions_iter)
+                #     advantages = Variable(advantages)
+                #     v_trace_targ = Variable(v_trace_targ)
+                #     behave_pol = Variable(behave_pol)
 
-                done_training = False
-                ref_pol = self.model.forward_actor(Variable(obs[:, 0, :])).detach()
-                # ref_pol = self.model.forward_actor(Variable(obs.view(self.learner_config.replay.batch_size * self.n_step, -1))).detach()
-                for _ in range(self.epoch_policy):
-                    obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._V_trace_compute_target(obs, obs_next, actions, rewards, pds, dones)
-                    # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._advantage_and_return(obs, obs_next, actions, rewards, pds, dones)
-                    obs_iter = Variable(obs_iter)
-                    actions_iter= Variable(actions_iter)
-                    advantages = Variable(advantages)
-                    v_trace_targ = Variable(v_trace_targ)
-                    behave_pol = Variable(behave_pol)
-                    # done_iter = Variable(dones[:,0].contiguous()).view(-1, 1)
-
-                    if self.method == 'clip':
-                        stats = self._clip_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
-                    else:
-                        stats = self._adapt_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                #     if self.method == 'clip':
+                #         stats = self._clip_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                #     else:
+                #         stats = self._adapt_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
                         
-                    curr_pol = self.model.forward_actor(obs_iter).detach()
-                    kl = self.pd.kl(ref_pol, curr_pol).mean()
-                    stats['pol_kl'] = kl.data[0]
-                    if kl.data[0] > self.kl_targ * 4:
-                        done_training = True
+                #     curr_pol = self.model.forward_actor(obs_iter).detach()
+                #     kl = self.pd.kl(ref_pol, curr_pol).mean()
+                #     stats['_pol_kl'] = kl.data[0]
+                #     if kl.data[0] > self.kl_targ * 4:
+                #         done_training = True
 
-                    baseline_stats = self._value_update_sim(obs_iter, v_trace_targ)
-                    if done_training: break
+                #     baseline_stats = self._value_update_sim(obs_iter, v_trace_targ)
+                #     if done_training: break
 
-                if self.method == 'clip':
-                    pass 
-                else: # adapt KL divergence penalty before returning the statistics 
-                    if stats['pol_kl'] > self.kl_targ * self.beta_adj_thres[1]:
-                        if self.beta_upper > self.beta:
-                            self.beta = self.beta * 1.5
-                    elif stats['pol_kl'] < self.kl_targ * self.beta_adj_thres[0]:
-                        if self.beta_lower < self.beta:
-                            self.beta = self.beta / 1.5
+                # if self.method == 'clip':
+                #     pass 
+                # else: # adapt KL divergence penalty before returning the statistics 
+                #     if stats['_pol_kl'] > self.kl_targ * self.beta_adj_thres[1]:
+                #         if self.beta_upper > self.beta:
+                #             self.beta = self.beta * 1.5
+                #     elif stats['_pol_kl'] < self.kl_targ * self.beta_adj_thres[0]:
+                #         if self.beta_lower < self.beta:
+                #             self.beta = self.beta / 1.5
 
                 # updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
-                stats['avg_vtrace_targ'] = v_trace_targ.mean().data[0]
-                stats['avg_log_sig'] = self.model.actor.log_var.mean().data[0]
-                stats['avg_behave_likelihood'] = self.pd.likelihood(actions_iter, behave_pol).mean().data[0]
+
                 new_pol = self.model.forward_actor(obs_iter).detach()
                 new_likelihood = self.pd.likelihood(actions_iter, new_pol)
-                stats['avg_IS_weight'] = (new_likelihood/torch.clamp(self.pd.likelihood(actions_iter, behave_pol), min = 1e-5)).mean().data[0]
-                stats['avg_trace'] = avg_trace
+                ref_likelihood = self.pd.likelihood(actions_iter, ref_pol)
+                behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
+
+                stats['_avg_return_targ'] = v_trace_targ.mean().data[0]
+                stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
+                stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
+                stats['_ref_behave_diff'] = self.pd.kl(behave_pol, ref_pol).mean().data[0]
+                stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
+                stats['_avg_trace'] = avg_trace
 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
-                    stats['obs_running_mean'] = self.model.z_filter.running_mean()[0]
-                    stats['obs_running_square'] =  self.model.z_filter.running_square()[0]
-                    stats['obs_running_std'] = self.model.z_filter.running_std()[0]
+                    stats['_obs_running_mean'] = self.model.z_filter.running_mean()[0]
+                    stats['_obs_running_square'] =  self.model.z_filter.running_square()[0]
+                    stats['_obs_running_std'] = self.model.z_filter.running_std()[0]
 
                 self.update_tensorplex(stats)
 
@@ -429,3 +467,9 @@ class PPOLearner(Learner):
             'ppo': self.model,
         }
 
+
+
+# two things left on vtrace:
+# 1) Faster Learner, try to balance pulling and sleep
+# 2) validating the effectiveness of vtrace  √: right implementation, but not working very well. --> about the same with regular
+# 3) find out the sweet spot number, by running to see how fast the agent CAN generate experience --> need to do speed test.
