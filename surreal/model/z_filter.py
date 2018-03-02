@@ -8,67 +8,118 @@ class ZFilter(U.Module):
     """
         Keeps historical average and std of inputs
         Whitens data and clamps to +/- 5 std
+        Attributes:
+            insize: state dimension
+                required from input
+            eps: tolerance value for computing Z-filter (whitening)
+                default to 10
+            use_cuda: whether GPU is used
+                default to false
+            running_sum: running sum of all previous states
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
+            running_sumsq: sum of square of all previous states
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
+            count: number of experiences accumulated
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
     """
-    recurrent = False
     def __init__(self, in_size, eps=1e-2, use_cuda=False):
         """
-        :param in_size: state dimension
-        :param use_cuda: NOT IMPLEMENTED
-        :param eps: tolerance value for computing Z-filter (whitening)
+        Constructor for ZFilter class
+        Args:
+            in_size: state dimension
+            eps: tolerance value for computing Z-filter (whitening)
+            use_cuda: whether GPU is used
         """
         super(ZFilter, self).__init__()
+        self.eps = eps
+        self.in_size = in_size
 
         # Keep some buffers for doing whitening. 
-        self.eps = eps
-    
         self.register_buffer('running_sum', torch.zeros(in_size))
         self.register_buffer('running_sumsq', eps * torch.ones(in_size))
         self.register_buffer('count', torch.Tensor([eps]))
 
-        self.in_size = in_size
-
+        # GPU option. Only used in learner. Pass in use_cuda flag from learner
         self.use_cuda = use_cuda
-        print(self.use_cuda)
-        if self.use_cuda:
+        if self.use_cuda:  
             self.running_sum   = self.running_sum.cuda()
             self.running_sumsq = self.running_sumsq.cuda()
-            self.count         = self.count.cuda()
+            self.count         = self.count.cuda() 
 
     def z_update(self, x):
         """
-            Count x into historical average
+            Count x into historical average, updates running sums and count
             Accepts batched input
+            Args:
+                x: input tensor to be kept in record. 
         """
         # only called in learner, so we can assume it has the correct type
         self.running_sum += torch.sum(x.data, dim=0)
         self.running_sumsq += torch.sum(x.data * x.data, dim=0)
-        batch_count = U.to_float_tensor(np.array([len(x)]))
+        added_count = U.to_float_tensor(np.array([len(x)]))
         if self.use_cuda:
-            batch_count = batch_count.cuda()
-        self.count += batch_count
+            added_count = added_count.cuda()
+        self.count += added_count 
 
     # define forward prop operations in terms of layers
     def forward(self, inputs):
-        if self.count[0]< 100: return inputs
-
+        '''
+            Whiten observation (inputs) to have zero-mean, unit variance.
+            Also clamps output to be within 5 standard deviations
+        '''
         running_mean = (self.running_sum / self.count)
-        running_std = (torch.clamp((self.running_sumsq / self.count) - running_mean.pow(2), min=self.eps)).pow(0.5)
+        running_std = (torch.clamp((self.running_sumsq / self.count) \
+                    - running_mean.pow(2), min=self.eps)).pow(0.5)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
-
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
-
         return normed
 
+    def cuda(self):
+        '''
+            Converting all Tensor properties to be on GPU
+        '''
+        if self.use_cuda:  
+            self.running_sum   = self.running_sum.cuda()
+            self.running_sumsq = self.running_sumsq.cuda()
+            self.count         = self.count.cuda() 
+        else:
+            print('.cuda() has no effect. Config set not to use GPU')
+
+    def cpu(self):
+        '''
+            Converting all Tensor properties to be on CPU
+        '''
+        self.running_sum   = self.running_sum.cpu()
+        self.running_sumsq = self.running_sumsq.cpu()
+        self.count         = self.count.cpu() 
 
     def running_mean(self):
-        return (self.running_sum / self.count).cpu().numpy()
+        '''
+            returning the running obseravtion mean for Tensorplex logging
+        '''
+        running_mean = self.running_sum / self.count
+        if self.use_cuda: 
+            running_mean = running_mean.cpu()
+        return running_mean.numpy()
 
     def running_std(self):
-        return (torch.clamp((self.running_sumsq / self.count) - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5).cpu().numpy()
-
+        '''
+            returning the running standard deviation for Tensorplex Logging
+        '''
+        running_std = (torch.clamp((self.running_sumsq / self.count) 
+                    - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5)
+        if self.use_cuda:
+            running_std = running_std.cpu() 
+        return running_std.numpy()
+        
     def running_square(self):
-        return (self.running_sumsq / self.count).cpu().numpy()
-
+        '''
+            returning the running square mean for Tensorplex Logging
+        '''
+        running_square = self.running_sumsq / self.count
+        if self.use_cuda:
+            running_square = running_square.cpu()
+        return running_square.numpy()
 
 
