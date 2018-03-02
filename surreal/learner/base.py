@@ -155,11 +155,11 @@ class Learner(metaclass=LearnerMeta):
 
         self._ps_publisher = None  # in _initialize()
         self._ps_port = ps_publish_port
-        self._prefetch_queue = 
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
         )
+
 
     def _initialize(self):
         """
@@ -170,7 +170,7 @@ class Learner(metaclass=LearnerMeta):
             port=self._ps_port,
             module_dict=self.module_dict()
         )
-        # self._prefetch_queue.start_enqueue_thread()
+        self._prefetch_queue.start()
         self.start_tensorplex_thread()
         # restore_checkpoint should be called _after_ subclass __init__
         # that's why we put it in _initialize()
@@ -188,7 +188,7 @@ class Learner(metaclass=LearnerMeta):
         self._ps_publisher.publish(iteration, message=message)
 
     def fetch_batch(self):
-        return self._prefetch_queue.dequeue()
+        return self._prefetch_queue.get()
 
     def fetch_iterator(self):
         while True:
@@ -339,10 +339,11 @@ class Learner(metaclass=LearnerMeta):
             Main loop that defines learner process
         """
         for i, batch in enumerate(self.fetch_iterator()):
+            data = batch.data
             if i != 0:
                 self.iter_timer.stop()
             self.iter_timer.start()
             with self.learn_timer.time():
-                self.learn(batch)
+                self.learn(data)
             with self.publish_timer.time():
                 self.publish_parameter(i, message='batch '+str(i))

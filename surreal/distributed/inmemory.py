@@ -4,6 +4,7 @@ import pyarrow as pa
 import os
 import uuid
 
+TEMP_FOLDER = '/tmp/surreal'
 
 memory_usage = {}
 
@@ -31,6 +32,19 @@ class SharedMemoryObject(object):
     def __del__(self):
         self.delete()
 
+def inmem_dump(data, name=None):
+    """
+        Dump data to a memory mapped file, return filename
+    Args:
+        @data: bytes data
+        @name (Optional):
+    """
+    if name is None:
+        name = os.path.join(TEMP_FOLDER, str(uuid.uuid4()))
+    with pa.MemoryMappedFile.create(name, len(data)) as f:
+        f.write(data)
+    return name.encode()
+
 def inmem_serialize(data, name=None):
     """
         Serialize data into pyarrow format,
@@ -42,13 +56,10 @@ def inmem_serialize(data, name=None):
         @name (Optional):
     """
     if name is None:
-        name = str(uuid.uuid4())
-    if isinstance(data, pa.lib.Buffer):
-        buf = data
-    else:
-        buf = pa.serialize(data).to_buffer()
+        name = os.path.join(TEMP_FOLDER, str(uuid.uuid4()))
+    buf = pa.serialize(data).to_buffer()
     with pa.MemoryMappedFile.create(name, buf.size) as f:
-        file.write(buf)
+        f.write(buf)
     return name.encode()
 
 def inmem_deserialize(name_bin):
@@ -56,4 +67,4 @@ def inmem_deserialize(name_bin):
         Deserailize data sent by inmem_serialize by
         putting it inside a SharedMemoryObject.data
     """
-    return SharedMemoryObject(name.decode())
+    return SharedMemoryObject(name_bin.decode())

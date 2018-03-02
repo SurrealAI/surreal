@@ -4,14 +4,14 @@ from threading import Thread
 from multiprocessing import Process
 import surreal.utils as U
 from tensorplex import Logger
-from surreal.distributed.inmemory import inmem_serialize, inmem_deserialize
-
-zmq_logger = Logger.get_logger(
-    'zmq',
-    stream='stdout',
-    time_format='hms',
-    show_level=True,
-)
+from surreal.distributed.inmemory import inmem_serialize, inmem_deserialize, inmem_dump
+from surreal.distributed.zmq_struct import zmq_logger
+# zmq_logger = Logger.get_logger(
+#     'zmq',
+#     stream='stdout',
+#     time_format='hms',
+#     show_level=True,
+# )
 
 class ZmqSocketWrapper(object):
     """
@@ -32,24 +32,33 @@ class ZmqSocketWrapper(object):
         if address is not None:
             self.address = address
         else:
+            # https://stackoverflow.com/questions/6024003/why-doesnt-zeromq-work-on-localhost
             assert host is not None and port is not None
             # Jim's note, ZMQ does not like localhost
             if host == 'localhost':
                 host = '127.0.0.1'
-            address = "tcp://{}:{}".format(host, port)
+            self.address = "tcp://{}:{}".format(host, port)
 
         if context is None:
             self.context = zmq.Context()
+            self.owns_context = True
+        else:
+            self.context = context
+            self.owns_context = False
 
         self.mode = mode
-        self.socket = context.socket(self.mode)
+        self.bind = bind
+        self.socket = self.context.socket(self.mode)
+        self.established = False
 
     def establish(self):
         """
             We want to allow subclasses to configure the socket before connecting
         """
+        if self.established:
+            raise RuntimeError('Trying to establish a socket twice')
         self.established = True
-        if bind:
+        if self.bind:
             zmq_logger.infofmt('[{}] binding to {}', self.socket_type, self.address)
             self.socket.bind(self.address)
         else:
@@ -58,8 +67,9 @@ class ZmqSocketWrapper(object):
         return self.socket
 
     def __del__(self):
-        self.socket.close()
-        if self.context(): # only terminate context when we created it
+        if self.established:
+            self.socket.close()
+        if self.owns_context: # only terminate context when we created it
             self.context.term()
 
     @property
@@ -131,17 +141,20 @@ class OutsourceTask(Process):
         pass
 
     def run(self):
-        pass
+        # You must initilize the transmission channel AFTER you fork off
+        self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
 
     def setup_comm(self, host, port):
         """
             Setup the communication, use self.pusher.push() to send information back to manager
         """
-        self.pusher = ZmqPusher(host, port, bind=False, preprocess=inmem_serialize)
+        self.host = host
+        self.port = port
 
 
 class OutsourceManager(Thread):
     def __init__(self, host, port, task, n_workers, handler, args=None, kwargs=None):
+        Thread.__init__(self)
         if args is None:
             args = []
         if kwargs is None:
@@ -151,17 +164,23 @@ class OutsourceManager(Thread):
         self.host = host
         self.port = port
         self.handler = handler
+        self.task = task
+        self.args = args
+        self.kwargs = kwargs
         
 
-    def start(self):
-        self.puller = ZmqPuller(host, port, bind=True, preprocess=inmem_deserialize)
+    def run(self):
+        self.puller = ZmqPuller(host=self.host, 
+                                port=self.port, 
+                                bind=True, 
+                                preprocess=inmem_deserialize)
 
         self.workers = []
-        for i in range(n_workers):
-            task = task(*args, **kwargs)
-            task.setup_comm(host, port)
-            task.start()
-            self.workers.append(task)
+        for i in range(self.n_workers):
+            worker = self.task(*self.args, **self.kwargs)
+            worker.setup_comm(self.host, self.port)
+            worker.start()
+            self.workers.append(worker)
 
         while True:
             self.handler(self.puller.pull())
@@ -176,7 +195,13 @@ class OutsourceManagerQueue(OutsourceManager):
         Uses a queue to store response data instead of calling a handler
     """
     def __init__(self, host, port, task, n_workers, max_queue_size=10, args=None, kwargs=None):
-        super.__init__(self, host, port, task, n_workers, self.put, args=args, kwargs=kwargs)
+        super().__init__(host=host, 
+                         port=port,
+                         task=task, 
+                         n_workers=n_workers, 
+                         handler=self.put, 
+                         args=args, 
+                         kwargs=kwargs)
         self.queue = queue.Queue(maxsize=max_queue_size)
         self.timer = U.TimeRecorder()
 
@@ -191,8 +216,8 @@ class OutsourceManagerQueue(OutsourceManager):
         with self.timer.time():
             return self.queue.get(block=True)
 
-    def put(self):
-        self.queue.put(block=True)
+    def put(self, data):
+        self.queue.put(data, block=True)
 
 
 class DataBatchFetchingTask(OutsourceTask):
@@ -202,16 +227,18 @@ class DataBatchFetchingTask(OutsourceTask):
         """
         super().__init__()
         self.pool = ZmqReqClientPoolFixedRequest(host=host, 
-                                                pool=pool, 
+                                                port=port, 
                                                 request=request,
                                                 handler=self.handler,
                                                 num_workers=num_workers)
 
     def run(self):
+        self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
         self.pool.start()
         self.pool.join()
 
     def handler(self, data):
+        data = U.deserialize(data)
         self.pusher.push(data)
 
 
@@ -227,20 +254,21 @@ class LearnerDataPrefetcher(OutsourceManagerQueue):
         self.max_queue_size = session_config.learner.max_prefetch_batch_queue
         self.prefetch_host = session_config.learner.prefetch_host
         self.prefetch_port = session_config.learner.prefetch_port
-        self.prefetch_workers = session_config.learner.prefetch_workers
+        self.prefetch_processes = session_config.learner.prefetch_processes
+        self.prefetch_threads_per_process = session_config.learner.prefetch_threads_per_process
 
         task = DataBatchFetchingTask
-        kwargs = { 'host': self.replay_host,
-                        'port': self.replay_port,
-                        'request': U.serialize(batch_size)
-                    }
-        super.__init__( host=host, 
-                        port=port, 
+        kwargs = {  'host': self.sampler_host,
+                    'port': self.sampler_port,
+                    'request': U.serialize(batch_size),
+                    'num_workers': self.prefetch_threads_per_process
+                 }
+        super().__init__(host=self.prefetch_host, 
+                        port=self.prefetch_port, 
                         task=task, 
-                        n_workers=self.prefetch_workers,
+                        n_workers=self.prefetch_processes,
                         kwargs=kwargs,
-                        max_queue_size=self.max_queue_size,
-                        )
+                        max_queue_size=self.max_queue_size)
 
         
 class ZmqReqWorker(Thread):
@@ -261,15 +289,19 @@ class ZmqReqWorker(Thread):
         self.handler = handler
 
     def run(self):
-        self.out = self.sw_out.establish()
-        self.task = self.sw_inproc.establish()
+        self.out_socket = self.sw_out.establish()
+        self.task_socket = self.sw_inproc.establish()
         while True:
-            tasks.send(b'ready')
-            request = tasks.recv()
+            self.task_socket.send(b'ready')
+            request = self.task_socket.recv()
             
-            out.send(request)
-            response = out.recv()
-            self._handler(ret)
+            self.out_socket.send(request)
+            response = self.out_socket.recv()
+            self.handler(response)
+
+        # Never reaches here
+        self.out_socket.close()
+        self.task_socket.close()
 
 class ZmqReqClientPool(Thread):
     """
@@ -277,7 +309,7 @@ class ZmqReqClientPool(Thread):
         Responses are given to @handler
     """
     def __init__(self, host, port, handler, num_workers=5):
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         self.host = host
         self.port = port
         self.handler = handler

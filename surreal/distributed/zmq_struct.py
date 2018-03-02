@@ -55,6 +55,7 @@ class ZmqPullServer(object):
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         address = "tcp://{}:{}".format(host, port)
         zmq_logger.infofmt('Pulling from {}', address)
+        self.load_balanced = load_balanced
         if self.load_balanced:
             # When we are using loadbalancing, the server is ephemeral and connects
             # to a predefined load balancing proxy
@@ -331,7 +332,7 @@ class ZmqQueue(object):
             start_thread:
             is_pyobj: pull and convert to python object
         """
-        self._puller = ZmqPullServer(host=host, port=port, is_pyobj=is_pyobj)
+        self._puller = ZmqPullServer(host=host, port=port, is_pyobj=is_pyobj, load_balanced=True)
         self._queue = U.FlushQueue(max_size=max_size)
         # start
         self._enqueue_thread = None

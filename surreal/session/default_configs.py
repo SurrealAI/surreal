@@ -110,7 +110,8 @@ BASE_SESSION_CONFIG = {
         'num_gpus': '_int_',
         'prefetch_host': '_str_',
         'prefetch_port': '_int_',
-        'prefetch_workers': '_int_',
+        'prefetch_processes': '_int_',
+        'prefetch_threads_per_process': '_int_',
         'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
@@ -190,7 +191,8 @@ LOCAL_SESSION_CONFIG = {
         'num_gpus': 0,
         'prefetch_host': 'localhost',
         'prefetch_port': 7009,
-        'prefetch_workers': 10,
+        'prefetch_processes': 2,
+        'prefetch_threads_per_process': 2,
         'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
