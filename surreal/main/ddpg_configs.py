@@ -88,7 +88,7 @@ def generate(argv):
         'env_name': args.env,
         'video': {
             'record_video': True,
-            'save_folder': '~/videos',
+            'save_folder': None,
             'max_videos': 500,
             'record_every': 100,
         }
