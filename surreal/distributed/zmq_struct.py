@@ -104,7 +104,7 @@ class ZmqServer(threading.Thread):
     replay -> learner, manages ZmqServerWorker pool
     Async REQ-REP server
     """
-    def __init__(self, port, handler, host='*', is_pyobj=True, num_workers=5, load_balanced=False):
+    def __init__(self, port, handler, host='*', is_pyobj=True, num_workers=1, load_balanced=False):
         """
         Args:
             port:
