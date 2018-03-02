@@ -199,10 +199,10 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=dtype('float64'), name=None, minimum=[-1. -1. -1. -1. -1. -1.], maximum=[1. 1. 1. 1. 1. 1.])
+        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('uint8'), name='pixels'))])
 
     def action_spec(self):
-        return collections.OrderedDict([('pixels', ArraySpec(shape=(84, 84, 3), dtype=dtype('uint8'), name='pixels'))])
+        return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=np.dtype('float64'), name=None, minimum=[-1., -1., -1., -1., -1., -1.], maximum=[1., 1., 1., 1., 1., 1.])
 
 class DMControlAdapter(Wrapper):
     def __init__(self, env):
