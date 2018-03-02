@@ -49,7 +49,7 @@ def generate(argv):
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
             'stride': 1,
-            'batch_size': 64,
+            'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
             'lr_policy': 2e-4,
