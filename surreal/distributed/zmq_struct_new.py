@@ -119,6 +119,36 @@ class ZmqPuller(ZmqSocketWrapper):
             data = self.preprocess(data)
         return data
 
+##
+# Sender receiver implemented by REQ-REP
+##
+
+class ZmqSender(ZmqSocketWrapper):
+    def __init__(self, host, port, serializer=None):
+        super().__init__(host=host, port=port, mode=zmq.REQ, bind=False)
+        self.serializer = serializer
+        self.establish()
+
+    def send(self, data):
+        if self.serializer:
+            data = self.serializer(data)
+        self.socket.send(data)
+        resp = self.socket.recv()
+        return resp
+
+class ZmqReceiver(ZmqSocketWrapper):
+    def __init__(self, host, port, bind=True, deserializer=None):
+        super().__init__(host=host, port=port, mode=zmq.REP, bind=bind)
+        self.deserializer = deserializer
+        self.establish()
+
+    def recv(self):
+        data = self.socket.recv()
+        if self.deserializer:
+            data = self.deserializer(data)
+        self.socket.send(b'ack') # doesn't matter
+        return data
+
 
 class ZmqPullerThread(Thread):
     def __init__(self, host, port, bind, handler):
@@ -142,7 +172,8 @@ class OutsourceTask(Process):
 
     def run(self):
         # You must initilize the transmission channel AFTER you fork off
-        self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
+        self.sender = ZmqSender(self.host, self.port, serializer=inmem_serialize)
+        # self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
 
     def setup_comm(self, host, port):
         """
@@ -170,10 +201,12 @@ class OutsourceManager(Thread):
         
 
     def run(self):
-        self.puller = ZmqPuller(host=self.host, 
+        # Use receiver here to rate-limit the workers, using pull-push involves a large cache
+        # https://stackoverflow.com/questions/22613737/how-could-i-set-hwm-in-the-push-pull-pattern-of-zmq
+        self.receiver = ZmqReceiver(host=self.host, 
                                 port=self.port, 
                                 bind=True, 
-                                preprocess=inmem_deserialize)
+                                deserializer=inmem_deserialize)
 
         self.workers = []
         for i in range(self.n_workers):
@@ -183,7 +216,7 @@ class OutsourceManager(Thread):
             self.workers.append(worker)
 
         while True:
-            self.handler(self.puller.pull())
+            self.handler(self.receiver.recv())
 
         # Will never reach here
         for worker in self.workers:
@@ -233,13 +266,13 @@ class DataBatchFetchingTask(OutsourceTask):
                                                 num_workers=num_workers)
 
     def run(self):
-        self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
+        self.sender = ZmqSender(self.host, self.port, serializer=inmem_serialize)
         self.pool.start()
         self.pool.join()
 
     def handler(self, data):
         data = U.deserialize(data)
-        self.pusher.push(data)
+        self.sender.send(data)
 
 
 class LearnerDataPrefetcher(OutsourceManagerQueue):
@@ -355,15 +388,6 @@ class ZmqReqClientPoolFixedRequest(ZmqReqClientPool):
 
 
 
-# class ZmqReq(ZmqSocketWrapper):
-#     def __init__(self, host, port, serializer=None):
-#         super().__init__(host=host, port=port, mode=zmq.REQ, bind=False)
-#         self.serializer = serializer
-
-#     def req(self, data):
-#         if self.serializer:
-#             data = self.serializer(data)
-#         self.socket.send(data)
 
 
 # class ZmqRep(ZmqSocketWrapper):

@@ -26,6 +26,7 @@ class SharedMemoryObject(object):
             print('Shared memory with name {} deleted'.format(self.filename))
             print('Memory entries: {}'.format(len(memory_usage)))
             self.file.close()
+            print('Deleting file: {}'.format(self.filename))
             os.remove(self.filename)
             self.deleted = True
 
