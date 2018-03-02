@@ -9,7 +9,7 @@ import pprint
 from enum import Enum, EnumMeta
 import time
 from contextlib import contextmanager
-from threading import Thread
+from threading import Thread, Lock
 
 def _get_qualified_type_name(type_):
     name = str(type_)
@@ -477,6 +477,19 @@ class MovingAverageRecorder():
         else:
             return self.cum_value / self.normalization
 
+class ThreadSafeMovingAverageRecorder(MovingAverageRecorder):
+    def __init__(self, decay=0.95):
+        super().__init__()
+        self.lock = Lock()
+
+    def add_value(self, value):
+        with self.lock:
+            return super().add_value(value)
+
+    def cur_value(self):
+        with self.lock:
+            return super().cur_value()
+
 class TimeRecorder():
     """
         Records average of whatever context block it is recording
@@ -492,15 +505,18 @@ class TimeRecorder():
                         Useful when the application just started and there are long waits 
                         that might throw off the average
         """
-        self.moving_average = MovingAverageRecorder(decay)
+        self.moving_average = ThreadSafeMovingAverageRecorder(decay)
         self.max_seconds = max_seconds
         self.started = False
 
     @contextmanager
     def time(self):
-        self.start()
+        pre_time = time.time()
         yield None
-        self.stop()
+        post_time = time.time()
+
+        interval = min(self.max_seconds, post_time - pre_time)
+        self.moving_average.add_value(interval)
 
     def start(self):
         if self.started:
