@@ -33,7 +33,7 @@ BASE_ENV_CONFIG = {
         'record_video' : False,
         'max_videos': 10,
         'record_every': 10,
-        'save_directory': '/mnt/snaps',
+        'save_folder': None,
     },
     'action_spec': {},
     'obs_spec': {},

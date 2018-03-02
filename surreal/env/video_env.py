@@ -40,8 +40,8 @@ class VideoWrapper(Wrapper):
                 default to 30
             ext (str): file extention. Either .gif or .mp4 depending on input
                 default to .mp4
-            save_dir (str): directory to which the files are to be saved
-                default to './snaps'
+            save_folder (str): directory to which the files are to be saved
+                default to 'main-experiment-folder/videos'
             max_videos (int): maximum number of videos allowed in a directory
                 default to 10
         helper attributes
@@ -55,7 +55,8 @@ class VideoWrapper(Wrapper):
             video_queue (Queue): queue of frames to be writen to file
     '''
 
-    def __init__(self, env, env_config, frame_interval = 10, fps =30, use_gif = False):
+    def __init__(self, env, env_config, session_config,
+        frame_interval = 10, fps =30, use_gif = False):
         '''
         Constructor for VideoWrapper. also creates the save directory if not present
         Args:
@@ -63,7 +64,7 @@ class VideoWrapper(Wrapper):
             capture_interval (int): number of episodes between captures
             frame_interval (int): number of frames between each recorded frame
             fps (int): frame rate
-            save_dir (str): directory to which the files are to be saved
+            save_folder (str): directory to which the files are to be saved
             max_videos (int): maximum number of videos allowed in a directory
             use_gif (bool): boolean flag to use either gif or mp4
         '''
@@ -77,10 +78,13 @@ class VideoWrapper(Wrapper):
         self.fps = fps
 
         self.ext = '.gif' if use_gif else '.mp4'
-        self.save_dir = env_config.video.save_directory
+        self.save_folder = env_config.video.save_folder
+        if not self.save_folder:
+            self.save_folder = os.path.join(session_config.folder, 'videos')
+        self.save_folder = os.path.expanduser(self.save_folder)
 
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        if not os.path.exists(self.save_folder):
+            os.makedirs(self.save_folder)
 
         self.num_eps = 0
         self.num_steps = 0
@@ -99,7 +103,7 @@ class VideoWrapper(Wrapper):
             self.video_queue = Queue()
             self.is_recording = True
 
-            path = self.save_dir + 'video_eps_{}{}'.format(self.num_eps, self.ext)
+            path = os.path.join(self.save_folder, 'video_eps_{}{}'.format(self.num_eps, self.ext))
             if self.num_paths >= self.max_videos:
                 dep_path = self.path_queue.get()
                 os.remove(dep_path)

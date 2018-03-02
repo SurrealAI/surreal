@@ -3,7 +3,7 @@ import os
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 
 
-def make_env(env_config, eval_mode=False):
+def make_env(env_config, session_config, eval_mode=False):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
@@ -25,7 +25,7 @@ def make_env(env_config, eval_mode=False):
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
     if record_video:
-        env = VideoWrapper(env, env_config)
+        env = VideoWrapper(env, env_config, session_config)
     return env, env_config
 
 
