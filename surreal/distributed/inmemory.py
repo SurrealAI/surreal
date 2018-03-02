@@ -5,7 +5,7 @@ import os
 import uuid
 
 TEMP_FOLDER = '/tmp/surreal'
-
+os.makedirs(TEMP_FOLDER, exist_ok=True)
 memory_usage = {}
 
 class SharedMemoryObject(object):
@@ -21,10 +21,10 @@ class SharedMemoryObject(object):
 
     def delete(self):
         if not self.deleted:
-            assert memory_usage[filename]
-            memory_usage[filename] = False
-            print('Shared memory with name {} deleted'.format(filename))
-            print('Memory entries: {}'.format(memory_usage))
+            assert memory_usage[self.filename]
+            del memory_usage[self.filename]
+            print('Shared memory with name {} deleted'.format(self.filename))
+            print('Memory entries: {}'.format(len(memory_usage)))
             self.file.close()
             os.remove(self.filename)
             self.deleted = True
