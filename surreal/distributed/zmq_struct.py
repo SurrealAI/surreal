@@ -49,12 +49,19 @@ class ZmqPullServer(object):
     """
     replay <- agent
     """
-    def __init__(self, host, port, is_pyobj=True):
+    def __init__(self, host, port, is_pyobj=True, load_balanced=False):
         context = zmq.Context()
         self.socket = context.socket(zmq.PULL)
         self.socket.set_hwm(42)  # a small magic number to avoid congestion
         address = "tcp://{}:{}".format(host, port)
         zmq_logger.infofmt('Pulling from {}', address)
+        if self.load_balanced:
+            # When we are using loadbalancing, the server is ephemeral and connects
+            # to a predefined load balancing proxy
+            self.socket.connect(address)
+        else:
+            # When we are not load balancing, the server binds to a static address
+            self.socket.bind(address)
         self.socket.connect(address)
         self._deserialize = _get_deserializer(is_pyobj)
 

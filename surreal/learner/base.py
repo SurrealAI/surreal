@@ -9,7 +9,7 @@ from surreal.session import (
     get_loggerplex_client, get_tensorplex_client
 )
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
-
+from surreal.distributed.zmq_struct_new import LearnerDataPrefetcher
 
 class PrefetchBatchQueue(object):
     """
@@ -147,19 +147,18 @@ class Learner(metaclass=LearnerMeta):
     # Internal, including Communication, etc.
     ######
     def _setup_connection(self):  
-        sampler_host = self.session_config.replay.sampler_frontend_host
-        sampler_port = self.session_config.replay.sampler_frontend_port
+        # sampler_host = self.session_config.replay.sampler_frontend_host
+        # sampler_port = self.session_config.replay.sampler_frontend_port
         ps_publish_port = self.session_config.ps.publish_port
         batch_size = self.learner_config.replay.batch_size
-        max_prefetch_batch_queue = self.session_config.replay.max_prefetch_batch_queue
+        # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
         self._ps_publisher = None  # in _initialize()
         self._ps_port = ps_publish_port
-        self._prefetch_queue = PrefetchBatchQueue(
-            sampler_host=sampler_host,
-            sampler_port=sampler_port,
+        self._prefetch_queue = 
+        self._prefetch_queue = LearnerDataPrefetcher(
+            session_config=self.session_config,
             batch_size=batch_size,
-            max_size=max_prefetch_batch_queue,
         )
 
     def _initialize(self):
@@ -171,7 +170,7 @@ class Learner(metaclass=LearnerMeta):
             port=self._ps_port,
             module_dict=self.module_dict()
         )
-        self._prefetch_queue.start_enqueue_thread()
+        # self._prefetch_queue.start_enqueue_thread()
         self.start_tensorplex_thread()
         # restore_checkpoint should be called _after_ subclass __init__
         # that's why we put it in _initialize()

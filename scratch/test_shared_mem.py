@@ -3,6 +3,7 @@ import pyarrow as pa
 import time
 import pickle
 from multiprocessing import Process
+import os
 
 data = {
 i: np.random.randn(500, 500)
@@ -21,17 +22,24 @@ print(restored_data[0])
 
 file = pa.MemoryMappedFile.create('abc', buf.size)
 file.write(buf)
+file.close()
 
 def f():
-    file2 = pa.memory_map('abc')
-
-    buf2 = file2.read_buffer()
+    
     t1 = time.time()
-    for i in range(10000):
+    file2 = pa.memory_map('abc')
+    buf2 = file2.read_buffer()
+    for i in range(100):
         restored_data2 = pa.deserialize(buf2)
+        file2.close()
     t2 = time.time()
-    print('Deserialize: {} ms'.format((t2 - t1) * 1000 / 10000))
+    print('Deserialize: {} ms'.format((t2 - t1) * 1000 / 100))
     print(restored_data2[0])
+
+    t_delete = time.time()
+    os.remove('abc')
+    t_delete = time.time() - t_delete
+    print('t_delete: {}'.format(t_delete))
 
 
 p = Process(target=f)

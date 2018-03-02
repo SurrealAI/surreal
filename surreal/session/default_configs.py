@@ -62,7 +62,6 @@ BASE_SESSION_CONFIG = {
         'sampler_backend_host': '_str_',  # downstream to Learner request
         'sampler_backend_port': '_int_',
         'max_puller_queue': '_int_',  # replay side: pull queue size
-        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
         'evict_interval': '_float_',  # in seconds
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
@@ -108,7 +107,11 @@ BASE_SESSION_CONFIG = {
         'fetch_parameter_interval': int,
     },
     'learner': {
-        'num_gpus': '_int_'
+        'num_gpus': '_int_',
+        'prefetch_host': '_str_',
+        'prefetch_port': '_int_',
+        'prefetch_workers': '_int_',
+        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
         'restore': '_bool_',  # if False, ignore the other configs under 'restore'
@@ -145,7 +148,6 @@ LOCAL_SESSION_CONFIG = {
         'sampler_backend_host': 'localhost',  # downstream to Learner request
         'sampler_backend_port': 7004,
         'max_puller_queue': 10000,  # replay side: pull queue size
-        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
         'evict_interval': 0.,  # in seconds
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
@@ -185,7 +187,11 @@ LOCAL_SESSION_CONFIG = {
         'fetch_parameter_interval': 1,
     },
     'learner': {
-        'num_gpus': 0
+        'num_gpus': 0,
+        'prefetch_host': 'localhost',
+        'prefetch_port': 7009,
+        'prefetch_workers': 10,
+        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
         'restore': False,  # if False, ignore the other configs under 'restore'
