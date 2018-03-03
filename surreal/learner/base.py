@@ -206,6 +206,11 @@ class Learner(metaclass=LearnerMeta):
         self.publish_timer = U.TimeRecorder()
 
         self.init_time = time.time()
+        self.current_iter = 0
+
+        self.last_time = self.init_time
+        self.last_iter = 0
+
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
         self.tensorplex_system = self._get_tensorplex('learner/learner_system')
@@ -241,7 +246,15 @@ class Learner(metaclass=LearnerMeta):
         """
             Adds core and system level tensorplex stats
         """
-        global_step = time.time() - self.init_time
+        cur_time = time.time()
+        current_iter = self.current_iter
+        iter_elapsed = current_iter - self.last_iter
+        self.last_iter = current_iter
+
+        global_step = cur_time - self.init_time
+        time_elapsed = cur_time - self.last_time
+        self.last_time = cur_time
+        
 
         core_metrics = {}
         system_metrics = {}
@@ -260,7 +273,8 @@ class Learner(metaclass=LearnerMeta):
         # Time it takes to complete one full iteration
         core_metrics['iter_time_s'] = iter_time
 
-
+        # Number of iterations per second
+        system_metrics['iter_per_s'] = iter_elapsed / time_elapsed
         # Percent of time spent on learning
         system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
@@ -338,12 +352,13 @@ class Learner(metaclass=LearnerMeta):
         """
             Main loop that defines learner process
         """
+        self.iter_timer.start()
         for i, batch in enumerate(self.fetch_iterator()):
+            self.current_iter = i
             data = batch.data
-            if i != 0:
-                self.iter_timer.stop()
-            self.iter_timer.start()
             with self.learn_timer.time():
                 self.learn(data)
             with self.publish_timer.time():
-                self.publish_parameter(i, message='batch '+str(i))
+                pass
+                # self.publish_parameter(i, message='batch '+str(i))
+            self.iter_timer.lap()

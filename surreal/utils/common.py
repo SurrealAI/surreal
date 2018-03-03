@@ -495,7 +495,7 @@ class TimeRecorder():
         Records average of whatever context block it is recording
         Don't call time in two threads
     """
-    def __init__(self, decay=0.9995, max_seconds=1):
+    def __init__(self, decay=0.9995, max_seconds=10):
         """
         Args:
             decay: Decay factor of smoothed moving average
@@ -532,6 +532,17 @@ class TimeRecorder():
     
         interval = min(self.max_seconds, self.post_time - self.pre_time)
         self.moving_average.add_value(interval)
+
+    def lap(self):
+        if not self.started:
+            raise RuntimeError('Stopping a timer that is not started')
+        post_time = time.time()
+    
+        interval = min(self.max_seconds, post_time - self.pre_time)
+        self.moving_average.add_value(interval)
+
+        self.pre_time = post_time
+
 
     @property
     def avg(self):

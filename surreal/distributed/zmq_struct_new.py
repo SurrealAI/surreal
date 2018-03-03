@@ -1,6 +1,6 @@
 import queue
 import zmq
-from threading import Thread
+from threading import Thread, Lock
 from multiprocessing import Process
 import surreal.utils as U
 from tensorplex import Logger
@@ -264,6 +264,9 @@ class DataBatchFetchingTask(OutsourceTask):
                                                 request=request,
                                                 handler=self.handler,
                                                 num_workers=num_workers)
+        # Client pool can get multiple responses every time, 
+        # zmq sockets are not threadsafe
+        self.lock = Lock()
 
     def run(self):
         self.sender = ZmqSender(self.host, self.port, serializer=inmem_serialize)
@@ -272,7 +275,8 @@ class DataBatchFetchingTask(OutsourceTask):
 
     def handler(self, data):
         data = U.deserialize(data)
-        self.sender.send(data)
+        with self.lock:
+            self.sender.send(data)
 
 
 class LearnerDataPrefetcher(OutsourceManagerQueue):

@@ -10,9 +10,9 @@ memory_usage = {}
 
 class SharedMemoryObject(object):
     def __init__(self, filename):
-        print('Shared memory with name {} created'.format(filename))
-        assert not filename in memory_usage or not memory_usage[filename]
-        memory_usage[filename] = True
+        # print('Shared memory with name {} created'.format(filename))
+        # assert not filename in memory_usage or not memory_usage[filename]
+        # memory_usage[filename] = True
         self.filename = filename
         self.file = pa.memory_map(filename)
         self.buffer = self.file.read_buffer()
@@ -21,12 +21,12 @@ class SharedMemoryObject(object):
 
     def delete(self):
         if not self.deleted:
-            assert memory_usage[self.filename]
-            del memory_usage[self.filename]
-            print('Shared memory with name {} deleted'.format(self.filename))
-            print('Memory entries: {}'.format(len(memory_usage)))
+            # assert memory_usage[self.filename]
+            # del memory_usage[self.filename]
+            # print('Shared memory with name {} deleted'.format(self.filename))
+            # print('Memory entries: {}'.format(len(memory_usage)))
             self.file.close()
-            print('Deleting file: {}'.format(self.filename))
+            # print('Deleting file: {}'.format(self.filename))
             os.remove(self.filename)
             self.deleted = True
 
