@@ -170,12 +170,20 @@ class Learner(metaclass=LearnerMeta):
             port=self._ps_port,
             module_dict=self.module_dict()
         )
+        min_publish_interval = self.learner_config.parameter_publish.min_publish_interval
+        self._ps_publish_tracker = U.TimedTracker(min_publish_interval)
         self._prefetch_queue.start()
         self.start_tensorplex_thread()
         # restore_checkpoint should be called _after_ subclass __init__
         # that's why we put it in _initialize()
         if self.session_config.checkpoint.restore:
             self.restore_checkpoint()
+
+    ######
+    # Parameter publish
+    ######
+    def should_publish_parameter(self):
+        return self._ps_publish_tracker.track_increment()
 
     def publish_parameter(self, iteration, message=''):
         """
@@ -187,6 +195,9 @@ class Learner(metaclass=LearnerMeta):
         """
         self._ps_publisher.publish(iteration, message=message)
 
+    ######
+    # Getting data
+    ######
     def fetch_batch(self):
         return self._prefetch_queue.get()
 
@@ -245,12 +256,8 @@ class Learner(metaclass=LearnerMeta):
         """
             Adds core and system level tensorplex stats
         """
-
         cur_time = time.time()
         current_iter = self.current_iter
-
-        print('[tensorplex] iter: {}'.format(current_iter))
-        print('[tensorplex] time: {}'.format(cur_time))
 
         iter_elapsed = current_iter - self.last_iter
         self.last_iter = current_iter
@@ -259,7 +266,6 @@ class Learner(metaclass=LearnerMeta):
         time_elapsed = cur_time - self.last_time
         self.last_time = cur_time
         
-
         core_metrics = {}
         system_metrics = {}
         
@@ -277,8 +283,11 @@ class Learner(metaclass=LearnerMeta):
         # Time it takes to complete one full iteration
         core_metrics['iter_time_s'] = iter_time
 
+        iter_per_s = iter_elapsed / time_elapsed
         # Number of iterations per second
-        system_metrics['iter_per_s'] = iter_elapsed / time_elapsed
+        system_metrics['iter_per_s'] = iter_per_s
+        # Number of experience bathces processed per second
+        system_metrics['exp_per_s'] = iter_per_s * self.learner_config.replay.batch_size
         # Percent of time spent on learning
         system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
@@ -358,16 +367,12 @@ class Learner(metaclass=LearnerMeta):
         """
         self.iter_timer.start()
         for i, batch in enumerate(self.fetch_iterator()):
-            # if i % 20 == 0:
-            #     cur_time = time.time()
-            #     print('Iter {}'.format(i))
-            #     print('Time {}'.format(cur_time - self.last_time_2))
-            #     self.last_time_2 = cur_time
             self.current_iter = i
             data = batch.data
             with self.learn_timer.time():
                 self.learn(data)
-            with self.publish_timer.time():
-                pass
-                # self.publish_parameter(i, message='batch '+str(i))
+            if self.should_publish_parameter():
+                with self.publish_timer.time():
+                    # pass
+                    self.publish_parameter(i, message='batch '+str(i))
             self.iter_timer.lap()

@@ -22,7 +22,11 @@ BASE_LEARNER_CONFIG = {
         'replay_class': '_str_',
         'batch_size': '_int_',
         'replay_shards': 1,
-    }
+    },
+    'parameter_publish': {
+        # Minimum amount of time (seconds) between two parameter publish
+        'min_publish_interval': 0.3, 
+    },
 }
 
 
