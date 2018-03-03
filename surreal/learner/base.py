@@ -5,7 +5,7 @@ import queue
 import time
 import surreal.utils as U
 from surreal.session import (
-    PeriodicTensorplex,
+    TimeThrottledTensorplex,
     get_loggerplex_client, get_tensorplex_client
 )
 from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
@@ -209,11 +209,11 @@ class Learner(metaclass=LearnerMeta):
         self.current_iter = 0
 
         self.last_time = self.init_time
+        self.last_time_2 = self.init_time
         self.last_iter = 0
 
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
-        self.tensorplex_system = self._get_tensorplex('learner/learner_system')
 
         self._tensorplex_thread = None
 
@@ -227,11 +227,10 @@ class Learner(metaclass=LearnerMeta):
             name,
             self.session_config
         )
-        periodic_tp = PeriodicTensorplex(
+        update_schedule = self.session_config.tensorplex.update_schedule
+        periodic_tp = TimeThrottledTensorplex(
             tensorplex=tp,
-            period=self.session_config.tensorplex.update_schedule.learner,
-            is_average=True,
-            keep_full_history=False
+            min_update_interval=update_schedule.learner_min_update_interval,
         )
         return periodic_tp
 
@@ -246,8 +245,13 @@ class Learner(metaclass=LearnerMeta):
         """
             Adds core and system level tensorplex stats
         """
+
         cur_time = time.time()
         current_iter = self.current_iter
+
+        print('[tensorplex] iter: {}'.format(current_iter))
+        print('[tensorplex] time: {}'.format(cur_time))
+
         iter_elapsed = current_iter - self.last_iter
         self.last_iter = current_iter
 
@@ -288,7 +292,7 @@ class Learner(metaclass=LearnerMeta):
         for k in system_metrics:
             all_metrics['.system/' + k] = system_metrics[k]
 
-        self.tensorplex_system.add_scalars(all_metrics, global_step=global_step)
+        self.tensorplex.add_scalars(all_metrics)
 
     ######
     # Checkpoint
@@ -354,6 +358,11 @@ class Learner(metaclass=LearnerMeta):
         """
         self.iter_timer.start()
         for i, batch in enumerate(self.fetch_iterator()):
+            # if i % 20 == 0:
+            #     cur_time = time.time()
+            #     print('Iter {}'.format(i))
+            #     print('Time {}'.format(cur_time - self.last_time_2))
+            #     self.last_time_2 = cur_time
             self.current_iter = i
             data = batch.data
             with self.learn_timer.time():

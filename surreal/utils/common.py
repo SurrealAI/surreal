@@ -548,7 +548,6 @@ class TimeRecorder():
     def avg(self):
         return self.moving_average.cur_value()
 
-# class TimeRecorder():
 
 class PeriodicWakeUpWorker(Thread):
     """
@@ -573,3 +572,66 @@ class PeriodicWakeUpWorker(Thread):
         while True:
             self.target(*self.args, **self.kwargs)
             time.sleep(self.interval)
+
+
+class TimedTracker(object):
+    def __init__(self, interval):
+        self.init_time = time.time()
+        self.last_time = self.init_time
+        self.interval = interval
+
+    def track_increment(self):
+        cur_time = time.time()
+        time_since_last = cur_time - self.last_time
+        enough_time_passed = time_since_last >= self.interval
+        if enough_time_passed:
+            self.last_time = cur_time
+        return enough_time_passed
+
+
+class AverageValue(object):
+    """
+        Keeps track of average of things
+        Always caches the latest value so no division by 0
+    """
+    def __init__(self, initial_value):
+        self.last_val = initial_value
+        self.sum = initial_value
+        self.count = 1
+
+    def add(self, value):
+        self.last_val = value
+        self.sum += value
+        self.count += 1
+
+    def avg(self, clear=True):
+        """
+            Get the average of the currently tracked value
+        Args:
+            @clear: if true (default), clears the cached sum/count
+        """
+        ans = self.sum / self.count
+        if clear:
+            self.sum = self.last_val
+            self.count = 1
+        return ans
+
+
+class AverageDictionary(object):
+    def __init__(self):
+        self.data = {}
+
+    def add_scalars(self, new_data):
+        for key in new_data:
+            if key in self.data:
+                self.data[key].add(new_data[key])
+            else:
+                self.data[key] = AverageValue(new_data[key])
+
+    def get_values(self, clear=True):
+        response = {}
+        for key in self.data:
+            response[key] = self.data[key].avg(clear=clear)
+        return response
+
+

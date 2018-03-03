@@ -2,6 +2,8 @@ import itertools
 from collections import deque
 import surreal.utils as U
 from tensorplex import TensorplexClient, LoggerplexClient
+from threading import Lock
+import time
 
 
 class PeriodicTracker(object):
@@ -73,6 +75,27 @@ class RunningAverage(object):
     def __float__(self):
         """Get the current estimate"""
         return self._value
+
+class TimeThrottledTensorplex(object):
+    """
+        A tensorplex client that aggregates output from 
+        Thread safe, keeps global step in control
+    """
+    def __init__(self, tensorplex, min_update_interval):
+        U.assert_type(tensorplex, TensorplexClient)
+        self.tensorplex = tensorplex
+        self.min_update_interval = min_update_interval
+        self.history = U.AverageDictionary()
+        self.lock = Lock()
+        self.tracker = U.TimedTracker(self.min_update_interval)
+        self.init_time = time.time()
+
+    def add_scalars(self, tag_value_dict):
+        with self.lock:
+            self.history.add_scalars(tag_value_dict)
+            if self.tracker.track_increment():
+                self.tensorplex.add_scalars(self.history.get_values(),
+                                            time.time() - self.init_time)
 
 
 class PeriodicTensorplex(object):

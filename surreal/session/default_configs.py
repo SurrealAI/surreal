@@ -88,7 +88,9 @@ BASE_SESSION_CONFIG = {
             'eval_env_sleep': '_int_',  # throttle eval by sleep n seconds
             # for manual updates:
             'agent': '_int_',  # agent.tensorplex.add_scalars()
+            # WARN!!: DEPRECATED
             'learner': '_int_',  # learner.tensorplex.add_scalars()
+            'learner_min_update_interval': '_int_', #Update tensorplex at most every ? seconds
         }
     },
     'loggerplex': {
@@ -174,6 +176,7 @@ LOCAL_SESSION_CONFIG = {
             # for manual updates:
             'agent': 20,  # agent.tensorplex.add_scalars()
             'learner': 20,  # learner.tensorplex.add_scalars()
+            'learner_min_update_interval': 30, #Update tensorplex at most every 30 seconds
         }
     },
     'loggerplex': {
