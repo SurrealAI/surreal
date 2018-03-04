@@ -48,7 +48,7 @@ def generate(argv):
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 1,
+            'stride': 10,
             'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
@@ -79,7 +79,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/350,
+        'sleep_time': 1/200,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',
@@ -110,7 +110,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 25,
+            'fetch_parameter_interval': 10,
         },
         'replay' : {
             'max_puller_queue': 3,

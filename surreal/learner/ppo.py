@@ -445,9 +445,9 @@ class PPOLearner(Learner):
 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
-                    stats['_obs_running_mean'] = self.model.z_filter.running_mean()[0]
-                    stats['_obs_running_square'] =  self.model.z_filter.running_square()[0]
-                    stats['_obs_running_std'] = self.model.z_filter.running_std()[0]
+                    stats['_obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
+                    stats['_obs_running_square'] =  np.mean(self.model.z_filter.running_square())
+                    stats['_obs_running_std'] = np.mean(self.model.z_filter.running_std())
 
                 self.update_tensorplex(stats)
 
@@ -466,10 +466,3 @@ class PPOLearner(Learner):
         return {
             'ppo': self.model,
         }
-
-
-
-# two things left on vtrace:
-# 1) Faster Learner, try to balance pulling and sleep
-# 2) validating the effectiveness of vtrace  √: right implementation, but not working very well. --> about the same with regular
-# 3) find out the sweet spot number, by running to see how fast the agent CAN generate experience --> need to do speed test.

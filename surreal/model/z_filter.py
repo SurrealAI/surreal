@@ -61,15 +61,23 @@ class ZFilter(U.Module):
             added_count = added_count.cuda()
         self.count += added_count 
 
+        print('mean: ', self.running_mean())
+        print('std:', self.running_std())
+        print('# exp accumulated:', self.count)
+        print('---------------------')
+
     # define forward prop operations in terms of layers
     def forward(self, inputs):
         '''
             Whiten observation (inputs) to have zero-mean, unit variance.
             Also clamps output to be within 5 standard deviations
         '''
+        # if True: return inputs
         running_mean = (self.running_sum / self.count)
-        running_std = (torch.clamp((self.running_sumsq / self.count) \
-                    - running_mean.pow(2), min=self.eps)).pow(0.5)
+        # running_std = ((self.running_sumsq / self.count) - running_mean.pow(2)).pow(0.5)
+        # running_std += self.eps
+        running_std = torch.clamp((self.running_sumsq / self.count \
+                                  - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
@@ -107,8 +115,8 @@ class ZFilter(U.Module):
         '''
             returning the running standard deviation for Tensorplex Logging
         '''
-        running_std = (torch.clamp((self.running_sumsq / self.count) 
-                    - (self.running_sum / self.count).pow(2), min=self.eps)).pow(0.5)
+        running_std = ((self.running_sumsq / self.count) 
+                     - (self.running_sum / self.count).pow(2)).pow(0.5)
         if self.use_cuda:
             running_std = running_std.cpu() 
         return running_std.numpy()
@@ -123,3 +131,10 @@ class ZFilter(U.Module):
         return running_square.numpy()
 
 
+'''
+change tolerance to add small before start using
+what works so far: fixing mean and variance
+tests to run:
+    1) blank test to get running std and mean √ 
+    2) test adding small eps instead of clamping √
+'''
