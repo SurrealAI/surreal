@@ -199,7 +199,7 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('uint8'), name='pixels'))])
+        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
 
     def action_spec(self):
         return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=np.dtype('float64'), name=None, minimum=[-1., -1., -1., -1., -1., -1.], maximum=[1., 1., 1., 1., 1., 1.])
@@ -221,6 +221,10 @@ class DMControlAdapter(Wrapper):
             # TODO: note that reward is none
             print('None reward')
             reward = 0
+        # input is (84, 84, 3), we want (C, H, W) == (3, 84, 84)
+        #print('hi', ts.observation.shape)
+        #obs = ts.observation.transpose((2, 1, 0))
+        #print('hi2', obs.shape)
         return ts.observation, reward, ts.step_type == StepType.LAST, {}
 
     def _reset(self):
@@ -235,7 +239,8 @@ class DMControlAdapter(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return self.env.observation_spec()
+        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
+        #return self.env.observation_spec()
 
     def action_spec(self):
         return self.env.action_spec()
@@ -258,10 +263,32 @@ class DMControlAdapter(Wrapper):
         return im
 
 def flatten_obs(obs):
-    return np.concatenate([v.flatten() for k, v in obs.items()])
+    flat_observations = []
+    visual_observations = None
+    for k, v in obs.items():
+        if len(v.shape) > 1: # visual input
+            # This is the desired pixel size of dm_control environments
+            print('visual shape',v.shape)
+            # input is (84, 84, 3), we want (C, H, W) == (3, 84, 84)
+            assert v.shape == (84, 84, 3)
+            v = v.transpose((2, 1, 0))
+            assert v.shape == (3, 84, 84)
+            # We should only have one visual obsevations, all other items should be flat
+            assert visual_observations is None
+            visual_observations = v
+        elif len(v.shape) == 1:
+            flat_observations.append(v)
+        else:
+            raise Exception("Unrecognized data format")
+    if len(flat_observations) == 0:
+        flat_observations = None
+    else:
+        flat_observations = np.concatenate(flat_observations)
+    return (visual_observations, flat_observations)
 
 class ObservationConcatenationWrapper(Wrapper):
     def _step(self, action):
+        print('obs concat sub', type(self.env))
         obs, reward, done, info = self.env.step(action)
         return flatten_obs(obs), reward, done, info
 
@@ -274,9 +301,25 @@ class ObservationConcatenationWrapper(Wrapper):
         return SpecFormat.SURREAL_CLASSIC
 
     def observation_spec(self):
+        visual_dim = None
+        flat_dim = 0
+        print('parent obsspec', self.env.observation_spec().items())
+
+        for k, x in self.env.observation_spec().items():
+            if len(x.shape) > 1:
+                assert visual_dim is None # Should only be one visual observation
+                assert x.shape == (3, 84, 84) # Expected pixel size of dm_control environments
+                visual_dim = x
+            elif len(x.shape) == 1:
+                flat_dim += x[0]
+            else:
+                raise Exception("Unexpected data format")
+        if flat_dim == 0:
+            flat_dim = None
+
         return {
             'type': 'continuous',
-            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
+            'dim': (visual_dim, flat_dim)
         }
 
     def action_spec(self):

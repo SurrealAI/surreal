@@ -67,5 +67,6 @@ def make_dm_control(env_name, env_config):
     env = ObservationConcatenationWrapper(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
+    print('done make')
     return env, env_config
 

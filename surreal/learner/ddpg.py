@@ -44,7 +44,7 @@ class DDPGLearner(Learner):
                 self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
-            self.obs_dim = self.env_config.obs_spec.dim[0]
+            self.obs_dim = self.env_config.obs_spec.dim
 
             self.model = DDPGModel(
                 obs_dim=self.obs_dim,

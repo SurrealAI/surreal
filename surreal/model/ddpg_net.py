@@ -31,14 +31,14 @@ class DDPGModel(U.Module):
 
     def forward_actor(self, obs):
         shape = obs.size()
-        assert len(shape) == 2 and shape[1] == self.obs_dim
+        #assert len(shape) == 2 and shape[1] == self.obs_dim
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
         return self.actor(obs)
 
     def forward_critic(self, obs, action):
         obs_shape = obs.size()
-        assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
+        # assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
         action_shape = action.size()
         assert len(action_shape) == 2 and action_shape[1] == self.action_dim
         if self.use_z_filter:
