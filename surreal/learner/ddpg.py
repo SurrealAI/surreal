@@ -93,7 +93,22 @@ class DDPGLearner(Learner):
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         with U.torch_gpu_scope(self.gpu_ids):
-            obs = Variable(obs)
+            visual_obs, flat_obs = obs
+
+            if visual_obs is not None:
+                #visual_obs = U.to_float_tensor(visual_obs)
+                #assert torch.is_tensor(visual_obs)
+                #visual_obs = Variable(visual_obs.unsqueeze(0))
+                visual_obs = Variable(visual_obs)
+
+            if flat_obs is not None:
+                #flat_obs = U.to_float_tensor(flat_obs)
+                #assert torch.is_tensor(flat_obs)
+                #flat_obs = Variable(flat_obs.unsqueeze(0))
+                flat_obs = Variable(flat_obs)
+
+            obs = (visual_obs, flat_obs)
+            #obs = Variable(obs)
             actions = Variable(actions)
             rewards = Variable(rewards)
             obs_next = Variable(obs_next)
