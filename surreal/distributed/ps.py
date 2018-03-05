@@ -7,9 +7,9 @@ Evaluator: pulls param info from "psinfo" and do diagnostics.
 import pickle
 import time
 import surreal.utils as U
-from .module_dict import ModuleDict
-from .zmq_struct import (ZmqPublishServer, ZmqSubscribeClient,
-                         ZmqClient, ZmqServer)
+from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient
+from surreal.distributed.module_dict import ModuleDict
+from threading import Lock
 
 
 class ParameterPublisher(object):
@@ -23,9 +23,10 @@ class ParameterPublisher(object):
                 "<name>info" will be the key to the info Redis hashmap.
                 e.g. "psinfo" -> {'time': 32541.6, 'iteration': 1200}
         """
-        self._publisher = ZmqPublishServer(
+        self._publisher = ZmqPub(
+            host='*',
             port=port,
-            is_pyobj=True
+            preprocess=U.serialize,
         )
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)
@@ -46,7 +47,7 @@ class ParameterPublisher(object):
             'message': message,
             'hash': U.binary_hash(binary)
         }
-        self._publisher.publish((binary, info), topic='ps')
+        self._publisher.pub(topic='ps', data=(binary, info))
 
 
 class ParameterServer(object):
@@ -58,7 +59,8 @@ class ParameterServer(object):
     def __init__(self,
                  publish_host,
                  publish_port,
-                 agent_port):
+                 agent_port,
+                 load_balanced=False):
         """
 
         Args:
@@ -66,17 +68,20 @@ class ParameterServer(object):
             publish_port:
             agent_port: PS server that responds to agent fetch_parameter requests
         """
-        self._subscriber = ZmqSubscribeClient(
+        self._subscriber = ZmqSubClient(
             host=publish_host,
             port=publish_port,
             handler=self._set_storage,
             topic='ps',
-            is_pyobj=True
+            preprocess=U.deserialize,
         )
-        self._server = ZmqServer(
+        self._server = ZmqSimpleServer(
+            host='*',
             port=agent_port,
             handler=self._handle_agent_request,
-            is_pyobj=True
+            preprocess=U.deserialize,
+            postprocess=U.serialize,
+            load_balanced=load_balanced,
         )
         # storage
         self.parameters = None
@@ -121,8 +126,9 @@ class ParameterServer(object):
 
     def run_loop(self):
         """blocking"""
-        self._subscriber.run_loop(block=False)
+        self._subscriber.start()
         self._server.start()
+        self._subscriber.join()
         self._server.join()
 
 
@@ -137,10 +143,11 @@ class ParameterClient(object):
             port:
             module_dict:
         """
-        self._client = ZmqClient(
+        self._client = ZmqReq(
             host=host,
             port=port,
-            is_pyobj=True
+            preprocess=U.serialize,
+            postprocess=U.deserialize,
         )
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)

@@ -8,64 +8,7 @@ from surreal.session import (
     TimeThrottledTensorplex,
     get_loggerplex_client, get_tensorplex_client
 )
-from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
-from surreal.distributed.zmq_struct_new import LearnerDataPrefetcher
-
-class PrefetchBatchQueue(object):
-    """
-    Pre-fetch a batch of exp from sampler on Replay side
-    """
-    def __init__(self,
-                 sampler_host,
-                 sampler_port,
-                 batch_size,
-                 max_size,):
-        self._queue = queue.Queue(maxsize=max_size)
-        self._batch_size = batch_size
-        self._client = ZmqClientPool(
-            host=sampler_host,
-            port=sampler_port,
-            request=self._batch_size,
-            handler=self._enqueue,
-            is_pyobj=True,
-        )
-        self._enqueue_thread = None
-
-        self.timer = U.TimeRecorder()
-
-    def _enqueue(self, item):
-        self._queue.put(item, block=True)            
-
-    def start_enqueue_thread(self):
-        """
-        Producer thread, runs sampler function on a priority replay structure
-        Args:
-            sampler: function batch_i -> list
-                returns exp_dicts with 'obs_pointers' field
-            start_sample_condition: function () -> bool
-                begins sampling only when this returns True.
-                Example: when the replay memory exceeds a threshold size
-            start_sample_condvar: threading.Condition()
-                notified by Replay.insert() when start sampling condition is met
-            evict_lock: do not evict in the middle of fetching exp, otherwise
-                we might fetch a null exp that just got evicted.
-                locked by Replay.evict()
-        """
-        if self._enqueue_thread is not None:
-            raise RuntimeError('Enqueue thread is already running')
-        self._enqueue_thread = self._client
-        self._client.start()
-        return self._enqueue_thread
-
-    def dequeue(self):
-        """
-        Called by the neural network, draw the next batch of experiences
-        """
-        with self.timer.time():
-            return self._queue.get(block=True)
-
-    def __len__(self):
-        return self._queue.qsize()
+from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
 
 
 learner_registry = {}
@@ -366,6 +309,7 @@ class Learner(metaclass=LearnerMeta):
             Main loop that defines learner process
         """
         self.iter_timer.start()
+        self.publish_parameter(0, message='batch '+str(0))
         for i, batch in enumerate(self.fetch_iterator()):
             self.current_iter = i
             data = batch.data

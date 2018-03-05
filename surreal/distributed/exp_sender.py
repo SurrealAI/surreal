@@ -4,7 +4,7 @@ Send experience chunks (buffered) to Replay node.
 """
 import surreal.utils as U
 from surreal.session import PeriodicTracker
-from .zmq_struct import ZmqPushClient
+from surreal.distributed.zmq_struct import ZmqPusher
 
 
 class ExpBuffer(object):
@@ -62,11 +62,12 @@ class ExpSender(object):
             flush_iteration: how many send() calls before we flush the buffer
         """
         U.assert_type(flush_iteration, int)
-        self._client = ZmqPushClient(
-            host=host,
-            port=port,
-            is_pyobj=False,
-        )
+        self._client = ZmqPusher(host=host,port=port,preprocess=U.serialize)
+        # self._client = ZmqPushClient(
+        #     host=host,
+        #     port=port,
+        #     is_pyobj=False,
+        # )
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 
