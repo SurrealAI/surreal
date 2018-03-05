@@ -6,7 +6,7 @@ from threading import Thread, Lock
 from surreal.distributed.inmemory import inmem_serialize, inmem_deserialize, inmem_dump
 
 
-class OutsourceTask(Process):
+class MultiprocessTask(Process):
     def __init__(self):
         """
             Override this to setup states in the main process
@@ -16,7 +16,7 @@ class OutsourceTask(Process):
 
     def run(self):
         # You must initilize the transmission channel AFTER you fork off
-        self.sender = ZmqSender(self.host, self.port, serializer=inmem_serialize)
+        self.sender = ZmqSender(self.host, self.port, preprocess=inmem_serialize)
         # self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
 
     def setup_comm(self, host, port):
@@ -27,7 +27,7 @@ class OutsourceTask(Process):
         self.port = port
 
 
-class OutsourceManager(Thread):
+class MultiprocessManager(Thread):
     def __init__(self, host, port, task, n_workers, handler, args=None, kwargs=None):
         Thread.__init__(self)
         if args is None:
@@ -50,7 +50,7 @@ class OutsourceManager(Thread):
         self.receiver = ZmqReceiver(host=self.host, 
                                 port=self.port, 
                                 bind=True, 
-                                deserializer=inmem_deserialize)
+                                preprocess=inmem_deserialize)
 
         self.workers = []
         for i in range(self.n_workers):
@@ -67,7 +67,7 @@ class OutsourceManager(Thread):
             worker.join()
 
 
-class OutsourceManagerQueue(OutsourceManager):
+class MultiprocessManagerQueue(MultiprocessManager):
     """
         Uses a queue to store response data instead of calling a handler
     """
@@ -97,7 +97,7 @@ class OutsourceManagerQueue(OutsourceManager):
         self.queue.put(data, block=True)
 
 
-class DataBatchFetchingTask(OutsourceTask):
+class DataBatchFetchingTask(MultiprocessTask):
     def __init__(self, host, port, request, num_workers):
         """
             Override this to setup states in the main process
@@ -113,7 +113,7 @@ class DataBatchFetchingTask(OutsourceTask):
         self.lock = Lock()
 
     def run(self):
-        self.sender = ZmqSender(self.host, self.port, serializer=inmem_serialize)
+        self.sender = ZmqSender(self.host, self.port, preprocess=inmem_serialize)
         self.pool.start()
         self.pool.join()
 
@@ -123,7 +123,7 @@ class DataBatchFetchingTask(OutsourceTask):
             self.sender.send(data)
 
 
-class LearnerDataPrefetcher(OutsourceManagerQueue):
+class LearnerDataPrefetcher(MultiprocessManagerQueue):
     """
         Convenience class that initializes everything from session config
         + batch_size

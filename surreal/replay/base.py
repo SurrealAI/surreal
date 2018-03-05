@@ -42,7 +42,9 @@ class Replay(object, metaclass=ReplayMeta):
         self._collector_server = ExperienceCollectorServer(
             host=self.session_config.replay.collector_backend_host,
             port=self.session_config.replay.collector_backend_port,
+            # port=7001,
             exp_handler=self._insert_wrapper,
+            load_balanced=True,
         )
         self._sampler_server = ZmqSimpleServer(
             host=self.session_config.replay.sampler_backend_host,
@@ -66,12 +68,15 @@ class Replay(object, metaclass=ReplayMeta):
         if self._evict_interval:
             self.start_evict_thread()
 
-        self._sampler_server.start()
+        # self._sampler_server.start()
 
     def join(self):
-        self._tensorplex_thread.join()
         self._collector_server.join()
-        self._sampler_server.join()
+        # self._sampler_server.join()
+        if self._has_tensorplex:
+            self._tensorplex_thread.join()
+        if self._evict_interval:
+            self._evict_thread.join()
 
     def insert(self, exp_dict):
         """

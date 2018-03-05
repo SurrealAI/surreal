@@ -10,18 +10,21 @@ from threading import Thread
 class ExperienceCollectorServer(Thread):
     def __init__(self, host, port, exp_handler, load_balanced=True):
         Thread.__init__(self)
-        self.puller = ZmqPuller(host=host, 
-                                port=port, 
-                                bind=(not load_balanced), 
-                                preprocess=U.deserialize)
-        self._weakref_map = weakref.WeakValueDictionary()
+        self.host = host
+        self.port = port
+        self.bind = not load_balanced
         self._exp_handler = exp_handler
 
     def run(self):
+        self._weakref_map = weakref.WeakValueDictionary()
+        self.puller = ZmqPuller(host=self.host, 
+                                port=self.port, 
+                                bind=self.bind, 
+                                preprocess=U.deserialize)
         while True:
             exp, storage = self.puller.pull()
             experience_list = self._retrieve_storage(exp, storage)
-            for exp in exp_list:
+            for exp in experience_list:
                 self._exp_handler(exp)
 
     def _retrieve_storage(self, exp, storage):

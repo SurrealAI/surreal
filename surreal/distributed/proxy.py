@@ -45,7 +45,7 @@ class ZmqLoadBalancer(object):
         # We never get here…
         frontend.close()
         backend.close()
-        context.term()
+        self.context.term()
 
     def initialize(self):
         pass

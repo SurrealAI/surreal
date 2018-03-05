@@ -121,44 +121,32 @@ class ZmqPuller(ZmqSocketWrapper):
 ##
 # Sender receiver implemented by REQ-REP
 ##
-
 class ZmqSender(ZmqSocketWrapper):
-    def __init__(self, host, port, serializer=None):
+    def __init__(self, host, port, preprocess=None):
         super().__init__(host=host, port=port, mode=zmq.REQ, bind=False)
-        self.serializer = serializer
+        self.preprocess = preprocess
         self.establish()
 
     def send(self, data):
-        if self.serializer:
-            data = self.serializer(data)
+        if self.preprocess:
+            data = self.preprocess(data)
         self.socket.send(data)
         resp = self.socket.recv()
         return resp
 
+
 class ZmqReceiver(ZmqSocketWrapper):
-    def __init__(self, host, port, bind=True, deserializer=None):
+    def __init__(self, host, port, bind=True, preprocess=None):
         super().__init__(host=host, port=port, mode=zmq.REP, bind=bind)
-        self.deserializer = deserializer
+        self.preprocess = preprocess
         self.establish()
 
     def recv(self):
         data = self.socket.recv()
-        if self.deserializer:
-            data = self.deserializer(data)
+        if self.preprocess:
+            data = self.preprocess(data)
         self.socket.send(b'ack') # doesn't matter
         return data
-
-
-class ZmqPullerThread(Thread):
-    def __init__(self, host, port, bind, handler):
-        Thread.__init__(self)
-        self.socket = ZmqSocketWrapper(host=host, port=port, mode=zmq.PULL, bind=bind)
-
-    def run(self):
-        self.socket.establish()
-        while True:
-            data = self.socket.recv()
-            self.handler(data)
 
 
 class ZmqReqWorker(Thread):
@@ -277,22 +265,25 @@ class ZmqPub(ZmqSocketWrapper):
 
 
 class ZmqSub(ZmqSocketWrapper):
-    def __init__(self, host, port, topic, hwm=1, deserializer=None):
+    def __init__(self, host, port, topic, hwm=1, preprocess=None):
         super().__init__(host=host, port=port, mode=zmq.SUB, bind=False)
         topic = U.str2bytes(topic)
         self.socket.set_hwm(hwm)
-        self.socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self.preprocess = preprocess
         self.establish()
+        self.socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def recv(self):
         _, data = self.socket.recv_multipart()
+        if self.preprocess:
+            data = self.preprocess(data)
         return data
 
 
 class ZmqSubClient(Thread):
     def __init__(self, host, port, topic, handler, preprocess=None, hwm=1):
         Thread.__init__(self)
-        self.sub = ZmqSub(host, port, topic, hwm)
+        self.hwm = hwm
         self.host = host
         self.port = port
         self.topic = topic
@@ -300,6 +291,7 @@ class ZmqSubClient(Thread):
         self.handler = handler
 
     def run(self):
+        self.sub = ZmqSub(self.host, self.port, self.topic, self.hwm)
         zmq_logger.infofmt('SubClient listening for topic {} on {}:{}', 
                              self.topic, self.host, self.port)
         while True:
@@ -317,6 +309,8 @@ class ZmqAsyncServerWorker(Thread):
         Thread.__init__(self)
         self.context = context
         self._handler = handler
+        self.preprocess = preprocess
+        self.postprocess = postprocess
 
     def run(self):
         socket = self.context.socket(zmq.REP)
@@ -389,16 +383,22 @@ class ZmqAsyncServer(Thread):
 
 class ZmqSimpleServer(Thread):
     def __init__(self, host, port, handler,
-                 load_balanced=False, 
+                 load_balanced, 
                  preprocess=None, 
                  postprocess=None):
         Thread.__init__(self)
-        self.sw = ZmqSocketWrapper(mode=zmq.REP,host=host,port=port,bind=(not load_balanced))
+        self.host = host
+        self.port = port
+        self.bind = (not load_balanced)
         self.preprocess = preprocess
         self.postprocess = postprocess
         self.handler = handler
 
     def run(self):
+        self.sw = ZmqSocketWrapper(mode=zmq.REP,
+                                   host=self.host,
+                                   port=self.port,
+                                   bind=self.bind)
         socket = self.sw.establish()
         while True:
             req = socket.recv()
