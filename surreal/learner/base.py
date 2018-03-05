@@ -309,7 +309,6 @@ class Learner(metaclass=LearnerMeta):
             Main loop that defines learner process
         """
         self.iter_timer.start()
-        print('Publishing parameter')
         self.publish_parameter(0, message='batch '+str(0))
         for i, batch in enumerate(self.fetch_iterator()):
             self.current_iter = i

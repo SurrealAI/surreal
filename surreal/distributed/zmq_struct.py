@@ -265,23 +265,24 @@ class ZmqPub(ZmqSocketWrapper):
 
 
 class ZmqSub(ZmqSocketWrapper):
-    def __init__(self, host, port, topic, hwm=1, preprocess=None):
-        super().__init__(host=host, port=port, mode=zmq.SUB, bind=False)
+    def __init__(self, host, port, topic, hwm=1, preprocess=None, context=None):
+        super().__init__(host=host, port=port, mode=zmq.SUB, bind=False, context=context)
         topic = U.str2bytes(topic)
+        self.topic = topic
         self.socket.set_hwm(hwm)
+        self.socket.setsockopt(zmq.SUBSCRIBE, topic)
         self.preprocess = preprocess
         self.establish()
-        self.socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def recv(self):
-        _, data = self.socket.recv_multipart()
+        topic, data = self.socket.recv_multipart()
         if self.preprocess:
             data = self.preprocess(data)
         return data
 
 
 class ZmqSubClient(Thread):
-    def __init__(self, host, port, topic, handler, preprocess=None, hwm=1):
+    def __init__(self, host, port, topic, handler, preprocess=None, hwm=1, context=None):
         Thread.__init__(self)
         self.hwm = hwm
         self.host = host
@@ -289,9 +290,10 @@ class ZmqSubClient(Thread):
         self.topic = topic
         self.preprocess = preprocess
         self.handler = handler
+        self.context = context
 
     def run(self):
-        self.sub = ZmqSub(self.host, self.port, self.topic, self.hwm)
+        self.sub = ZmqSub(self.host, self.port, self.topic, self.hwm, context=self.context)
         zmq_logger.infofmt('SubClient listening for topic {} on {}:{}', 
                              self.topic, self.host, self.port)
         while True:
@@ -383,7 +385,7 @@ class ZmqAsyncServer(Thread):
 
 class ZmqSimpleServer(Thread):
     def __init__(self, host, port, handler,
-                 load_balanced, 
+                 load_balanced, context=None,
                  preprocess=None, 
                  postprocess=None):
         Thread.__init__(self)
@@ -393,12 +395,14 @@ class ZmqSimpleServer(Thread):
         self.preprocess = preprocess
         self.postprocess = postprocess
         self.handler = handler
+        self.context = context
 
     def run(self):
         self.sw = ZmqSocketWrapper(mode=zmq.REP,
                                    host=self.host,
                                    port=self.port,
-                                   bind=self.bind)
+                                   bind=self.bind,
+                                   context=self.context)
         socket = self.sw.establish()
         while True:
             req = socket.recv()

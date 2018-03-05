@@ -68,13 +68,13 @@ class ParameterServer(object):
             publish_port:
             agent_port: PS server that responds to agent fetch_parameter requests
         """
-        # self._subscriber = ZmqSubClient(
-        #     host=publish_host,
-        #     port=publish_port,
-        #     handler=self._set_storage,
-        #     topic='ps',
-        #     preprocess=U.deserialize,
-        # )
+        self._subscriber = ZmqSubClient(
+            host=publish_host,
+            port=publish_port,
+            handler=self._set_storage,
+            topic='ps',
+            preprocess=U.deserialize,
+        )
         self._server = ZmqSimpleServer(
             host='*',
             port=agent_port,
@@ -89,7 +89,6 @@ class ParameterServer(object):
 
 
     def _set_storage(self, data):
-        print('l')
         self.parameters, self.param_info = data
 
     def _handle_agent_request(self, request):
@@ -128,9 +127,9 @@ class ParameterServer(object):
 
     def run_loop(self):
         """blocking"""
-        # self._subscriber.start()
+        self._subscriber.start()
         self._server.start()
-        # self._subscriber.join()
+        self._subscriber.join()
         self._server.join()
 
 

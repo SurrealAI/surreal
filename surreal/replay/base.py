@@ -68,11 +68,11 @@ class Replay(object, metaclass=ReplayMeta):
         if self._evict_interval:
             self.start_evict_thread()
 
-        # self._sampler_server.start()
+        self._sampler_server.start()
 
     def join(self):
         self._collector_server.join()
-        # self._sampler_server.join()
+        self._sampler_server.join()
         if self._has_tensorplex:
             self._tensorplex_thread.join()
         if self._evict_interval:
