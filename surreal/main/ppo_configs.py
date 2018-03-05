@@ -48,7 +48,7 @@ def generate(argv):
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 10,
+            'stride': 1,
             'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
@@ -67,9 +67,9 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 256,
-            'memory_size': 512,
-            'sampling_start_size': 256,
+            'batch_size': 64,
+            'memory_size': 4096,
+            'sampling_start_size': 64,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -79,7 +79,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/200,
+        'sleep_time': 1/350 - 1/1300,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',
@@ -110,7 +110,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10,
+            'fetch_parameter_interval': 25,
         },
         'replay' : {
             'max_puller_queue': 3,

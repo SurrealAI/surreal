@@ -61,11 +61,6 @@ class ZFilter(U.Module):
             added_count = added_count.cuda()
         self.count += added_count 
 
-        print('mean: ', self.running_mean())
-        print('std:', self.running_std())
-        print('# exp accumulated:', self.count)
-        print('---------------------')
-
     # define forward prop operations in terms of layers
     def forward(self, inputs):
         '''
