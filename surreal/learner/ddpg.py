@@ -86,8 +86,8 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
-            self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-            # self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+            self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
@@ -177,7 +177,7 @@ class DDPGLearner(Learner):
             batch.obs_next,
             batch.dones
         )
-        self.update_tensorplex(tensorplex_update_dict)
+        self.tensorplex.add_scalars(tensorplex_update_dict)
         self.periodic_checkpoint(
             global_steps=self.current_iteration,
             score=None,

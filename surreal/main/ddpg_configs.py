@@ -67,8 +67,8 @@ def generate(argv):
             # 'agent_sleep_time': 1/50.0,
             'agent_sleep_time': 0,
             'n_step': 5,
-            'experience': 'ExpSenderWrapperMultiStepMovingWindow',
-            # 'experience': 'ExpSenderWrapperSSARNStepBoostrap',
+            # 'experience': 'ExpSenderWrapperMultiStepMovingWindow',
+            'experience': 'ExpSenderWrapperSSARNStepBoostrap',
             'stride': 1,
         },
         'replay': {
@@ -87,9 +87,9 @@ def generate(argv):
     env_config = {
         'env_name': args.env,
         'video': {
-            'record_video': False,
-            'save_directory': '/mnt/snaps/',
-            'max_videos': 100,
+            'record_video': True,
+            'save_folder': None,
+            'max_videos': 500,
             'record_every': 100,
         }
     }
@@ -103,8 +103,8 @@ def generate(argv):
                 'eval_env': 5,
                 'eval_env_sleep': 30,  # throttle eval by sleep n seconds
                 # for manual updates:
-                'agent': 50,  # agent.update_tensorplex()
-                'learner': 20,  # learner.update_tensorplex()
+                'agent': 50,  # agent.tensorplex.add_scalars()
+                'learner': 20,  # learner.tensorplex.add_scalars()
             }
         },
         'sender': {

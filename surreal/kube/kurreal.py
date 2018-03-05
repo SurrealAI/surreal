@@ -1,10 +1,10 @@
 import argparse
 import surreal
 import webbrowser
+import re
 from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
-
 
 
 def _process_labels(label_string):
@@ -36,18 +36,22 @@ class KurrealParser:
         self._setup_restore()
         self._setup_resume()
         self._setup_delete()
+        self._setup_delete_batch()
         self._setup_log()
         self._setup_namespace()
         self._setup_tensorboard()
+        self._setup_create_tensorboard()
         self._setup_list()
         self._setup_pod()
         self._setup_describe()
         self._setup_exec()
         self._setup_scp()
+        self._setup_download_experiment()
         self._setup_ssh()
         self._setup_ssh_node()
         self._setup_ssh_nfs()
         self._setup_configure_ssh()
+        self._setup_capture_tensorboard()
         return self._master_parser
 
     def _add_subparser(self, name, aliases, **kwargs):
@@ -111,6 +115,15 @@ class KurrealParser:
     def _setup_delete(self):
         parser = self._add_subparser('delete', aliases=['d'])
         self._add_experiment_name(parser, nargs='?')
+        parser.add_argument(
+            '-f', '--force',
+            action='store_true',
+            help='force delete, do not show confirmation message.'
+        )
+
+    def _setup_delete_batch(self):
+        parser = self._add_subparser('delete-batch', aliases=['db'])
+        parser.add_argument('experiment_name', type=str)
         parser.add_argument(
             '-f', '--force',
             action='store_true',
@@ -214,6 +227,25 @@ class KurrealParser:
             help='only show the URL without opening the browser.'
         )
 
+    def _setup_create_tensorboard(self):
+        parser = self._add_subparser('create-tensorboard', aliases=['ctb'])
+        parser.add_argument(
+            'remote_experiment_subfolder',
+            help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
+        )
+        parser.add_argument(
+            '-a', '--absolute-path',
+            action='store_true',
+            help='use absolute remote path instead of '
+                 '<fs_mount_path>/<root_subfolder>/<remote_folder>'
+        )
+        parser.add_argument(
+            '-p', '--pod-type',
+            default='tensorboard',
+            help='pod type for the tensorboard pod (specified in ~/.surreal.yml). '
+                 'please use the smallest compute instance possible.'
+        )
+
     def _setup_describe(self):
         parser = self._add_subparser('describe', aliases=['des'])
         parser.add_argument(
@@ -242,6 +274,30 @@ class KurrealParser:
             help='destination file or folder. "<component>:/file/path" denotes remote.'
         )
         self._add_namespace(parser, positional=True)
+
+    def _setup_download_experiment(self):
+        parser = self._add_subparser('download-experiment',
+                                     aliases=['de', 'download'])
+        parser.add_argument(
+            'remote_experiment_subfolder',
+            help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
+        )
+        parser.add_argument(
+            '-a', '--absolute-path',
+            action='store_true',
+            help='use absolute remote path instead of '
+                 '<fs_mount_path>/<root_subfolder>/<remote_folder>'
+        )
+        parser.add_argument(
+            '-o', '--output-path',
+            default='.',
+            help='local folder path to download to'
+        )
+        parser.add_argument(
+            '-m', '--match-fuzzy',
+            action='store_true',
+            help='enable fuzzy matching with the currently running namespaces'
+        )
 
     def _setup_ssh(self):
         parser = self._add_subparser('ssh', aliases=[])
@@ -272,6 +328,14 @@ class KurrealParser:
             type=_process_labels,
             help='mark the selected nodes with new labels in format '
                  '"mylabel1=myvalue1,mylabel2=myvalue2"'
+        )
+
+    def _setup_capture_tensorboard(self):
+        parser = self._add_subparser('capture-tensorboard', aliases=['cptb'])
+        parser.add_argument(
+            'experiment_prefix',
+            help='capture tensorboard screenshot for all prefix matched experiments,\
+                  one can also use regex'  
         )
 
     # ==================== helpers ====================
@@ -401,12 +465,12 @@ class Kurreal:
         self.kube = Kubectl(dry_run=args.dry_run)
 
     @staticmethod
-    def _find_kurreal_template():
+    def _find_kurreal_template(template_name):
         """
         https://stackoverflow.com/questions/20298729/pip-installing-data-files-to-the-wrong-place
         make sure the path is consistent with MANIFEST.in
         """
-        return U.f_join(surreal.__path__[0], 'kube', 'kurreal_template.yml')
+        return U.f_join(surreal.__path__[0], 'kube', template_name)
 
     def _create_helper(self, *,
                        config_py,
@@ -428,6 +492,8 @@ class Kurreal:
         prefixed_name = kube.prefix_username(experiment_name)
         stripped_name = kube.strip_username(experiment_name)
         experiment_folder = kube.get_remote_experiment_folder(stripped_name)
+        rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
+        U.f_mkdir_in_path(rendered_path)
 
         cmd_gen = CommandGenerator(
             num_agents=num_agents,
@@ -445,10 +511,9 @@ class Kurreal:
         print('  agent_pod_type:', agent_pod_type)
         print('  nonagent_pod_type:', nonagent_pod_type)
 
-        rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
         kube.create_surreal(
             prefixed_name,
-            jinja_template=self._find_kurreal_template(),
+            jinja_template=self._find_kurreal_template('kurreal_template.yml'),
             rendered_path=rendered_path,
             snapshot=not no_snapshot,
             agent_pod_type=agent_pod_type,
@@ -627,15 +692,15 @@ class Kurreal:
             raise IndexError('must enter a number between 0 - {}'.format(len(matches)-1))
         return matches[ans]
 
-    def kurreal_delete(self, args):
+    def _kurreal_delete(self, experiment_name, force, dry_run):
         """
         Stop an experiment, delete corresponding pods, services, and namespace.
         If experiment_name is omitted, default to deleting the current namespace.
         """
         kube = self.kube
-        if args.experiment_name:
-            to_delete = args.experiment_name
-            if args.force:
+        if experiment_name:
+            to_delete = experiment_name
+            if force:
                 assert to_delete in kube.list_namespaces(), \
                     'namespace `{}` not found. ' \
                     'Run without --force to fuzzy match the name.'.format(to_delete)
@@ -648,7 +713,7 @@ class Kurreal:
 
         assert to_delete not in ['default', 'kube-public', 'kube-system'], \
             'cannot delete reserved namespaces: default, kube-public, kube-system'
-        if not args.force and not args.dry_run:
+        if not force and not dry_run:
             ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
             if ans not in ['', 'y', 'yes', 'Y']:
                 print('aborted')
@@ -662,6 +727,28 @@ class Kurreal:
             yaml_path=None
         )
         print('deleting all resources under namespace "{}"'.format(to_delete))
+
+    def kurreal_delete(self, args):
+        """
+        Stop an experiment, delete corresponding pods, services, and namespace.
+        If experiment_name is omitted, default to deleting the current namespace.
+        """
+        self._kurreal_delete(args.experiment_name, args.force, args.dry_run)
+
+    def kurreal_delete_batch(self, args):
+        """
+        Stop an experiment, delete corresponding pods, services, and namespace.
+        If experiment_name is omitted, default to deleting the current namespace.
+        Matches all possible experiments
+        """
+        out, _, _ = self.kube.run_verbose('get namespace -o name',
+                        print_out=False,raise_on_error=True)
+        namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
+        cwd = os.getcwd()
+        processes = []
+        for namespace in namespaces:
+            if re.match(args.experiment_name, namespace):
+                self._kurreal_delete(namespace, args.force, args.dry_run)
 
     def kurreal_namespace(self, args):
         """
@@ -762,6 +849,29 @@ class Kurreal:
             args.src_file, args.dest_file, self._get_namespace(args)
         )
 
+    def kurreal_download_experiment(self, args):
+        """
+        Same as `kurreal scp learner:<mount_path>/<root_subfolder>/experiment-folder .`
+        """
+        kube = self.kube
+        remote_subfolder = args.remote_experiment_subfolder
+        if not args.absolute_path:
+            if args.match_fuzzy:
+                assert '/' not in remote_subfolder, \
+                    "fuzzy match does not allow '/' in experiment name"
+                remote_subfolder = self._interactive_find_ns(remote_subfolder)
+                remote_subfolder = kube.strip_username(remote_subfolder)
+            remote_path = kube.get_remote_experiment_folder(remote_subfolder)
+        else:
+            assert not args.match_fuzzy, \
+                'cannot fuzzy match when --absolute-path is turned on.'
+            remote_path = remote_subfolder
+        # the experiment folder will be unpacked if directly scp to "."
+        output_path = U.f_join(args.output_path, U.f_last_part_in_path(remote_path))
+        kube.scp_surreal(
+            'learner:' + remote_path, output_path
+        )
+
     def kurreal_ssh(self, args):
         """
         Interactive /bin/bash into the pod
@@ -822,6 +932,60 @@ class Kurreal:
                 webbrowser.open(url)
         else:
             print_err('Tensorboard does not yet have an external IP.')
+
+    def kurreal_create_tensorboard(self, args):
+        """
+        Create a single pod that displays tensorboard of an old experiment.
+        After the service is up and running, run `kurreal tb` to open the external
+        URL in your browser
+        """
+        kube = self.kube
+        remote_subfolder = args.remote_experiment_subfolder
+        rendered_name = (remote_subfolder.replace('/', '-')
+                         .replace('.', '-').replace('_', '-'))
+        rendered_path = kube.get_path('kurreal-tensorboard', rendered_name + '.yml')
+        U.f_mkdir_in_path(rendered_path)
+        if not args.absolute_path:
+            remote_path = kube.get_remote_experiment_folder(remote_subfolder)
+        else:
+            remote_path = remote_subfolder
+        namespace = kube.create_tensorboard(
+            remote_path=remote_path,
+            jinja_template=self._find_kurreal_template('tensorboard_template.yml'),
+            rendered_path=rendered_path,
+            tensorboard_pod_type=args.pod_type
+        )
+        print('Creating standalone tensorboard pod. ')
+        print('Please run `kurreal tb` to open the tensorboard URL in your browser '
+              'when the service is up and running. '
+              'You can check service by `kurreal list service`')
+        print('  remote_path:', remote_path)
+        print('  tensorboard_pod_type:', args.pod_type)
+        # switch to the standalone pod namespace just created
+        kube.set_namespace(namespace)
+
+    def kurreal_capture_tensorboard(self, args):
+        print('############### \n '
+            'If this command fails, check that your surreal.yml contains\n'
+            'capture_tensorboard:'
+            '  node_path: ...'
+            '  library_path: ...'
+            '###############')
+        pattern = args.experiment_prefix
+        out, _, _ = self.kube.run_verbose('get namespace -o name',
+                                print_out=False,raise_on_error=True)
+        # out is in format namespaces/[namespace_name]
+        namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
+        cwd = os.getcwd()
+        processes = []
+        for namespace in namespaces:
+            if re.match(pattern, namespace):
+                job = self.kube.capture_tensorboard(namespace)
+                processes.append(job)
+                # My computer cannot do everything at the same time unfortunately
+                job.wait()
+        # for process in processes:
+        #     process.wait()
 
     def kurreal_label(self, args):
         """

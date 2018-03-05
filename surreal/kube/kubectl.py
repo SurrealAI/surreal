@@ -382,6 +382,73 @@ class Kubectl(object):
             check_experiment_exists=check_experiment_exists,
         )
 
+    def create_tensorboard(self,
+                           remote_path,
+                           jinja_template,
+                           rendered_path,
+                           tensorboard_pod_type,
+                           ):
+        """
+        Create a standalone pod under namespace "tb-remote-folder". The "remote-folder"
+        part is determined from the last two level of folders in remote_path,
+        and replace any special character with "-"
+
+        Args:
+            remote_path: absolute path to the experiment folder
+                "tensorboard" should be a subfolder under remote_path
+            jinja_template: tensorboard_template.yml file path
+            rendered_path: rendered yaml file path
+            tensorboard_pod_type: key to spec defined in
+                `pod_types` section of .surreal.yml
+
+        Returns:
+            newly created namespace for the tensorboard pod
+        """
+        remote_parts = U.f_split_path(remote_path, normpath=True)
+        namespace = 'tb-' + '-'.join(remote_parts[-2:])
+        namespace = namespace.replace('.', '-').replace('_', '-')
+        C = self.config
+        context = {
+            'TENSORBOARD_CMD':
+                'tensorboard --logdir {} --port 6006'.format(remote_path)
+        }
+        # Mount file system from
+        if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
+            context['FS_TYPE'] = 'emptyDir'
+            context['FS_SERVER'] = None
+            context['FS_PATH_ON_SERVER'] = None
+        elif C.fs.type.lower() in ['localhost', 'hostpath']:
+            context['FS_TYPE'] = 'hostPath'
+            context['FS_SERVER'] = None
+            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
+        elif C.fs.type.lower() in ['nfs']:
+            context['FS_TYPE'] = 'nfs'
+            context['FS_SERVER'] = C.fs.server
+            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
+        else:
+            raise NotImplementedError('Unsupported file server type: "{}". '
+                                      'Supported options are [emptyDir, hostPath, nfs]'.format(C.fs.type))
+        context['FS_MOUNT_PATH'] = C.fs.mount_path
+
+        assert tensorboard_pod_type in C.pod_types, \
+            'tensorboard pod type not found in `pod_types` section in ~/.surreal.yml'
+        agent_pod_spec = C.pod_types[tensorboard_pod_type]
+        context['AGENT_IMAGE'] = agent_pod_spec.image
+        context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
+        context['AGENT_RESOURCE_REQUEST'] = \
+            agent_pod_spec.get('resource_request', {})
+        context['AGENT_RESOURCE_LIMIT'] = \
+            agent_pod_spec.get('resource_limit', {})
+
+        self.create(
+            namespace=namespace,
+            jinja_template=jinja_template,
+            rendered_path=rendered_path,
+            context=context,
+            check_experiment_exists=False,
+        )
+        return namespace
+
     def delete(self, namespace, yaml_path=None):
         """
         kubectl delete -f kurreal.yml --namespace <experiment_name>
@@ -834,6 +901,18 @@ class Kubectl(object):
         ssh into the file system server specified in ~/.surrreal.yml
         """
         return self.gcloud_ssh_node(self.config.fs.server)
+
+    def capture_tensorboard(self, namespace):
+        node_path = self.config.capture_tensorboard.node_path
+        library_path = self.config.capture_tensorboard.library_path
+        url = 'http://{}'.format(self.external_ip('tensorboard',namespace=namespace))
+        save_path = os.path.join(os.getcwd(), '{}.jpg'.format(namespace))
+        WIDTH = 5000
+        HEIGHT = 3300
+        cmd = [node_path, library_path, url, save_path, str(WIDTH), str(HEIGHT)]
+        print('>> {:s}'.format(' '.join(cmd)))
+        p = pc.Popen(cmd)
+        return p
 
 
 if __name__ == '__main__':
