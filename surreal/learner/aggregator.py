@@ -38,12 +38,14 @@ class SSARAggregator():
             aggregated experience
         """
         
-        obs0, actions, rewards, obs1, dones = [], [], [], [], []
+        visual_obs0, flat_obs0, actions, rewards, visual_obs1, flat_obs1, dones = [], [], [], [], [], [], []
         for exp in exp_list:  # dict
-            obs0.append(np.array(exp['obs'][0], copy=False))
+            visual_obs0.append(np.array(exp['obs'][0][0], copy=False))
+            flat_obs0.append(np.array(exp['obs'][0][1], copy=False))
             actions.append(exp['action'])
             rewards.append(exp['reward'])
-            obs1.append(np.array(exp['obs'][1], copy=False))
+            visual_obs1.append(np.array(exp['obs'][1][0], copy=False))
+            flat_obs1.append(np.array(exp['obs'][1][1], copy=False))
             dones.append(float(exp['done']))
         if self.action_type == ActionType.continuous:
             actions = U.to_float_tensor(actions)
@@ -51,9 +53,30 @@ class SSARAggregator():
             actions = torch.LongTensor(actions).unsqueeze(1)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
+
+        # Check whether the first element of the list is array(None)
+        if visual_obs0[0].shape == ():
+            visual_obs0 = None
+        else:
+            visual_obs0 = U.to_float_tensor(visual_obs0)
+        print(flat_obs0[:32])
+        if flat_obs0[0].shape == ():
+            flat_obs0 = None
+        else:
+            flat_obs0 = U.to_float_tensor(flat_obs0)
+        if visual_obs1[0].shape == ():
+            visual_obs1 = None
+        else:
+            visual_obs1 = U.to_float_tensor(visual_obs1)
+        print(flat_obs1[:32])
+        if flat_obs1[0].shape == ():
+            flat_obs1 = None
+        else:
+            flat_obs1 = U.to_float_tensor(flat_obs1)
+
         return EasyDict(
-            obs=U.to_float_tensor(obs0),
-            obs_next=U.to_float_tensor(obs1),
+            obs=(visual_obs0, flat_obs0),
+            obs_next=(visual_obs1, flat_obs1),
             actions=actions,
             rewards=U.to_float_tensor(rewards).unsqueeze(1),
             dones=U.to_float_tensor(dones).unsqueeze(1),

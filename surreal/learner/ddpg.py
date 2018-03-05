@@ -93,10 +93,44 @@ class DDPGLearner(Learner):
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         with U.torch_gpu_scope(self.gpu_ids):
-            obs = Variable(obs)
+            visual_obs, flat_obs = obs
+
+            if visual_obs is not None:
+                #visual_obs = U.to_float_tensor(visual_obs)
+                #assert torch.is_tensor(visual_obs)
+                #visual_obs = Variable(visual_obs.unsqueeze(0))
+                visual_obs = Variable(visual_obs).detach()
+
+            if flat_obs is not None:
+                #flat_obs = U.to_float_tensor(flat_obs)
+                #assert torch.is_tensor(flat_obs)
+                #flat_obs = Variable(flat_obs.unsqueeze(0))
+                flat_obs = Variable(flat_obs).detach()
+
+            obs = (visual_obs, flat_obs)
+            #obs = Variable(obs)
+
+            visual_obs_next, flat_obs_next = obs_next
+
+            if visual_obs_next is not None:
+                #visual_obs_next = U.to_float_tensor(visual_obs_next)
+                #assert torch.is_tensor(visual_obs_next)
+                #visual_obs_next = Variable(visual_obs_next.unsqueeze(0))
+                visual_obs_next = Variable(visual_obs_next).detach()
+
+            if flat_obs_next is not None:
+                #flat_obs_next = U.to_float_tensor(flat_obs_next)
+                #assert torch.is_tensor(flat_obs_next)
+                #flat_obs_next = Variable(flat_obs_next.unsqueeze(0))
+                flat_obs_next = Variable(flat_obs_next).detach()
+
+            obs_next = (visual_obs_next, flat_obs_next)
+            #obs_next = Variable(obs_next)
+
+
             actions = Variable(actions)
             rewards = Variable(rewards)
-            obs_next = Variable(obs_next)
+            #obs_next = Variable(obs_next)
             done = Variable(done)
 
             assert actions.max().data[0] <= 1.0
@@ -120,7 +154,7 @@ class DDPGLearner(Learner):
 
             # compute Q(s_t, a_t)
             y_policy = self.model.forward_critic(
-                obs.detach(),
+                obs,
                 actions.detach()
             )
 
@@ -137,8 +171,8 @@ class DDPGLearner(Learner):
             # actor update
             self.model.actor.zero_grad()
             actor_loss = -self.model.forward_critic(
-                obs.detach(),
-                self.model.forward_actor(obs.detach())
+                obs,
+                self.model.forward_actor(obs)
             ).mean()
             actor_loss.backward()
             if self.clip_actor_gradient:

@@ -79,15 +79,20 @@ class DDPGAgent(Agent):
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
 
     def act(self, obs):
-        visual_obs, flat_obs = obs
-        visual_obs = U.to_float_tensor(visual_obs)
-        flat_obs = U.to_float_tensor(flat_obs)
-        assert torch.is_tensor(visual_obs)
-        assert torch.is_tensor(flat_obs)
         if self.sleep_time > 0.0:
             time.sleep(self.sleep_time)
-        visual_obs = Variable(visual_obs.unsqueeze(0))
-        flat_obs = Variable(flat_obs.unsqueeze(0))
+        visual_obs, flat_obs = obs
+
+        if visual_obs is not None:
+            visual_obs = U.to_float_tensor(visual_obs)
+            assert torch.is_tensor(visual_obs)
+            visual_obs = Variable(visual_obs.unsqueeze(0))
+
+        if flat_obs is not None:
+            flat_obs = U.to_float_tensor(flat_obs)
+            assert torch.is_tensor(flat_obs)
+            flat_obs = Variable(flat_obs.unsqueeze(0))
+
         obs = (visual_obs, flat_obs)
         action = self.model.forward_actor(obs).data.numpy()[0]
         action = action.clip(-1, 1)
