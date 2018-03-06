@@ -112,6 +112,7 @@ class DDPGLearner(Learner):
 
             visual_obs_next, flat_obs_next = obs_next
 
+
             if visual_obs_next is not None:
                 #visual_obs_next = U.to_float_tensor(visual_obs_next)
                 #assert torch.is_tensor(visual_obs_next)
@@ -126,7 +127,6 @@ class DDPGLearner(Learner):
 
             obs_next = (visual_obs_next, flat_obs_next)
             #obs_next = Variable(obs_next)
-
 
             actions = Variable(actions)
             rewards = Variable(rewards)
