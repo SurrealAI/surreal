@@ -8,8 +8,10 @@ import pickle
 import time
 import surreal.utils as U
 from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient
+from surreal.distributed.proxy import ZmqLoadBalancerThread
 from surreal.distributed.module_dict import ModuleDict
 from threading import Lock
+from multiprocessing import Process
 
 
 class ParameterPublisher(object):
@@ -50,7 +52,44 @@ class ParameterPublisher(object):
         self._publisher.pub(topic='ps', data=(binary, info))
 
 
-class ParameterServer(object):
+class ShardedParameterServer(object):
+    def __init__(self, config):
+        self.ps_config = config.session_config.ps
+        self.shards = self.ps_config.shards
+        self.frontend_host=self.ps_config.parameter_serving_frontend_host
+        self.frontend_port=self.ps_config.parameter_serving_frontend_port
+        self.backend_host=self.ps_config.parameter_serving_backend_host
+        self.backend_port=self.ps_config.parameter_serving_backend_port
+
+        self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
+        self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
+        
+    def launch(self):
+        self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
+                                                out_add=self.parameter_serving_backend_add,
+                                                pattern='router-dealer')
+
+        self.proxy.start()
+
+        
+        workers = []
+        for i in range(self.shards):
+            worker = ParameterServer(
+                publish_host=self.ps_config.publish_host,
+                publish_port=self.ps_config.publish_port,
+                serving_host=self.backend_host,
+                serving_port=self.backend_port,
+                load_balanced=True,
+            )
+            worker.start()
+            workers.append(worker)
+
+    def join(self):
+        self.proxy.join()
+        for worker in self.workers():
+            worker.join()
+
+class ParameterServer(Process):
     # TODO support multiple PS
     """
     Standalone script for PS node that runs in an infinite loop.
@@ -59,7 +98,8 @@ class ParameterServer(object):
     def __init__(self,
                  publish_host,
                  publish_port,
-                 agent_port,
+                 serving_host,
+                 serving_port,
                  load_balanced=False):
         """
 
@@ -68,25 +108,36 @@ class ParameterServer(object):
             publish_port:
             agent_port: PS server that responds to agent fetch_parameter requests
         """
+        Process.__init__(self)
+        self.publish_host = publish_host
+        self.publish_port = publish_port
+        self.serving_host = serving_host
+        self.serving_port = serving_port
+        self.load_balanced = load_balanced
+        # storage
+        self.parameters = None
+        self.param_info = None
+
+    def run(self):
         self._subscriber = ZmqSubClient(
-            host=publish_host,
-            port=publish_port,
+            host=self.publish_host,
+            port=self.publish_port,
             handler=self._set_storage,
             topic='ps',
             preprocess=U.deserialize,
         )
         self._server = ZmqSimpleServer(
-            host='*',
-            port=agent_port,
+            host=self.serving_host,
+            port=self.serving_port,
             handler=self._handle_agent_request,
             preprocess=U.deserialize,
             postprocess=U.serialize,
-            load_balanced=load_balanced,
+            load_balanced=self.load_balanced,
         )
-        # storage
-        self.parameters = None
-        self.param_info = None
-
+        self._subscriber.start()
+        self._server.start()
+        self._subscriber.join()
+        self._server.join()
 
     def _set_storage(self, data):
         self.parameters, self.param_info = data
@@ -125,12 +176,6 @@ class ParameterServer(object):
         else:
             raise ValueError('invalid request: '+str(request))
 
-    def run_loop(self):
-        """blocking"""
-        self._subscriber.start()
-        self._server.start()
-        self._subscriber.join()
-        self._server.join()
 
 
 class ParameterClient(object):

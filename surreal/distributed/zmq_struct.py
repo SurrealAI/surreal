@@ -294,8 +294,8 @@ class ZmqSubClient(Thread):
 
     def run(self):
         self.sub = ZmqSub(self.host, self.port, self.topic, self.hwm, context=self.context)
-        zmq_logger.infofmt('SubClient listening for topic {} on {}:{}', 
-                             self.topic, self.host, self.port)
+        # zmq_logger.infofmt('SubClient listening for topic {} on {}:{}', 
+                             # self.topic, self.host, self.port)
         while True:
             data = self.sub.recv()
             if self.preprocess:

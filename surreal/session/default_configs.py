@@ -74,8 +74,11 @@ BASE_SESSION_CONFIG = {
         'flush_time': '_int_',
     },
     'ps': {
-        'host': '_str_',  # downstream to agent requests
-        'port': '_int_',
+        'parameter_serving_frontend_host': '_str_',
+        'parameter_serving_frontend_port': '_int_',
+        'parameter_serving_backend_host': '_str_',
+        'parameter_serving_backend_port': '_int_',
+        'shards': '_int_',
         'publish_host': '_str',  # upstream from learner
         'publish_port': '_int_'
     },
@@ -163,14 +166,17 @@ LOCAL_SESSION_CONFIG = {
         'flush_time': 0,
     },
     'ps': {
-        'host': 'localhost',  # downstream to agent requests
-        'port': 7005,
+        'parameter_serving_frontend_host': 'localhost',
+        'parameter_serving_frontend_port': 7005,
+        'parameter_serving_backend_host': 'localhost',
+        'parameter_serving_backend_port': 7006,
+        'shards': 2,
         'publish_host': 'localhost',  # upstream from learner
-        'publish_port': 7006
+        'publish_port': 7007
     },
     'tensorplex': {
         'host': 'localhost',
-        'port': 7007,
+        'port': 7008,
         'tensorboard_port': 6006,
         'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
@@ -185,7 +191,7 @@ LOCAL_SESSION_CONFIG = {
     },
     'loggerplex': {
         'host': 'localhost',
-        'port': 7008,
+        'port': 7009,
         'enable_local_logger': True,
     },
     'agent': {
