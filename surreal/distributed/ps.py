@@ -72,7 +72,7 @@ class ShardedParameterServer(object):
         self.proxy.start()
 
         
-        workers = []
+        self.workers = []
         for i in range(self.shards):
             worker = ParameterServer(
                 publish_host=self.ps_config.publish_host,
@@ -82,13 +82,19 @@ class ShardedParameterServer(object):
                 load_balanced=True,
             )
             worker.start()
-            workers.append(worker)
+            self.workers.append(worker)
+            # break
 
     def join(self):
         self.proxy.join()
         for worker in self.workers():
             worker.join()
 
+        # print(self.workers[0].join())
+        # print(self.workers[0].exitcode)
+        # print('joined')
+        # 
+        
 class ParameterServer(Process):
     # TODO support multiple PS
     """
@@ -113,6 +119,7 @@ class ParameterServer(Process):
         self.publish_port = publish_port
         self.serving_host = serving_host
         self.serving_port = serving_port
+        # self.serving_port = 7005
         self.load_balanced = load_balanced
         # storage
         self.parameters = None
@@ -136,8 +143,11 @@ class ParameterServer(Process):
         )
         self._subscriber.start()
         self._server.start()
+        print('Parameter server started')
         self._subscriber.join()
         self._server.join()
+        # print('Finished')
+        # return 'abc'
 
     def _set_storage(self, data):
         self.parameters, self.param_info = data
@@ -189,12 +199,8 @@ class ParameterClient(object):
             port:
             module_dict:
         """
-        self._client = ZmqReq(
-            host=host,
-            port=port,
-            preprocess=U.serialize,
-            postprocess=U.deserialize,
-        )
+        self.host = host
+        self.port = port
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)
         self._module_dict = module_dict
@@ -208,7 +214,18 @@ class ParameterClient(object):
         Returns:
             True if parameter is actually fetched (changed since last request).
         """
-        param, cur_hash = self._client.request('parameter:' + self._last_hash)
+        client = ZmqReq(
+            host=self.host,
+            port=self.port,
+            preprocess=U.serialize,
+            postprocess=U.deserialize,
+            timeout=0.5
+        )
+        timed_out, response = client.request('parameter:' + self._last_hash)
+        if timed_out:
+            print('Ps client request timed out')
+            return False
+        param, cur_hash = response
         self._last_hash = cur_hash
         if param:
             self._module_dict.loads(param)
@@ -224,7 +241,18 @@ class ParameterClient(object):
         Returns:
             (info dict, True if parameter is actually fetched)
         """
-        param, info = self._client.request('both:' + self._last_hash)
+        client = ZmqReq(
+            host=self.host,
+            port=self.port,
+            preprocess=U.serialize,
+            postprocess=U.deserialize,
+            timeout=5
+        )
+        timed_out, response = client.request('both:' + self._last_hash)
+        if timed_out:
+            print('Ps client request timed out')
+            return False, {}
+        param, info = response
         self._last_hash = info['hash'] if info else ''
         if param:
             self._module_dict.loads(param)

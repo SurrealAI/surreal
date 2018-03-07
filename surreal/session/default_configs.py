@@ -203,7 +203,7 @@ LOCAL_SESSION_CONFIG = {
     'learner': {
         'num_gpus': 0,
         'prefetch_host': 'localhost',
-        'prefetch_port': 7009,
+        'prefetch_port': 7010,
         'prefetch_processes': 2,
         'prefetch_threads_per_process': 2,
         'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch

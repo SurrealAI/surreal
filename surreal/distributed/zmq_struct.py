@@ -16,7 +16,7 @@ class ZmqSocketWrapper(object):
     """
         Wrapper around zmq socket, manages resources automatically
     """
-    def __init__(self, mode, bind, address=None, host=None, port=None, context=None):
+    def __init__(self, mode, bind, address=None, host=None, port=None, context=None, silent=False):
         """
         Args:
             @host: specifies address, localhost is translated to 127.0.0.1
@@ -25,8 +25,7 @@ class ZmqSocketWrapper(object):
             @mode: zmq.PUSH, zmq.PULL, etc.
             @bind: True -> bind to address, False -> connect to address (see zmq)
             @context: Zmq.Context object, if None, client creates its own context
-            @name: Purely for logging purposes
-            @hwm
+            @silent: set to True to prevent printing
         """
         if address is not None:
             self.address = address
@@ -49,6 +48,7 @@ class ZmqSocketWrapper(object):
         self.bind = bind
         self.socket = self.context.socket(self.mode)
         self.established = False
+        self.silent = silent
 
     def establish(self):
         """
@@ -58,10 +58,12 @@ class ZmqSocketWrapper(object):
             raise RuntimeError('Trying to establish a socket twice')
         self.established = True
         if self.bind:
-            zmq_logger.infofmt('[{}] binding to {}', self.socket_type, self.address)
+            if not self.silent:
+                zmq_logger.infofmt('[{}] binding to {}', self.socket_type, self.address)
             self.socket.bind(self.address)
         else:
-            zmq_logger.infofmt('[{}] connecting to {}', self.socket_type, self.address)
+            if not self.silent:
+                zmq_logger.infofmt('[{}] connecting to {}', self.socket_type, self.address)
             self.socket.connect(self.address)
         return self.socket
 
@@ -233,21 +235,53 @@ class ZmqReqClientPoolFixedRequest(ZmqReqClientPool):
         return self.request
 
 
-class ZmqReq(ZmqSocketWrapper):
-    def __init__(self, host, port, bind=False, preprocess=None, postprocess=None):
-        super().__init__(host=host, port=port, mode=zmq.REQ, bind=bind)
+class ZmqReq():
+    def __init__(self, host, port, preprocess=None, postprocess=None, timeout=-1):
+        """
+        Args:
+            @timeout: how long do we wait for response, in seconds, 
+                negative means wait indefinitely
+        """
+        
+        self.timeout = timeout
+        self.host = host
+        self.port = port
         self.preprocess = preprocess
         self.postprocess = postprocess
-        self.establish()
 
     def request(self,data):
+        """
+            Requests to the earlier provided host and port for data.
+            if timeout > 0, returns (bool)timed_out, [response/None]
+            else: return response
+        """
+        # https://github.com/zeromq/pyzmq/issues/132
+        # We allow the requester to time out
+        sw = ZmqSocketWrapper(host=self.host, port=self.port, mode=zmq.REQ, bind=False, silent=True)
+        if self.timeout >= 0:
+            sw.socket.setsockopt(zmq.LINGER, 0)
+        self.socket = sw.establish()
+    
         if self.preprocess:
             data = self.preprocess(data)
+
         self.socket.send(data)
-        rep = self.socket.recv()
-        if self.postprocess:
-            rep = self.postprocess(rep)
-        return rep
+
+        if self.timeout >= 0:
+            poller = zmq.Poller()
+            poller.register(self.socket, zmq.POLLIN)
+            if poller.poll(self.timeout * 1000):
+                rep = self.socket.recv()
+                if self.postprocess:
+                    rep = self.postprocess(rep)
+                return False, rep
+            else:
+                return True, None
+        else:
+            rep = self.socket.recv()
+            if self.postprocess:
+                rep = self.postprocess(rep)
+            return rep
 
 
 class ZmqPub(ZmqSocketWrapper):
