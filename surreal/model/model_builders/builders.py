@@ -38,8 +38,6 @@ class ActorNetwork(U.Module):
     def forward(self, obs):
         #print('obs', type(obs))
         obs_visual, obs_flat = obs
-        #print('obs_visual', type(obs_visual))
-        #print('obs_flat', type(obs_flat))
         assert not (obs_visual is not None and obs_flat is not None)
         if obs_visual is not None:
             obs = obs_visual
@@ -88,8 +86,8 @@ class CriticNetwork(U.Module):
             self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=2)
             conv_output_size = conv_channels[1] * H / 4 * W / 4
             conv_output_size = 400
-            print('conv', conv_output_size)
-            print('chw', C, H, W)
+            #print('conv', conv_output_size)
+            #print('chw', C, H, W)
             conv_output_size = int(conv_output_size)
             self.fc_hidden = nn.Linear(conv_output_size + D_act, 50)
             self.fc_act = nn.Linear(50, D_act)
@@ -109,7 +107,6 @@ class CriticNetwork(U.Module):
             c2 = F.relu(c2)
             batch_size = c2.shape[0]
             c2 = c2.view(batch_size, -1)
-            print('real shape', c2.shape)
             c2 = torch.cat((c2, act), dim=1)
             hidden = self.fc_hidden(c2)
             hidden = F.relu(hidden)

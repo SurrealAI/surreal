@@ -2,6 +2,7 @@ from .base import Env, ActionType, ObsType
 import numpy as np
 import surreal.utils as U
 import collections
+from collections import deque
 from operator import mul
 import functools
 import pygame
@@ -199,7 +200,7 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
+        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('uint8'), name='pixels'))])
 
     def action_spec(self):
         return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=np.dtype('float64'), name=None, minimum=[-1., -1., -1., -1., -1., -1.], maximum=[1., 1., 1., 1., 1., 1.])
@@ -268,7 +269,7 @@ def flatten_obs(obs):
     for k, v in obs.items():
         if len(v.shape) > 1: # visual input
             # This is the desired pixel size of dm_control environments
-            print('visual shape',v.shape)
+            #print('visual shape',v.shape)
             # input is (84, 84, 3), we want (C, H, W) == (3, 84, 84)
             assert v.shape == (84, 84, 3)
             v = v.transpose((2, 1, 0))
@@ -288,7 +289,7 @@ def flatten_obs(obs):
 
 class ObservationConcatenationWrapper(Wrapper):
     def _step(self, action):
-        print('obs concat sub', type(self.env))
+        #print('obs concat sub', type(self.env))
         obs, reward, done, info = self.env.step(action)
         return flatten_obs(obs), reward, done, info
 
@@ -303,7 +304,7 @@ class ObservationConcatenationWrapper(Wrapper):
     def observation_spec(self):
         visual_dim = None
         flat_dim = 0
-        print('parent obsspec', self.env.observation_spec().items())
+        #print('parent obsspec', self.env.observation_spec().items())
 
         for k, x in self.env.observation_spec().items():
             if len(x.shape) > 1:
@@ -330,26 +331,62 @@ class ObservationConcatenationWrapper(Wrapper):
     # TODO: what about upper/lower bound information
 
 class FrameStackWrapper(Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self._history = deque(maxlen=3)
+
+    def _stacked_observation(self):
+        '''
+        Assumes self._history contains the last 3 frames from the environment
+        Concatenates the frames together along the depth axis
+        '''
+        visual_obs = []
+        flat_obs = []
+        for v, f in self._history:
+            visual_obs.append(v)
+            flat_obs.append(f)
+        if visual_obs[0] is None:
+            visual_obs = None
+        else:
+            assert visual_obs[0].shape == (3, 84, 84) # C, H, W
+            visual_obs = np.concatenate(visual_obs, axis=0)
+        if flat_obs[0] is None:
+            flat_obs = None
+        else:
+            flat_obs = flat_obs[-1] # Most recent observation
+        #print(visual_obs, flat_obs)
+        return (visual_obs, flat_obs)
+
     def _step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        return flatten_obs(obs), reward, done, info
+        obs_next, reward, done, info = self.env.step(action)
+        self._history.append(obs_next)
+        obs_next_stacked = self._stacked_observation()
+        return obs_next_stacked, reward, done, info
 
     def _reset(self):
         obs, info = self.env.reset()
-        return flatten_obs(obs), info
+        for i in range(3):
+            self._history.append(obs)
+        return self._stacked_observation(), info
 
     @property
     def spec_format(self):
         return SpecFormat.SURREAL_CLASSIC
 
     def observation_spec(self):
+        spec = self.env.observation_spec()
+        #print(spec)
+        visual_dim, flat_dim = spec['dim']
+        if visual_dim is None:
+            visual_dim = None
+        else:
+            assert visual_dim.shape == (3, 84, 84)
+            C, H, W = visual_dim.shape
+            visual_dim = dm_control.rl.specs.ArraySpec(shape=(C * 3, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
-            'type': 'continuous',
-            'dim': [sum([functools.reduce(mul, list(x.shape) + [1]) for k, x in self.env.observation_spec().items()])],
+            'type': 'continuous', 
+            'dim': (visual_dim, flat_dim)
         }
 
     def action_spec(self):
-        return {
-            'type': ActionType.continuous,
-            'dim': self.env.action_spec().shape,
-        }
+        return self.env.action_spec()

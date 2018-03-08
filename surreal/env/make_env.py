@@ -1,5 +1,5 @@
 from surreal.env.video_env import VideoWrapper
-from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper, DMControlDummyWrapper
+from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper, DMControlDummyWrapper, FrameStackWrapper
 from dm_control.suite.wrappers import pixels
 import os
 
@@ -65,6 +65,9 @@ def make_dm_control(env_name, env_config):
     print(env.action_spec())
     print(env.observation_spec())
     env = ObservationConcatenationWrapper(env)
+    print(env.action_spec())
+    print(env.observation_spec())
+    env = FrameStackWrapper(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     print('done make')

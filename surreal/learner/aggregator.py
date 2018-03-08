@@ -59,7 +59,6 @@ class SSARAggregator():
             visual_obs0 = None
         else:
             visual_obs0 = U.to_float_tensor(visual_obs0)
-        print(flat_obs0[:32])
         if flat_obs0[0].shape == ():
             flat_obs0 = None
         else:
@@ -68,7 +67,6 @@ class SSARAggregator():
             visual_obs1 = None
         else:
             visual_obs1 = U.to_float_tensor(visual_obs1)
-        print(flat_obs1[:32])
         if flat_obs1[0].shape == ():
             flat_obs1 = None
         else:
