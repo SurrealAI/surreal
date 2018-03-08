@@ -5,67 +5,10 @@ import queue
 import time
 import surreal.utils as U
 from surreal.session import (
-    PeriodicTensorplex,
+    TimeThrottledTensorplex,
     get_loggerplex_client, get_tensorplex_client
 )
-from surreal.distributed import ZmqClient, ParameterPublisher, ZmqClientPool
-
-
-class PrefetchBatchQueue(object):
-    """
-    Pre-fetch a batch of exp from sampler on Replay side
-    """
-    def __init__(self,
-                 sampler_host,
-                 sampler_port,
-                 batch_size,
-                 max_size,):
-        self._queue = queue.Queue(maxsize=max_size)
-        self._batch_size = batch_size
-        self._client = ZmqClientPool(
-            host=sampler_host,
-            port=sampler_port,
-            request=self._batch_size,
-            handler=self._enqueue,
-            is_pyobj=True,
-        )
-        self._enqueue_thread = None
-
-        self.timer = U.TimeRecorder()
-
-    def _enqueue(self, item):
-        self._queue.put(item, block=True)            
-
-    def start_enqueue_thread(self):
-        """
-        Producer thread, runs sampler function on a priority replay structure
-        Args:
-            sampler: function batch_i -> list
-                returns exp_dicts with 'obs_pointers' field
-            start_sample_condition: function () -> bool
-                begins sampling only when this returns True.
-                Example: when the replay memory exceeds a threshold size
-            start_sample_condvar: threading.Condition()
-                notified by Replay.insert() when start sampling condition is met
-            evict_lock: do not evict in the middle of fetching exp, otherwise
-                we might fetch a null exp that just got evicted.
-                locked by Replay.evict()
-        """
-        if self._enqueue_thread is not None:
-            raise RuntimeError('Enqueue thread is already running')
-        self._enqueue_thread = self._client
-        self._client.start()
-        return self._enqueue_thread
-
-    def dequeue(self):
-        """
-        Called by the neural network, draw the next batch of experiences
-        """
-        with self.timer.time():
-            return self._queue.get(block=True)
-
-    def __len__(self):
-        return self._queue.qsize()
+from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
 
 
 learner_registry = {}
@@ -147,20 +90,19 @@ class Learner(metaclass=LearnerMeta):
     # Internal, including Communication, etc.
     ######
     def _setup_connection(self):  
-        sampler_host = self.session_config.replay.sampler_frontend_host
-        sampler_port = self.session_config.replay.sampler_frontend_port
+        # sampler_host = self.session_config.replay.sampler_frontend_host
+        # sampler_port = self.session_config.replay.sampler_frontend_port
         ps_publish_port = self.session_config.ps.publish_port
         batch_size = self.learner_config.replay.batch_size
-        max_prefetch_batch_queue = self.session_config.replay.max_prefetch_batch_queue
+        # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
         self._ps_publisher = None  # in _initialize()
         self._ps_port = ps_publish_port
-        self._prefetch_queue = PrefetchBatchQueue(
-            sampler_host=sampler_host,
-            sampler_port=sampler_port,
+        self._prefetch_queue = LearnerDataPrefetcher(
+            session_config=self.session_config,
             batch_size=batch_size,
-            max_size=max_prefetch_batch_queue,
         )
+
 
     def _initialize(self):
         """
@@ -171,12 +113,20 @@ class Learner(metaclass=LearnerMeta):
             port=self._ps_port,
             module_dict=self.module_dict()
         )
-        self._prefetch_queue.start_enqueue_thread()
+        min_publish_interval = self.learner_config.parameter_publish.min_publish_interval
+        self._ps_publish_tracker = U.TimedTracker(min_publish_interval)
+        self._prefetch_queue.start()
         self.start_tensorplex_thread()
         # restore_checkpoint should be called _after_ subclass __init__
         # that's why we put it in _initialize()
         if self.session_config.checkpoint.restore:
             self.restore_checkpoint()
+
+    ######
+    # Parameter publish
+    ######
+    def should_publish_parameter(self):
+        return self._ps_publish_tracker.track_increment()
 
     def publish_parameter(self, iteration, message=''):
         """
@@ -188,8 +138,11 @@ class Learner(metaclass=LearnerMeta):
         """
         self._ps_publisher.publish(iteration, message=message)
 
+    ######
+    # Getting data
+    ######
     def fetch_batch(self):
-        return self._prefetch_queue.dequeue()
+        return self._prefetch_queue.get()
 
     def fetch_iterator(self):
         while True:
@@ -207,9 +160,14 @@ class Learner(metaclass=LearnerMeta):
         self.publish_timer = U.TimeRecorder()
 
         self.init_time = time.time()
+        self.current_iter = 0
+
+        self.last_time = self.init_time
+        self.last_time_2 = self.init_time
+        self.last_iter = 0
+
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
-        self.tensorplex_system = self._get_tensorplex('learner/learner_system')
 
         self._tensorplex_thread = None
 
@@ -223,11 +181,10 @@ class Learner(metaclass=LearnerMeta):
             name,
             self.session_config
         )
-        periodic_tp = PeriodicTensorplex(
+        update_schedule = self.session_config.tensorplex.update_schedule
+        periodic_tp = TimeThrottledTensorplex(
             tensorplex=tp,
-            period=self.session_config.tensorplex.update_schedule.learner,
-            is_average=True,
-            keep_full_history=False
+            min_update_interval=update_schedule.learner_min_update_interval,
         )
         return periodic_tp
 
@@ -242,8 +199,16 @@ class Learner(metaclass=LearnerMeta):
         """
             Adds core and system level tensorplex stats
         """
-        global_step = time.time() - self.init_time
+        cur_time = time.time()
+        current_iter = self.current_iter
 
+        iter_elapsed = current_iter - self.last_iter
+        self.last_iter = current_iter
+
+        global_step = cur_time - self.init_time
+        time_elapsed = cur_time - self.last_time
+        self.last_time = cur_time
+        
         core_metrics = {}
         system_metrics = {}
         
@@ -261,7 +226,11 @@ class Learner(metaclass=LearnerMeta):
         # Time it takes to complete one full iteration
         core_metrics['iter_time_s'] = iter_time
 
-
+        iter_per_s = iter_elapsed / time_elapsed
+        # Number of iterations per second
+        system_metrics['iter_per_s'] = iter_per_s
+        # Number of experience bathces processed per second
+        system_metrics['exp_per_s'] = iter_per_s * self.learner_config.replay.batch_size
         # Percent of time spent on learning
         system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
@@ -275,7 +244,7 @@ class Learner(metaclass=LearnerMeta):
         for k in system_metrics:
             all_metrics['.system/' + k] = system_metrics[k]
 
-        self.tensorplex_system.add_scalars(all_metrics, global_step=global_step)
+        self.tensorplex.add_scalars(all_metrics)
 
     ######
     # Checkpoint
@@ -339,11 +308,15 @@ class Learner(metaclass=LearnerMeta):
         """
             Main loop that defines learner process
         """
+        self.iter_timer.start()
+        self.publish_parameter(0, message='batch '+str(0))
         for i, batch in enumerate(self.fetch_iterator()):
-            if i != 0:
-                self.iter_timer.stop()
-            self.iter_timer.start()
+            self.current_iter = i
+            data = batch.data
             with self.learn_timer.time():
-                self.learn(batch)
-            with self.publish_timer.time():
-                self.publish_parameter(i, message='batch '+str(i))
+                self.learn(data)
+            if self.should_publish_parameter():
+                with self.publish_timer.time():
+                    # pass
+                    self.publish_parameter(i, message='batch '+str(i))
+            self.iter_timer.lap()

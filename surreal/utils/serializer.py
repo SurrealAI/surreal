@@ -5,19 +5,21 @@ import pickle
 import base64
 import hashlib
 import json
-import msgpack
-import msgpack_numpy as _msgpack_numpy
-_msgpack_numpy.patch()
+import pyarrow as pa
 
-"""
-    msgpack is faster than pickle 
-    but it only support native types and numpy arrays
-"""
-_SERIALIZER = lambda x: msgpack.packb(x, use_bin_type=True)
-_DESERIALIZER = lambda x: msgpack.unpackb(x, raw=False)
+
+def pa_serialize(obj):
+    return pa.serialize(obj).to_buffer()
+
+def pa_deserialize(binary):
+    return pa.deserialize(binary)
+
+_SERIALIZER = pa_serialize
+_DESERIALIZER = pa_deserialize
 
 # _SERIALIZER = pickle.dumps
 # _DESERIALIZER = pickle.loads
+
 
 def set_global_serializer(serializer, deserializer):
     """
