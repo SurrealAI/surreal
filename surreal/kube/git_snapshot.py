@@ -2,6 +2,7 @@ from git import Repo
 import sys
 import time
 import uuid
+import signal
 import surreal.utils as U
 
 
@@ -9,7 +10,34 @@ def print_err(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def push_snapshot(snapshot_branch, repo_path='.', verbose=True,
+def push_snapshot(snapshot_branch, repo_path='.', verbose=True):
+    """
+    Save a snapshot of the current codebase (with uncommitted changes and untracked
+    files) to a temporary branch and then push to github.
+    Remote cloud will then pull from the temp branch and run the latest dirty code.
+
+    https://stackoverflow.com/questions/5717026/how-to-git-cherry-pick-only-changes-to-certain-files
+    https://stackoverflow.com/questions/48511079/git-commands-to-save-current-files-in-temporary-branch-without-committing-to-mas
+
+    Args:
+        snapshot_branch:
+        repo_path:
+        verbose:
+    """
+    original_sigint = signal.getsignal(signal.SIGINT)
+    signal.signal(
+        signal.SIGINT,
+        lambda *args: print("Please don't Ctrl-C in the middle of git snapshot")
+    )
+    _push_snapshot(
+        snapshot_branch=snapshot_branch,
+        repo_path=repo_path,
+        verbose=verbose
+    )
+    signal.signal(signal.SIGINT, original_sigint)
+
+
+def _push_snapshot(snapshot_branch, repo_path='.', verbose=True,
                   *, __push_temp_file=None):
     """
     Save a snapshot of the current codebase (with uncommitted changes and untracked
