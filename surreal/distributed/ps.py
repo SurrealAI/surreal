@@ -223,7 +223,7 @@ class ParameterClient(object):
             postprocess=U.deserialize,
             timeout=self.timeout
         )
-        timed_out, response = client.request('parameter:' + self._last_hash)
+        response = client.request('parameter:' + self._last_hash)
         if timed_out:
             print('Ps client request timed out')
             return False
