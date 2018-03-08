@@ -205,6 +205,7 @@ class ParameterClient(object):
             module_dict = ModuleDict(module_dict)
         self._module_dict = module_dict
         self._last_hash = ''
+        self.alive = False
 
     def fetch_parameter(self):
         """
@@ -250,7 +251,7 @@ class ParameterClient(object):
         )
         timed_out, response = client.request('both:' + self._last_hash)
         if timed_out:
-            print('Ps client request timed out')
+            self.report_fetch_parameter_success
             return False, {}
         param, info = response
         self._last_hash = info['hash'] if info else ''
@@ -262,3 +263,16 @@ class ParameterClient(object):
 
     def fetch_info(self):
         return self._client.request('info')
+
+    def report_fetch_parameter_failed(self):
+        if self.alive:
+            self.alive = False
+            print('Parameter client request timed out')
+
+    def report_fetch_parameter_success(self):
+        if not self.alive:
+            self.alive = True
+            print('Parameter client came back alive')
+
+
+
