@@ -37,7 +37,7 @@ class PPOAgent(Agent):
             use_z_filter=self.use_z_filter,
             use_cuda = False,
         )
-
+        self.total_exp_gen = 0 
         self.pd = DiagGauss(self.action_dim)
 
     def act(self, obs):
@@ -54,12 +54,37 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
+        self.total_exp_gen += 1
 
         if self.agent_mode != 'training':
             return action_choice
         else: 
             time.sleep(self.env_config.sleep_time)
             return action_choice, action_pd
+
+    def fetch_parameter(self): 
+        """
+            Extends base class fetch_parameter to implement agent side bottlenecking
+        """
+        params, info = self._ps_client.fetch_parameter_with_info()
+        if  self.agent_mode == 'training' and self.session_config.sync.if_sync and \
+            self.total_exp_gen >= self.session_config.sync.agent_roll_max and \
+            self.total_exp_gen > 0:
+                print('Agent hanging after {} total steps'.format(self.total_exp_gen))
+                start_hang_time = time.time()
+                while not params:
+                    time.sleep(self.session_config.sync.ping_freq)
+                    params, info = self._ps_client.fetch_parameter_with_info()
+                print('Agent restarted!, hung for {}s'.format(time.time()-start_hang_time))
+                print('-----------')
+
+        if params:
+            self.on_parameter_fetched(params, info)
+            self.total_exp_gen = 0 
+        '''
+            if eval: regular pull 
+            if and using sync -- loopy pull 
+        '''
 
     def module_dict(self):
         return {

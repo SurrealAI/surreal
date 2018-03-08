@@ -43,7 +43,7 @@ def generate(argv):
             'use_z_filter': True,
             'norm_adv': True,
             'init_log_sig': -1.,
-            'n_step': 10,
+            'n_step': 25,
             'trace_cutoff': 2.0,
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
@@ -53,7 +53,7 @@ def generate(argv):
             # ppo specific parameters:
             'method': 'adapt',
             'lr_policy': 2e-4,
-            'lr_baseline': 3e-4,
+            'lr_baseline': 2e-4,
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
             'epoch_policy': 5,
             'epoch_baseline': 5,
@@ -79,7 +79,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/350 - 1/1300,
+        'sleep_time': 1/400,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',
@@ -116,7 +116,22 @@ def generate(argv):
             'max_puller_queue': 3,
             'max_prefetch_batch_queue': 1,
         },
+        'sync': {
+            'if_sync': True,
+            'learner_push_min': 10240 * 0.9,
+            'agent_roll_max':2048, 
+            'ping_freq': 1e-3,
+        }
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)
     return learner_config, env_config, session_config
+'''
+    Notes on blocking experience generation:
+        Agent side: block on experience generation cap.
+                    pulls when there is parameters
+                    eval simply just pulls. 
+                    keep pull step smaller
+        Learner side: pushes when certain ammount of experiences needed are generated
+                    this number should be lower than agent_roll_max * num_agent
+'''

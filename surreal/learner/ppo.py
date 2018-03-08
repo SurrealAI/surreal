@@ -8,7 +8,7 @@ from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEA
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 
-import pdb
+import time
 
 class PPOLearner(Learner):
 
@@ -72,6 +72,8 @@ class PPOLearner(Learner):
             self.clip_adj_thres = self.adj_thres
             self.clip_upper = self.clip_range[1]
             self.clip_lower = self.clip_range[0]
+
+        self.exp_counter = 0
 
         with U.torch_gpu_scope(self.gpu_id):
 
@@ -449,11 +451,11 @@ class PPOLearner(Learner):
                     stats['_obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['_obs_running_std'] = np.mean(self.model.z_filter.running_std())
 
-                self.update_tensorplex(stats)
+        return stats
 
     def learn(self, batch):
         batch = self.aggregator.aggregate(batch)
-        self._optimize(
+        tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
             batch.rewards,
@@ -461,8 +463,35 @@ class PPOLearner(Learner):
             batch.pds, 
             batch.dones,
         )
+        self.tensorplex.add_scalars(tensorplex_update_dict)
+        self.exp_counter += self.learner_config.replay.batch_size
 
     def module_dict(self):
         return {
             'ppo': self.model,
         }
+
+    # overriding base class method to implement learner side count based publish
+    def publish_parameter(self, iteration, message=''):
+        """
+        Learner publishes latest parameters to the parameter server.
+
+        Args:
+            iteration: the current number of learning iterations
+            message: optional message, must be pickleable.
+        """
+        print('learner attempted to publish... current exp count: {}'.format(self.exp_counter))
+        if (not self.session_config.sync.if_sync) or \
+           (self.exp_counter >= self.session_config.sync.learner_push_min):
+            self._ps_publisher.publish(iteration, message=message)
+            self.exp_counter = 0
+            print('learner published some parameters')
+'''
+    PPO TODOs:
+        1) Synchronization and throttling
+        2) RNN
+        3) Learning rate scheduler 
+'''
+
+
+
