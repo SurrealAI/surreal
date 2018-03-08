@@ -16,3 +16,4 @@ kubernetes
 imageio
 msgpack
 msgpack-numpy
+pyarrow

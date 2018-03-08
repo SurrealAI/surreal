@@ -55,6 +55,7 @@ class ShardedReplay(object):
     def start_replay(self, index):
         replay = self.replay_class(self.learner_config, self.env_config, self.session_config, index=index)
         replay.start_threads()
+        replay.join()
 
     def join(self):
         self.collector_proxy.join()

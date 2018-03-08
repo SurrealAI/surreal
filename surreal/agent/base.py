@@ -74,8 +74,8 @@ class Agent(object, metaclass=AgentMeta):
             self.module_dict can only happen after the module is constructed by subclasses.
         """
         self._ps_client = ParameterClient(
-            host=self.session_config.ps.host,
-            port=self.session_config.ps.port,
+            host=self.session_config.ps.parameter_serving_frontend_host,
+            port=self.session_config.ps.parameter_serving_frontend_port,
             module_dict=self.module_dict(),
         )
     

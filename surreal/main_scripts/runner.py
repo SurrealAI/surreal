@@ -131,7 +131,7 @@ def override_urls(configs, url):
     """
     configs.session_config.replay.collector_frontend_host = url
     configs.session_config.replay.sampler_frontend_host = url
-    configs.session_config.ps.host = url
+    configs.session_config.ps.parameter_serving_frontend_host = url
     configs.session_config.ps.publish_host = url
     configs.session_config.tensorplex.host = url
     configs.session_config.loggerplex.host = url

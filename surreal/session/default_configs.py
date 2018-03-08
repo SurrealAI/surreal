@@ -22,7 +22,11 @@ BASE_LEARNER_CONFIG = {
         'replay_class': '_str_',
         'batch_size': '_int_',
         'replay_shards': 1,
-    }
+    },
+    'parameter_publish': {
+        # Minimum amount of time (seconds) between two parameter publish
+        'min_publish_interval': 0.3, 
+    },
 }
 
 
@@ -62,7 +66,6 @@ BASE_SESSION_CONFIG = {
         'sampler_backend_host': '_str_',  # downstream to Learner request
         'sampler_backend_port': '_int_',
         'max_puller_queue': '_int_',  # replay side: pull queue size
-        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
         'evict_interval': '_float_',  # in seconds
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
@@ -71,8 +74,11 @@ BASE_SESSION_CONFIG = {
         'flush_time': '_int_',
     },
     'ps': {
-        'host': '_str_',  # downstream to agent requests
-        'port': '_int_',
+        'parameter_serving_frontend_host': '_str_',
+        'parameter_serving_frontend_port': '_int_',
+        'parameter_serving_backend_host': '_str_',
+        'parameter_serving_backend_port': '_int_',
+        'shards': '_int_',
         'publish_host': '_str',  # upstream from learner
         'publish_port': '_int_'
     },
@@ -89,7 +95,9 @@ BASE_SESSION_CONFIG = {
             'eval_env_sleep': '_int_',  # throttle eval by sleep n seconds
             # for manual updates:
             'agent': '_int_',  # agent.tensorplex.add_scalars()
+            # WARN!!: DEPRECATED
             'learner': '_int_',  # learner.tensorplex.add_scalars()
+            'learner_min_update_interval': '_int_', #Update tensorplex at most every ? seconds
         }
     },
     'loggerplex': {
@@ -108,7 +116,12 @@ BASE_SESSION_CONFIG = {
         'fetch_parameter_interval': int,
     },
     'learner': {
-        'num_gpus': '_int_'
+        'num_gpus': '_int_',
+        'prefetch_host': '_str_',
+        'prefetch_port': '_int_',
+        'prefetch_processes': '_int_',
+        'prefetch_threads_per_process': '_int_',
+        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
         'restore': '_bool_',  # if False, ignore the other configs under 'restore'
@@ -145,7 +158,6 @@ LOCAL_SESSION_CONFIG = {
         'sampler_backend_host': 'localhost',  # downstream to Learner request
         'sampler_backend_port': 7004,
         'max_puller_queue': 10000,  # replay side: pull queue size
-        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
         'evict_interval': 0.,  # in seconds
         'tensorboard_display': True,  # display replay stats on Tensorboard
     },
@@ -154,14 +166,17 @@ LOCAL_SESSION_CONFIG = {
         'flush_time': 0,
     },
     'ps': {
-        'host': 'localhost',  # downstream to agent requests
-        'port': 7005,
+        'parameter_serving_frontend_host': 'localhost',
+        'parameter_serving_frontend_port': 7005,
+        'parameter_serving_backend_host': 'localhost',
+        'parameter_serving_backend_port': 7006,
+        'shards': 2,
         'publish_host': 'localhost',  # upstream from learner
-        'publish_port': 7006
+        'publish_port': 7007
     },
     'tensorplex': {
         'host': 'localhost',
-        'port': 7007,
+        'port': 7008,
         'tensorboard_port': 6006,
         'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
@@ -171,11 +186,12 @@ LOCAL_SESSION_CONFIG = {
             # for manual updates:
             'agent': 20,  # agent.tensorplex.add_scalars()
             'learner': 20,  # learner.tensorplex.add_scalars()
+            'learner_min_update_interval': 30, #Update tensorplex at most every 30 seconds
         }
     },
     'loggerplex': {
         'host': 'localhost',
-        'port': 7008,
+        'port': 7009,
         'enable_local_logger': True,
     },
     'agent': {
@@ -185,7 +201,12 @@ LOCAL_SESSION_CONFIG = {
         'fetch_parameter_interval': 1,
     },
     'learner': {
-        'num_gpus': 0
+        'num_gpus': 0,
+        'prefetch_host': 'localhost',
+        'prefetch_port': 7010,
+        'prefetch_processes': 2,
+        'prefetch_threads_per_process': 2,
+        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
     },
     'checkpoint': {
         'restore': False,  # if False, ignore the other configs under 'restore'
