@@ -441,7 +441,7 @@ class PPOLearner(Learner):
                 stats['_avg_return_targ'] = v_trace_targ.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
-                stats['_ref_behave_diff'] = self.pd.kl(behave_pol, ref_pol).mean().data[0]
+                stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
                 stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
                 stats['_avg_trace'] = avg_trace
 
@@ -486,11 +486,14 @@ class PPOLearner(Learner):
             self._ps_publisher.publish(iteration, message=message)
             self.exp_counter = 0
             print('learner published some parameters')
+
 '''
     PPO TODOs:
         1) Synchronization and throttling
-        2) RNN
+            major issue: off policiness overflow. need to evict
+        2) RNN -- Make sure its in the same policy. making sure that each data point is homogenous?
         3) Learning rate scheduler 
+        4) Multi-ps PPO running
 '''
 
 

@@ -25,7 +25,8 @@ class FIFOReplay(Replay):
             index=index,
         )
         self.batch_size = self.learner_config.replay.batch_size
-        self._memory = deque(maxlen=self.batch_size+3)  # + 3 for a gentle buffering
+        self.memory_size = self.learner_config.replay.memory_size
+        self._memory = deque(maxlen=self.memory_size+3)  # + 3 for a gentle buffering
         assert self.session_config.replay.max_puller_queue <= 10
         assert self.session_config.replay.max_prefetch_batch_queue == 1 
         assert not self.session_config.sender.flush_time
@@ -41,7 +42,7 @@ class FIFOReplay(Replay):
         self._memory.append(exp_tuple)
 
     def sample(self, batch_size):
-        assert batch_size <= self.batch_size
+        assert batch_size <= self.memory_size
         return [self._memory.popleft() for _ in range(batch_size)]
 
     def evict(self):

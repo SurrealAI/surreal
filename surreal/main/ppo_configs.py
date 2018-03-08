@@ -68,7 +68,7 @@ def generate(argv):
         'replay': {
             'replay_class': 'FIFOReplay',
             'batch_size': 64,
-            'memory_size': 4096,
+            'memory_size': 40960,
             'sampling_start_size': 64,
         },
         'eval': {
@@ -118,9 +118,12 @@ def generate(argv):
         },
         'sync': {
             'if_sync': True,
-            'learner_push_min': 10240 * 0.9,
+            'learner_push_min': 9856, # magic number, 5 agents generate 9885 exps until blocks
             'agent_roll_max':2048, 
             'ping_freq': 1e-3,
+        },
+        'ps': {
+            'shards': 1,
         }
     })
 

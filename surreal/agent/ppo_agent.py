@@ -37,8 +37,12 @@ class PPOAgent(Agent):
             use_z_filter=self.use_z_filter,
             use_cuda = False,
         )
-        self.total_exp_gen = 0 
+
         self.pd = DiagGauss(self.action_dim)
+        
+        # synchronization setup
+        self.total_exp_gen = 0 
+        self.first_pull = True
 
     def act(self, obs):
         obs = U.to_float_tensor(obs)
@@ -67,9 +71,10 @@ class PPOAgent(Agent):
             Extends base class fetch_parameter to implement agent side bottlenecking
         """
         params, info = self._ps_client.fetch_parameter_with_info()
-        if  self.agent_mode == 'training' and self.session_config.sync.if_sync and \
+        if  self.agent_mode == 'training' and \
+            self.session_config.sync.if_sync and \
             self.total_exp_gen >= self.session_config.sync.agent_roll_max and \
-            self.total_exp_gen > 0:
+            not self.first_pull:
                 print('Agent hanging after {} total steps'.format(self.total_exp_gen))
                 start_hang_time = time.time()
                 while not params:
@@ -81,9 +86,12 @@ class PPOAgent(Agent):
         if params:
             self.on_parameter_fetched(params, info)
             self.total_exp_gen = 0 
+        self.first_pull = False
         '''
             if eval: regular pull 
             if and using sync -- loopy pull 
+            should only limit after one parameter update? 
+            possibly need eviction on learner side?
         '''
 
     def module_dict(self):
