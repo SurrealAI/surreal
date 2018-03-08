@@ -52,7 +52,6 @@ class Replay(object, metaclass=ReplayMeta):
             handler=self._sample_request_handler,
             load_balanced=True,
         )
-        self._job_queue = U.JobQueue()
 
         self._evict_interval = self.session_config.replay.evict_interval
         self._evict_thread = None
