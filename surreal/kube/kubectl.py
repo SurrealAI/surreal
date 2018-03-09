@@ -12,7 +12,6 @@ import shlex
 import functools
 import os
 import re
-import random
 import os.path as path
 from pkg_resources import parse_version
 from collections import OrderedDict
@@ -409,12 +408,9 @@ class Kubectl(object):
         namespace = 'tb-' + '-'.join(remote_parts[-2:])
         namespace = namespace.replace('.', '-').replace('_', '-')
         C = self.config
-        # randomize the port so it doesn't accidentally
-        # conflict with 6006 on a nonagent node
-        port = random.randint(9000, 15000)
         context = {
             'TENSORBOARD_CMD':
-                'tensorboard --logdir {} --port {}'.format(remote_path, port)
+                'tensorboard --logdir {} --port 6006'.format(remote_path)
         }
         # Mount file system from
         if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
