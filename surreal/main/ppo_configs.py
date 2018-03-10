@@ -48,7 +48,7 @@ def generate(argv):
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 1,
+            'stride': 25,
             'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
@@ -68,8 +68,9 @@ def generate(argv):
         'replay': {
             'replay_class': 'FIFOReplay',
             'batch_size': 64,
-            'memory_size': 40960,
+            'memory_size': 96,
             'sampling_start_size': 64,
+            'param_release_min': 10240,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -79,7 +80,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/400,
+        'sleep_time': 0.0,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',
@@ -116,25 +117,6 @@ def generate(argv):
             'max_puller_queue': 3,
             'max_prefetch_batch_queue': 1,
         },
-        'sync': {
-            'if_sync': True,
-            'learner_push_min': 9856, # magic number, 5 agents generate 9885 exps until blocks
-            'agent_roll_max':2048, 
-            'ping_freq': 1e-3,
-        },
-        'ps': {
-            'shards': 1,
-        }
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)
-    return learner_config, env_config, session_config
-'''
-    Notes on blocking experience generation:
-        Agent side: block on experience generation cap.
-                    pulls when there is parameters
-                    eval simply just pulls. 
-                    keep pull step smaller
-        Learner side: pushes when certain ammount of experiences needed are generated
-                    this number should be lower than agent_roll_max * num_agent
-'''

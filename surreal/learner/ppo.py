@@ -43,6 +43,14 @@ class PPOLearner(Learner):
             use_z_filter=self.use_z_filter,
             use_cuda = self.use_cuda, 
         )
+        self.ref_target_model = PPOModel(
+            init_log_sig=self.init_log_sig,
+            obs_dim=self.obs_dim,
+            action_dim=self.action_dim,
+            use_z_filter=self.use_z_filter,
+            use_cuda = self.use_cuda, 
+        )
+        self.ref_target_model.update_target_params(self.model)
 
         # PPO parameters
         self.method = self.learner_config.algo.method
@@ -74,6 +82,7 @@ class PPOLearner(Learner):
             self.clip_lower = self.clip_range[0]
 
         self.exp_counter = 0
+        self.kl_record = []
 
         with U.torch_gpu_scope(self.gpu_id):
 
@@ -374,25 +383,32 @@ class PPOLearner(Learner):
                 return obs_flat, actions_flat, v_trace_s_adv, v_trace_s, pds_flat, avg_trace
 
     def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
-        # obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._advantage_and_return(obs, obs_next, actions, rewards, pds, dones)
-        obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._gae_and_return(obs, obs_next, actions, rewards, pds, dones)
-
+        
         with U.torch_gpu_scope(self.gpu_id):
+                obs_iter, actions_iter, advantages, v_trace_targ, behave_pol, avg_trace = self._gae_and_return(obs, obs_next, actions, rewards, pds, dones)
                 obs_iter = Variable(obs_iter)
                 actions_iter = Variable(actions_iter)
                 advantages = Variable(advantages)
                 v_trace_targ = Variable(v_trace_targ)
                 behave_pol = Variable(behave_pol)
 
-                ref_pol = self.model.forward_actor(obs_iter).detach()
+                # Target Ref GAE:
+                # --------------------------------------------------------------------------------------------
+                ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
+                for _ in range(self.epoch_policy):
+                    stats = self._adapt_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                    curr_pol = self.model.forward_actor(obs_iter).detach()
+                    kl = self.pd.kl(ref_pol, curr_pol).mean()
+                    stats['_pol_kl'] = kl.data[0]
+                    if kl.data[0] > self.kl_targ * 4: break
+                self.kl_record.append(stats['_pol_kl'])
 
-                if self.method == 'clip': 
-                    stats = self._clip_update_full(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
-                else:
-                    stats = self._adapt_update_full(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
-                baseline_stats = self._value_update_full(obs_iter, v_trace_targ)
+                for _ in range(self.epoch_baseline):
+                    baseline_stats = self._value_update_sim(obs_iter, v_trace_targ)
 
 
+                # Vtrace
+                # --------------------------------------------------------------------------------------------
                 # Simultaneous updates - updates actor and critic each for one step and computes the advantage again
                 # uses ExpSenderWrapperMultiStepBehavePolicyMovingWindow exp_sender and MultistepWithBehaviorPolicyAggregator
                 # done_training = False
@@ -429,6 +445,8 @@ class PPOLearner(Learner):
                 #         if self.beta_lower < self.beta:
                 #             self.beta = self.beta / 1.5
 
+
+
                 # updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
@@ -447,9 +465,10 @@ class PPOLearner(Learner):
 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
-                    stats['_obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
-                    stats['_obs_running_square'] =  np.mean(self.model.z_filter.running_square())
-                    stats['_obs_running_std'] = np.mean(self.model.z_filter.running_std())
+                    stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
+                    stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
+                    stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
+                    self.ref_target_model.update_target_z_filter(self.model)
 
         return stats
 
@@ -471,29 +490,40 @@ class PPOLearner(Learner):
             'ppo': self.model,
         }
 
+    def post_publish(self):
+        final_kl = np.mean(self.kl_record)
+        if self.method == 'clip':
+            pass 
+        else: # adapt KL divergence penalty before returning the statistics 
+            if final_kl > self.kl_targ * self.beta_adj_thres[1]:
+                if self.beta_upper > self.beta:
+                    self.beta = self.beta * 1.5
+            elif final_kl < self.kl_targ * self.beta_adj_thres[0]:
+                if self.beta_lower < self.beta:
+                    self.beta = self.beta / 1.5
+        self.ref_target_model.update_target_params(self.model)
+
     # overriding base class method to implement learner side count based publish
     def publish_parameter(self, iteration, message=''):
         """
-        Learner publishes latest parameters to the parameter server.
+        Learner publishes latest parameters to the parameter server only when accumulated
+            enough experiences
+        Note: this overrides the base class publish_parameter method
 
         Args:
             iteration: the current number of learning iterations
             message: optional message, must be pickleable.
         """
-        print('learner attempted to publish... current exp count: {}'.format(self.exp_counter))
-        if (not self.session_config.sync.if_sync) or \
-           (self.exp_counter >= self.session_config.sync.learner_push_min):
+        if self.exp_counter >= self.learner_config.replay.param_release_min:
             self._ps_publisher.publish(iteration, message=message)
+            self.post_publish()  
             self.exp_counter = 0
-            print('learner published some parameters')
-
 '''
     PPO TODOs:
-        1) Synchronization and throttling
-            major issue: off policiness overflow. need to evict
+        1) Variant: target network policy WORKS!
         2) RNN -- Make sure its in the same policy. making sure that each data point is homogenous?
         3) Learning rate scheduler 
-        4) Multi-ps PPO running
+
 '''
 
 

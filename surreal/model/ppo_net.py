@@ -62,6 +62,14 @@ class PPOModel(U.Module):
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
 
+    def update_target_params(self, net):
+        self.actor.load_state_dict(net.actor.state_dict())
+        self.critic.load_state_dict(net.critic.state_dict())
+
+    def update_target_z_filter(self, net):
+        if self.use_z_filter:
+            self.z_filter.load_state_dict(net.z_filter.state_dict())
+
     def forward_actor(self, obs):
         shape = obs.size()
         assert len(shape) == 2 and shape[1] == self.obs_dim
