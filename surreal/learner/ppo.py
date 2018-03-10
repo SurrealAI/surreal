@@ -445,8 +445,6 @@ class PPOLearner(Learner):
                 #         if self.beta_lower < self.beta:
                 #             self.beta = self.beta / 1.5
 
-
-
                 # updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
@@ -502,6 +500,8 @@ class PPOLearner(Learner):
                 if self.beta_lower < self.beta:
                     self.beta = self.beta / 1.5
         self.ref_target_model.update_target_params(self.model)
+        self.kl_record = []
+        self.exp_counter = 0
 
     # overriding base class method to implement learner side count based publish
     def publish_parameter(self, iteration, message=''):
@@ -517,7 +517,6 @@ class PPOLearner(Learner):
         if self.exp_counter >= self.learner_config.replay.param_release_min:
             self._ps_publisher.publish(iteration, message=message)
             self.post_publish()  
-            self.exp_counter = 0
 '''
     PPO TODOs:
         1) Variant: target network policy WORKS!
