@@ -7,7 +7,7 @@ Evaluator: pulls param info from "psinfo" and do diagnostics.
 import pickle
 import time
 import surreal.utils as U
-from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient
+from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient, ZmqTimeoutError
 from surreal.distributed.proxy import ZmqLoadBalancerThread
 from surreal.distributed.module_dict import ModuleDict
 from threading import Lock
@@ -223,10 +223,12 @@ class ParameterClient(object):
             postprocess=U.deserialize,
             timeout=self.timeout
         )
-        timed_out, response = client.request('parameter:' + self._last_hash)
-        if timed_out:
-            print('Ps client request timed out')
+        try:
+            response = client.request('parameter:' + self._last_hash)
+        except ZmqTimeoutError:
+            self.report_fetch_parameter_failed()
             return False
+        self.report_fetch_parameter_success()
         param, cur_hash = response
         self._last_hash = cur_hash
         if param:
@@ -250,8 +252,9 @@ class ParameterClient(object):
             postprocess=U.deserialize,
             timeout=self.timeout
         )
-        timed_out, response = client.request('both:' + self._last_hash)
-        if timed_out:
+        try:
+            response = client.request('both:' + self._last_hash)
+        except ZmqTimeoutError:
             self.report_fetch_parameter_failed()
             return False, {}
         self.report_fetch_parameter_success()

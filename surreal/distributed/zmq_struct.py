@@ -12,6 +12,16 @@ zmq_logger = Logger.get_logger(
     show_level=True,
 )
 
+class ZmqError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
+class ZmqTimeoutError(Exception):
+    def __init__(self):
+        super().__init__('Request Timed Out')    
+
+
 class ZmqSocketWrapper(object):
     """
         Wrapper around zmq socket, manages resources automatically
@@ -250,10 +260,9 @@ class ZmqReq():
         self.postprocess = postprocess
 
     def request(self,data):
-        """
+        """ 
             Requests to the earlier provided host and port for data.
-            if timeout > 0, returns (bool)timed_out, [response/None]
-            else: return response
+            Throws ZmqTimeoutError if timed out
         """
         # https://github.com/zeromq/pyzmq/issues/132
         # We allow the requester to time out
@@ -274,9 +283,9 @@ class ZmqReq():
                 rep = self.socket.recv()
                 if self.postprocess:
                     rep = self.postprocess(rep)
-                return False, rep
+                return rep
             else:
-                return True, None
+                raise ZmqTimeoutError()
         else:
             rep = self.socket.recv()
             if self.postprocess:
