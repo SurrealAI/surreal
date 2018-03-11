@@ -37,8 +37,12 @@ class ExpBuffer(object):
     def _hash_nested(self, values):
         if isinstance(values, list):
             return [self._hash_nested(v) for v in values]
+        if isinstance(values, tuple):
+            return tuple([self._hash_nested(v) for v in values])
         elif isinstance(values, dict):
             return {k: self._hash_nested(v) for k, v in values.items()}
+        elif values is None:
+            return None
         else:  # values is a single object
             obj = values
             hsh = U.pyobj_hash(obj)
