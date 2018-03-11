@@ -126,7 +126,6 @@ class ParameterServer(Process):
         self.param_info = None
 
     def run(self):
-        time.sleep(10)
         self._subscriber = ZmqSubClient(
             host=self.publish_host,
             port=self.publish_port,
