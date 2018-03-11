@@ -19,7 +19,7 @@ class ZmqError(Exception):
 
 class ZmqTimeoutError(Exception):
     def __init__(self):
-        super.__init__('Request Timed Out')    
+        super().__init__('Request Timed Out')    
 
 
 class ZmqSocketWrapper(object):
