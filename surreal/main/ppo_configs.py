@@ -51,7 +51,7 @@ def generate(argv):
             'stride': 10,
             'batch_size': 128, 
             # ppo specific parameters:
-            'method': 'adapt',
+            'method': 'clip',
             'lr_policy': 2e-4,
             'lr_baseline': 2e-4,
             'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
