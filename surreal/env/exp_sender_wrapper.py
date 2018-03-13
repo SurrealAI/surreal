@@ -65,9 +65,10 @@ class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
 
     def send(self, data):
         obs_array, action, reward, done, info = data
-        hash_dict = {}
+        hash_dict = {
+            'obs': obs_array
+        }
         nonhash_dict = {
-            'obs': obs_array,
             'action': action,
             'reward': reward,
             'done': done,

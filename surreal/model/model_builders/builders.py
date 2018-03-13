@@ -45,7 +45,7 @@ class ActorNetwork(U.Module):
             c1 = F.relu(c1) # TODO: elu activation
             c2 = self.conv2(c1)
             c2 = F.relu(c2)
-            batch_size = c2.shape[0]
+            batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
             #print(c2.shape)
             hidden = self.fc_hidden(c2)
@@ -105,7 +105,7 @@ class CriticNetwork(U.Module):
             c1 = F.relu(c1) # TODO: elu activation
             c2 = self.conv2(c1)
             c2 = F.relu(c2)
-            batch_size = c2.shape[0]
+            batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
             c2 = torch.cat((c2, act), dim=1)
             hidden = self.fc_hidden(c2)
