@@ -39,10 +39,6 @@ class PPOAgent(Agent):
         )
 
         self.pd = DiagGauss(self.action_dim)
-        
-        # synchronization setup
-        self.total_exp_gen = 0 
-        self.first_pull = True
 
     def act(self, obs):
         obs = U.to_float_tensor(obs)
@@ -58,7 +54,6 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-        self.total_exp_gen += 1
 
         if self.agent_mode != 'training':
             return action_choice
