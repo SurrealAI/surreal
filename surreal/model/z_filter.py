@@ -69,8 +69,6 @@ class ZFilter(U.Module):
         '''
         # if True: return inputs
         running_mean = (self.running_sum / self.count)
-        # running_std = ((self.running_sumsq / self.count) - running_mean.pow(2)).pow(0.5)
-        # running_std += self.eps
         running_std = torch.clamp((self.running_sumsq / self.count \
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
@@ -124,12 +122,3 @@ class ZFilter(U.Module):
         if self.use_cuda:
             running_square = running_square.cpu()
         return running_square.numpy()
-
-
-'''
-change tolerance to add small before start using
-what works so far: fixing mean and variance
-tests to run:
-    1) blank test to get running std and mean √ 
-    2) test adding small eps instead of clamping √
-'''

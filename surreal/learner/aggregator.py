@@ -115,7 +115,7 @@ class MultistepAggregator():
         return observation_arr, action_arr, reward_arr, done_arr
 
 
-class MultistepWithBehaviorPolicyAggregator():
+class MultistepAggregatorWithInfo():
     """
         Accepts input by ExpSenderWrapperMultiStep
         aggregate() returns float Tensors
@@ -136,15 +136,28 @@ class MultistepWithBehaviorPolicyAggregator():
         self.obs_spec = obs_spec
 
     def aggregate(self, exp_list):
-        observations, next_obs, actions, rewards, pds, dones = [], [], [], [], [], []
+        observations, next_obs, actions, rewards, dones, action_infos = [], [], [], [], [], []
+        for _ in range(len(exp_list[0]['action_info_arr'][0])):
+            action_infos.append([])
+
         for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, pd_n_step, done_n_step = self.stack_n_step_experience(exp)
+            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
             observations.append(observation_n_step)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
-            pds.append(pd_n_step)
             next_obs.append(exp['obs_next'])
+
+            for i in range(len(action_infos)):
+                one_exp_info = []
+                for info_list in exp['action_info_arr']:
+                    one_exp_info.append(info_list[i])
+                action_infos[i].append(np.stack(one_exp_info))
+
+        for i in range(len(action_infos)):
+            action_infos[i] = U.to_float_tensor(np.stack(action_infos[i]))
+
+        action_infos = [U.to_float_tensor(np.asarray(infos)) for infos in action_infos]
         observations = U.to_float_tensor(np.stack(observations))
         next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
@@ -153,14 +166,15 @@ class MultistepWithBehaviorPolicyAggregator():
             actions = torch.LongTensor(actions).unsqueeze(2)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        pds = U.to_float_tensor(pds)
         rewards = U.to_float_tensor(rewards)
         dones = U.to_float_tensor(dones)
+
+
         return EasyDict(obs=observations,
                     next_obs = next_obs,
                     actions=actions, 
                     rewards=rewards, 
-                    pds=pds,
+                    action_infos=action_infos,
                     dones=dones,)
 
     def stack_n_step_experience(self, experience):
@@ -171,8 +185,7 @@ class MultistepWithBehaviorPolicyAggregator():
         action_arr = np.stack(experience['action_arr'])
         reward_arr = np.array(experience['reward_arr'])
         done_arr = np.array(experience['done_arr'])
-        pds_arr  = np.stack(experience['pd_arr'])
-        return observation_arr, action_arr, reward_arr, pds_arr, done_arr
+        return observation_arr, action_arr, reward_arr, done_arr
 
 
 

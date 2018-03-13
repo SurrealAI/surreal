@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .base import Learner
-from .aggregator import MultistepWithBehaviorPolicyAggregator 
+from .aggregator import MultistepAggregatorWithInfo 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
+from surreal.utils.pytorch.scheduler import LinearWithMinLR
 
 class PPOLearner(Learner):
 
@@ -89,7 +90,6 @@ class PPOLearner(Learner):
             self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
             self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
             self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
-
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
                 lr=self.lr_baseline
@@ -99,10 +99,25 @@ class PPOLearner(Learner):
                 lr=self.lr_policy
             )
 
-            # self.actor_lr_schedule = torch.optim.XXX
+            self.min_lr = self.learner_config.algo.min_lr
+            self.lr_update_frequency = self.learner_config.algo.lr_update_frequency
+            self.frames_to_anneal = self.learner_config.algo.frames_to_anneal
+            num_updates = int(self.frames_to_anneal / (self.learner_config.replay.param_release_min *
+                                                       self.learner_config.algo.stride))
+            
+            self.actor_scheduler  = LinearWithMinLR(self.actor_optim, 
+                                                    num_updates,
+                                                    self.lr_policy,
+                                                    update_freq=self.lr_update_frequency,
+                                                    min_lr = self.min_lr)
+            self.critic_scheduler = LinearWithMinLR(self.critic_optim, 
+                                                    num_updates,
+                                                    self.lr_baseline,
+                                                    update_freq=self.lr_update_frequency,
+                                                    min_lr = self.min_lr)
 
             # Experience Aggregator
-            self.aggregator = MultistepWithBehaviorPolicyAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
         
             # probability distribution. Gaussian only for now
             self.pd = DiagGauss(self.action_dim)
@@ -118,10 +133,10 @@ class PPOLearner(Learner):
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
 
         stats = {
-            "surr_loss": surr.mean().data[0], 
-            "clip_surr_loss": clip_loss.data[0], 
-            "entropy": self.pd.entropy(learn_pol).data.mean(),
-            'clip_epsilon': self.clip_epsilon
+            "_surr_loss": surr.mean().data[0], 
+            "_clip_surr_loss": clip_loss.data[0], 
+            "_entropy": self.pd.entropy(learn_pol).data.mean(),
+            '_clip_epsilon': self.clip_epsilon
         }
         return clip_loss, stats
 
@@ -190,7 +205,6 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
-            batch_size =self.learner_config.replay.batch_size 
                 
             if self.use_cuda: 
                 rewards = rewards.cuda()
@@ -198,9 +212,9 @@ class PPOLearner(Learner):
                 gamma = gamma.cuda()
                 lam   = lam.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1).view(batch_size * (self.n_step + 1), -1)
+            obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
             values = self.model.forward_critic(Variable(obs_concat)).data # (batch * (n+1), 1)
-            values = values.view(batch_size, self.n_step + 1)
+            values = values.view(self.batch_size, self.n_step + 1)
             values[:, 1:] *= 1 - dones
 
             returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
@@ -244,9 +258,10 @@ class PPOLearner(Learner):
                 
             return obs_flat, actions_flat, adv, returns
 
-    def _optimize(self, obs, actions, rewards, obs_next, pds, dones):
+    def _optimize(self, obs, actions, rewards, obs_next, action_infos, dones):
         
         with U.torch_gpu_scope(self.gpu_id):
+                pds = action_infos[0]
                 obs_iter, actions_iter, advantages, returns  = self._gae_and_return(obs, obs_next, actions, rewards, pds, dones)
                 obs_iter = Variable(obs_iter)
                 actions_iter = Variable(actions_iter)
@@ -283,7 +298,8 @@ class PPOLearner(Learner):
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
                 stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
-
+                stats['_lr'] = self.actor_scheduler.get_lr()[0]
+                
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
                     stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
@@ -300,11 +316,11 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.next_obs,
-            batch.pds, 
+            batch.action_infos, 
             batch.dones,
         )
         self.tensorplex.add_scalars(tensorplex_update_dict)
-        self.exp_counter += self.learner_config.replay.batch_size
+        self.exp_counter += self.batch_size
 
     def module_dict(self):
         return {
@@ -330,6 +346,10 @@ class PPOLearner(Learner):
         self.ref_target_model.update_target_params(self.model)
         self.kl_record = []
         self.exp_counter = 0
+        self.actor_scheduler.step()
+        self.critic_scheduler.step()
+        print(self.actor_scheduler.get_lr())
+        print('------')
 
     def publish_parameter(self, iteration, message=''):
         """
@@ -344,15 +364,4 @@ class PPOLearner(Learner):
         if self.exp_counter >= self.learner_config.replay.param_release_min:
             self._ps_publisher.publish(iteration, message=message)
             self.post_publish()  
-'''
-PPO TODOs:
-1) clip, get rid of dev materials
-2) LR scheduler
-3) many agents test
-4) test on different environmentss
-5) RNN
-
-'''
-
-
 

@@ -158,7 +158,7 @@ class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
         }
         self.sender.send(hash_dict, nonhash_dict)
 
-class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
+class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
     """
         Base class for all classes that send experience in format
         {   
@@ -192,9 +192,9 @@ class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
         return self._obs, info
 
     def _step(self, action):
-        action_choice, action_pd = action
+        action_choice, action_info = action
         obs_next, reward, done, info = self.env.step(action_choice)
-        self.last_n.append([self._obs, action_choice, reward, done, action_pd, info])
+        self.last_n.append([self._obs, action_choice, reward, done, action_info, info])
         if len(self.last_n) == self.n_step:
             self.send(self.last_n, obs_next)
             for i in range(self.stride):
@@ -204,16 +204,16 @@ class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
         return obs_next, reward, done, info
 
     def send(self, data, obs_next):
-        obs_arr, action_arr, reward_arr, done_arr, pd_arr, info_arr = [], [], [], [], [], []
+        obs_arr, action_arr, reward_arr, done_arr, action_info_arr, info_arr = [], [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
-        for index, (obs, action, reward, done, pd, info) in enumerate(data):
+        for index, (obs, action, reward, done, action_info, info) in enumerate(data):
             # Store observations in a deduplicated way
             obs_arr.append(obs)
             action_arr.append(action)
             reward_arr.append(reward)
             done_arr.append(done)
-            pd_arr.append(pd)
+            action_info_arr.append(action_info)
             info_arr.append(info)
 
         hash_dict = {
@@ -222,7 +222,7 @@ class ExpSenderWrapperMultiStepBehavePolicyMovingWindow(ExpSenderWrapperBase):
         }
         nonhash_dict = {
             'action_arr': action_arr,
-            'pd_arr' : pd_arr,
+            'action_info_arr' : action_info_arr,
             'reward_arr': reward_arr,
             'done_arr': done_arr,
             'info_arr': info_arr,

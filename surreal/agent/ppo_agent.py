@@ -64,7 +64,7 @@ class PPOAgent(Agent):
             return action_choice
         else: 
             time.sleep(self.env_config.sleep_time)
-            return action_choice, action_pd
+            return action_choice, [action_pd]
 
     def module_dict(self):
         return {

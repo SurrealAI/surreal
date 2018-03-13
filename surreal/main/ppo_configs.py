@@ -47,14 +47,16 @@ def generate(argv):
             'trace_cutoff': 2.0,
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
-            'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
+            'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'stride': 10,
             'batch_size': 128, 
             # ppo specific parameters:
-            'method': 'clip',
+            'method': 'adapt',
             'lr_policy': 2e-4,
             'lr_baseline': 2e-4,
-            'lr_scale_per_mil': -1.0, # scaling learning rate every 1 millions frames. -1 denote no annealing
+            'frames_to_anneal': 1e7,
+            'lr_update_frequency': 1, 
+            'min_lr': 1e-5,
             'epoch_policy': 5,
             'epoch_baseline': 5,
             'kl_targ': 0.01, # target KL divergence between before and after
