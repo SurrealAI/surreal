@@ -330,6 +330,46 @@ class ObservationConcatenationWrapper(Wrapper):
         }
     # TODO: what about upper/lower bound information
 
+class GrayscaleWrapper(Wrapper):
+    def _grayscale(self, obs):
+        obs_visual, obs_flat = obs
+        if obs_visual is None:
+            return obs
+        C, H, W = obs_visual.shape
+        assert obs_visual.shape == (3, 84, 84)
+        obs_visual = np.mean(obs_visual, 0, 'uint8').reshape(1, H, W)
+        return obs_visual, obs_flat
+
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        obs = self._grayscale(obs)
+        return obs, reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return self._grayscale(obs), info
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+    def observation_spec(self):
+        spec = self.env.observation_spec()
+        visual_dim, flat_dim = spec['dim']
+        if visual_dim is None:
+            visual_dim = None
+        else:
+            assert visual_dim.shape == (3, 84, 84)
+            C, H, W = visual_dim.shape
+            visual_dim = dm_control.rl.specs.ArraySpec(shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
+        return {
+            'type': 'continuous',
+            'dim': (visual_dim, flat_dim)
+        }
+
+    def action_spec(self):
+        return self.env.action_spec()
+
 class FrameStackWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
@@ -348,7 +388,7 @@ class FrameStackWrapper(Wrapper):
         if visual_obs[0] is None:
             visual_obs = None
         else:
-            assert visual_obs[0].shape == (3, 84, 84) # C, H, W
+            assert visual_obs[0].shape == (1, 84, 84) # C, H, W
             visual_obs = np.concatenate(visual_obs, axis=0)
         if flat_obs[0] is None:
             flat_obs = None
@@ -380,8 +420,8 @@ class FrameStackWrapper(Wrapper):
         if visual_dim is None:
             visual_dim = None
         else:
-            assert visual_dim.shape == (3, 84, 84)
             C, H, W = visual_dim.shape
+            assert (H, W) == (84, 84)
             visual_dim = dm_control.rl.specs.ArraySpec(shape=(C * 3, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
             'type': 'continuous', 
