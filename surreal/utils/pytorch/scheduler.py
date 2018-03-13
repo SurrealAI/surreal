@@ -18,8 +18,6 @@ class LinearWithMinLR(_LRScheduler):
         super(LinearWithMinLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
-        print(self.last_epoch, self.update_freq)
-        print(self.base_lrs)
         if self.last_epoch % self.update_freq == 0:
             return [max(self.min_lr, base_lr - self.anneal_quantity * self.last_epoch) 
                                         for i, base_lr in enumerate(self.base_lrs)]

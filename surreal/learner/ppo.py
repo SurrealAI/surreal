@@ -348,8 +348,6 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_scheduler.step()
         self.critic_scheduler.step()
-        print(self.actor_scheduler.get_lr())
-        print('------')
 
     def publish_parameter(self, iteration, message=''):
         """
