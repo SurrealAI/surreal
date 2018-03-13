@@ -48,8 +48,8 @@ def generate(argv):
             'is_weight_thresh': 2.5, 
             'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepBehavePolicyMovingWindow',
-            'stride': 1,
-            'batch_size': 64, 
+            'stride': 10,
+            'batch_size': 128, 
             # ppo specific parameters:
             'method': 'adapt',
             'lr_policy': 2e-4,
@@ -67,10 +67,10 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 64,
-            'memory_size': 96,
-            'sampling_start_size': 64,
-            'param_release_min': 10240,
+            'batch_size': 128,
+            'memory_size': 192,
+            'sampling_start_size': 128,
+            'param_release_min': 2048,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -80,7 +80,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,  
-        'sleep_time': 1/400,
+        'sleep_time': 0.0,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',
@@ -101,7 +101,7 @@ def generate(argv):
                 # for manual updates:
                 'agent': 50,  # agent.update_tensorplex()
                 'learner': 20,  # learner.update_tensorplex()
-            }
+            },
         },
         'sender': {
             'flush_iteration': 3,
@@ -120,3 +120,4 @@ def generate(argv):
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)
+    return learner_config, env_config, session_config
