@@ -23,7 +23,19 @@
 
 # Community guidelines
 
-## Coding guidelines
+## Checklist before you start
+
+- We have weekly Surreal all-hands meeting. It typically happens at 7 pm and provides free dinner! Wednesday is the most likely day, although it shifts from week to week to accommodate special situations like conference deadlines and midterm exams. Please check with the admins (@jimfan and @yukez) about your schedule.
+ 
+- You should have write access to both `Surreal` and `Tensorplex` github repos. 
+
+- Join our Slack channel: https://stanfordvl.slack.com. You will be added as a multi-channel guest with at least one access, the `#surreal-dev` channel. Slack is our _primary means of communication_. Make sure you regularly check the messages.
+
+- Ask Yuke for access to our Google Cloud cluster.
+
+- Ask Jim for access to our Google Drive shared folder. It contains some more onboarding docs and reading materials. 
+
+## Coding requirements
 
 1. Please **periodically check your Github notifications** and address any comments in the issues that `@` you. 
 
@@ -135,13 +147,13 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 
 ## One-time setup
 
-`~/.surreal.yml`
+**TODO**
+
+Copy the system config file from `surreal/kube/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). 
 
 git generate access token
 
 decide which branch is the temp branch to snapshot your code
-
-**TODO**
 
 
 ## Miscellaneous
