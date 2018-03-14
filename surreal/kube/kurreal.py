@@ -104,6 +104,12 @@ class KurrealParser:
             nargs='?',
             default=0
         )
+        parser.add_argument(
+            '--gpu-type',
+            dest='gpu_type',
+            type=str,
+            default='k80'
+        )
         parser.add_argument('-nos', '--no-snapshot', action='store_true')
         parser.add_argument('-f', '--force', action='store_true')
         parser.add_argument(
@@ -565,12 +571,21 @@ class Kurreal:
             num_gpus = 1
         else:
             num_gpus = args.num_gpus
-        POD_TYPES = {
-            0: 'nonagent-cpu',
-            1: 'nonagent-gpu',
-            2: 'nonagent-2k80-16cpu',
-            4: 'nonagent-4k80-32cpu',
-        }
+
+        if args.gpu_type == 'k80':
+            POD_TYPES = {
+                0: 'nonagent-cpu',
+                1: 'nonagent-gpu',
+                2: 'nonagent-2k80-16cpu',
+                4: 'nonagent-4k80-32cpu',
+            }
+        elif args.gpu_type == 'p100':
+            POD_TYPES = {
+                0: 'nonagent-cpu',
+                1: 'nonagent-gpu-p100',
+            }
+        else:
+            raise ValueError('Unknown GPU type: {}'.format(args.gpu_type))
         if num_gpus not in POD_TYPES:
             raise ValueError('invalid number of GPUs, choose from {}'
                              .format(list(POD_TYPES.keys())))
