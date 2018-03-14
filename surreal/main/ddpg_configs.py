@@ -88,6 +88,7 @@ def generate(argv):
     env_config = {
         'env_name': args.env,
         'pixel_input': True,
+        'frame_stacks': 3,
         'video': {
             'record_video': False,
             'save_directory': '/mnt/snaps/',

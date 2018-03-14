@@ -5,7 +5,7 @@ import surreal.utils as U
 
 class ActorNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[1,1], use_batchnorm=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False):
         super(ActorNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         D_obs_visual, D_obs_flat = D_obs
@@ -17,9 +17,8 @@ class ActorNetwork(U.Module):
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
             self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=2)
-            conv_output_size = int(conv_channels[1] * H / 4 * W / 4)
-            conv_output_size = 12800
-            conv_output_size = 400
+            #conv_output_size = int(conv_channels[1] * H / 4 * W / 4)
+            conv_output_size = 400 * 32
             #print('channels', conv_channels[1])
             #print('chw', C, H, W)
             #print('size',conv_output_size)
@@ -68,7 +67,7 @@ class ActorNetwork(U.Module):
 
 class CriticNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[1,1], use_batchnorm=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False):
         super(CriticNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         D_obs_visual, D_obs_flat = D_obs
@@ -84,8 +83,8 @@ class CriticNetwork(U.Module):
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
             self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=2)
-            conv_output_size = conv_channels[1] * H / 4 * W / 4
-            conv_output_size = 400
+            #conv_output_size = conv_channels[1] * H / 4 * W / 4
+            conv_output_size = 400 * 32
             #print('conv', conv_output_size)
             #print('chw', C, H, W)
             conv_output_size = int(conv_output_size)

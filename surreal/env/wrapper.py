@@ -371,13 +371,14 @@ class GrayscaleWrapper(Wrapper):
         return self.env.action_spec()
 
 class FrameStackWrapper(Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, env_config):
         super().__init__(env)
-        self._history = deque(maxlen=3)
+        self.n = env_config.frame_stacks
+        self._history = deque(maxlen=self.n)
 
     def _stacked_observation(self):
         '''
-        Assumes self._history contains the last 3 frames from the environment
+        Assumes self._history contains the last n frames from the environment
         Concatenates the frames together along the depth axis
         '''
         visual_obs = []
@@ -405,7 +406,7 @@ class FrameStackWrapper(Wrapper):
 
     def _reset(self):
         obs, info = self.env.reset()
-        for i in range(3):
+        for i in range(self.n):
             self._history.append(obs)
         return self._stacked_observation(), info
 
@@ -422,7 +423,7 @@ class FrameStackWrapper(Wrapper):
         else:
             C, H, W = visual_dim.shape
             assert (H, W) == (84, 84)
-            visual_dim = dm_control.rl.specs.ArraySpec(shape=(C * 3, H, W), dtype=np.dtype('uint8'), name='pixels')
+            visual_dim = dm_control.rl.specs.ArraySpec(shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
             'type': 'continuous', 
             'dim': (visual_dim, flat_dim)

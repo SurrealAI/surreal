@@ -58,7 +58,7 @@ def make_dm_control(env_name, env_config):
     env = DMControlAdapter(env)
     env = ObservationConcatenationWrapper(env)
     env = GrayscaleWrapper(env)
-    env = FrameStackWrapper(env)
+    env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
