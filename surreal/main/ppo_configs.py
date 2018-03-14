@@ -50,10 +50,10 @@ def generate(argv):
             'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
-            'lr_policy': 2e-4,
-            'lr_baseline': 2e-4,
+            'lr_policy': 5e-5,
+            'lr_baseline': 5e-5,
             'frames_to_anneal': 8e7,
-            'lr_update_frequency': 60, 
+            'lr_update_frequency': 0, 
             'min_lr': 1e-5,
             'epoch_policy': 5,
             'epoch_baseline': 5,

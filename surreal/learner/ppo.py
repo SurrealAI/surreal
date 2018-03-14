@@ -148,12 +148,10 @@ class PPOLearner(Learner):
             
             self.actor_scheduler  = LinearWithMinLR(self.actor_optim, 
                                                     num_updates,
-                                                    self.lr_policy,
                                                     update_freq=self.lr_update_frequency,
                                                     min_lr = self.min_lr)
             self.critic_scheduler = LinearWithMinLR(self.critic_optim, 
                                                     num_updates,
-                                                    self.lr_baseline,
                                                     update_freq=self.lr_update_frequency,
                                                     min_lr = self.min_lr)
 
