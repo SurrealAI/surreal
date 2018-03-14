@@ -64,6 +64,51 @@ Please check the [wiki page](https://github.com/StanfordVL/Surreal/wiki) regular
 The wiki will record all performance progress, API changes and important breaking updates.
 
 
+# Infrastructure design
+
+## Fully-integrated cloud solution for RL
+
+**Cloud** is first-class citizen. Infrastructure should be **codified**. 
+
+- Most other competitor platforms (e.g. [Ray](https://rise.cs.berkeley.edu/projects/ray/) and [TF-agent](https://github.com/tensorflow/agents)) only provide a distributed runtime, but do not offer an easy way to *orchestrate the distributed runtime on the cloud*. For example, it is highly non-trivial to configure a Google Cloud account to scale resources, specify node pools, set up networking, and manage experiments from multiple team members sharing the account. It typically takes huge amount of manual effort, and once the team migrates to a different account or service provider, they have to start all over again. For admins who have lived through this, they know first-hand that it is tedious, annoying, and error-prone.
+    
+- _Surreal_'s philosophy is different: machine learning infrastructure should be codified, version-controlled, and easily replicated with minimal manual effort or ungodly shell scripts. _Surreal_ shields the users from the messy cloud and bare-metal configurations that are otherwise unavoidable for scaling up. _Surreal_ is designed for the dirty world.
+
+- Thanks to the cross-platform toolchains,  _Surreal_ supports all major cloud providers: Google Cloud, Amazon Web Services, and Microsoft Azure. With some additional effort, it may also support any custom-built cloud infrastructure.
+
+- We provide docker images for both CPU and GPU training and deployment. Libraries like [dm_control](https://github.com/deepmind/dm_control) and `glfw` might need difficult workarounds to install correctly. Containerization avoids all the dependency hell and helps maintain reproducibility of the training environment.
+
+
+## Layers of Infrastructure
+
+### Kubernetes: logical grouping
+
+Each distributed RL experiment is a logical set of processes. 
+
+For example, an [Ape-X](https://arxiv.org/abs/1803.00933) experiment with 8 actors would require 8 processes plus learner, parameter server, replay server, tensorboard, and logging server. They should be scheduled on the cloud as a logical set that can communicate internally. Different sets of processes denote different experiments that should not interfere with each other. 
+
+To achieve this, _Surreal_ has tight integrations with [Kubernetes](https://kubernetes.io/), an open-source system for automating deployment, scaling, and management of containerized applications. Kubernetes can auto-scale the number of VMs as experiments are launched or terminated, which is economically essential to low-budget teams (like ours).
+
+### Terraform: automate cloud setup
+
+**TODO**: Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
+
+Fortunately, [Terraform](https://www.terraform.io/intro/index.html) comes to our rescue. Configuration files describe to Terraform the components needed to run a single application or an entire datacenter. Terraform generates an execution plan describing what it will do to reach the desired state, and then executes it to build the described infrastructure. 
+
+Armed with Terraform, _Surreal_ can automate the infrastructure setup from scratch. This removes the last drop of manual labor and frees up researchers' time for actually useful work.
+
+
+## Distributed protocol
+
+### ZeroMQ: thin wrapper around TCP socket
+
+**TODO**
+
+### PyArrow: fast memory transfer
+
+**TODO**
+
+
 # Installation
 
 ## Overview
@@ -165,50 +210,5 @@ autossh -N -L localhost:9006:10.138.0.33:6006 gke-mycluster-nonagent-pool-0b0a94
 ```
 
 - [Setup `sshfs`](docs/sshfs-setup.md) to mount remote NFS on your laptop.
-
-
-# Infrastructure design
-
-## Fully-integrated cloud solution for RL
-
-**Cloud** is first-class citizen. Infrastructure should be **codified**. 
-
-- Most other competitor platforms (e.g. [Ray](https://rise.cs.berkeley.edu/projects/ray/) and [TF-agent](https://github.com/tensorflow/agents)) only provide a distributed runtime, but do not offer an easy way to *orchestrate the distributed runtime on the cloud*. For example, it is highly non-trivial to configure a Google Cloud account to scale resources, specify node pools, set up networking, and manage experiments from multiple team members sharing the account. It typically takes huge amount of manual effort, and once the team migrates to a different account or service provider, they have to start all over again. For admins who have lived through this, they know first-hand that it is tedious, annoying, and error-prone.
-    
-- _Surreal_'s philosophy is different: machine learning infrastructure should be codified, version-controlled, and easily replicated with minimal manual effort or ungodly shell scripts. _Surreal_ shields the users from the messy cloud and bare-metal configurations that are otherwise unavoidable for scaling up. _Surreal_ is designed for the dirty world.
-
-- Thanks to the cross-platform toolchains,  _Surreal_ supports all major cloud providers: Google Cloud, Amazon Web Services, and Microsoft Azure. With some additional effort, it may also support any custom-built cloud infrastructure.
-
-- We provide docker images for both CPU and GPU training and deployment. Libraries like [dm_control](https://github.com/deepmind/dm_control) and `glfw` might need difficult workarounds to install correctly. Containerization avoids all the dependency hell and helps maintain reproducibility of the training environment.
-
-
-## Layers of Infrastructure
-
-### Kubernetes: logical grouping
-
-Each distributed RL experiment is a logical set of processes. 
-
-For example, an [Ape-X](https://arxiv.org/abs/1803.00933) experiment with 8 actors would require 8 processes plus learner, parameter server, replay server, tensorboard, and logging server. They should be scheduled on the cloud as a logical set that can communicate internally. Different sets of processes denote different experiments that should not interfere with each other. 
-
-To achieve this, _Surreal_ has tight integrations with [Kubernetes](https://kubernetes.io/), an open-source system for automating deployment, scaling, and management of containerized applications. Kubernetes can auto-scale the number of VMs as experiments are launched or terminated, which is economically essential to low-budget teams (like ours).
-
-### Terraform: automate cloud setup
-
-**TODO**: Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
-
-Fortunately, [Terraform](https://www.terraform.io/intro/index.html) comes to our rescue. Configuration files describe to Terraform the components needed to run a single application or an entire datacenter. Terraform generates an execution plan describing what it will do to reach the desired state, and then executes it to build the described infrastructure. 
-
-Armed with Terraform, _Surreal_ can automate the infrastructure setup from scratch. This removes the last drop of manual labor and frees up researchers' time for actually useful work.
-
-
-## Distributed protocol
-
-### ZeroMQ: thin wrapper around TCP socket
-
-**TODO**
-
-### PyArrow: fast memory transfer
-
-**TODO**
 
 
