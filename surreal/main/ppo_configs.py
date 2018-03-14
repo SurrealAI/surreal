@@ -52,9 +52,9 @@ def generate(argv):
             'method': 'adapt',
             'lr_policy': 2e-4,
             'lr_baseline': 2e-4,
-            'frames_to_anneal': 5e7,
-            'lr_update_frequency': 1, 
-            'min_lr': 4e-5,
+            'frames_to_anneal': 8e7,
+            'lr_update_frequency': 60, 
+            'min_lr': 1e-5,
             'epoch_policy': 5,
             'epoch_baseline': 5,
             'kl_targ': 0.01, # target KL divergence between before and after

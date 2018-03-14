@@ -13,6 +13,7 @@ class LinearWithMinLR(_LRScheduler):
             num_steps: number of total steps to anneal
             init_lr: initial learning rate
             update_freq: anneals learning rate every X steps
+                Note: if this value is below 1, then no annealing is used
             min_lr: minimum learning rate
             last_epoch: tracks current step
         Member functions:
@@ -30,16 +31,22 @@ class LinearWithMinLR(_LRScheduler):
         self.num_steps = num_steps
         self.update_freq = update_freq
         self.min_lr = min_lr
-        total_updates = int(num_steps / update_freq)
-        self.anneal_quantity = (init_lr - min_lr) / total_updates
+        if self.update_freq < 1:
+            self.anneal_quantity = None
+        else:
+            total_updates = int(num_steps / update_freq)
+            self.anneal_quantity = (init_lr - min_lr) / total_updates
         super(LinearWithMinLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         '''
             Anneals current learning rate unless it is specified minimum learning rate
         '''
-        if self.last_epoch % self.update_freq == 0:
-            return [max(self.min_lr, base_lr - self.anneal_quantity * self.last_epoch) 
-                                        for i, base_lr in enumerate(self.base_lrs)]
-        else:
-            return self.base_lrs
+        if self.update_freq < 1: return self.base_lrs
+        num_updated = int(self.last_epoch / self.update_freq)
+        return [max(self.min_lr, base_lr - self.anneal_quantity * num_updated)
+                        for base_lr in self.base_lrs]
+
+
+
+
