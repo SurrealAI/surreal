@@ -11,7 +11,16 @@ from surreal.session import ConfigError
 import time
 
 class PPOAgent(Agent):
-
+    '''
+        Class that specifies PPO agent logic
+        Important attributes:
+            init_log_sig: initial log sigma for diagonal gausian policy
+            model: PPO_Model instance. see surreal.model.ppo_net
+            pd: DiagGauss instance. see surreal.model.ppo_net
+        Member functions:
+            act
+            reset
+    '''
     def __init__(self,
                  learner_config,
                  env_config,
@@ -41,6 +50,11 @@ class PPOAgent(Agent):
         self.pd = DiagGauss(self.action_dim)
 
     def act(self, obs):
+        '''
+            Agent returns an action based on input observation. if in training,
+            returns action along with action infos, which includes the current
+            probability distribution, RNN hidden states and etc.
+        '''
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
@@ -75,4 +89,8 @@ class PPOAgent(Agent):
         }
 
     def reset(self):
+        '''
+            Currently unimplemented. in the future it will contain reset of 
+            RNN hidden states
+        '''
         pass

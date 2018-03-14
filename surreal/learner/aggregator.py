@@ -124,7 +124,7 @@ class MultistepAggregatorWithInfo():
             next_obs = batch_size * 1 * next_observation
             actions = batch_size * n_step * actions,
             rewards = batch_size * n_step,
-            pds = batch_size * n_step * pd_length, # pd_length = 2 * actions for Gaussian Policy
+            actoin_infos = list of batched FloatTensor action infos
             dones = batch_size * n_step,
         }
     """

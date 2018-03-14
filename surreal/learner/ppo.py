@@ -10,7 +10,50 @@ import surreal.utils as U
 from surreal.utils.pytorch.scheduler import LinearWithMinLR
 
 class PPOLearner(Learner):
+    '''
+    PPOLearner: subclass of Learner that contains PPO algorithm logic
+    important attributes:
+        gpu_id: array of gpu IDs. None if using CPU
+        model: instance of PPOModel from surreal.model.ppo_net
+        ref_target_model: instance of PPOModel, kept to used as
+            reference policy
+        method: string of either 'adapt' or 'clip' to determine
+            which variant of PPO is used. For details of variants
+            see https://arxiv.org/pdf/1707.06347.pdf
+        norm_adv: boolean flag -- whether to use batch advantage
+            normalization
+        use_z_filter: boolean flag -- whether to use obs Z-Filtering
+        actor/critic_optim: Adam Optimizer for policy and baseline network
+        actor/critic_scheduler: Learning rate scheduler. details see
+            surreal.utils.pytorch.scheduler
+        aggregator: experience aggregator used to batch experiences.
+            for available aggregators, see surreal.learner.aggregator
+        pd: probability distribution class (Assumed as Diagonal Gaussian)
+            see surreal.model.ppo_net for details
 
+    important member functions:
+        private methods:
+        _clip_loss: computes the loss and various statistics
+            for 'clip' variant PPO
+        _clip_update: uses loss information to make policy update
+        _adapt_loss: computes loss and various statistics for
+            'adapt' variant of PPO
+        _adapt_update: uses loss info to make policy update
+        _value_loss: computes loss and various statistics for value function
+        _value_update: uses loss info to update value function
+        _gae_and_return: computes generalized advantage estimate and
+            corresponding N-step return. Details of algorithm can be found
+            here: https://arxiv.org/pdf/1506.02438.pdf
+        _advantage_and_return: basic advantage and N-step return estimate
+        _optimize: fucntion that makes policy and value function update
+        _post_publish: function that manages metrics and behavior after
+            parameter release
+
+        public methods:
+        learn: method to perform optimization and send to tensorplex for log
+        module_dict: returns the corresponding parameters
+        publish_parameter: publishes parameters in self.model to parameter server
+    '''
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
 
@@ -53,9 +96,7 @@ class PPOLearner(Learner):
 
         # PPO parameters
         self.method = self.learner_config.algo.method
-        self.trace_cutoff = self.learner_config.algo.trace_cutoff
         self.is_weight_thresh = self.learner_config.algo.is_weight_thresh
-        self.is_weight_eps = self.learner_config.algo.is_weight_eps
         self.lr_policy = self.learner_config.algo.lr_policy
         self.lr_baseline = self.learner_config.algo.lr_baseline
         self.epoch_policy = self.learner_config.algo.epoch_policy
@@ -117,17 +158,30 @@ class PPOLearner(Learner):
                                                     min_lr = self.min_lr)
 
             # Experience Aggregator
-            self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
+            self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, 
+                                                          self.env_config.action_spec)
         
             # probability distribution. Gaussian only for now
             self.pd = DiagGauss(self.action_dim)
 
     def _clip_loss(self, obs, actions, advantages, behave_pol): 
+        """
+        Computes the loss with current data. also returns a dictionary of statistics
+        which includes surrogate loss, clipped surrogate los, policy entropy, clip
+        constant
+        return: surreal.utils.pytorch.GPUVariable, dict
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            actions: batch of actions in form of (batch_size, act_dim)
+            advantages: batch of normalized advantage, (batch_size, 1)
+            behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+        """
         learn_pol = self.model.forward_actor(obs)
         learn_prob = self.pd.likelihood(actions, learn_pol)
         behave_prob = self.pd.likelihood(actions, behave_pol)
         prob_ratio = learn_prob / behave_prob
-        cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
+        cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 
+                                               1 + self.clip_epsilon)
         surr = -prob_ratio * advantages
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
@@ -140,21 +194,45 @@ class PPOLearner(Learner):
         }
         return clip_loss, stats
 
-    def _clip_update_sim(self, obs, actions, advantages, behave_pol, ref_pol):
+    def _clip_update(self, obs, actions, advantages, behave_pol):
+        """
+        Method that makes policy updates. calls _clip_loss method
+        Note:  self.clip_actor_gradient determines whether gradient is clipped
+        return: dictionary of statistics to be sent to tensorplex server
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            actions: batch of actions in form of (batch_size, act_dim)
+            advantages: batch of normalized advantage, (batch_size, 1)
+            behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+        """
         loss, stats = self._clip_loss(obs, actions, advantages, behave_pol)
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
+            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
+                                    self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
     def _adapt_loss(self, obs, actions, advantages, behave_pol, ref_pol):
+        """
+        Computes the loss with current data. also returns a dictionary of statistics
+        which includes surrogate loss, clipped surrogate los, policy entropy, adaptive
+        KL penalty constant, policy KL divergence
+        return: surreal.utils.pytorch.GPUVariable, dict
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            actions: batch of actions in form of (batch_size, act_dim)
+            advantages: batch of normalized advantage, (batch_size, 1)
+            behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+            ref_pol: batch of reference policy (batch_size, 2 * act_dim)
+        """
         learn_pol = self.model.forward_actor(obs)
         prob_behave = self.pd.likelihood(actions, behave_pol)
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages * torch.clamp(prob_learn/prob_behave, max=self.is_weight_thresh)).mean()
+        surr = -(advantages * torch.clamp(prob_learn/prob_behave, 
+                                            max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -170,16 +248,36 @@ class PPOLearner(Learner):
         }
         return loss, stats
 
-    def _adapt_update_sim(self, obs, actions, advantages, behave_pol, ref_pol):
+    def _adapt_update(self, obs, actions, advantages, behave_pol, ref_pol):
+        """
+        Method that makes policy updates. calls _adapt_loss method
+        Note:  self.clip_actor_gradient determines whether gradient is clipped
+        return: dictionary of statistics to be sent to tensorplex server
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            actions: batch of actions in form of (batch_size, act_dim)
+            advantages: batch of normalized advantage, (batch_size, 1)
+            behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+            ref_pol: batch of reference policy (batch_size, 2 * act_dim)
+        """
         loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), self.actor_gradient_clip_value)
+            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
+                                    self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
     def _value_loss(self, obs, returns):
+        """
+        Computes the loss with current data. also returns a dictionary of statistics
+        which includes value loss and explained variance
+        return: surreal.utils.pytorch.GPUVariable, dict
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            returns: batch of N-step return estimate (batch_size,)
+        """
         values = self.model.forward_critic(obs)
         explained_var = 1 - torch.var(returns - values) / torch.var(returns)
         loss = (values - returns).pow(2).mean()
@@ -190,18 +288,36 @@ class PPOLearner(Learner):
         }
         return loss, stats
 
-    def _value_update_sim(self, obs, returns):
+    def _value_update(self, obs, returns):
+        """
+        Method that makes baseline function updates. calls _value_loss method
+        Note:  self.clip_actor_gradient determines whether gradient is clipped
+        return: dictionary of statistics to be sent to tensorplex server
+        Args:
+            obs: batch of observations in form of (batch_size, obs_dim)
+            returns: batch of N-step return estimate (batch_size,)
+        """
         loss, stats = self._value_loss(obs, returns)
         self.model.critic.zero_grad()
         loss.backward()
         if self.clip_critic_gradient:
-            nn.utils.clip_grad_norm(self.model.critic.parameters(), self.critic_gradient_clip_value)
+            nn.utils.clip_grad_norm(self.model.critic.parameters(), 
+                                    self.critic_gradient_clip_value)
         self.critic_optim.step()
 
         return stats
 
-    def _gae_and_return(self, obs, obs_next, actions, rewards, pds, dones):
-
+    def _gae_and_return(self, obs, obs_next, actions, rewards, dones):
+        '''
+        computes generalized advantage estimate and corresponding N-step return. 
+        Details of algorithm can be found here: https://arxiv.org/pdf/1506.02438.pdf
+        Args: 
+            obs: batch of observations (batch_size, N-step , obs_dim)
+            obs_next: batch of next observations (batch_size, 1 , obs_dim)
+            actions: batch of actions (batch_size, N-step , act_dim)
+            rewards: batch of rewards (batch_size, N-step)
+            dones: batch of termination flags (batch_size, N-step)
+        '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
@@ -229,8 +345,17 @@ class PPOLearner(Learner):
 
             return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1)
 
-    def _advantage_and_return(self, obs, obs_next, actions, rewards, pds, dones):
-        # assumes obs come in the shape of (batch_size, n_step, obs_dim)
+    def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
+        '''
+        computes  advantage estimate and corresponding N-step return with following:
+            A = R - V(s)
+        Args: 
+            obs: batch of observations (batch_size, N-step , obs_dim)
+            obs_next: batch of next observations (batch_size, 1 , obs_dim)
+            actions: batch of actions (batch_size, N-step , act_dim)
+            rewards: batch of rewards (batch_size, N-step)
+            dones: batch of termination flags (batch_size, N-step)
+        '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             if self.use_cuda: 
@@ -259,10 +384,26 @@ class PPOLearner(Learner):
             return obs_flat, actions_flat, adv, returns
 
     def _optimize(self, obs, actions, rewards, obs_next, action_infos, dones):
-        
+        '''
+            main method for optimization that calls _adapt/clip_update and 
+            _value_update epoch_policy and epoch_baseline times respectively
+            return: dictionary of tracted statistics
+            Args:
+                obs: batch of observations (batch_size, N-step , obs_dim)
+                obs_next: batch of next observations (batch_size, 1 , obs_dim)
+                actions: batch of actions (batch_size, N-step , act_dim)
+                rewards: batch of rewards (batch_size, N-step)
+                dones: batch of termination flags (batch_size, N-step)
+                action_infos: list of batched other attributes tracted, such as
+                    behavior policy, RNN hidden states and etc.
+        '''
         with U.torch_gpu_scope(self.gpu_id):
                 pds = action_infos[0]
-                obs_iter, actions_iter, advantages, returns  = self._gae_and_return(obs, obs_next, actions, rewards, pds, dones)
+                obs_iter, actions_iter, advantages, returns = self._gae_and_return(obs, 
+                                                                                   obs_next, 
+                                                                                   actions, 
+                                                                                   rewards, 
+                                                                                   dones)
                 obs_iter = Variable(obs_iter)
                 actions_iter = Variable(actions_iter)
                 advantages = Variable(advantages)
@@ -272,9 +413,16 @@ class PPOLearner(Learner):
                 ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
                 for _ in range(self.epoch_policy):
                     if self.method == 'clip':
-                        stats =  self._clip_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                        stats =  self._clip_update(obs_iter, 
+                                                   actions_iter, 
+                                                   advantages, 
+                                                   behave_pol)
                     else: 
-                        stats = self._adapt_update_sim(obs_iter, actions_iter, advantages, behave_pol, ref_pol)
+                        stats = self._adapt_update(obs_iter, 
+                                                   actions_iter, 
+                                                   advantages, 
+                                                   behave_pol, 
+                                                   ref_pol)
                     curr_pol = self.model.forward_actor(obs_iter).detach()
                     kl = self.pd.kl(ref_pol, curr_pol).mean()
                     stats['_pol_kl'] = kl.data[0]
@@ -282,7 +430,7 @@ class PPOLearner(Learner):
                 self.kl_record.append(stats['_pol_kl'])
 
                 for _ in range(self.epoch_baseline):
-                    baseline_stats = self._value_update_sim(obs_iter, returns)
+                    baseline_stats = self._value_update(obs_iter, returns)
 
                 # updating tensorplex
                 for k in baseline_stats:
@@ -310,6 +458,12 @@ class PPOLearner(Learner):
         return stats
 
     def learn(self, batch):
+        '''
+            main method for learning, calls _optimize. Also sends update stats 
+            to Tensorplex
+            Args:
+                batch: pre-aggregated list of experiences rolled out by the agent
+        '''
         batch = self.aggregator.aggregate(batch)
         tensorplex_update_dict = self._optimize(
             batch.obs,
@@ -323,11 +477,36 @@ class PPOLearner(Learner):
         self.exp_counter += self.batch_size
 
     def module_dict(self):
+        '''
+        returns the corresponding parameters
+        '''
         return {
             'ppo': self.model,
         }
 
-    def post_publish(self):
+    def publish_parameter(self, iteration, message=''):
+        """
+        Learner publishes latest parameters to the parameter server only when accumulated
+            enough experiences specified by learner_config.replay.param_release_min
+        Note: this overrides the base class publish_parameter method
+        Args:
+            iteration: the current number of learning iterations
+            message: optional message, must be pickleable.
+        """
+        if self.exp_counter >= self.learner_config.replay.param_release_min:
+            self._ps_publisher.publish(iteration, message=message)
+            self._post_publish()  
+
+    def _post_publish(self):
+        '''
+            function that manages metrics and behavior after parameter release
+            Actions include: 
+                adjusts adaptive threshold for KL penalty for 'adapt' PPO 
+                adjusts adaptive prob ratio clip rate for 'clip' PPO
+                clears KL-Divergence record
+                clears experience counter after parameter release
+                steps actor and critic learning rate scheduler
+        '''
         final_kl = np.mean(self.kl_record)
         if self.method == 'clip': # adapts clip ratios
             if final_kl > self.kl_targ * self.clip_adj_thres[1]:
@@ -348,18 +527,3 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_scheduler.step()
         self.critic_scheduler.step()
-
-    def publish_parameter(self, iteration, message=''):
-        """
-        Learner publishes latest parameters to the parameter server only when accumulated
-            enough experiences
-        Note: this overrides the base class publish_parameter method
-
-        Args:
-            iteration: the current number of learning iterations
-            message: optional message, must be pickleable.
-        """
-        if self.exp_counter >= self.learner_config.replay.param_release_min:
-            self._ps_publisher.publish(iteration, message=message)
-            self.post_publish()  
-

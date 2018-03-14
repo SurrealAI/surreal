@@ -167,7 +167,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'action_arr': [action_1, ...],
             'reward_arr': [reward_1, ...],
             'done_arr': [done_1, ...],
-            'pd_arr': [policy_1, ..., policy_n]
+            'action_info_arr': [action_info_list_1, ...]
             'info_arr': [info_1, ...],
             'n_step': n
         }

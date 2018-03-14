@@ -61,7 +61,9 @@ class CriticNetwork(U.Module):
 
 
 class PPO_ActorNetwork(U.Module):
-
+    '''
+        PPO custom actor network structure
+    '''
     def __init__(self, D_obs, D_act, init_log_sig):
         super(PPO_ActorNetwork, self).__init__()
         hid_1 = D_obs * 10
@@ -84,7 +86,9 @@ class PPO_ActorNetwork(U.Module):
 
 
 class PPO_CriticNetwork(U.Module):
-
+    '''
+        PPO custom critic network structure
+    '''
     def __init__(self, D_obs):
         super(PPO_CriticNetwork, self).__init__()
         hid_1 = D_obs * 10

@@ -16,8 +16,6 @@ class FIFOReplay(Replay):
                  env_config,
                  session_config,
                  index=0):
-        """
-        """
         super().__init__(
             learner_config=learner_config,
             env_config=env_config,
@@ -32,11 +30,6 @@ class FIFOReplay(Replay):
         assert not self.session_config.sender.flush_time
         assert self.session_config.sender.flush_iteration <= 10
 
-    # def default_config(self):
-    #     conf = super().default_config()
-    #     conf.update({
-    #     })
-    #     return conf
 
     def insert(self, exp_tuple):
         self._memory.append(exp_tuple)

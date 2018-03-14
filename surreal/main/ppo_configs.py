@@ -44,19 +44,17 @@ def generate(argv):
             'norm_adv': True,
             'init_log_sig': -1.,
             'n_step': 10,
-            'trace_cutoff': 2.0,
             'is_weight_thresh': 2.5, 
-            'is_weight_eps': 1e-3,
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'stride': 10,
-            'batch_size': 128, 
+            'batch_size': 64, 
             # ppo specific parameters:
             'method': 'adapt',
             'lr_policy': 2e-4,
             'lr_baseline': 2e-4,
-            'frames_to_anneal': 1e7,
+            'frames_to_anneal': 5e7,
             'lr_update_frequency': 1, 
-            'min_lr': 1e-5,
+            'min_lr': 4e-5,
             'epoch_policy': 5,
             'epoch_baseline': 5,
             'kl_targ': 0.01, # target KL divergence between before and after
@@ -69,10 +67,10 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 128,
-            'memory_size': 192,
-            'sampling_start_size': 128,
-            'param_release_min': 2048,
+            'batch_size': 64,
+            'memory_size': 96,
+            'sampling_start_size': 64,
+            'param_release_min': 4096,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
