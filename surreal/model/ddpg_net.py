@@ -12,6 +12,7 @@ class DDPGModel(U.Module):
     def __init__(self,
                  obs_dim,
                  action_dim,
+                 uint8_pixel_input,
                  use_z_filter,
                  use_batchnorm,
                  actor_fc_hidden_sizes,
@@ -21,6 +22,7 @@ class DDPGModel(U.Module):
         # hyperparameters
         self.obs_dim = obs_dim
         self.action_dim = action_dim
+        self.uint8_pixel_input = uint8_pixel_input
         self.use_z_filter = use_z_filter
         self.use_batchnorm = use_batchnorm
 
@@ -32,6 +34,8 @@ class DDPGModel(U.Module):
     def forward_actor(self, obs):
         #shape = obs.size()
         #assert len(shape) == 2 and shape[1] == self.obs_dim
+        assert len(obs) == 2 # (visual, flat)
+        obs = self.scale_image(obs)
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
         return self.actor(obs)
@@ -41,6 +45,7 @@ class DDPGModel(U.Module):
         # assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
         action_shape = action.size()
         #assert len(action_shape) == 2 and action_shape[1] == self.action_dim
+        obs = self.scale_image(obs)
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
         return self.critic(obs, action)
@@ -49,6 +54,16 @@ class DDPGModel(U.Module):
         action = self.forward_actor(obs)
         value = self.forward_critic(obs, action)
         return (action, value)
+
+    def scale_image(self, obs):
+        '''
+        Given uint8 input from the environment, scale to float32 and divide by 256
+        to scale inputs between 0.0 and 1.0
+        '''
+        obs_visual, obs_flat = obs
+        if obs_visual is None:
+            return obs
+        return (obs_visual / 256.0, obs_flat)
 
     def z_update(self, obs):
         if self.use_z_filter:

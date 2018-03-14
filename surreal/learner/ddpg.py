@@ -18,6 +18,7 @@ class DDPGLearner(Learner):
 
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
+        self.uint8_pixel_input = self.learner_config.algo.uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
 
@@ -49,6 +50,7 @@ class DDPGLearner(Learner):
             self.model = DDPGModel(
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
+                uint8_pixel_input=self.uint8_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
@@ -59,6 +61,7 @@ class DDPGLearner(Learner):
             self.model_target = DDPGModel(
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
+                uint8_pixel_input=self.uint8_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
@@ -92,18 +95,22 @@ class DDPGLearner(Learner):
             # self.train_iteration = 0
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
+        '''
+        obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
+        of observations, (N, C, H, W).  Note that while the replay contains uint8, the
+        aggregator returns float32 tensors
+        '''
         with U.torch_gpu_scope(self.gpu_ids):
             visual_obs, flat_obs = obs
 
             if visual_obs is not None:
-                #visual_obs = U.to_float_tensor(visual_obs)
-                #assert torch.is_tensor(visual_obs)
+                assert torch.is_tensor(visual_obs)
                 #visual_obs = Variable(visual_obs.unsqueeze(0))
                 visual_obs = Variable(visual_obs).detach()
 
             if flat_obs is not None:
                 #flat_obs = U.to_float_tensor(flat_obs)
-                #assert torch.is_tensor(flat_obs)
+                assert torch.is_tensor(flat_obs)
                 #flat_obs = Variable(flat_obs.unsqueeze(0))
                 flat_obs = Variable(flat_obs).detach()
 
@@ -115,13 +122,13 @@ class DDPGLearner(Learner):
 
             if visual_obs_next is not None:
                 #visual_obs_next = U.to_float_tensor(visual_obs_next)
-                #assert torch.is_tensor(visual_obs_next)
+                assert torch.is_tensor(visual_obs_next)
                 #visual_obs_next = Variable(visual_obs_next.unsqueeze(0))
                 visual_obs_next = Variable(visual_obs_next).detach()
 
             if flat_obs_next is not None:
                 #flat_obs_next = U.to_float_tensor(flat_obs_next)
-                #assert torch.is_tensor(flat_obs_next)
+                assert torch.is_tensor(flat_obs_next)
                 #flat_obs_next = Variable(flat_obs_next.unsqueeze(0))
                 flat_obs_next = Variable(flat_obs_next).detach()
 
