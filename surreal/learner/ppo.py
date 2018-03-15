@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import *
 import numpy as np
 from .base import Learner
 from .aggregator import MultistepAggregatorWithInfo 
@@ -7,7 +8,7 @@ from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-from surreal.utils.pytorch.scheduler import LinearWithMinLR
+from surreal.utils.pytorch.scheduler import * 
 
 class PPOLearner(Learner):
     '''
@@ -126,7 +127,7 @@ class PPOLearner(Learner):
 
         with U.torch_gpu_scope(self.gpu_id):
 
-            # Learning parameters
+            # Learning parameters and optimizer
             self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
             self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
             self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
@@ -140,20 +141,21 @@ class PPOLearner(Learner):
                 lr=self.lr_policy
             )
 
+            # learning rate scheduler
             self.min_lr = self.learner_config.algo.min_lr
             self.lr_update_frequency = self.learner_config.algo.lr_update_frequency
             self.frames_to_anneal = self.learner_config.algo.frames_to_anneal
             num_updates = int(self.frames_to_anneal / (self.learner_config.replay.param_release_min *
                                                        self.learner_config.algo.stride))
-            
-            self.actor_scheduler  = LinearWithMinLR(self.actor_optim, 
-                                                    num_updates,
-                                                    update_freq=self.lr_update_frequency,
-                                                    min_lr = self.min_lr)
-            self.critic_scheduler = LinearWithMinLR(self.critic_optim, 
-                                                    num_updates,
-                                                    update_freq=self.lr_update_frequency,
-                                                    min_lr = self.min_lr)
+            scheduler = eval(self.learner_config.algo.lr_scheduler) 
+            self.actor_scheduler  = scheduler(self.actor_optim, 
+                                              num_updates,
+                                              update_freq=self.lr_update_frequency,
+                                              min_lr = self.min_lr)
+            self.critic_scheduler = scheduler(self.critic_optim, 
+                                              num_updates,
+                                              update_freq=self.lr_update_frequency,
+                                              min_lr = self.min_lr)
 
             # Experience Aggregator
             self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, 
