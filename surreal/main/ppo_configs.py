@@ -1,8 +1,6 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
 import argparse
 
-# TODO：Documentation on config files
-
 def generate(argv):
     """
     The function name must be `generate`.
