@@ -34,6 +34,7 @@ class DDPGAgent(Agent):
         self.uint8_pixel_input = self.learner_config.algo.uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
+        self.use_layernorm = self.learner_config.algo.use_layernorm
         self.sleep_time = self.learner_config.algo.agent_sleep_time
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
@@ -51,6 +52,7 @@ class DDPGAgent(Agent):
             uint8_pixel_input=self.uint8_pixel_input,
             use_z_filter=self.use_z_filter,
             use_batchnorm=self.use_batchnorm,
+            use_layernorm=self.use_layernorm,
             actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
             critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
         )

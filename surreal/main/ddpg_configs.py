@@ -63,6 +63,7 @@ def generate(argv):
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'use_batchnorm': False,
+            'use_layernorm': True,
             'uint8_pixel_input': True,
             'limit_training_episode_length': 0, # 0 means no limit
             # 'agent_sleep_time': 1/50.0,

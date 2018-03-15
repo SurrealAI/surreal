@@ -3,16 +3,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 import surreal.utils as U
 
+from ..layer_norm import LayerNorm
+
 class ActorNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
         super(ActorNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
+        self.use_layernorm = use_layernorm
         D_obs_visual, D_obs_flat = D_obs
         # TODO: support both visual and flat observations
         #print('input_obs_network', D_obs_visual, D_obs_flat)
         assert not (D_obs_visual is not None and D_obs_flat is not None)
         if D_obs_visual is not None:
+            if use_layernorm:
+                self.layer_norm = LayerNorm()
             # D_obs_visual should be (C, H, W)
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
@@ -41,8 +46,12 @@ class ActorNetwork(U.Module):
         if obs_visual is not None:
             obs = obs_visual
             c1 = self.conv1(obs)
+            if self.use_layernorm:
+                c1 = self.layer_norm(c1)
             c1 = F.relu(c1) # TODO: elu activation
             c2 = self.conv2(c1)
+            if self.use_layernorm:
+                c2 = self.layer_norm(c2)
             c2 = F.relu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
@@ -67,9 +76,10 @@ class ActorNetwork(U.Module):
 
 class CriticNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
         super(CriticNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
+        self.use_layernorm = use_layernorm
         D_obs_visual, D_obs_flat = D_obs
         if self.use_batchnorm:
             self.bn_obs = nn.BatchNorm1d(D_obs)
@@ -79,6 +89,8 @@ class CriticNetwork(U.Module):
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
         assert not (D_obs_visual is not None and D_obs_flat is not None)
         if D_obs_visual is not None:
+            if use_layernorm:
+                self.layer_norm = LayerNorm()
             # D_obs_visual should be (C, H, W)
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
@@ -101,8 +113,12 @@ class CriticNetwork(U.Module):
         if obs_visual is not None:
             obs = obs_visual
             c1 = self.conv1(obs)
+            if self.use_layernorm:
+                c1 = self.layer_norm(c1)
             c1 = F.relu(c1) # TODO: elu activation
             c2 = self.conv2(c1)
+            if self.use_layernorm:
+                c2 = self.layer_norm(c2)
             c2 = F.relu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)

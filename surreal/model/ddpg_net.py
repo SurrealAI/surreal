@@ -15,6 +15,7 @@ class DDPGModel(U.Module):
                  uint8_pixel_input,
                  use_z_filter,
                  use_batchnorm,
+                 use_layernorm,
                  actor_fc_hidden_sizes,
                  critic_fc_hidden_sizes,):
         super(DDPGModel, self).__init__()
@@ -25,9 +26,10 @@ class DDPGModel(U.Module):
         self.uint8_pixel_input = uint8_pixel_input
         self.use_z_filter = use_z_filter
         self.use_batchnorm = use_batchnorm
+        self.use_layernorm = use_layernorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=actor_fc_hidden_sizes)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=critic_fc_hidden_sizes)
+        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, use_layernorm=use_layernorm, hidden_sizes=actor_fc_hidden_sizes)
+        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, use_layernorm=use_layernorm, hidden_sizes=critic_fc_hidden_sizes)
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim)
 
