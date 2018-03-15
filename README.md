@@ -2,7 +2,9 @@
 
 - **SURREAL** stands for "**S**tanford **U**niversity **R**epository for **Re**inforcement-learning **Al**gorithms". Note that this is just a temporary acronym. Surreal will become something much more impactful in the years to come. Stay tuned. 
 
-- The grand mission of Surreal is to provide a distributed platform for state-of-the-art reinforcement learning algorithms and their derivatives. Potential research opportunities enabled by Surreal:
+- _Surreal_ is an **open-source, cloud-integrated platform that scales up state-of-the-art RL algorithms and enables a new wave of distributed RL research**. _Surreal_ is both a collection of codebases and the name of a vibrant research team at Prof. Fei-Fei Li's lab. 
+
+- Potential research opportunities on top of _Surreal_:
 
     * RL in robotics, particularly hard manipulation tasks.
     * Improve on fundamental RL problems: exploration, stability, sample efficiency, etc.
