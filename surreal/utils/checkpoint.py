@@ -314,14 +314,20 @@ class Checkpoint(object):
 
 
 class PeriodicCheckpoint(Checkpoint):
-    def __init__(self, *args, period, **kwargs):
+    def __init__(self, *args, period, min_interval=0, **kwargs):
         """
         Same signature as Checkpoint
+        Args:
+            period: Only update when the interval counter % period == 0
+            min_interval: Only update when the last update 
+                          happend min_interval minutes ago
         """
         super().__init__(*args, **kwargs)
         assert period >= 1
         self.period = period
         self._period_counter = 0
+        self.min_interval = min_interval
+        self.last_update_time = time.time()
 
     def save(self, *args, **kwargs):
         """
@@ -333,10 +339,11 @@ class PeriodicCheckpoint(Checkpoint):
         """
         self._period_counter += 1
         if self._period_counter % self.period == 0:
-            super().save(*args, **kwargs)
-            return True
-        else:
-            return False
+            if time.time() - self.last_update_time >= self.min_interval:
+                super().save(*args, **kwargs)
+                self.last_update_time = time.time()
+                return True
+        return False
 
     def reset_period(self):
         """

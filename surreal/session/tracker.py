@@ -78,8 +78,17 @@ class RunningAverage(object):
 
 class TimeThrottledTensorplex(object):
     """
-        A tensorplex client that aggregates output from 
-        Thread safe, keeps global step in control
+        A tensorplex client that aggregates output from multiple threads
+        Thread safe
+        
+        Data provided will automatically increment internal counter,
+        unless specifically told not so.
+
+        User provides global step
+
+        Update criterion: 
+        1) A global step is provided when updating value
+        2) Time from last update in more than min_update_interval
     """
     def __init__(self, tensorplex, min_update_interval):
         U.assert_type(tensorplex, TensorplexClient)
@@ -89,13 +98,19 @@ class TimeThrottledTensorplex(object):
         self.lock = Lock()
         self.tracker = U.TimedTracker(self.min_update_interval)
         self.init_time = time.time()
+        self.counter = 0
 
-    def add_scalars(self, tag_value_dict):
+    def add_scalars(self, tag_value_dict, increment_counter=True, global_step=None):
         with self.lock:
             self.history.add_scalars(tag_value_dict)
+            if increment_counter:
+                self.counter += 1
+            else:
+                return
+            if global_step is None:
+                global_step = self.counter
             if self.tracker.track_increment():
-                self.tensorplex.add_scalars(self.history.get_values(),
-                                            time.time() - self.init_time)
+                self.tensorplex.add_scalars(self.history.get_values(), global_step)
 
 
 class PeriodicTensorplex(object):
