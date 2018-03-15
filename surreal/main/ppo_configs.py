@@ -48,7 +48,7 @@ def generate(argv):
             'batch_size': 64, 
             # ppo specific parameters:
             'lr_scheduler': "LinearWithMinLR",
-            'method': 'clip',
+            'method': 'adapt',
             'lr_policy': 1e-4,
             'lr_baseline': 1e-4,
             'frames_to_anneal': 8e7,
