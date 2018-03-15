@@ -4,12 +4,13 @@
 
 - The grand mission of Surreal is to provide a distributed platform for state-of-the-art reinforcement learning algorithms and their derivatives. Potential research opportunities enabled by Surreal:
 
-    - RL applied to robotics, particularly long-horizon manipulation tasks.
-    - RL applied to a wide range of domains, like dialogue systems, protein folding, and healthcare. 
-    - Multi-agent RL and communication.
-    - Self-play. 
-    - Human in the loop learning.
-    - Evolution strategies and neuro-evolution.
+    * RL in robotics, particularly hard manipulation tasks.
+    * Improve on fundamental RL problems: exploration, stability, sample efficiency, etc.
+    * Multi-agent RL topics: cooperative, adversarial, communication, etc.
+    * Self-play: bimanual manipulation, OpenAI sumo-bot, AlphaZero extensions.
+    * Human in the loop learning. Augmented intelligence.
+    * Evolution strategies and neuro-evolution.
+    * RL applied to a wide range of domains, like dialogue systems, protein folding, and healthcare.
    
 - We focus on **depth** instead of breadth. Unlike [RLlab](https://github.com/rll/rllab) and [Nervana coach](https://github.com/NervanaSystems/coach), we do not attempt to implement a huge variety of barebone RL algorithms. The first iteration of _Surreal_ will focus solely on continuous control: DDPG for off-policy and PPO for on-policy case. We will implement distributed DDPG and PPO with all of the bells and whistles known to us. They will be state-of-the-art in both learning performance and wallclock speed. 
 
