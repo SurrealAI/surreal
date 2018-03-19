@@ -245,7 +245,7 @@ class Learner(metaclass=LearnerMeta):
             all_metrics['.system/' + k] = system_metrics[k]
 
         # These are system metrics, they don't add to counter or trigger updates
-        self.tensorplex.add_scalars(all_metrics,increment_counter=False)
+        self.tensorplex.add_scalars(all_metrics)
 
     ######
     # Checkpoint
