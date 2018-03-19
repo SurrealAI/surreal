@@ -12,7 +12,7 @@ class DDPGModel(U.Module):
     def __init__(self,
                  obs_dim,
                  action_dim,
-                 uint8_pixel_input,
+                 is_uint8_pixel_input,
                  use_z_filter,
                  use_batchnorm,
                  use_layernorm,
@@ -23,13 +23,17 @@ class DDPGModel(U.Module):
         # hyperparameters
         self.obs_dim = obs_dim
         self.action_dim = action_dim
-        self.uint8_pixel_input = uint8_pixel_input
+        self.is_uint8_pixel_input = is_uint8_pixel_input
         self.use_z_filter = use_z_filter
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, use_layernorm=use_layernorm, hidden_sizes=actor_fc_hidden_sizes)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, use_layernorm=use_layernorm, hidden_sizes=critic_fc_hidden_sizes)
+        self.actor = ActorNetwork(self.obs_dim, self.action_dim,
+            use_batchnorm=use_batchnorm, use_layernorm=use_layernorm,
+            hidden_sizes=actor_fc_hidden_sizes)
+        self.critic = CriticNetwork(self.obs_dim, self.action_dim,
+            use_batchnorm=use_batchnorm, use_layernorm=use_layernorm,
+            hidden_sizes=critic_fc_hidden_sizes)
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim)
 
@@ -59,8 +63,8 @@ class DDPGModel(U.Module):
 
     def scale_image(self, obs):
         '''
-        Given uint8 input from the environment, scale to float32 and divide by 256
-        to scale inputs between 0.0 and 1.0
+        Given uint8 input from the environment, scale to float32 and
+        divide by 256 to scale inputs between 0.0 and 1.0
         '''
         obs_visual, obs_flat = obs
         if obs_visual is None:
@@ -71,4 +75,5 @@ class DDPGModel(U.Module):
         if self.use_z_filter:
             self.z_filter.z_update(obs)
         else:
-            raise ValueError('Z_update called when network is set to not use z_filter')
+            raise ValueError('Z_update called when network is set to ' +
+                'not use z_filter')

@@ -4,7 +4,8 @@ import numpy as np
 from .base import Learner
 from .aggregator import SSARAggregator, NstepReturnAggregator, MultistepAggregator
 from surreal.model.ddpg_net import DDPGModel
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
+from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
+from surreal.session import BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 
@@ -18,7 +19,7 @@ class DDPGLearner(Learner):
 
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
-        self.uint8_pixel_input = self.learner_config.algo.uint8_pixel_input
+        self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
         self.use_layernorm = self.learner_config.algo.use_layernorm
@@ -51,7 +52,7 @@ class DDPGLearner(Learner):
             self.model = DDPGModel(
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
-                uint8_pixel_input=self.uint8_pixel_input,
+                is_uint8_pixel_input=self.is_uint8_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,
@@ -63,7 +64,7 @@ class DDPGLearner(Learner):
             self.model_target = DDPGModel(
                 obs_dim=self.obs_dim,
                 action_dim=self.action_dim,
-                uint8_pixel_input=self.uint8_pixel_input,
+                is_uint8_pixel_input=self.is_uint8_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,

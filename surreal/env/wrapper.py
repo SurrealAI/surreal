@@ -200,10 +200,16 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('uint8'), name='pixels'))])
+        return collections.OrderedDict([('pixels',
+            dm_control.rl.specs.ArraySpec(shape=(84, 84, 3),
+                dtype=np.dtype('uint8'), name='pixels'))])
 
     def action_spec(self):
-        return dm_control.rl.specs.BoundedArraySpec(shape=(6,), dtype=np.dtype('float64'), name=None, minimum=[-1., -1., -1., -1., -1., -1.], maximum=[1., 1., 1., 1., 1., 1.])
+        return dm_control.rl.specs.BoundedArraySpec(shape=(6,),
+            dtype=np.dtype('float64'),
+            name=None,
+            minimum=[-1., -1., -1., -1., -1., -1.],
+            maximum=[1., 1., 1., 1., 1., 1.])
 
 class DMControlAdapter(Wrapper):
     def __init__(self, env):
@@ -211,9 +217,9 @@ class DMControlAdapter(Wrapper):
         env.metadata = {}
         super().__init__(env)
         self.screen = None
-        assert isinstance(env, dm_control.rl.control.Environment) or \
-            isinstance(env, pixels.Wrapper) or \
-            isinstance(env, DMControlDummyWrapper)
+        assert (isinstance(env, dm_control.rl.control.Environment) or
+            isinstance(env, pixels.Wrapper) or
+            isinstance(env, DMControlDummyWrapper))
 
     def _step(self, action):
         ts = self.env.step(action)
@@ -240,7 +246,9 @@ class DMControlAdapter(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
+        return collections.OrderedDict([('pixels',
+            dm_control.rl.specs.ArraySpec(
+                shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
         #return self.env.observation_spec()
 
     def action_spec(self):
@@ -258,7 +266,8 @@ class DMControlAdapter(Wrapper):
         for event in pygame.event.get():
             if event.type == pygame.QUIT: sys.exit()
 
-        im = self.env.physics.render(width=width, height=height, camera_id=camera_id).transpose((1,0,2))
+        im = self.env.physics.render(width=width,
+            height=height, camera_id=camera_id).transpose((1,0,2))
         pygame.pixelcopy.array_to_surface(self.screen, im)
         pygame.display.update()
         return im
@@ -361,7 +370,8 @@ class GrayscaleWrapper(Wrapper):
         else:
             assert visual_dim.shape == (3, 84, 84)
             C, H, W = visual_dim.shape
-            visual_dim = dm_control.rl.specs.ArraySpec(shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
+            visual_dim = dm_control.rl.specs.ArraySpec(
+                shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
             'type': 'continuous',
             'dim': (visual_dim, flat_dim)
@@ -423,7 +433,8 @@ class FrameStackWrapper(Wrapper):
         else:
             C, H, W = visual_dim.shape
             assert (H, W) == (84, 84)
-            visual_dim = dm_control.rl.specs.ArraySpec(shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
+            visual_dim = dm_control.rl.specs.ArraySpec(
+                shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
             'type': 'continuous', 
             'dim': (visual_dim, flat_dim)

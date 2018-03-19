@@ -40,7 +40,6 @@ class ActorNetwork(U.Module):
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
 
     def forward(self, obs):
-        #print('obs', type(obs))
         obs_visual, obs_flat = obs
         assert not (obs_visual is not None and obs_flat is not None)
         if obs_visual is not None:
@@ -55,8 +54,9 @@ class ActorNetwork(U.Module):
             c2 = F.relu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
-            #print(c2.shape)
             hidden = self.fc_hidden(c2)
+            if self.use_layernorm:
+                hidden = self.layer_norm(hidden)
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)
@@ -124,6 +124,8 @@ class CriticNetwork(U.Module):
             c2 = c2.view(batch_size, -1)
             c2 = torch.cat((c2, act), dim=1)
             hidden = self.fc_hidden(c2)
+            if self.use_layernorm:
+                hidden = self.layer_norm(hidden)
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)

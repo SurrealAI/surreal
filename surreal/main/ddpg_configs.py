@@ -64,10 +64,10 @@ def generate(argv):
             'critic_regularization': 0.0,
             'use_batchnorm': False,
             'use_layernorm': True,
-            'uint8_pixel_input': True,
+            'is_uint8_pixel_input': True,
             'limit_training_episode_length': 0, # 0 means no limit
             # 'agent_sleep_time': 1/50.0,
-            'agent_sleep_time': 0,
+            #'agent_sleep_time': 1/10.0,
             'n_step': 5,
             # 'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             'experience': 'ExpSenderWrapperSSARNStepBoostrap',

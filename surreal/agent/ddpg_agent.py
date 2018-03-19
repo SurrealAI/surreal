@@ -31,7 +31,7 @@ class DDPGAgent(Agent):
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim
-        self.uint8_pixel_input = self.learner_config.algo.uint8_pixel_input
+        self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
         self.use_layernorm = self.learner_config.algo.use_layernorm
@@ -49,7 +49,7 @@ class DDPGAgent(Agent):
         self.model = DDPGModel(
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
-            uint8_pixel_input=self.uint8_pixel_input,
+            is_uint8_pixel_input=self.is_uint8_pixel_input,
             use_z_filter=self.use_z_filter,
             use_batchnorm=self.use_batchnorm,
             use_layernorm=self.use_layernorm,
@@ -88,9 +88,12 @@ class DDPGAgent(Agent):
         visual_obs, flat_obs = obs
 
         if visual_obs is not None:
-            if not ((visual_obs.dtype == np.dtype('uint8')) == self.uint8_pixel_input):
-                raise Exception('Unrecognized image data type: uint8_pixel_input set to ' +
-                    str(self.uint8_pixel_input) + ', received type ' + str(visual_obs.dtype))
+            if ((self.is_uint8_pixel_input and visual_obs.dtype != np.dtype('uint8')) or
+                (not self.is_uint8_pixel_input and visual_obs.dtype == np.dtype('uint8'))):
+                raise Exception('Unrecognized image data type: ' +
+                    'is_uint8_pixel_input set to ' +
+                    str(self.is_uint8_pixel_input) +
+                    ', received type ' + str(visual_obs.dtype))
             visual_obs = U.to_float_tensor(visual_obs)
             assert torch.is_tensor(visual_obs)
             visual_obs = Variable(visual_obs.unsqueeze(0))

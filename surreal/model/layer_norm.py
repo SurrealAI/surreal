@@ -9,8 +9,9 @@ class LayerNorm(nn.Module):
         self.eps = 1e-6
 
     def forward(self, x):
-        # For (N, C, H, W), we want to average across C
-        assert len(x.shape) == 4
-        mean = x.mean(1, keepdim=True)
-        std = x.std(1, keepdim=True)
+        # For (N, C) or (N, C, H, W), we want to average across C
+        assert len(x.shape) in [2, 4]
+        c_dimension = 1
+        mean = x.mean(c_dimension, keepdim=True)
+        std = x.std(c_dimension, keepdim=True)
         return (x - mean) / (std + self.eps)
