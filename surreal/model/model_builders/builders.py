@@ -21,9 +21,10 @@ class ActorNetwork(U.Module):
             # D_obs_visual should be (C, H, W)
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=2)
+            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
             #conv_output_size = int(conv_channels[1] * H / 4 * W / 4)
             conv_output_size = 400 * 32
+            conv_output_size = 48672
             #print('channels', conv_channels[1])
             #print('chw', C, H, W)
             #print('size',conv_output_size)
@@ -94,9 +95,10 @@ class CriticNetwork(U.Module):
             # D_obs_visual should be (C, H, W)
             C, H, W = D_obs_visual.shape
             self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=2)
+            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
             #conv_output_size = conv_channels[1] * H / 4 * W / 4
             conv_output_size = 400 * 32
+            conv_output_size = 48672
             #print('conv', conv_output_size)
             #print('chw', C, H, W)
             conv_output_size = int(conv_output_size)
