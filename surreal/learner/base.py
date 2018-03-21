@@ -244,6 +244,7 @@ class Learner(metaclass=LearnerMeta):
         for k in system_metrics:
             all_metrics['.system/' + k] = system_metrics[k]
 
+        # These are system metrics, they don't add to counter or trigger updates
         self.tensorplex.add_scalars(all_metrics)
 
     ######
@@ -257,10 +258,11 @@ class Learner(metaclass=LearnerMeta):
             U.f_join(self.session_config.folder, 'checkpoint'),
             name='learner',
             period=self.session_config.checkpoint.learner.periodic,
+            min_interval=self.session_config.checkpoint.learner.min_interval,
             tracked_obj=self,
             tracked_attrs=tracked_attrs,
             keep_history=self.session_config.checkpoint.learner.keep_history,
-            keep_best=self.session_config.checkpoint.learner.keep_best  
+            keep_best=self.session_config.checkpoint.learner.keep_best,
             # TODO figure out how to add score to learner
         )
 

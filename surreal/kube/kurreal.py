@@ -560,6 +560,7 @@ class Kurreal:
             'cartpole': 'dm_control:cartpole-balance',
             'ch': 'dm_control:cheetah-run',
             'cheetah': 'dm_control:cheetah-run',
+            'hopper': 'dm_control:hopper-hop',
         }
         if args.env:
             env = args.env
