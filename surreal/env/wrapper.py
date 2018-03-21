@@ -246,10 +246,7 @@ class DMControlAdapter(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels',
-            dm_control.rl.specs.ArraySpec(
-                shape=(3, 84, 84), dtype=np.dtype('uint8'), name='pixels'))])
-        #return self.env.observation_spec()
+        return self.env.observation_spec()
 
     def action_spec(self):
         return self.env.action_spec()
@@ -313,19 +310,22 @@ class ObservationConcatenationWrapper(Wrapper):
     def observation_spec(self):
         visual_dim = None
         flat_dim = 0
-        #print('parent obsspec', self.env.observation_spec().items())
+        print('parent obsspec', self.env.observation_spec().items())
 
         for k, x in self.env.observation_spec().items():
             if len(x.shape) > 1:
                 assert visual_dim is None # Should only be one visual observation
-                assert x.shape == (3, 84, 84) # Expected pixel size of dm_control environments
-                visual_dim = x
+                assert x.shape == (84, 84, 3) # Expected pixel size of dm_control environments
+                H, W, C = x.shape
+                # transpose to (C, H, W) to work with pytorch convolutions
+                visual_dim = (C, H, W)
             elif len(x.shape) == 1:
-                flat_dim += x[0]
+                flat_dim += x.shape[0]
             else:
                 raise Exception("Unexpected data format")
         if flat_dim == 0:
             flat_dim = None
+        print('observation spec', (visual_dim, flat_dim))
 
         return {
             'type': 'continuous',
@@ -368,8 +368,8 @@ class GrayscaleWrapper(Wrapper):
         if visual_dim is None:
             visual_dim = None
         else:
-            assert visual_dim.shape == (3, 84, 84)
-            C, H, W = visual_dim.shape
+            assert visual_dim == (3, 84, 84)
+            C, H, W = visual_dim
             visual_dim = dm_control.rl.specs.ArraySpec(
                 shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
