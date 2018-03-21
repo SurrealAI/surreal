@@ -8,24 +8,24 @@ from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-from surreal.utils.pytorch.scheduler import * 
+from surreal.utils.pytorch.hyper_scheduler import * 
 
 class PPOLearner(Learner):
     '''
     PPOLearner: subclass of Learner that contains PPO algorithm logic
-    important attributes:
+    Attributes:
         gpu_id: array of gpu IDs. None if using CPU
         model: instance of PPOModel from surreal.model.ppo_net
         ref_target_model: instance of PPOModel, kept to used as
             reference policy
-        method: string of either 'adapt' or 'clip' to determine
+        ppo_mode: string of either 'adapt' or 'clip' to determine
             which variant of PPO is used. For details of variants
             see https://arxiv.org/pdf/1707.06347.pdf
         norm_adv: boolean flag -- whether to use batch advantage
             normalization
         use_z_filter: boolean flag -- whether to use obs Z-Filtering
         actor/critic_optim: Adam Optimizer for policy and baseline network
-        actor/critic_scheduler: Learning rate scheduler. details see
+        actor/critic_lr_scheduler: Learning rate scheduler. details see
             surreal.utils.pytorch.scheduler
         aggregator: experience aggregator used to batch experiences.
             for available aggregators, see surreal.learner.aggregator
@@ -78,7 +78,7 @@ class PPOLearner(Learner):
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
-        self.init_log_sig = self.learner_config.algo.init_log_sig
+        self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
@@ -96,29 +96,33 @@ class PPOLearner(Learner):
         self.ref_target_model.update_target_params(self.model)
 
         # PPO parameters
-        self.method = self.learner_config.algo.method
-        self.is_weight_thresh = self.learner_config.algo.is_weight_thresh
-        self.lr_policy = self.learner_config.algo.lr_policy
-        self.lr_baseline = self.learner_config.algo.lr_baseline
-        self.epoch_policy = self.learner_config.algo.epoch_policy
-        self.epoch_baseline = self.learner_config.algo.epoch_baseline
-        self.kl_targ = self.learner_config.algo.kl_targ
-        self.kl_cutoff_coeff = self.learner_config.algo.kl_cutoff_coeff
-        self.clip_epsilon_init = self.learner_config.algo.clip_epsilon_init
-        self.beta_init = self.learner_config.algo.beta_init
-        self.clip_range = self.learner_config.algo.clip_range
-        self.adj_thres = self.learner_config.algo.adj_thres
-        self.beta_range = self.learner_config.algo.beta_range
+        self.ppo_mode = self.learner_config.algo.ppo_mode
+        self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
+        self.lr_policy = self.learner_config.algo.lr.lr_policy
+        self.lr_baseline = self.learner_config.algo.lr.lr_baseline
+        self.epoch_policy = self.learner_config.algo.consts.epoch_policy
+        self.epoch_baseline = self.learner_config.algo.consts.epoch_baseline
+        self.kl_target = self.learner_config.algo.consts.kl_target
+        self.adjust_threshold = self.learner_config.algo.consts.adjust_threshold
 
-        if self.method == 'adapt':
+        # PPO mode 'adjust'
+        self.kl_cutoff_coeff = self.learner_config.algo.adapt_consts.kl_cutoff_coeff
+        self.beta_init = self.learner_config.algo.adapt_consts.beta_init
+        self.beta_range = self.learner_config.algo.adapt_consts.beta_range
+
+        # PPO mode 'clip'
+        self.clip_range = self.learner_config.algo.clip_consts.clip_range
+        self.clip_epsilon_init = self.learner_config.algo.clip_consts.clip_epsilon_init
+
+        if self.ppo_mode == 'adapt':
             self.beta = self.beta_init
             self.eta = self.kl_cutoff_coeff
             self.beta_upper = self.beta_range[1]
             self.beta_lower = self.beta_range[0]
-            self.beta_adj_thres = self.adj_thres
+            self.beta_adjust_threshold = self.adjust_threshold
         else: # method == 'clip'
             self.clip_epsilon = self.clip_epsilon_init
-            self.clip_adj_thres = self.adj_thres
+            self.clip_adjust_threshold = self.adjust_threshold
             self.clip_upper = self.clip_range[1]
             self.clip_lower = self.clip_range[0]
 
@@ -128,10 +132,10 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
 
             # Learning parameters and optimizer
-            self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
-            self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
-            self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
-            self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+            self.clip_actor_gradient = self.learner_config.algo.gradient.clip_actor
+            self.actor_gradient_clip_value = self.learner_config.algo.gradient.clip_actor_val
+            self.clip_critic_gradient = self.learner_config.algo.gradient.clip_critic
+            self.critic_gradient_clip_value = self.learner_config.algo.gradient.clip_critic_val
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
                 lr=self.lr_baseline
@@ -142,20 +146,20 @@ class PPOLearner(Learner):
             )
 
             # learning rate scheduler
-            self.min_lr = self.learner_config.algo.min_lr
-            self.lr_update_frequency = self.learner_config.algo.lr_update_frequency
-            self.frames_to_anneal = self.learner_config.algo.frames_to_anneal
+            self.min_lr = self.learner_config.algo.lr.min_lr
+            self.lr_update_frequency = self.learner_config.algo.lr.lr_update_frequency
+            self.frames_to_anneal = self.learner_config.algo.lr.frames_to_anneal
             num_updates = int(self.frames_to_anneal / (self.learner_config.replay.param_release_min *
                                                        self.learner_config.algo.stride))
-            scheduler = eval(self.learner_config.algo.lr_scheduler) 
-            self.actor_scheduler  = scheduler(self.actor_optim, 
-                                              num_updates,
-                                              update_freq=self.lr_update_frequency,
-                                              min_lr = self.min_lr)
-            self.critic_scheduler = scheduler(self.critic_optim, 
-                                              num_updates,
-                                              update_freq=self.lr_update_frequency,
-                                              min_lr = self.min_lr)
+            scheduler = eval(self.learner_config.algo.lr.lr_scheduler) 
+            self.actor_lr_scheduler  = scheduler(self.actor_optim, 
+                                                 num_updates,
+                                                 update_freq=self.lr_update_frequency,
+                                                 min_lr = self.min_lr)
+            self.critic_lr_scheduler = scheduler(self.critic_optim, 
+                                                 num_updates,
+                                                 update_freq=self.lr_update_frequency,
+                                                 min_lr = self.min_lr)
 
             # Experience Aggregator
             self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, 
@@ -175,6 +179,9 @@ class PPOLearner(Learner):
             actions: batch of actions in form of (batch_size, act_dim)
             advantages: batch of normalized advantage, (batch_size, 1)
             behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+        Returns:
+            clip_loss: Variable for loss
+            stats: dictionary of recorded statistics
         """
         learn_pol = self.model.forward_actor(obs)
         learn_prob = self.pd.likelihood(actions, learn_pol)
@@ -204,6 +211,8 @@ class PPOLearner(Learner):
             actions: batch of actions in form of (batch_size, act_dim)
             advantages: batch of normalized advantage, (batch_size, 1)
             behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
+        Returns:
+            stats: dictionary of recorded statistics
         """
         loss, stats = self._clip_loss(obs, actions, advantages, behave_pol)
         self.model.actor.zero_grad()
@@ -226,6 +235,9 @@ class PPOLearner(Learner):
             advantages: batch of normalized advantage, (batch_size, 1)
             behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
             ref_pol: batch of reference policy (batch_size, 2 * act_dim)
+        Returns:
+            loss: Variable for loss
+            stats: dictionary of recorded statistics
         """
         learn_pol = self.model.forward_actor(obs)
         prob_behave = self.pd.likelihood(actions, behave_pol)
@@ -236,8 +248,8 @@ class PPOLearner(Learner):
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
-        if kl.data[0] - 2.0 * self.kl_targ > 0:
-            loss += self.eta * (kl - 2.0 * self.kl_targ).pow(2)
+        if kl.data[0] - 2.0 * self.kl_target > 0:
+            loss += self.eta * (kl - 2.0 * self.kl_target).pow(2)
 
         stats = {
             '_kl_loss_adapt': loss.data[0], 
@@ -259,6 +271,8 @@ class PPOLearner(Learner):
             advantages: batch of normalized advantage, (batch_size, 1)
             behave_pol: batch of behavior policy (batch_size, 2 * act_dim)
             ref_pol: batch of reference policy (batch_size, 2 * act_dim)
+        Returns:
+            stats: dictionary of recorded statistics
         """
         loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
         self.model.actor.zero_grad()
@@ -277,6 +291,9 @@ class PPOLearner(Learner):
         Args:
             obs: batch of observations in form of (batch_size, obs_dim)
             returns: batch of N-step return estimate (batch_size,)
+        Returns:
+            loss: Variable for loss
+            stats: dictionary of recorded statistics
         """
         values = self.model.forward_critic(obs)
         explained_var = 1 - torch.var(returns - values) / torch.var(returns)
@@ -296,6 +313,8 @@ class PPOLearner(Learner):
         Args:
             obs: batch of observations in form of (batch_size, obs_dim)
             returns: batch of N-step return estimate (batch_size,)
+        Returns:
+            stats: dictionary of recorded statistics
         """
         loss, stats = self._value_loss(obs, returns)
         self.model.critic.zero_grad()
@@ -317,6 +336,11 @@ class PPOLearner(Learner):
             actions: batch of actions (batch_size, N-step , act_dim)
             rewards: batch of rewards (batch_size, N-step)
             dones: batch of termination flags (batch_size, N-step)
+        Returns:
+            obs: batch of observation (batch_size, obs_dim)
+            actions: batch of action (batch_size, act_dim)
+            advantage: batch of advantages (batch_size, 1)
+            returns: batch of returns (batch_size, 1)
         '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
@@ -355,6 +379,11 @@ class PPOLearner(Learner):
             actions: batch of actions (batch_size, N-step , act_dim)
             rewards: batch of rewards (batch_size, N-step)
             dones: batch of termination flags (batch_size, N-step)
+        Returns:
+            obs: batch of observation (batch_size, obs_dim)
+            actions: batch of action (batch_size, act_dim)
+            advantage: batch of advantages (batch_size, 1)
+            returns: batch of returns (batch_size, 1)
         '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
@@ -396,6 +425,8 @@ class PPOLearner(Learner):
                 dones: batch of termination flags (batch_size, N-step)
                 action_infos: list of batched other attributes tracted, such as
                     behavior policy, RNN hidden states and etc.
+            Returns:
+                dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
                 pds = action_infos[0]
@@ -412,7 +443,7 @@ class PPOLearner(Learner):
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
                 for _ in range(self.epoch_policy):
-                    if self.method == 'clip':
+                    if self.ppo_mode == 'clip':
                         stats =  self._clip_update(obs_iter, 
                                                    actions_iter, 
                                                    advantages, 
@@ -426,7 +457,7 @@ class PPOLearner(Learner):
                     curr_pol = self.model.forward_actor(obs_iter).detach()
                     kl = self.pd.kl(ref_pol, curr_pol).mean()
                     stats['_pol_kl'] = kl.data[0]
-                    if kl.data[0] > self.kl_targ * 4: break
+                    if kl.data[0] > self.kl_target * 4: break
                 self.kl_record.append(stats['_pol_kl'])
 
                 for _ in range(self.epoch_baseline):
@@ -446,7 +477,7 @@ class PPOLearner(Learner):
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
                 stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
-                stats['_lr'] = self.actor_scheduler.get_lr()[0]
+                stats['_lr'] = self.actor_lr_scheduler.get_lr()[0]
                 
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
@@ -508,22 +539,22 @@ class PPOLearner(Learner):
                 steps actor and critic learning rate scheduler
         '''
         final_kl = np.mean(self.kl_record)
-        if self.method == 'clip': # adapts clip ratios
-            if final_kl > self.kl_targ * self.clip_adj_thres[1]:
+        if self.ppo_mode == 'clip': # adapts clip ratios
+            if final_kl > self.kl_target * self.clip_adjust_threshold[1]:
                 if self.clip_lower < self.clip_epsilon:
                     self.clip_epsilon = self.clip_epsilon / 1.2
-            elif final_kl < self.kl_targ * self.clip_adj_thres[0]:
+            elif final_kl < self.kl_target * self.clip_adjust_threshold[0]:
                 if self.clip_upper > self.clip_epsilon:
                     self.clip_epsilon = self.clip_epsilon * 1.2
         else: # adapt KL divergence penalty before returning the statistics 
-            if final_kl > self.kl_targ * self.beta_adj_thres[1]:
+            if final_kl > self.kl_target * self.beta_adjust_threshold[1]:
                 if self.beta_upper > self.beta:
                     self.beta = self.beta * 1.5
-            elif final_kl < self.kl_targ * self.beta_adj_thres[0]:
+            elif final_kl < self.kl_target * self.beta_adjust_threshold[0]:
                 if self.beta_lower < self.beta:
                     self.beta = self.beta / 1.5
         self.ref_target_model.update_target_params(self.model)
         self.kl_record = []
         self.exp_counter = 0
-        self.actor_scheduler.step()
-        self.critic_scheduler.step()
+        self.actor_lr_scheduler.step()
+        self.critic_lr_scheduler.step()

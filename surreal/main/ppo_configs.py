@@ -29,40 +29,50 @@ def generate(argv):
             }
         },
         'algo': {
+            # base configs
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
-            'optimizer': 'Adam',
-            'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 5.,
-            'clip_critic_gradient': True,
-            'critic_gradient_clip_value': 5.,
-            'gamma': .995,
-            'lam': 0.97,
+            'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': True,
             'norm_adv': True,
-            'init_log_sig': -1.,
+            'gamma': .995,
+            'lam': 0.97,
             'n_step': 10,
-            'is_weight_thresh': 2.5, 
-            'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'stride': 10,
             'batch_size': 64, 
             # ppo specific parameters:
-            'lr_scheduler': "LinearWithMinLR",
-            'method': 'adapt',
-            'lr_policy': 1e-4,
-            'lr_baseline': 1e-4,
-            'frames_to_anneal': 8e7,
-            'lr_update_frequency': 100, 
-            'min_lr': 1e-5,
-            'epoch_policy': 5,
-            'epoch_baseline': 5,
-            'kl_targ': 0.01, # target KL divergence between before and after
-            'kl_cutoff_coeff': 50, # penalty coeff when kl large
-            'clip_epsilon_init': 0.2, # factor of clipped loss
-            'beta_init': 1.0, # original beta
-            'clip_range': (0.05, 0.3), # range of the adapted penalty factor
-            'adj_thres': (0.5, 2.0), # threshold to magnify clip epsilon
-            'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
+            'ppo_mode': 'adapt',
+            'gradient': {
+                'clip_actor': True,
+                'clip_critic': True,
+                'clip_actor_val': 5.,
+                'clip_critic_val': 5.,
+            },
+            'consts': {
+                'init_log_sig': -1.,
+                'is_weight_thresh': 2.5,
+                'epoch_policy': 5,
+                'epoch_baseline': 5,
+                'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
+                'kl_target': 0.01, # target KL divergence between before and after
+            },
+            'lr': {
+                'lr_scheduler': "LinearWithMinLR",
+                'lr_policy': 1e-4,
+                'lr_baseline': 1e-4,
+                'frames_to_anneal': 8e7,
+                'lr_update_frequency': 100, 
+                'min_lr': 1e-5,
+            },
+            'adapt_consts': {
+                'kl_cutoff_coeff': 50, # penalty coeff when kl large
+                'beta_init': 1.0, # original beta
+                'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
+            },
+            'clip_consts': {
+                'clip_epsilon_init': 0.2, # factor of clipped loss
+                'clip_range': (0.05, 0.3), # range of the adapted penalty factor
+            },
         },
         'replay': {
             'replay_class': 'FIFOReplay',
@@ -81,11 +91,11 @@ def generate(argv):
         'env_name': args.env,  
         'sleep_time': 0.0,
         'video': {
-            'record_video': False,
-            'save_directory': '/mnt/snaps/',
-            'max_videos': 100,
+            'record_video': True,
+            'save_folder': None,
+            'max_videos': 500,
             'record_every': 100,
-        },
+        }
     }
 
 

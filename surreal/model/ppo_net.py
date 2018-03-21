@@ -75,7 +75,7 @@ class DiagGauss(object):
 class PPOModel(U.Module):
     '''
         PPO Model class that wraps aroud the actor and critic networks
-        import attributes:
+        Attributes:
             actor: Actor network, see surreal.model.model_builders.builders
             critic: Critic network, see surreal.model.model_builders.builders
             z_filter: observation z_filter. see surreal.model.z_filter
@@ -128,7 +128,10 @@ class PPOModel(U.Module):
     def forward_actor(self, obs):
         '''
             forward pass actor to generate policy with option to use z-filter
-            Args: obs -- batch of observations
+            Args:
+                obs -- batch of observations
+            Returns:
+                The output of actor network
         '''
         shape = obs.size()
         assert len(shape) == 2 and shape[1] == self.obs_dim
@@ -140,7 +143,10 @@ class PPOModel(U.Module):
     def forward_critic(self, obs):
         '''
             forward pass critic to generate policy with option to use z-filter
-            Args: obs -- batch of observations
+            Args: 
+                obs -- batch of observations
+            Returns:
+                output of critic network
         '''
         shape = obs.size()
         assert len(shape) == 2 and shape[1] == self.obs_dim

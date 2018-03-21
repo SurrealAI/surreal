@@ -41,6 +41,8 @@ class LinearWithMinLR(_LRScheduler):
     def get_lr(self):
         '''
             Anneals current learning rate unless it is specified minimum learning rate
+            Returns:
+                a list of updated learning rate. one for each parameter group
         '''
         if self.update_freq < 1 or self.last_epoch < 1: return self.base_lrs
         num_updated = int(self.last_epoch / self.update_freq)

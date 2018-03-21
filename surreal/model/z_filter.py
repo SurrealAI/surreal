@@ -66,6 +66,10 @@ class ZFilter(U.Module):
         '''
             Whiten observation (inputs) to have zero-mean, unit variance.
             Also clamps output to be within 5 standard deviations
+            Args:
+                inputs -- batched observation input. batch size at dim 0
+            Returns:
+                0 mean std 1 weightened batch of observation
         '''
         # if True: return inputs
         running_mean = (self.running_sum / self.count)
@@ -98,6 +102,8 @@ class ZFilter(U.Module):
     def running_mean(self):
         '''
             returning the running obseravtion mean for Tensorplex logging
+            Returns:
+                numpy array of current running observation mean
         '''
         running_mean = self.running_sum / self.count
         if self.use_cuda: 
@@ -107,6 +113,8 @@ class ZFilter(U.Module):
     def running_std(self):
         '''
             returning the running standard deviation for Tensorplex Logging
+            Returns:
+                numpy array of running standard deviation
         '''
         running_std = ((self.running_sumsq / self.count) 
                      - (self.running_sum / self.count).pow(2)).pow(0.5)
@@ -117,6 +125,8 @@ class ZFilter(U.Module):
     def running_square(self):
         '''
             returning the running square mean for Tensorplex Logging
+            Returns:
+                running square mean
         '''
         running_square = self.running_sumsq / self.count
         if self.use_cuda:

@@ -117,7 +117,7 @@ class MultistepAggregator():
 
 class MultistepAggregatorWithInfo():
     """
-        Accepts input by ExpSenderWrapperMultiStep
+        Accepts input by ExpSenderWrapperMultiStepMovingWindowWithInfo
         aggregate() returns float Tensors
         EasyDict{
             obs = batch_size * n_step * observation
@@ -127,6 +127,19 @@ class MultistepAggregatorWithInfo():
             actoin_infos = list of batched FloatTensor action infos
             dones = batch_size * n_step,
         }
+
+        This class of aggregator is used in companion with exp sender.
+        ExpSenderWrapperMultiStepMovingWindowWithInfo. One key return value is
+        a list of action_infos that are auxiliary information returned from the
+        agent. This aggregator should be used when the agent is required to 
+        expose attributes to the learner. For instance, PPO needs to use this
+        aggregator to send over the action probability distribution and optional
+        RNN hidden states.
+
+        This attribute will be returned as a list of batched FloatTensors. In
+        the case of PPO without RNN policy, the action_infos attribute is of
+        form:
+            [Float Tensor of shape (batch_size, 2 * act_dim)]
     """
     def __init__(self, obs_spec, action_spec):
         U.assert_type(obs_spec, dict)
@@ -136,8 +149,16 @@ class MultistepAggregatorWithInfo():
         self.obs_spec = obs_spec
 
     def aggregate(self, exp_list):
+        '''
+            Aggregates a list of subtrajectory dictionaries into dictionary of 
+            batched sub-trajectory
+            Args:
+                exp_list: list of dictionaries that are sub-trajectory attribute
+            Returns:
+                EasyDict of tensorized subtrajectory information
+        '''
         observations, next_obs, actions, rewards, dones, action_infos = [], [], [], [], [], []
-        for _ in range(len(exp_list[0]['action_info_arr'][0])):
+        for _ in range(len(exp_list[0]['action_infos'][0])):
             action_infos.append([])
 
         for exp in exp_list:
@@ -150,7 +171,7 @@ class MultistepAggregatorWithInfo():
 
             for i in range(len(action_infos)):
                 one_exp_info = []
-                for info_list in exp['action_info_arr']:
+                for info_list in exp['action_infos']:
                     one_exp_info.append(info_list[i])
                 action_infos[i].append(np.stack(one_exp_info))
 
@@ -169,7 +190,6 @@ class MultistepAggregatorWithInfo():
         rewards = U.to_float_tensor(rewards)
         dones = U.to_float_tensor(dones)
 
-
         return EasyDict(obs=observations,
                     next_obs = next_obs,
                     actions=actions, 
@@ -180,14 +200,19 @@ class MultistepAggregatorWithInfo():
     def stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays
+            Args:
+                experience: a dictionry of subtrajectory information
+            Returns:
+                observations: stacked numpy array for observations in dim 0
+                actions: stacked numpy array for actions in dim 0
+                rewards: stacked numpy array for rewards in dim 0
+                dones: stacked numpy array for termination flag in dim 0
         """
-        observation_arr = np.stack(experience['obs_arr'])
-        action_arr = np.stack(experience['action_arr'])
-        reward_arr = np.array(experience['reward_arr'])
-        done_arr = np.array(experience['done_arr'])
-        return observation_arr, action_arr, reward_arr, done_arr
-
-
+        observations = np.stack(experience['obs'])
+        actions = np.stack(experience['actions'])
+        rewards = np.array(experience['rewards'])
+        dones = np.array(experience['dones'])
+        return observations, actions, rewards, dones
 
 
 class NstepReturnAggregator():

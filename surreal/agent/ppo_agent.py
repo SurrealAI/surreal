@@ -37,7 +37,7 @@ class PPOAgent(Agent):
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.init_log_sig = self.learner_config.algo.init_log_sig
+        self.init_log_sig = self.learner_config.algo.consts.init_log_sig
 
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
@@ -54,6 +54,14 @@ class PPOAgent(Agent):
             Agent returns an action based on input observation. if in training,
             returns action along with action infos, which includes the current
             probability distribution, RNN hidden states and etc.
+            Args:
+                obs: numpy array of (1, obs_dim)
+
+            Returns:
+                action_choice: sampled or max likelihood action to input to env
+                action_info: list of auxiliary information
+                    Note: this includes probability distribution the action is
+                    sampled from, RNN hidden states
         '''
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
@@ -68,12 +76,12 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-
+        action_info   = [action_pd]
         if self.agent_mode != 'training':
             return action_choice
         else: 
             time.sleep(self.env_config.sleep_time)
-            return action_choice, [action_pd]
+            return action_choice, action_info
 
     def module_dict(self):
         return {

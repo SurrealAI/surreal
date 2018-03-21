@@ -53,7 +53,6 @@ class DDPGLearner(Learner):
                 use_batchnorm=self.use_batchnorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_cuda = (self.gpu_id != -1),
             )
             self.model.train()
 
@@ -64,7 +63,6 @@ class DDPGLearner(Learner):
                 use_batchnorm=self.use_batchnorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_cuda = (self.gpu_id != -1),
             )
             self.model.eval()
 
