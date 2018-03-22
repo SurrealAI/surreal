@@ -205,11 +205,12 @@ class DMControlDummyWrapper(Wrapper):
                 dtype=np.dtype('uint8'), name='pixels'))])
 
     def action_spec(self):
-        return dm_control.rl.specs.BoundedArraySpec(shape=(6,),
-            dtype=np.dtype('float64'),
-            name=None,
-            minimum=[-1., -1., -1., -1., -1., -1.],
-            maximum=[1., 1., 1., 1., 1., 1.])
+        return self.env.action_spec()
+        # return dm_control.rl.specs.BoundedArraySpec(shape=(6,),
+        #     dtype=np.dtype('float64'),
+        #     name=None,
+        #     minimum=[-1., -1., -1., -1., -1., -1.],
+        #     maximum=[1., 1., 1., 1., 1., 1.])
 
 class DMControlAdapter(Wrapper):
     def __init__(self, env):
