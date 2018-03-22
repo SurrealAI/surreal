@@ -1,13 +1,8 @@
 from surreal.env.video_env import VideoWrapper
-<<<<<<< HEAD
 from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper, DMControlDummyWrapper, FrameStackWrapper, GrayscaleWrapper
 from dm_control.suite.wrappers import pixels
 import os
-=======
-import os
-from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper
 
->>>>>>> master
 
 def make_env(env_config, session_config, eval_mode=False):
     """
