@@ -61,7 +61,23 @@ pod_types:
       cpu: 28
     resource_limit:
       nvidia.com/gpu: 4
+  nonagent-gpu-p100:
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu:latest
+    selector:
+      surreal-node: nonagent-gpu
+      cloud.google.com/gke-accelerator: nvidia-tesla-p100 # This k80 can be changed to p100
+    resource_request:
+      cpu: 14
+    resource_limit:
+      nvidia.com/gpu: 1
   tensorboard:
     image: us.gcr.io/surreal-dev-188523/surreal-cpu:latest
     resource_request:
       cpu: 0.3
+
+
+capture_tensorboard:
+  # bash >> which node
+  node_path: .../v9.6.1/bin/node
+  # https://github.com/jirenz/tensorboard_screenshot
+  library_path: .../tensorboard_screenshot/screenshot.js

@@ -2,7 +2,7 @@ import threading
 import time
 import surreal.utils as U
 from surreal.session import get_tensorplex_client, get_loggerplex_client
-from surreal.distributed import ExpQueue, ZmqServer
+from surreal.distributed import ZmqSimpleServer, ExperienceCollectorServer
 
 
 replay_registry = {}
@@ -39,20 +39,19 @@ class Replay(object, metaclass=ReplayMeta):
         self.session_config = session_config
         self.index = index
 
-        self._exp_queue = ExpQueue(
+        self._collector_server = ExperienceCollectorServer(
             host=self.session_config.replay.collector_backend_host,
             port=self.session_config.replay.collector_backend_port,
-            max_size=self.session_config.replay.max_puller_queue,
+            # port=7001,
             exp_handler=self._insert_wrapper,
+            load_balanced=True,
         )
-        self._sampler_server = ZmqServer(
+        self._sampler_server = ZmqSimpleServer(
             host=self.session_config.replay.sampler_backend_host,
             port=self.session_config.replay.sampler_backend_port,
             handler=self._sample_request_handler,
-            is_pyobj=True,
             load_balanced=True,
         )
-        self._job_queue = U.JobQueue()
 
         self._evict_interval = self.session_config.replay.evict_interval
         self._evict_thread = None
@@ -63,14 +62,20 @@ class Replay(object, metaclass=ReplayMeta):
         if self._has_tensorplex:
             self.start_tensorplex_thread()
         
-        self._exp_queue.start_dequeue_thread()
-        self._exp_queue.start_enqueue_thread()
+        self._collector_server.start()
         
         if self._evict_interval:
             self.start_evict_thread()
 
         self._sampler_server.start()
+
+    def join(self):
+        self._collector_server.join()
         self._sampler_server.join()
+        if self._has_tensorplex:
+            self._tensorplex_thread.join()
+        if self._evict_interval:
+            self._evict_thread.join()
 
     def insert(self, exp_dict):
         """
@@ -144,33 +149,37 @@ class Replay(object, metaclass=ReplayMeta):
         
         self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
+        self.serialize_time = U.TimeRecorder()
 
         # moving avrage of about 100s
         self.exp_in_speed = U.MovingAverageRecorder(decay=0.99)
         self.exp_out_speed = U.MovingAverageRecorder(decay=0.99)
         self.handle_sample_request_speed = U.MovingAverageRecorder(decay=0.99)
 
-    def _insert_wrapper(self, exp_dict):
+    def _insert_wrapper(self, exp):
         """
             Allows us to do some book keeping in the base class
         """
         self.cumulative_collected_count += 1
         with self.insert_time.time():
-            self.insert(exp_dict)
+            self.insert(exp)
 
-    def _sample_request_handler(self, batch_size):
+    def _sample_request_handler(self, req):
         """
         Handle requests to the learner
         https://stackoverflow.com/questions/29082268/python-time-sleep-vs-event-wait
         Since we don't have external notify, we'd better just use sleep
         """
+        batch_size = U.deserialize(req)
         U.assert_type(batch_size, int)
         while not self.start_sample_condition():
             time.sleep(0.01)
         self.cumulative_sampled_count += batch_size
         self.cumulative_request_count += 1
         with self.sample_time.time():
-            return self.sample(batch_size)
+            sample = self.sample(batch_size)
+        with self.serialize_time.time():
+            return U.serialize(sample)
 
     def start_evict_thread(self):
         if self._evict_thread is not None:
@@ -218,7 +227,7 @@ class Replay(object, metaclass=ReplayMeta):
 
         insert_time = self.insert_time.avg
         sample_time = self.sample_time.avg
-        serialize_time = self._sampler_server.serialize_time.avg
+        serialize_time = self.serialize_time.avg
 
         core_metrics = {
             'num_exps': len(self),
@@ -233,7 +242,7 @@ class Replay(object, metaclass=ReplayMeta):
             'serialize_time_s': serialize_time,
         }
 
-        serialization_load = serialize_time * handle_sample_request_speed / time_elapsed
+        serialize_load = serialize_time * handle_sample_request_speed / time_elapsed
         collect_exp_load = insert_time * exp_in_speed / time_elapsed
         sample_exp_load = sample_time * handle_sample_request_speed / time_elapsed
         
@@ -241,10 +250,10 @@ class Replay(object, metaclass=ReplayMeta):
             'lifetime_experience_utilization_percent': \
                 cum_count_sampled / (cum_count_collected + 1) * 100,
             'current_experience_utilization_percent': exp_out_speed / (exp_in_speed + 1) * 100,
-            'serialization_load_percent': serialization_load * 100,
+            'serializate_load_percent': serialize_load * 100,
             'collect_exp_load_percent': collect_exp_load * 100,
             'sample_exp_load_percent': sample_exp_load * 100,
-            'exp_queue_occupancy_percent': self._exp_queue.occupancy() * 100,
+            # 'exp_queue_occupancy_percent': self._exp_queue.occupancy() * 100,
         }
 
         all_metrics = {}

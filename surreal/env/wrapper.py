@@ -5,7 +5,6 @@ import collections
 from collections import deque
 from operator import mul
 import functools
-import pygame
 import sys
 import gym
 import dm_control
@@ -254,6 +253,7 @@ class DMControlAdapter(Wrapper):
 
     def render(self, *args, width=480, height=480, camera_id=1, **kwargs):
         # safe for multiple calls
+        import pygame
         pygame.init()
         if not self.screen:
             self.screen = pygame.display.set_mode((width, height))

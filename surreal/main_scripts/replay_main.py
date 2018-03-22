@@ -8,7 +8,7 @@ def replay_parser_setup(parser):
 
 def run_replay_main(args, config):
     session_config, learner_config, env_config = config.session_config, config.learner_config, config.env_config
-    env, env_config = make_env(env_config)
+    env, env_config = make_env(env_config, session_config)
     del env
 
     sharded = ShardedReplay(learner_config=learner_config,

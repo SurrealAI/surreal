@@ -17,7 +17,8 @@ class DDPGModel(U.Module):
                  use_batchnorm,
                  use_layernorm,
                  actor_fc_hidden_sizes,
-                 critic_fc_hidden_sizes,):
+                 critic_fc_hidden_sizes,
+                 use_cuda = False):
         super(DDPGModel, self).__init__()
 
         # hyperparameters
@@ -35,7 +36,7 @@ class DDPGModel(U.Module):
             use_batchnorm=use_batchnorm, use_layernorm=use_layernorm,
             hidden_sizes=critic_fc_hidden_sizes)
         if self.use_z_filter:
-            self.z_filter = ZFilter(obs_dim)
+            self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
 
     def forward_actor(self, obs):
         #shape = obs.size()

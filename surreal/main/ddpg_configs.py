@@ -92,9 +92,9 @@ def generate(argv):
         'pixel_input': True,
         'frame_stacks': 3,
         'video': {
-            'record_video': False,
-            'save_directory': '/mnt/snaps/',
-            'max_videos': 100,
+            'record_video': True,
+            'save_folder': None,
+            'max_videos': 500,
             'record_every': 100,
         }
     }

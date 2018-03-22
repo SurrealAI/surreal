@@ -7,9 +7,11 @@ Evaluator: pulls param info from "psinfo" and do diagnostics.
 import pickle
 import time
 import surreal.utils as U
-from .module_dict import ModuleDict
-from .zmq_struct import (ZmqPublishServer, ZmqSubscribeClient,
-                         ZmqClient, ZmqServer)
+from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient, ZmqTimeoutError
+from surreal.distributed.proxy import ZmqLoadBalancerThread
+from surreal.distributed.module_dict import ModuleDict
+from threading import Lock
+from multiprocessing import Process
 
 
 class ParameterPublisher(object):
@@ -23,9 +25,10 @@ class ParameterPublisher(object):
                 "<name>info" will be the key to the info Redis hashmap.
                 e.g. "psinfo" -> {'time': 32541.6, 'iteration': 1200}
         """
-        self._publisher = ZmqPublishServer(
+        self._publisher = ZmqPub(
+            host='*',
             port=port,
-            is_pyobj=True
+            preprocess=U.serialize,
         )
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)
@@ -46,10 +49,53 @@ class ParameterPublisher(object):
             'message': message,
             'hash': U.binary_hash(binary)
         }
-        self._publisher.publish((binary, info), topic='ps')
+        self._publisher.pub(topic='ps', data=(binary, info))
 
 
-class ParameterServer(object):
+class ShardedParameterServer(object):
+    def __init__(self, config):
+        self.ps_config = config.session_config.ps
+        self.shards = self.ps_config.shards
+        self.frontend_host=self.ps_config.parameter_serving_frontend_host
+        self.frontend_port=self.ps_config.parameter_serving_frontend_port
+        self.backend_host=self.ps_config.parameter_serving_backend_host
+        self.backend_port=self.ps_config.parameter_serving_backend_port
+
+        self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
+        self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
+        
+    def launch(self):
+        self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
+                                                out_add=self.parameter_serving_backend_add,
+                                                pattern='router-dealer')
+
+        self.proxy.start()
+
+        
+        self.workers = []
+        for i in range(self.shards):
+            worker = ParameterServer(
+                publish_host=self.ps_config.publish_host,
+                publish_port=self.ps_config.publish_port,
+                serving_host=self.backend_host,
+                serving_port=self.backend_port,
+                load_balanced=True,
+            )
+            worker.start()
+            self.workers.append(worker)
+            # break
+
+    def join(self):
+        self.proxy.join()
+        for worker in self.workers():
+            worker.join()
+
+        # print(self.workers[0].join())
+        # print(self.workers[0].exitcode)
+        # print('joined')
+        # 
+        
+class ParameterServer(Process):
     # TODO support multiple PS
     """
     Standalone script for PS node that runs in an infinite loop.
@@ -58,7 +104,9 @@ class ParameterServer(object):
     def __init__(self,
                  publish_host,
                  publish_port,
-                 agent_port):
+                 serving_host,
+                 serving_port,
+                 load_balanced=False):
         """
 
         Args:
@@ -66,21 +114,40 @@ class ParameterServer(object):
             publish_port:
             agent_port: PS server that responds to agent fetch_parameter requests
         """
-        self._subscriber = ZmqSubscribeClient(
-            host=publish_host,
-            port=publish_port,
-            handler=self._set_storage,
-            topic='ps',
-            is_pyobj=True
-        )
-        self._server = ZmqServer(
-            port=agent_port,
-            handler=self._handle_agent_request,
-            is_pyobj=True
-        )
+        Process.__init__(self)
+        self.publish_host = publish_host
+        self.publish_port = publish_port
+        self.serving_host = serving_host
+        self.serving_port = serving_port
+        # self.serving_port = 7005
+        self.load_balanced = load_balanced
         # storage
         self.parameters = None
         self.param_info = None
+
+    def run(self):
+        self._subscriber = ZmqSubClient(
+            host=self.publish_host,
+            port=self.publish_port,
+            handler=self._set_storage,
+            topic='ps',
+            preprocess=U.deserialize,
+        )
+        self._server = ZmqSimpleServer(
+            host=self.serving_host,
+            port=self.serving_port,
+            handler=self._handle_agent_request,
+            preprocess=U.deserialize,
+            postprocess=U.serialize,
+            load_balanced=self.load_balanced,
+        )
+        self._subscriber.start()
+        self._server.start()
+        print('Parameter server started')
+        self._subscriber.join()
+        self._server.join()
+        # print('Finished')
+        # return 'abc'
 
     def _set_storage(self, data):
         self.parameters, self.param_info = data
@@ -119,33 +186,27 @@ class ParameterServer(object):
         else:
             raise ValueError('invalid request: '+str(request))
 
-    def run_loop(self):
-        """blocking"""
-        self._subscriber.run_loop(block=False)
-        self._server.start()
-        self._server.join()
 
 
 class ParameterClient(object):
     """
     Agent side
     """
-    def __init__(self, host, port, module_dict):
+    def __init__(self, host, port, module_dict, timeout=2):
         """
         Args:
             host: parameter server host
             port:
             module_dict:
         """
-        self._client = ZmqClient(
-            host=host,
-            port=port,
-            is_pyobj=True
-        )
+        self.host = host
+        self.port = port
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)
         self._module_dict = module_dict
         self._last_hash = ''
+        self.alive = False
+        self.timeout = timeout
 
     def fetch_parameter(self):
         """
@@ -155,7 +216,20 @@ class ParameterClient(object):
         Returns:
             True if parameter is actually fetched (changed since last request).
         """
-        param, cur_hash = self._client.request('parameter:' + self._last_hash)
+        client = ZmqReq(
+            host=self.host,
+            port=self.port,
+            preprocess=U.serialize,
+            postprocess=U.deserialize,
+            timeout=self.timeout
+        )
+        try:
+            response = client.request('parameter:' + self._last_hash)
+        except ZmqTimeoutError:
+            self.report_fetch_parameter_failed()
+            return False
+        self.report_fetch_parameter_success()
+        param, cur_hash = response
         self._last_hash = cur_hash
         if param:
             self._module_dict.loads(param)
@@ -171,7 +245,20 @@ class ParameterClient(object):
         Returns:
             (info dict, True if parameter is actually fetched)
         """
-        param, info = self._client.request('both:' + self._last_hash)
+        client = ZmqReq(
+            host=self.host,
+            port=self.port,
+            preprocess=U.serialize,
+            postprocess=U.deserialize,
+            timeout=self.timeout
+        )
+        try:
+            response = client.request('both:' + self._last_hash)
+        except ZmqTimeoutError:
+            self.report_fetch_parameter_failed()
+            return False, {}
+        self.report_fetch_parameter_success()
+        param, info = response
         self._last_hash = info['hash'] if info else ''
         if param:
             self._module_dict.loads(param)
@@ -181,3 +268,16 @@ class ParameterClient(object):
 
     def fetch_info(self):
         return self._client.request('info')
+
+    def report_fetch_parameter_failed(self):
+        if self.alive:
+            self.alive = False
+            print('Parameter client request timed out')
+
+    def report_fetch_parameter_success(self):
+        if not self.alive:
+            self.alive = True
+            print('Parameter client came back alive')
+
+
+
