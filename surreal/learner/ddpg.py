@@ -59,7 +59,7 @@ class DDPGLearner(Learner):
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
-            self.model.train()
+            # self.model.train()
 
             self.model_target = DDPGModel(
                 obs_dim=self.obs_dim,
@@ -71,7 +71,7 @@ class DDPGLearner(Learner):
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
             )
-            self.model.eval()
+            # self.model.eval()
 
             self.critic_criterion = nn.MSELoss()
 
@@ -141,6 +141,7 @@ class DDPGLearner(Learner):
             # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
             # obs_next.volatile = True
             next_actions_target = self.model_target.forward_actor(obs_next)
+            print('next_actions_target', next_actions_target)
 
             # obs_next.volatile = False
             next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)

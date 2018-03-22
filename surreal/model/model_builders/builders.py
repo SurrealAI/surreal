@@ -63,6 +63,7 @@ class ActorNetwork(U.Module):
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)
+            print('return action:', action)
             return action
         if obs_flat is not None:
             obs = obs_flat
@@ -75,6 +76,7 @@ class ActorNetwork(U.Module):
             if self.use_batchnorm:
                 h2 = self.bn_out(h2)
             action = F.tanh(self.fc_act(h2))
+            print('return action:', action)
             return action
 
 class CriticNetwork(U.Module):
@@ -194,4 +196,3 @@ class PPO_CriticNetwork(U.Module):
         h3 = F.tanh(self.fc_h3(h2))
         v  = self.fc_v(h3)
         return v
->>>>>>> master
