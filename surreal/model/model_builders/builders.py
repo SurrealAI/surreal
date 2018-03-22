@@ -44,8 +44,10 @@ class ActorNetwork(U.Module):
 
     def forward(self, obs):
         obs_visual, obs_flat = obs
-        assert not (obs_visual is not None and obs_flat is not None)
+        print('actor network forward called')
+        assert not ((obs_visual is not None) and (obs_flat is not None))
         if obs_visual is not None:
+            print('if obs_visual is not None:')
             obs = obs_visual
             c1 = self.conv1(obs)
             if self.use_layernorm:
@@ -66,6 +68,7 @@ class ActorNetwork(U.Module):
             print('return action:', action)
             return action
         if obs_flat is not None:
+            print('if obs_flat is not None:')
             obs = obs_flat
             if self.use_batchnorm:
                 obs = self.bn_h1(obs)
