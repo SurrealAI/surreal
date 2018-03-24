@@ -47,7 +47,6 @@ class ActorNetwork(U.Module):
         print('actor network forward called')
         assert not ((obs_visual is not None) and (obs_flat is not None))
         if obs_visual is not None:
-            print('if obs_visual is not None:')
             obs = obs_visual
             c1 = self.conv1(obs)
             if self.use_layernorm:
@@ -65,10 +64,8 @@ class ActorNetwork(U.Module):
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)
-            print('return action:', action)
             return action
         if obs_flat is not None:
-            print('if obs_flat is not None:')
             obs = obs_flat
             if self.use_batchnorm:
                 obs = self.bn_h1(obs)
@@ -79,7 +76,6 @@ class ActorNetwork(U.Module):
             if self.use_batchnorm:
                 h2 = self.bn_out(h2)
             action = F.tanh(self.fc_act(h2))
-            print('return action:', action)
             return action
 
 class CriticNetwork(U.Module):

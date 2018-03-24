@@ -292,7 +292,7 @@ def flatten_obs(obs):
         flat_observations = None
     else:
         flat_observations = np.concatenate(flat_observations)
-    return (visual_observations, flat_observations)
+    return [visual_observations, flat_observations]
 
 class ObservationConcatenationWrapper(Wrapper):
     def _step(self, action):
@@ -348,7 +348,7 @@ class GrayscaleWrapper(Wrapper):
         C, H, W = obs_visual.shape
         assert obs_visual.shape == (3, 84, 84)
         obs_visual = np.mean(obs_visual, 0, 'uint8').reshape(1, H, W)
-        return obs_visual, obs_flat
+        return [obs_visual, obs_flat]
 
     def _step(self, action):
         obs, reward, done, info = self.env.step(action)
@@ -407,7 +407,7 @@ class FrameStackWrapper(Wrapper):
         else:
             flat_obs = flat_obs[-1] # Most recent observation
         #print(visual_obs, flat_obs)
-        return (visual_obs, flat_obs)
+        return [visual_obs, flat_obs]
 
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
@@ -438,7 +438,7 @@ class FrameStackWrapper(Wrapper):
                 shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
         return {
             'type': 'continuous', 
-            'dim': (visual_dim, flat_dim)
+            'dim': [visual_dim, flat_dim]
         }
 
     def action_spec(self):

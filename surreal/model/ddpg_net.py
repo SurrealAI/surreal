@@ -42,18 +42,15 @@ class DDPGModel(U.Module):
         #shape = obs.size()
         #assert len(shape) == 2 and shape[1] == self.obs_dim
         assert len(obs) == 2 # (visual, flat)
-        print('forward actor')
         obs = self.scale_image(obs)
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
         action = self.actor(obs)
-        print('forward_actor returns action:', action)
         return action
 
     def forward_critic(self, obs, action):
         #obs_shape = obs.size()
         # assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
-        print(obs, action)
         action_shape = action.size()
         #assert len(action_shape) == 2 and action_shape[1] == self.action_dim
         obs = self.scale_image(obs)
