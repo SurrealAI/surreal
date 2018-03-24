@@ -35,9 +35,6 @@ class ExperienceCollectorServer(Thread):
                 The processed key will see `_hash` removed
             storage: chunk of storage sent with the exps
         """
-        print('begin retrieve storage')
-        print('type(exp) = ', type(exp))
-        print('exp = ', exp)
         if isinstance(exp, list):
             for i, e in enumerate(exp):
                 exp[i] = self._retrieve_storage(e, storage)
@@ -52,7 +49,6 @@ class ExperienceCollectorServer(Thread):
             if exphash in self._weakref_map:
                 return self._weakref_map[exphash]
             else:
-                print('storage[exphash] = ', storage[exphash])
                 self._weakref_map[exphash] = storage[exphash]
                 return storage[exphash]
         return exp
