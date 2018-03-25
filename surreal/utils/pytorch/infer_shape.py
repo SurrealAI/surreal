@@ -7,70 +7,132 @@ from surreal.utils.pytorch import shape
 from surreal.utils.common import include_keys
 
 
-CONV_KWARG = ['stride', 'padding', 'dilation']
-
-
 def is_valid_shape(shape):
     "Returns: whether a shape is valid or not"
     return all(map(lambda d : d > 0, shape))
             
             
-def _expand(D, x):
+def _expand(dim, x):
     if isinstance(x, int):
-        return (x,) * D
+        return (x,) * dim
     else:
-        assert len(x) == D
+        assert len(x) == dim
         return x
 
 
-def _expands(D, *xs):
+def _expands(dim, *xs):
     "repeat vars like kernel and stride to match dim"
-    return map(lambda x: _expand(D, x), xs)
+    return map(lambda x: _expand(dim, x), xs)
 
 
-def infer_shape_convnd(D, input_shape, out_channels, 
-                       kernel, stride=1, padding=0, dilation=1):
+def infer_shape_convnd(dim,
+                       input_shape,
+                       out_channels,
+                       kernel_size,
+                       stride=1,
+                       padding=0,
+                       dilation=1,
+                       has_batch=False):
     """
     http://pytorch.org/docs/nn.html#conv1d
     http://pytorch.org/docs/nn.html#conv2d
     http://pytorch.org/docs/nn.html#conv3d
+    
+    Args:
+        dim: supports 1D to 3D
+        input_shape: 
+        - 1D: [channel, length]
+        - 2D: [channel, height, width]
+        - 3D: [channel, depth, height, width]
+        has_batch: whether the first dim is batch size or not
     """
-    assert len(input_shape) in [D+1, D+2], \
-        'expect input_shape to have {} (batchless) or {} (with batch) dims'.format(D+1, D+2)
+    if has_batch:
+        assert len(input_shape) == dim + 2, \
+            'input shape with batch should be {}-dimensional'.format(dim+2)
+    else:
+        assert len(input_shape) == dim + 1, \
+            'input shape without batch should be {}-dimensional'.format(dim+1)
     if stride is None:
         # for pooling convention in PyTorch
-        stride = kernel
-    kernel, stride, padding, dilation = _expands(D, kernel, stride, padding, dilation)
-    has_batch = len(input_shape)==D+2
+        stride = kernel_size
+    kernel_size, stride, padding, dilation = \
+        _expands(dim, kernel_size, stride, padding, dilation)
     if has_batch:
         batch = input_shape[0]
         input_shape = input_shape[1:]
+    else:
+        batch = None
     _, *img = input_shape
-    new_img = [] # a single image's img
-    for i in range(D):
-        n = math.floor((img[i] + 2*padding[i] - dilation[i]*(kernel[i]-1) -1)//stride[i] + 1)
-        new_img.append(n)
+    new_img_shape = [
+        math.floor(
+            (img[i] + 2 * padding[i] - dilation[i] * (kernel_size[i]- 1) - 1) // stride[i] + 1
+        )
+        for i in range(dim)
+    ]
 
-    return ((batch,) if has_batch else ()) + (out_channels, *new_img)
+    return ((batch,) if has_batch else ()) + (out_channels, *new_img_shape)
 
 
-def infer_shape_poolnd(D, input_shape, out_channels, 
-                       kernel, stride=None, padding=0, dilation=1):
+def infer_shape_poolnd(dim,
+                       input_shape,
+                       kernel_size,
+                       stride=None,
+                       padding=0,
+                       dilation=1,
+                       has_batch=True):
     """
     The only difference from infer_shape_convnd is that `stride` default is None
     """
-    return infer_shape_convnd(D, input_shape, out_channels,
-                              kernel, stride, padding, dilation)
+    if has_batch:
+        out_channels = input_shape[1]
+    else:
+        out_channels = input_shape[0]
+    return infer_shape_convnd(dim, input_shape, out_channels,
+                              kernel_size, stride, padding, dilation, has_batch)
 
 
-def infer_shape_deconvnd():
+def infer_shape_transpose_convnd(dim,
+                                 input_shape,
+                                 out_channels,
+                                 kernel_size,
+                                 stride=1,
+                                 padding=0,
+                                 output_padding=0,
+                                 dilation=1,
+                                 has_batch=False):
     """
-    TODO: deconvolution layers
     http://pytorch.org/docs/nn.html#convtranspose1d
     http://pytorch.org/docs/nn.html#convtranspose2d
     http://pytorch.org/docs/nn.html#convtranspose3d
+
+    Args:
+        dim: supports 1D to 3D
+        input_shape:
+        - 1D: [channel, length]
+        - 2D: [channel, height, width]
+        - 3D: [channel, depth, height, width]
+        has_batch: whether the first dim is batch size or not
     """
-    pass
+    if has_batch:
+        assert len(input_shape) == dim + 2, \
+            'input shape with batch should be {}-dimensional'.format(dim+2)
+    else:
+        assert len(input_shape) == dim + 1, \
+            'input shape without batch should be {}-dimensional'.format(dim+1)
+    kernel_size, stride, padding, output_padding, dilation = \
+        _expands(dim, kernel_size, stride, padding, output_padding, dilation)
+    if has_batch:
+        batch = input_shape[0]
+        input_shape = input_shape[1:]
+    else:
+        batch = None
+    _, *img = input_shape
+    new_img_shape = [
+        (img[i] - 1) * stride[i] - 2 * padding[i] + kernel_size[i] + output_padding[i]
+        for i in range(dim)
+    ]
+    return ((batch,) if has_batch else ()) + (out_channels, *new_img_shape)
+
 
 
 infer_shape_conv1d = partial(infer_shape_convnd, 1)
@@ -93,11 +155,14 @@ infer_shape_avgpool2d = partial(infer_shape_maxpool2d, dilation=1)
 infer_shape_avgpool3d = partial(infer_shape_maxpool3d, dilation=1)
 
 
+# TODO: deprecated
 class ShapeInferenceNd(object):
-    def __init__(self, D, config_list):
+    CONV_KWARG = ['stride', 'padding', 'dilation']
+
+    def __init__(self, dim, config_list):
         """
         Args:
-        D: dimension of convolution, e.g. 2 for Conv2D
+        dim: dimension of convolution, e.g. 2 for Conv2D
         config_list:
           Architecture configs for each conv2d and pooling. 
           Each entry in the list is a dict:
@@ -112,12 +177,12 @@ class ShapeInferenceNd(object):
               - padding
               - dilation: applies only to MaxPool
         """
-        self._infer_conv = partial(infer_shape_convnd, D)
-        self._infer_pool = partial(infer_shape_poolnd, D)
+        self._infer_conv = partial(infer_shape_convnd, dim)
+        self._infer_pool = partial(infer_shape_poolnd, dim)
         self.channels = []
         self.convs = []
         self.pools = []
-        _CONV_KWARG = ['kernel'] + CONV_KWARG
+        _CONV_KWARG = ['kernel'] + self.CONV_KWARG
         for config in config_list:
             pool = config.get('pool', None)
             if pool is not None:
@@ -126,8 +191,7 @@ class ShapeInferenceNd(object):
             self.channels.append(config['channel'])
             conv = include_keys(_CONV_KWARG, config)
             self.convs.append(conv)
-        
-    
+
     def __call__(self, x):
         """
         Args:
