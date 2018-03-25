@@ -32,6 +32,8 @@ class DDPGLearner(Learner):
             self.log.info('Using CPU')
         else:
             self.log.info('Using GPU: {}'.format(self.gpu_ids))
+            self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
+            torch.backends.cudnn.benchmark = True
 
         with U.torch_gpu_scope(self.gpu_ids):
             self.target_update_init()
@@ -97,6 +99,19 @@ class DDPGLearner(Learner):
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
             # self.train_iteration = 0
+            
+            self.data_prep_time = U.TimeRecorder()
+            self.forward_time = U.TimeRecorder()
+
+            self.critic_update_time = U.TimeRecorder()
+            self.critic_optim_time = U.TimeRecorder()
+            self.critic_backward_time = U.TimeRecorder()
+            self.critic_gradient_clip_time = U.TimeRecorder()
+
+            self.actor_update_time = U.TimeRecorder()
+            self.actor_optim_time = U.TimeRecorder()
+            self.actor_backward_time = U.TimeRecorder()
+            self.actor_gradient_clip_time = U.TimeRecorder()
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
@@ -105,77 +120,87 @@ class DDPGLearner(Learner):
         aggregator returns float32 tensors
         '''
         with U.torch_gpu_scope(self.gpu_ids):
-            visual_obs, flat_obs = obs
+            with self.data_prep_time.time():
+                visual_obs, flat_obs = obs
 
-            if visual_obs is not None:
-                assert torch.is_tensor(visual_obs)
-                visual_obs = Variable(visual_obs).detach()
+                if visual_obs is not None:
+                    assert torch.is_tensor(visual_obs)
+                    visual_obs = Variable(visual_obs).detach()
 
-            if flat_obs is not None:
-                assert torch.is_tensor(flat_obs)
-                flat_obs = Variable(flat_obs).detach()
+                if flat_obs is not None:
+                    assert torch.is_tensor(flat_obs)
+                    flat_obs = Variable(flat_obs).detach()
 
-            obs = (visual_obs, flat_obs)
-            visual_obs_next, flat_obs_next = obs_next
+                obs = (visual_obs, flat_obs)
+                visual_obs_next, flat_obs_next = obs_next
 
-            if visual_obs_next is not None:
-                assert torch.is_tensor(visual_obs_next)
-                visual_obs_next = Variable(visual_obs_next).detach()
+                if visual_obs_next is not None:
+                    assert torch.is_tensor(visual_obs_next)
+                    visual_obs_next = Variable(visual_obs_next).detach()
 
-            if flat_obs_next is not None:
-                assert torch.is_tensor(flat_obs_next)
-                flat_obs_next = Variable(flat_obs_next).detach()
+                if flat_obs_next is not None:
+                    assert torch.is_tensor(flat_obs_next)
+                    flat_obs_next = Variable(flat_obs_next).detach()
 
-            obs_next = (visual_obs_next, flat_obs_next)
+                obs_next = (visual_obs_next, flat_obs_next)
 
-            actions = Variable(actions)
-            rewards = Variable(rewards)
-            done = Variable(done)
+                actions = Variable(actions)
+                rewards = Variable(rewards)
+                done = Variable(done)
 
-            assert actions.max().data[0] <= 1.0
-            assert actions.min().data[0] >= -1.0
+            with self.forward_time.time():
+                assert actions.max().data[0] <= 1.0
+                assert actions.min().data[0] >= -1.0
 
-            if self.use_z_filter:
-                self.model.z_update(obs)
+                if self.use_z_filter:
+                    self.model.z_update(obs)
 
-            # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
-            # obs_next.volatile = True
-            next_actions_target = self.model_target.forward_actor(obs_next)
+                # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
+                # obs_next.volatile = True
+                next_actions_target = self.model_target.forward_actor(obs_next)
 
-            # obs_next.volatile = False
-            next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
-            # next_Q_target.volatile = False
-            y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
-            y = y.detach()
+                # obs_next.volatile = False
+                next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
+                # next_Q_target.volatile = False
+                y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
+                y = y.detach()
 
-            # compute Q(s_t, a_t)
-            y_policy = self.model.forward_critic(
-                obs,
-                actions.detach()
-            )
+                # compute Q(s_t, a_t)
+                y_policy = self.model.forward_critic(
+                    obs,
+                    actions.detach()
+                )
 
             # critic update
-            self.model.critic.zero_grad()
-            critic_loss = self.critic_criterion(y_policy, y)
-            critic_loss.backward()
-            if self.clip_critic_gradient:
-                self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
-            # for p in self.model.critic.parameters():
-            #     p.grad.data.clamp_(-1.0, 1.0)
-            self.critic_optim.step()
+            with self.critic_update_time.time():
+                with self.critic_backward_time.time():
+                    self.model.critic.zero_grad()
+                    critic_loss = self.critic_criterion(y_policy, y)
+                    critic_loss.backward()
+                with self.critic_gradient_clip_time.time():
+                    if self.clip_critic_gradient:
+                        self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
+                # for p in self.model.critic.parameters():
+                #     p.grad.data.clamp_(-1.0, 1.0)
+                with self.critic_optim_time.time():
+                    self.critic_optim.step()
 
             # actor update
-            self.model.actor.zero_grad()
-            actor_loss = -self.model.forward_critic(
-                obs,
-                self.model.forward_actor(obs)
-            ).mean()
-            actor_loss.backward()
-            if self.clip_actor_gradient:
-                self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
-            # for p in self.model.actor.parameters():
-            #     p.grad.data.clamp_(-1.0, 1.0)
-            self.actor_optim.step()
+            with self.actor_update_time.time():
+                self.model.actor.zero_grad()
+                with self.actor_backward_time.time():
+                    actor_loss = -self.model.forward_critic(
+                        obs,
+                        self.model.forward_actor(obs)
+                    ).mean()
+                    actor_loss.backward()
+                with self.actor_gradient_clip_time.time():
+                    if self.clip_actor_gradient:
+                        self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
+                # for p in self.model.actor.parameters():
+                #     p.grad.data.clamp_(-1.0, 1.0)
+                with self.actor_optim_time.time():
+                    self.actor_optim.step()
 
             tensorplex_update_dict = {
                 'actor_loss': actor_loss.data[0],
@@ -184,6 +209,16 @@ class DDPGLearner(Learner):
                 'rewards': rewards.mean().data[0],
                 'Q_target': y.mean().data[0],
                 'Q_policy': y_policy.mean().data[0],
+                'performance/data_prep_time': self.data_prep_time.avg,
+                'performance/forward_time': self.forward_time.avg,
+                'performance/critic_update_time': self.critic_update_time.avg,
+                'performance/critic_optim_time': self.critic_optim_time.avg,
+                'performance/critic_backward_time': self.critic_backward_time.avg,
+                'performance/critic_gradient_clip_time': self.critic_gradient_clip_time.avg,
+                'performance/actor_update_time': self.actor_update_time.avg,
+                'performance/actor_optim_time': self.actor_optim_time.avg,
+                'performance/actor_backward_time': self.actor_backward_time.avg,
+                'performance/actor_gradient_clip_time': self.actor_gradient_clip_time.avg,
             }
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
