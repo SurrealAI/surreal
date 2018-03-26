@@ -173,52 +173,54 @@ class DDPGLearner(Learner):
                     actions.detach()
                 )
 
-            profile_critic = False
-            profile_actor = False
-            profile_gpu = False
+            profile_critic = True
+            profile_actor = True
+            profile_gpu = True
 
             # critic update
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()
-                # with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
-                with self.critic_forward_time.time():
-                    # print('y_policy', y_policy.size())
-                    # print('y', y.size())
-                    critic_loss = self.critic_criterion(y_policy, y)
-                with self.critic_backward_time.time():
-                    critic_loss.backward()
-                # if profile_critic:
-                #     print(prof)
-                with self.critic_gradient_clip_time.time():
-                    if self.clip_critic_gradient:
-                        self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
-                # for p in self.model.critic.parameters():
-                #     p.grad.data.clamp_(-1.0, 1.0)
-                with self.critic_optim_time.time():
-                    self.critic_optim.step()
+                with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
+                    with self.critic_forward_time.time():
+                        # print('y_policy', y_policy.size())
+                        # print('y', y.size())
+                        critic_loss = self.critic_criterion(y_policy, y)
+                    with self.critic_backward_time.time():
+                        critic_loss.backward()
+                    
+                    with self.critic_gradient_clip_time.time():
+                        if self.clip_critic_gradient:
+                            self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
+                    # for p in self.model.critic.parameters():
+                    #     p.grad.data.clamp_(-1.0, 1.0)
+                    with self.critic_optim_time.time():
+                        self.critic_optim.step()
+                if profile_critic:
+                        print(prof)
+
 
             # actor update
             with self.actor_update_time.time():
                 self.model.actor.zero_grad()
-                # with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
-                with self.actor_forward_time.time():
-                    actor_loss = -self.model.forward_critic(
-                        obs,
-                        self.model.forward_actor(obs)
-                    )
-                    # print('actor_loss', actor_loss.size())
-                    actor_loss = actor_loss.mean()
-                with self.actor_backward_time.time():
-                    actor_loss.backward()
-                # if profile_actor:
-                #     print(prof)
-                with self.actor_gradient_clip_time.time():
-                    if self.clip_actor_gradient:
-                        self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
-                # for p in self.model.actor.parameters():
-                #     p.grad.data.clamp_(-1.0, 1.0)
-                with self.actor_optim_time.time():
-                    self.actor_optim.step()
+                with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
+                    with self.actor_forward_time.time():
+                        actor_loss = -self.model.forward_critic(
+                            obs,
+                            self.model.forward_actor(obs)
+                        )
+                        # print('actor_loss', actor_loss.size())
+                        actor_loss = actor_loss.mean()
+                    with self.actor_backward_time.time():
+                        actor_loss.backward()
+                    with self.actor_gradient_clip_time.time():
+                        if self.clip_actor_gradient:
+                            self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
+                    # for p in self.model.actor.parameters():
+                    #     p.grad.data.clamp_(-1.0, 1.0)
+                    with self.actor_optim_time.time():
+                        self.actor_optim.step()
+                if profile_actor:
+                        print(prof)
 
             tensorplex_update_dict = {
                 'actor_loss': actor_loss.data[0],
