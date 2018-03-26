@@ -105,11 +105,13 @@ class DDPGLearner(Learner):
 
             self.critic_update_time = U.TimeRecorder()
             self.critic_optim_time = U.TimeRecorder()
+            self.critic_forward_time = U.TimeRecorder()
             self.critic_backward_time = U.TimeRecorder()
             self.critic_gradient_clip_time = U.TimeRecorder()
 
             self.actor_update_time = U.TimeRecorder()
             self.actor_optim_time = U.TimeRecorder()
+            self.actor_forward_time = U.TimeRecorder()
             self.actor_backward_time = U.TimeRecorder()
             self.actor_gradient_clip_time = U.TimeRecorder()
 
@@ -171,12 +173,22 @@ class DDPGLearner(Learner):
                     actions.detach()
                 )
 
+            profile_critic = False
+            profile_actor = False
+            profile_gpu = False
+
             # critic update
             with self.critic_update_time.time():
-                with self.critic_backward_time.time():
-                    self.model.critic.zero_grad()
+                self.model.critic.zero_grad()
+                # with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
+                with self.critic_forward_time.time():
+                    # print('y_policy', y_policy.size())
+                    # print('y', y.size())
                     critic_loss = self.critic_criterion(y_policy, y)
+                with self.critic_backward_time.time():
                     critic_loss.backward()
+                # if profile_critic:
+                #     print(prof)
                 with self.critic_gradient_clip_time.time():
                     if self.clip_critic_gradient:
                         self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
@@ -188,12 +200,18 @@ class DDPGLearner(Learner):
             # actor update
             with self.actor_update_time.time():
                 self.model.actor.zero_grad()
-                with self.actor_backward_time.time():
+                # with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
+                with self.actor_forward_time.time():
                     actor_loss = -self.model.forward_critic(
                         obs,
                         self.model.forward_actor(obs)
-                    ).mean()
+                    )
+                    # print('actor_loss', actor_loss.size())
+                    actor_loss = actor_loss.mean()
+                with self.actor_backward_time.time():
                     actor_loss.backward()
+                # if profile_actor:
+                #     print(prof)
                 with self.actor_gradient_clip_time.time():
                     if self.clip_actor_gradient:
                         self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
@@ -212,13 +230,15 @@ class DDPGLearner(Learner):
                 'performance/data_prep_time': self.data_prep_time.avg,
                 'performance/forward_time': self.forward_time.avg,
                 'performance/critic_update_time': self.critic_update_time.avg,
-                'performance/critic_optim_time': self.critic_optim_time.avg,
+                # 'performance/critic_optim_time': self.critic_optim_time.avg,
+                'performance/critic_forward_time': self.critic_forward_time.avg,
                 'performance/critic_backward_time': self.critic_backward_time.avg,
-                'performance/critic_gradient_clip_time': self.critic_gradient_clip_time.avg,
+                # 'performance/critic_gradient_clip_time': self.critic_gradient_clip_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
-                'performance/actor_optim_time': self.actor_optim_time.avg,
+                # 'performance/actor_optim_time': self.actor_optim_time.avg,
+                'performance/actor_forward_time': self.actor_forward_time.avg,
                 'performance/actor_backward_time': self.actor_backward_time.avg,
-                'performance/actor_gradient_clip_time': self.actor_gradient_clip_time.avg,
+                # 'performance/actor_gradient_clip_time': self.actor_gradient_clip_time.avg,
             }
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]

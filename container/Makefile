@@ -14,6 +14,10 @@ build:
 	docker build -t $(URL):`cat VERSION` -f Dockerfile-cpu .
 	docker tag $(URL):`cat VERSION` $(URL):latest
 
+rebuild:
+	docker build --no-cache -t $(GPU_URL):`cat VERSION` -f Dockerfile-gpu .
+	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
+
 # Can't do as container requires gpu hosts
 # test-gpu:
 
@@ -29,3 +33,13 @@ pull-gpu:
 build-gpu:
 	docker build -t $(GPU_URL):`cat VERSION` -f Dockerfile-gpu .
 	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
+
+rebuild-gpu:
+	docker build --no-cache -t $(GPU_URL):`cat VERSION` -f Dockerfile-gpu .
+	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
+
+build-torch-master:
+	docker build -t $(GPU_URL):pytorch-master -f Dockerfile-gpu-torchlatest .
+
+push-torch-master:
+	gcloud docker -- push $(GPU_URL):pytorch-master
