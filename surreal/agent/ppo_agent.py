@@ -38,13 +38,24 @@ class PPOAgent(Agent):
         self.obs_dim = self.env_config.obs_spec.dim[0]
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
+        self.rnn_config = self.learner_config.algo.rnn
+
+        self.cells = None
+        if self.rnn_config.if_rnn_policy:
+            self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               1, # batch_size is 1
+                                               self.rnn_config.rnn_hidden)),
+                         Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                              1, # batch_size is 1
+                                              self.rnn_config.rnn_hidden)))
 
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
-            use_cuda = False,
+            rnn_config=self.rnn_config,
+            use_cuda=False,
         )
 
         self.pd = DiagGauss(self.action_dim)
@@ -66,7 +77,13 @@ class PPOAgent(Agent):
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action_pd = self.model.forward_actor(obs).data.numpy()
+        action_info = []
+
+        action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
+        action_pd = action_pd.data.numpy()
+        if self.rnn_config.if_rnn_policy:
+            action_info.append(self.cells[0].squeeze(1).data.numpy())
+            action_info.append(self.cells[1].squeeze(1).data.numpy())
 
         if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)
@@ -76,7 +93,7 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-        action_info   = [action_pd]
+        action_info.append(action_pd)
         if self.agent_mode != 'training':
             return action_choice
         else: 
@@ -101,4 +118,11 @@ class PPOAgent(Agent):
             Currently unimplemented. in the future it will contain reset of 
             RNN hidden states
         '''
-        pass
+        if self.rnn_config.if_rnn_policy:
+            self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               1, # batch_size is 1
+                                               self.rnn_config.rnn_hidden)),
+                          Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               1, # batch_size is 1
+                                               self.rnn_config.rnn_hidden)))
+

@@ -93,6 +93,7 @@ class PPOModel(U.Module):
                  obs_dim,
                  action_dim,
                  use_z_filter,
+                 rnn_config,
                  use_cuda):
         super(PPOModel, self).__init__()
 
@@ -101,9 +102,22 @@ class PPOModel(U.Module):
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
+        self.rnn_config = rnn_config
 
-        self.actor = PPO_ActorNetwork(self.obs_dim, self.action_dim, self.init_log_sig)
-        self.critic = PPO_CriticNetwork(self.obs_dim)
+        self.rnn_stem = None
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem = nn.LSTM(self.obs_dim,
+                            self.rnn_config.rnn_hidden,
+                            self.rnn_config.rnn_layer,
+                            batch_first=True)
+
+        input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else self.obs_dim
+
+        self.actor = PPO_ActorNetwork(input_size, 
+                                      self.action_dim, 
+                                      self.init_log_sig, 
+                                      self.rnn_stem)
+        self.critic = PPO_CriticNetwork(input_size, self.rnn_stem)
         if self.use_z_filter:
             self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
 
@@ -125,7 +139,7 @@ class PPOModel(U.Module):
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
 
-    def forward_actor(self, obs):
+    def forward_actor(self, obs, cells=None):
         '''
             forward pass actor to generate policy with option to use z-filter
             Args:
@@ -133,14 +147,22 @@ class PPOModel(U.Module):
             Returns:
                 The output of actor network
         '''
-        shape = obs.size()
-        assert len(shape) == 2 and shape[1] == self.obs_dim
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 
-        return self.actor(obs)
+        if self.rnn_config.if_rnn_policy:
+            assert len(obs.size()) == 3
+            obs, _ = self.rnn_stem(obs, cells) # assumes that input has the correct shape
+            output_shape = obs.size()
+            obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
-    def forward_critic(self, obs):
+        action = self.actor(obs)
+        if self.rnn_config.if_rnn_policy:
+            action = action.view(output_shape[0], output_shape[1], -1)
+            
+        return action
+
+    def forward_critic(self, obs, cells=None):
         '''
             forward pass critic to generate policy with option to use z-filter
             Args: 
@@ -148,12 +170,49 @@ class PPOModel(U.Module):
             Returns:
                 output of critic network
         '''
-        shape = obs.size()
-        assert len(shape) == 2 and shape[1] == self.obs_dim
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 
-        return self.critic(obs)
+        if self.rnn_config.if_rnn_policy:
+            obs, _ = self.rnn_stem(obs, cells)
+            output_shape = obs.size()
+            obs = obs.view(-1, self.rnn_config.rnn_hidden)
+
+        value = self.critic(obs)
+        if self.rnn_config.if_rnn_policy:
+            value = value.view(output_shape[0], output_shape[1], 1)
+
+        return value
+
+    def forward_all(self, obs, cells=None):
+        if self.use_z_filter:
+            obs = self.z_filter.forward(obs)
+
+        if self.rnn_config.if_rnn_policy:
+            obs, _ = self.rnn_stem(obs, cells)
+            output_shape = obs.size()
+            obs = obs.view(-1, self.rnn_config.rnn_hidden)
+
+        value = self.critic(obs)
+        action = self.actor(obs)
+        if self.rnn_config.if_rnn_policy:
+            action = action.view(output_shape[0], output_shape[1], -1)
+            value = value.view(output_shape[0], output_shape[1], -1)
+
+        return action, value
+
+    def forward_actor_expose_cells(self, obs, cells=None):
+        if self.use_z_filter:
+            obs = self.z_filter.forward(obs)
+
+        if self.rnn_config.if_rnn_policy:
+            obs = obs.unsqueeze(1) # assume input is shape (1, obs_dim)
+            obs, cells = self.rnn_stem(obs, cells)
+            obs = obs.view(-1, self.rnn_config.rnn_hidden)
+
+        action = self.actor(obs) # shape (1 * 1, action_dim)
+
+        return action, cells
 
     def z_update(self, obs):
         '''

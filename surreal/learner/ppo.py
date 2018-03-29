@@ -84,6 +84,7 @@ class PPOLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
         self.ref_target_model = PPOModel(
@@ -91,12 +92,14 @@ class PPOLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
         self.ref_target_model.update_target_params(self.model)
 
         # PPO parameters
         self.ppo_mode = self.learner_config.algo.ppo_mode
+        self.if_rnn_policy = self.learner_config.algo.rnn.if_rnn_policy
         self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
         self.lr_policy = self.learner_config.algo.lr.lr_policy
         self.lr_baseline = self.learner_config.algo.lr.lr_baseline
@@ -353,8 +356,9 @@ class PPOLearner(Learner):
                 lam   = lam.cuda()
 
             obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
-            values = self.model.forward_critic(Variable(obs_concat)).data # (batch * (n+1), 1)
-            values = values.view(self.batch_size, self.n_step + 1)
+            ref_pol, values = self.model.forward_all(Variable(obs_concat)) # (batch * (n+1), act_dim) & (batch * (n+1), 1)
+            values = values.view(self.batch_size, self.n_step + 1).data 
+            ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
             values[:, 1:] *= 1 - dones
 
             returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
@@ -367,7 +371,7 @@ class PPOLearner(Learner):
                 mean = gae.mean()
                 gae = (gae - mean) / std
 
-            return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1)
+            return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
 
     def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
         '''
@@ -429,16 +433,22 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
-                pds = action_infos[0]
-                obs_iter, actions_iter, advantages, returns = self._gae_and_return(obs, 
-                                                                                   obs_next, 
-                                                                                   actions, 
-                                                                                   rewards, 
-                                                                                   dones)
-                obs_iter = Variable(obs_iter)
-                actions_iter = Variable(actions_iter)
-                advantages = Variable(advantages)
-                returns = Variable(returns)
+                pds = action_infos[-1]
+                h = action_infos[0].transpose(0, 1)
+                c = action_infos[1].transpose(0, 1)
+
+                print(pds.size(), h.size(), c.size())
+
+                advantage_return = self._gae_and_return(obs, 
+                                                        obs_next, 
+                                                        actions, 
+                                                        rewards, 
+                                                        dones)
+                obs_iter = Variable(advantage_return[0])
+                actions_iter = Variable(advantage_return[1])
+                advantages = Variable(advantage_return[2])
+                returns = Variable(advantage_return[3])
+                ref_pol = Variable(advantage_return[4])
                 behave_pol = Variable(pds[:, 0, :])
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
@@ -485,7 +495,7 @@ class PPOLearner(Learner):
                     stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
                     self.ref_target_model.update_target_z_filter(self.model)
-
+        print(stats)
         return stats
 
     def learn(self, batch):
@@ -559,4 +569,24 @@ class PPOLearner(Learner):
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
 
-# RNN PPO WIP
+'''
+implemetation sequence:
+    1) network structure: separate with shared RNN stem defined by itself √
+    2) agent interaction sequence (and shape): √
+        RNN: (iput_dim, hidden_dim, #layer)
+        input: (seq_len, batch, input_dim)
+        cell: (#layer, batch, hidden_dim) x 2
+        output: (seq_len, batch, hidden_dim)
+
+        ideally we can use batch first: then input and output turns to (batch, seq, feature)
+
+    3) model forward (or rather should be forward all?):  √
+        forward: call leaves separately
+        need to re-rewrite bunch of forward with cells=None
+        parameter works fine by calling .parameters on leaves
+        need to change return type of forward actor/critic
+    4) make sure exp_sender_wrapper and aggregator works well
+        if length 1 then don't stack
+    5) learner pass
+
+'''

@@ -158,7 +158,8 @@ class MultistepAggregatorWithInfo():
                 EasyDict of tensorized subtrajectory information
         '''
         observations, next_obs, actions, rewards, dones, action_infos = [], [], [], [], [], []
-        for _ in range(len(exp_list[0]['action_infos'][0])):
+        for _ in range(len(exp_list[0]['action_infos'])):
+        # for _ in range(len(exp_list[0]['action_infos'][0])):
             action_infos.append([])
 
         for exp in exp_list:
@@ -170,17 +171,19 @@ class MultistepAggregatorWithInfo():
             next_obs.append(exp['obs_next'])
 
             for i in range(len(action_infos)):
-                one_exp_info = []
-                for info_list in exp['action_infos']:
-                    one_exp_info.append(info_list[i])
-                action_infos[i].append(np.stack(one_exp_info))
+                action_infos[i].append(exp['action_infos'][i])
+            #     one_exp_info = []
+            #     for info_list in exp['action_infos']:
+            #         one_exp_info.append(info_list[i])
+            #     action_infos[i].append(np.stack(one_exp_info))
 
         for i in range(len(action_infos)):
             action_infos[i] = U.to_float_tensor(np.stack(action_infos[i]))
 
-        action_infos = [U.to_float_tensor(np.asarray(infos)) for infos in action_infos]
-        observations = U.to_float_tensor(np.stack(observations))
-        next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
+        # With RNN this should be [hidden, cell, pds]
+        # action_infos = [U.to_float_tensor(np.asarray(infos)) for infos in action_infos]
+        observations =  U.to_float_tensor(np.stack(observations))
+        next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
             actions = U.to_float_tensor(actions)
         elif self.action_type == ActionType.discrete:

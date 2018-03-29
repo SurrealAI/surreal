@@ -42,19 +42,16 @@ def generate(argv):
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
+            'rnn': {
+                'if_rnn_policy': True, 
+                'rnn_hidden': 100,
+                'rnn_layer': 2,
+            },
             'gradient': {
                 'clip_actor': True,
                 'clip_critic': True,
                 'clip_actor_val': 5.,
                 'clip_critic_val': 5.,
-            },
-            'consts': {
-                'init_log_sig': -1.,
-                'is_weight_thresh': 2.5,
-                'epoch_policy': 5,
-                'epoch_baseline': 5,
-                'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.01, # target KL divergence between before and after
             },
             'lr': {
                 'lr_scheduler': "LinearWithMinLR",
@@ -63,6 +60,14 @@ def generate(argv):
                 'frames_to_anneal': 8e7,
                 'lr_update_frequency': 100, 
                 'min_lr': 1e-5,
+            },
+            'consts': {
+                'init_log_sig': -1.,
+                'is_weight_thresh': 2.5,
+                'epoch_policy': 5,
+                'epoch_baseline': 5,
+                'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
+                'kl_target': 0.01, # target KL divergence between before and after
             },
             'adapt_consts': {
                 'kl_cutoff_coeff': 50, # penalty coeff when kl large

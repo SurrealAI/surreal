@@ -71,13 +71,18 @@ class ZFilter(U.Module):
             Returns:
                 0 mean std 1 weightened batch of observation
         '''
-        # if True: return inputs
+        # adjust for 3D tensor input from RNN policy
+        input_shape = inputs.size()
+        assert len(input_shape) >= 2
+        inputs = inputs.view(-1, input_shape[-1])
+
         running_mean = (self.running_sum / self.count)
         running_std = torch.clamp((self.running_sumsq / self.count \
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
+        normed = normed.view(input_shape)
         return normed
 
     def cuda(self):
