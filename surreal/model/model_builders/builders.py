@@ -61,6 +61,7 @@ class ActorNetwork(U.Module):
             flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
                 flat_obs = self.layer_norm(flat_obs)
+            flat_obs = F.tanh(flat_obs)
             hidden = self.fc_hidden(flat_obs)
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
@@ -133,6 +134,7 @@ class CriticNetwork(U.Module):
             flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
                 flat_obs = self.layer_norm(flat_obs)
+            flat_obs = F.tanh(flat_obs)
             flat_obs = torch.cat((flat_obs, act), dim=1)
             hidden = self.fc_hidden(flat_obs)
             hidden = F.relu(hidden)
