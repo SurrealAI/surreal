@@ -30,7 +30,8 @@ class ActorNetwork(U.Module):
             #print('channels', conv_channels[1])
             #print('chw', C, H, W)
             #print('size',conv_output_size)
-            self.fc_hidden = nn.Linear(conv_output_size, 50)
+            self.fc_obs = nn.Linear(conv_output_size, 50)
+            self.fc_hidden = nn.Linear(50, 50)
             self.fc_act = nn.Linear(50, D_act)
         if D_obs_flat is not None:
             self.fc_h1 = nn.Linear(D_obs_flat, hidden_sizes[0])
@@ -57,9 +58,10 @@ class ActorNetwork(U.Module):
             c2 = F.relu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
-            hidden = self.fc_hidden(c2)
+            flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
-                hidden = self.layer_norm(hidden)
+                flat_obs = self.layer_norm(flat_obs)
+            hidden = self.fc_hidden(flat_obs)
             hidden = F.relu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)
@@ -104,8 +106,10 @@ class CriticNetwork(U.Module):
             #print('conv', conv_output_size)
             #print('chw', C, H, W)
             conv_output_size = int(conv_output_size)
-            self.fc_hidden = nn.Linear(conv_output_size + D_act, 50)
-            self.fc_act = nn.Linear(50, D_act)
+            self.fc_obs = nn.Linear(conv_output_size, 50)
+            # TODO: consider 1 mlp instead of 2, or different hidden size
+            self.fc_hidden = nn.Linear(50 + D_act, 50)
+            self.fc_out = nn.Linear(50, D_act)
         if D_obs_flat is not None:
             self.fc_obs = nn.Linear(D_obs_flat, hidden_sizes[0])
             self.fc_h2 = nn.Linear(hidden_sizes[0] + D_act, hidden_sizes[1])
@@ -126,14 +130,14 @@ class CriticNetwork(U.Module):
             c2 = F.relu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
-            c2 = torch.cat((c2, act), dim=1)
-            hidden = self.fc_hidden(c2)
+            flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
-                hidden = self.layer_norm(hidden)
+                flat_obs = self.layer_norm(flat_obs)
+            flat_obs = torch.cat((flat_obs, act), dim=1)
+            hidden = self.fc_hidden(flat_obs)
             hidden = F.relu(hidden)
-            action = self.fc_act(hidden)
-            action = F.tanh(action)
-            return action
+            value = self.fc_out(hidden)
+            return value
         if obs_flat is not None:
             obs = obs_flat
             if self.use_batchnorm:
