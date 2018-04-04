@@ -49,12 +49,8 @@ class ActorNetwork(U.Module):
         if obs_visual is not None:
             obs = obs_visual
             c1 = self.conv1(obs)
-            if self.use_layernorm:
-                c1 = self.layer_norm(c1)
             c1 = F.elu(c1)
             c2 = self.conv2(c1)
-            if self.use_layernorm:
-                c2 = self.layer_norm(c2)
             c2 = F.elu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
@@ -122,12 +118,8 @@ class CriticNetwork(U.Module):
         if obs_visual is not None:
             obs = obs_visual
             c1 = self.conv1(obs)
-            if self.use_layernorm:
-                c1 = self.layer_norm(c1)
             c1 = F.elu(c1)
             c2 = self.conv2(c1)
-            if self.use_layernorm:
-                c2 = self.layer_norm(c2)
             c2 = F.elu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
