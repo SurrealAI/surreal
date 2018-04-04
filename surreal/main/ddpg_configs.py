@@ -63,7 +63,7 @@ def generate(argv):
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'use_batchnorm': False,
-            'use_layernorm': False,
+            'use_layernorm': True,
             # if input is uint8, algorithm will scale it down by a factor of 256.0
             'is_uint8_pixel_input': True,
             'limit_training_episode_length': 0, # 0 means no limit
