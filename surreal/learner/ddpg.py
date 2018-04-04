@@ -173,14 +173,15 @@ class DDPGLearner(Learner):
                     actions.detach()
                 )
 
-            profile_critic = True
-            profile_actor = True
-            profile_gpu = True
+            profile_critic = False
+            profile_actor = False
+            profile_gpu = False
 
             # critic update
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()
-                with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
+                #with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
+                if True:
                     with self.critic_forward_time.time():
                         # print('y_policy', y_policy.size())
                         # print('y', y.size())
@@ -202,7 +203,8 @@ class DDPGLearner(Learner):
             # actor update
             with self.actor_update_time.time():
                 self.model.actor.zero_grad()
-                with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
+                #with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
+                if True:
                     with self.actor_forward_time.time():
                         actor_loss = -self.model.forward_critic(
                             obs,
