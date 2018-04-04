@@ -51,19 +51,19 @@ class ActorNetwork(U.Module):
             c1 = self.conv1(obs)
             if self.use_layernorm:
                 c1 = self.layer_norm(c1)
-            c1 = F.relu(c1) # TODO: elu activation
+            c1 = F.elu(c1)
             c2 = self.conv2(c1)
             if self.use_layernorm:
                 c2 = self.layer_norm(c2)
-            c2 = F.relu(c2)
+            c2 = F.elu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
             flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
                 flat_obs = self.layer_norm(flat_obs)
-            flat_obs = F.tanh(flat_obs)
+            flat_obs = F.elu(flat_obs)
             hidden = self.fc_hidden(flat_obs)
-            hidden = F.relu(hidden)
+            hidden = F.elu(hidden)
             action = self.fc_act(hidden)
             action = F.tanh(action)
             return action
@@ -71,10 +71,10 @@ class ActorNetwork(U.Module):
             obs = obs_flat
             if self.use_batchnorm:
                 obs = self.bn_h1(obs)
-            h1 = F.relu(self.fc_h1(obs))
+            h1 = F.elu(self.fc_h1(obs))
             if self.use_batchnorm:
                 h1 = self.bn_h2(h1)
-            h2 = F.relu(self.fc_h2(h1))
+            h2 = F.elu(self.fc_h2(h1))
             if self.use_batchnorm:
                 h2 = self.bn_out(h2)
             action = F.tanh(self.fc_act(h2))
@@ -124,31 +124,31 @@ class CriticNetwork(U.Module):
             c1 = self.conv1(obs)
             if self.use_layernorm:
                 c1 = self.layer_norm(c1)
-            c1 = F.relu(c1) # TODO: elu activation
+            c1 = F.elu(c1)
             c2 = self.conv2(c1)
             if self.use_layernorm:
                 c2 = self.layer_norm(c2)
-            c2 = F.relu(c2)
+            c2 = F.elu(c2)
             batch_size = c2.size()[0]
             c2 = c2.view(batch_size, -1)
             flat_obs = self.fc_obs(c2)
             if self.use_layernorm:
                 flat_obs = self.layer_norm(flat_obs)
-            flat_obs = F.tanh(flat_obs)
+            flat_obs = F.elu(flat_obs)
             flat_obs = torch.cat((flat_obs, act), dim=1)
             hidden = self.fc_hidden(flat_obs)
-            hidden = F.relu(hidden)
+            hidden = F.elu(hidden)
             value = self.fc_out(hidden)
             return value
         if obs_flat is not None:
             obs = obs_flat
             if self.use_batchnorm:
                 obs = self.bn_obs(obs)
-            h_obs = F.relu(self.fc_obs(obs))
+            h_obs = F.elu(self.fc_obs(obs))
             h1 = torch.cat((h_obs, act), 1)
             if self.use_batchnorm:
                 h1 = self.bn_h2(h1)
-            h2 = F.relu(self.fc_h2(h1))
+            h2 = F.elu(self.fc_h2(h1))
             if self.use_batchnorm:
                 h2 = self.bn_out(h2)
             value = self.fc_q(h2)
