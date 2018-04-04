@@ -171,6 +171,9 @@ class PPOLearner(Learner):
             # probability distribution. Gaussian only for now
             self.pd = DiagGauss(self.action_dim)
 
+            # placeholder for RNN hidden cells
+            self.cells = None
+
     def _clip_loss(self, obs, actions, advantages, behave_pol): 
         """
         Computes the loss with current data. also returns a dictionary of statistics
@@ -348,7 +351,6 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
-                
             if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
@@ -356,22 +358,26 @@ class PPOLearner(Learner):
                 lam   = lam.cuda()
 
             obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
-            ref_pol, values = self.model.forward_all(Variable(obs_concat)) # (batch * (n+1), act_dim) & (batch * (n+1), 1)
-            values = values.view(self.batch_size, self.n_step + 1).data 
-            ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
+            ref_pol, values = self.model.forward_all(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
-            returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+            if self.if_rnn_policy:
+                # compute return and advantage then normalize
+                # to be implemented
+                pass
+            else:
+                returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
+                gae = torch.sum(tds * gamma * lam, 1)
 
-            tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
-            gae = torch.sum(tds * gamma * lam, 1)
+                if self.norm_adv:
+                    std = gae.std()
+                    mean = gae.mean()
+                    gae = (gae - mean) / std
 
-            if self.norm_adv:
-                std = gae.std()
-                mean = gae.mean()
-                gae = (gae - mean) / std
-
-            return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
+                ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
+                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
 
     def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
         '''
@@ -396,25 +402,29 @@ class PPOLearner(Learner):
                 dones = dones.cuda()
                 gamma = gamma.cuda()
 
-            done_0 = dones[:, 0].contiguous()
-            done_n = dones[:, -1].contiguous()
-            obs_flat = obs[:, 0, :] # (batch, obs_dim)
-            actions_flat = actions[:, 0, :] # (batch, act_dim)
-            pds_flat = pds[:, 0, :] # (batch, 2* act_dim)
+            obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
+            ref_pol, values = self.model.forward_all(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            values = values.view(self.batch_size, self.n_step + 1).data    
+            values[:, 1:] *= 1 - dones
 
-            values   = self.model.forward_critic(Variable(obs_flat)).data * (1 - done_0.view(-1, 1))
-            next_val = self.model.forward_critic(Variable(obs_next.squeeze(1))).data * (1 - done_n.view(-1, 1))
+            if self.if_rnn_policy:
+                # compute return and advantage
 
-            returns = torch.sum(rewards * gamma, 1).view(-1, 1)
-            returns = returns + next_val * (self.gamma ** self.n_step) # value bootstrap
-            adv = returns - values
+                # normalize advantage
 
-            if self.norm_adv:
-                std = adv.std()
-                mean = adv.mean()
-                adv = (adv - mean) / std
-                
-            return obs_flat, actions_flat, adv, returns
+                pass
+            else:
+                returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
+                gae = torch.sum(tds * gamma * lam, 1)
+
+                if self.norm_adv:
+                    std = gae.std()
+                    mean = gae.mean()
+                    gae = (gae - mean) / std
+
+                ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
+                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
 
     def _optimize(self, obs, actions, rewards, obs_next, action_infos, dones):
         '''
@@ -434,12 +444,13 @@ class PPOLearner(Learner):
         '''
         with U.torch_gpu_scope(self.gpu_id):
                 pds = action_infos[-1]
-                h = action_infos[0].transpose(0, 1)
-                c = action_infos[1].transpose(0, 1)
 
-                print(pds.size(), h.size(), c.size())
+                if self.if_rnn_policy:
+                    h = Variable(action_infos[0].transpose(0, 1))
+                    c = Variable(action_infos[1].transpose(0, 1))
+                    self.cells = (h, c)
 
-                advantage_return = self._gae_and_return(obs, 
+                advantage_return = self._advantage_and_return(obs, 
                                                         obs_next, 
                                                         actions, 
                                                         rewards, 
@@ -450,8 +461,11 @@ class PPOLearner(Learner):
                 returns = Variable(advantage_return[3])
                 ref_pol = Variable(advantage_return[4])
                 behave_pol = Variable(pds[:, 0, :])
+                if self.if_rnn_policy:
+                    h = Variable(action_infos[0].transpose(0, 1))
+                    c = Variable(action_infos[1].transpose(0, 1))
+                    self.cells = (h, c)
 
-                ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
                         stats =  self._clip_update(obs_iter, 
@@ -587,6 +601,8 @@ implemetation sequence:
         need to change return type of forward actor/critic
     4) make sure exp_sender_wrapper and aggregator works well
         if length 1 then don't stack
+        one_time and multi_time info
     5) learner pass
+        
 
 '''

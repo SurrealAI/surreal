@@ -43,7 +43,7 @@ def generate(argv):
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'rnn': {
-                'if_rnn_policy': True, 
+                'if_rnn_policy': False, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
             },

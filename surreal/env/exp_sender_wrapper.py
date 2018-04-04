@@ -209,8 +209,8 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         return obs_next, reward, done, info
 
     def send(self, data, obs_next):
-        obs, actions, rewards, dones, infos = [], [], [], [], []
-        # obs, actions, rewards, dones, action_infos, infos = [], [], [], [], [], []
+        # obs, actions, rewards, dones, infos = [], [], [], [], []
+        obs, actions, rewards, dones, action_infos, infos = [], [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
         for index, (ob, action, reward, done, info) in enumerate(data):

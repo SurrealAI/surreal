@@ -27,6 +27,7 @@ class DiagGauss(object):
         '''
             Method computes loglikelihood of action (a) given probability (prob)
         '''
+        # shape check
         mean0 = prob[:, :self.d]
         std0 = prob[:, self.d:]
         return - 0.5 * (((a - mean0) / std0).pow(2)).sum(dim=1, keepdim=True) - 0.5 * np.log(
@@ -43,6 +44,7 @@ class DiagGauss(object):
             Method computes KL Divergence of between two probability distributions
             Note: this is D_KL(prob0 || prob1), not D_KL(prob1 || prob0)
         '''
+        # shape check
         mean0 = prob0[:, :self.d]
         std0 = prob0[:, self.d:]
         mean1 = prob1[:, :self.d]
@@ -54,6 +56,7 @@ class DiagGauss(object):
         '''
             Method computes entropy of a given probability (prob)
         '''
+        # shape check
         std_nd = prob[:, self.d:]
         return 0.5 * std_nd.log().sum(dim=1) + .5 * np.log(2 * np.pi * np.e) * self.d
 
