@@ -415,18 +415,16 @@ class PPOLearner(Learner):
                 pass
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
-                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
-                gae = torch.sum(tds * gamma * lam, 1)
-
+                advs    = returns - values[:, 0]
                 if self.norm_adv:
-                    std = gae.std()
-                    mean = gae.mean()
-                    gae = (gae - mean) / std
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
 
                 ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
-                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
+                return obs[:, 0, :], actions[:, 0, :], advs.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
 
-    def _optimize(self, obs, actions, rewards, obs_next, action_infos, dones):
+    def _optimize(self, obs, actions, rewards, obs_next, persistent_infos, one_time_infos, dones):
         '''
             main method for optimization that calls _adapt/clip_update and 
             _value_update epoch_policy and epoch_baseline times respectively
@@ -443,11 +441,11 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
-                pds = action_infos[-1]
+                pds = persistent_infos[-1]
 
                 if self.if_rnn_policy:
-                    h = Variable(action_infos[0].transpose(0, 1))
-                    c = Variable(action_infos[1].transpose(0, 1))
+                    h = Variable(one_time_infos[0].transpose(0, 1))
+                    c = Variable(one_time_infos[1].transpose(0, 1))
                     self.cells = (h, c)
 
                 advantage_return = self._advantage_and_return(obs, 
@@ -509,7 +507,6 @@ class PPOLearner(Learner):
                     stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
                     self.ref_target_model.update_target_z_filter(self.model)
-        print(stats)
         return stats
 
     def learn(self, batch):
@@ -525,7 +522,8 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.next_obs,
-            batch.action_infos, 
+            batch.persistent_infos,
+            batch.onetime_infos, 
             batch.dones,
         )
         self.tensorplex.add_scalars(tensorplex_update_dict)
@@ -603,6 +601,6 @@ implemetation sequence:
         if length 1 then don't stack
         one_time and multi_time info
     5) learner pass
-        
+
 
 '''

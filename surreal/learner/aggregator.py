@@ -157,10 +157,11 @@ class MultistepAggregatorWithInfo():
             Returns:
                 EasyDict of tensorized subtrajectory information
         '''
-        observations, next_obs, actions, rewards, dones, action_infos = [], [], [], [], [], []
-        for _ in range(len(exp_list[0]['action_infos'])):
-        # for _ in range(len(exp_list[0]['action_infos'][0])):
-            action_infos.append([])
+        observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
+        # for _ in range(len(exp_list[0]['onetime_infos'])):
+        #     onetime_infos.append([])
+        # for _ in range(len(exp_list[0]['persistent_infos'][0])):
+        #     persistent_infos.append([])
 
         for exp in exp_list:
             observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
@@ -170,18 +171,20 @@ class MultistepAggregatorWithInfo():
             dones.append(done_n_step)
             next_obs.append(exp['obs_next'])
 
-            for i in range(len(action_infos)):
-                action_infos[i].append(exp['action_infos'][i])
+            # for i in range(len(onetime_infos)):
+            #     onetime_infos[i].append(exp['onetime_infos'][i])
+            # for i in range(len(persistent_infos)):
             #     one_exp_info = []
-            #     for info_list in exp['action_infos']:
+            #     for info_list in exp['persistent_infos']:
             #         one_exp_info.append(info_list[i])
-            #     action_infos[i].append(np.stack(one_exp_info))
-
-        for i in range(len(action_infos)):
-            action_infos[i] = U.to_float_tensor(np.stack(action_infos[i]))
+            #     persistent_infos[i].append(np.stack(one_exp_info))
 
         # With RNN this should be [hidden, cell, pds]
-        # action_infos = [U.to_float_tensor(np.asarray(infos)) for infos in action_infos]
+        # for i in range(len(onetime_infos)):
+        #     onetime_infos[i] = U.to_float_tensor(np.stack(onetime_infos[i]))
+        # onetime_infos = [U.to_float_tensor(np.stack(info)) for info in onetime_infos]
+        # persistent_infos = [U.to_float_tensor(np.asarray(infos)) for infos in persistent_infos]
+
         observations =  U.to_float_tensor(np.stack(observations))
         next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
         if self.action_type == ActionType.continuous:
@@ -193,11 +196,14 @@ class MultistepAggregatorWithInfo():
         rewards = U.to_float_tensor(rewards)
         dones = U.to_float_tensor(dones)
 
+        onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
+
         return EasyDict(obs=observations,
                     next_obs = next_obs,
                     actions=actions, 
                     rewards=rewards, 
-                    action_infos=action_infos,
+                    persistent_infos=persistent_infos,
+                    onetime_infos=onetime_infos,
                     dones=dones,)
 
     def stack_n_step_experience(self, experience):
@@ -217,6 +223,38 @@ class MultistepAggregatorWithInfo():
         dones = np.array(experience['dones'])
         return observations, actions, rewards, dones
 
+    def _gather_action_infos(self, exp_list):
+        persistent_infos, onetime_infos = None, None
+
+        exists_ones = (len(exp_list[0]['onetime_infos']) > 0)
+        exists_pers = (len(exp_list[0]['persistent_infos'][0]) > 0)
+
+        if exists_ones:
+            onetime_infos = []
+            for _ in range(len(exp_list[0]['onetime_infos'])):
+                onetime_infos.append([])
+        if exists_pers:
+            persistent_infos = []
+            for _ in range(len(exp_list[0]['persistent_infos'][0])):
+                persistent_infos.append([])
+
+        for exp in exp_list:
+            if exists_ones:
+                for i in range(len(onetime_infos)):
+                    onetime_infos[i].append(exp['onetime_infos'][i])
+            if exists_pers:
+                for i in range(len(persistent_infos)):
+                    one_exp_info = []
+                    for info_list in exp['persistent_infos']:
+                        one_exp_info.append(info_list[i])
+                    persistent_infos[i].append(np.stack(one_exp_info))
+
+        if exists_ones:
+            onetime_infos = [U.to_float_tensor(np.stack(info)) for info in onetime_infos]
+        if exists_pers:
+            persistent_infos = [U.to_float_tensor(np.asarray(infos)) for infos in persistent_infos]
+
+        return onetime_infos, persistent_infos
 
 class NstepReturnAggregator():
     """

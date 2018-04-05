@@ -77,13 +77,13 @@ class PPOAgent(Agent):
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        action_info = []
+        action_info = [[], []] # 0: one time, 1: every time
 
         action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
         action_pd = action_pd.data.numpy()
         if self.rnn_config.if_rnn_policy:
-            action_info.append(self.cells[0].squeeze(1).data.numpy())
-            action_info.append(self.cells[1].squeeze(1).data.numpy())
+            action_info[0].append(self.cells[0].squeeze(1).data.numpy())
+            action_info[0].append(self.cells[1].squeeze(1).data.numpy())
 
         if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)
@@ -93,7 +93,7 @@ class PPOAgent(Agent):
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
-        action_info.append(action_pd)
+        action_info[1].append(action_pd)
         if self.agent_mode != 'training':
             return action_choice
         else: 
