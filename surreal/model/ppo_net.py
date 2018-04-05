@@ -27,7 +27,10 @@ class DiagGauss(object):
         '''
             Method computes loglikelihood of action (a) given probability (prob)
         '''
-        # shape check
+        if len(a.size()) == 3:
+            a = a.view(-1, self.d)
+            prob = prob.view(-1, 2 * self.d)
+
         mean0 = prob[:, :self.d]
         std0 = prob[:, self.d:]
         return - 0.5 * (((a - mean0) / std0).pow(2)).sum(dim=1, keepdim=True) - 0.5 * np.log(
@@ -44,7 +47,10 @@ class DiagGauss(object):
             Method computes KL Divergence of between two probability distributions
             Note: this is D_KL(prob0 || prob1), not D_KL(prob1 || prob0)
         '''
-        # shape check
+        if len(prob0.size()) == 3:
+            prob0 = prob0.view(-1, 2 * self.d)
+            prob1 = prob1.view(-1, 2 * self.d)
+
         mean0 = prob0[:, :self.d]
         std0 = prob0[:, self.d:]
         mean1 = prob1[:, :self.d]
@@ -56,7 +62,9 @@ class DiagGauss(object):
         '''
             Method computes entropy of a given probability (prob)
         '''
-        # shape check
+        if len(prob.size()) == 3:
+            prob = prob.view(-1, 2 * self.d)
+
         std_nd = prob[:, self.d:]
         return 0.5 * std_nd.log().sum(dim=1) + .5 * np.log(2 * np.pi * np.e) * self.d
 
@@ -64,6 +72,9 @@ class DiagGauss(object):
         '''
             Method samples actions from probability distribution
         '''
+        if len(prob.shape) == 3:
+            prob_shape = prob.shape
+            prob = prob.reshape(-1, self.d * 2)
         mean_nd = prob[:, :self.d]
         std_nd = prob[:, self.d:]
         return np.random.randn(prob.shape[0], self.d) * std_nd + mean_nd
@@ -72,6 +83,8 @@ class DiagGauss(object):
         '''
             Method deterministically sample actions of maximum likelihood
         '''
+        if len(prob.shape) == 3:
+            return prob[:, :, self.d]
         return prob[:, :self.d]
 
 
@@ -113,6 +126,8 @@ class PPOModel(U.Module):
                             self.rnn_config.rnn_hidden,
                             self.rnn_config.rnn_layer,
                             batch_first=True)
+            if use_cuda:
+                self.rnn_stem = self.rnn_stem.cuda()
 
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else self.obs_dim
 
@@ -156,6 +171,7 @@ class PPOModel(U.Module):
         if self.rnn_config.if_rnn_policy:
             assert len(obs.size()) == 3
             obs, _ = self.rnn_stem(obs, cells) # assumes that input has the correct shape
+            obs = obs.contiguous()
             output_shape = obs.size()
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
@@ -178,6 +194,7 @@ class PPOModel(U.Module):
 
         if self.rnn_config.if_rnn_policy:
             obs, _ = self.rnn_stem(obs, cells)
+            obs = obs.contiguous()
             output_shape = obs.size()
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
@@ -192,7 +209,9 @@ class PPOModel(U.Module):
             obs = self.z_filter.forward(obs)
 
         if self.rnn_config.if_rnn_policy:
+            # self.rnn_stem.flatten_parameters()
             obs, _ = self.rnn_stem(obs, cells)
+            obs = obs.contiguous() # because for some reason this can be noncontig
             output_shape = obs.size()
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
@@ -211,6 +230,7 @@ class PPOModel(U.Module):
         if self.rnn_config.if_rnn_policy:
             obs = obs.unsqueeze(1) # assume input is shape (1, obs_dim)
             obs, cells = self.rnn_stem(obs, cells)
+            obs = obs.contiguous()
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
         action = self.actor(obs) # shape (1 * 1, action_dim)

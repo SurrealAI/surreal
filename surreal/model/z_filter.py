@@ -54,6 +54,7 @@ class ZFilter(U.Module):
                 x: input tensor to be kept in record. 
         """
         # only called in learner, so we can assume it has the correct type
+        if len(x.size()) == 3: x = x.view(-1, self.in_size)
         self.running_sum += torch.sum(x.data, dim=0)
         self.running_sumsq += torch.sum(x.data * x.data, dim=0)
         added_count = U.to_float_tensor(np.array([len(x)]))

@@ -43,7 +43,7 @@ def generate(argv):
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'rnn': {
-                'if_rnn_policy': False, 
+                'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
             },
@@ -72,11 +72,13 @@ def generate(argv):
             'adapt_consts': {
                 'kl_cutoff_coeff': 50, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
-                'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
+                'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
+                'scale_constant': 1.5,
             },
             'clip_consts': {
                 'clip_epsilon_init': 0.2, # factor of clipped loss
                 'clip_range': (0.05, 0.3), # range of the adapted penalty factor
+                'scale_constant': 1.2,
             },
         },
         'replay': {

@@ -59,6 +59,7 @@ class PPOLearner(Learner):
         super().__init__(learner_config, env_config, session_config)
 
         # GPU setting
+        self.global_step = 0
         num_gpus = session_config.learner.num_gpus
         self.gpu_id = list(range(num_gpus))
         self.use_cuda = len(self.gpu_id) > 0
@@ -245,11 +246,13 @@ class PPOLearner(Learner):
             loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        learn_pol = self.model.forward_actor(obs)
+        learn_pol = self.model.forward_actor(obs, self.cells)
         prob_behave = self.pd.likelihood(actions, behave_pol)
         prob_learn  = self.pd.likelihood(actions, learn_pol)
+        
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages * torch.clamp(prob_learn/prob_behave, 
+        # advantages = advantages.view(-1, 1)
+        surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
                                             max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
@@ -301,7 +304,8 @@ class PPOLearner(Learner):
             loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        values = self.model.forward_critic(obs)
+        values = self.model.forward_critic(obs, self.cells)
+        if len(values.size()) == 3: values = values.squeeze(2)
         explained_var = 1 - torch.var(returns - values) / torch.var(returns)
         loss = (values - returns).pow(2).mean()
 
@@ -397,22 +401,34 @@ class PPOLearner(Learner):
         '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+            returns = torch.zeros(self.batch_size, self.n_step)
+
             if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
                 gamma = gamma.cuda()
+                returns = returns.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
+            obs_concat = torch.cat([obs, obs_next], dim=1)
+            if not self.if_rnn_policy:
+                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+            # obs_concat = obs_concat.contiguous()
+
             ref_pol, values = self.model.forward_all(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            ref_pol = ref_pol[:, :-1, :].data.contiguous()
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
             if self.if_rnn_policy:
-                # compute return and advantage
-
-                # normalize advantage
-
-                pass
+                for step in range(self.n_step):
+                    returns[:, step] = torch.sum(gamma[step:] * rewards[:, step:], 1) + \
+                                       values[:, -1] * (self.gamma ** (self.n_step - step))
+                advs = returns - values[:, :-1] # (batch, n_step)
+                if self.norm_adv:
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
+                return obs, actions, advs, returns, ref_pol
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 advs    = returns - values[:, 0]
@@ -459,10 +475,12 @@ class PPOLearner(Learner):
                 returns = Variable(advantage_return[3])
                 ref_pol = Variable(advantage_return[4])
                 behave_pol = Variable(pds[:, 0, :])
+
                 if self.if_rnn_policy:
-                    h = Variable(action_infos[0].transpose(0, 1))
-                    c = Variable(action_infos[1].transpose(0, 1))
+                    h = Variable(self.cells[0].data)
+                    c = Variable(self.cells[1].data)
                     self.cells = (h, c)
+                    behave_pol = Variable(pds)
 
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
@@ -526,8 +544,9 @@ class PPOLearner(Learner):
             batch.onetime_infos, 
             batch.dones,
         )
-        self.tensorplex.add_scalars(tensorplex_update_dict)
+        self.tensorplex.add_scalars(tensorplex_update_dict, self.global_step)
         self.exp_counter += self.batch_size
+        self.global_step += 1
 
     def module_dict(self):
         '''
@@ -564,17 +583,17 @@ class PPOLearner(Learner):
         if self.ppo_mode == 'clip': # adapts clip ratios
             if final_kl > self.kl_target * self.clip_adjust_threshold[1]:
                 if self.clip_lower < self.clip_epsilon:
-                    self.clip_epsilon = self.clip_epsilon / 1.2
+                    self.clip_epsilon = self.clip_epsilon / self.learner_config.algo.clip_consts.scale_constant
             elif final_kl < self.kl_target * self.clip_adjust_threshold[0]:
                 if self.clip_upper > self.clip_epsilon:
-                    self.clip_epsilon = self.clip_epsilon * 1.2
+                    self.clip_epsilon = self.clip_epsilon * self.learner_config.algo.clip_consts.scale_constant
         else: # adapt KL divergence penalty before returning the statistics 
             if final_kl > self.kl_target * self.beta_adjust_threshold[1]:
                 if self.beta_upper > self.beta:
-                    self.beta = self.beta * 1.5
+                    self.beta = self.beta * self.learner_config.algo.adapt_consts.scale_constant
             elif final_kl < self.kl_target * self.beta_adjust_threshold[0]:
                 if self.beta_lower < self.beta:
-                    self.beta = self.beta / 1.5
+                    self.beta = self.beta / self.learner_config.algo.adapt_consts.scale_constant
         self.ref_target_model.update_target_params(self.model)
         self.kl_record = []
         self.exp_counter = 0
@@ -601,6 +620,4 @@ implemetation sequence:
         if length 1 then don't stack
         one_time and multi_time info
     5) learner pass
-
-
 '''
