@@ -29,36 +29,23 @@ class DDPGModel(U.Module):
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim,
-            use_batchnorm=use_batchnorm, use_layernorm=use_layernorm,
-            hidden_sizes=actor_fc_hidden_sizes)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim,
-            use_batchnorm=use_batchnorm, use_layernorm=use_layernorm,
-            hidden_sizes=critic_fc_hidden_sizes)
-        if self.use_z_filter:
-            self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
+        perception_hidden_dim = 50
+        self.perception = PerceptionNetwork(self.obs_dim, perception_hidden_dim,
+                                            use_layernorm=self.use_layernorm)
+        self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim)
+        self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim)
 
     def forward_actor(self, obs):
-        #shape = obs.size()
-        #assert len(shape) == 2 and shape[1] == self.obs_dim
-        assert len(obs) == 2 # (visual, flat)
-        obs = self.scale_image(obs)
-        if self.use_z_filter:
-            obs = self.z_filter.forward(obs)
-        action = self.actor(obs)
-        return action
+        return self.actor(obs)
 
     def forward_critic(self, obs, action):
-        #obs_shape = obs.size()
-        # assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
-        action_shape = action.size()
-        #assert len(action_shape) == 2 and action_shape[1] == self.action_dim
-        obs = self.scale_image(obs)
-        if self.use_z_filter:
-            obs = self.z_filter.forward(obs)
         return self.critic(obs, action)
 
-    def forward(self, obs):
+    def forward_perception(self, obs_in):
+        return self.perception(self.scale_image(obs_in))
+
+    def forward(self, obs_in):
+        obs = self.forward_perception(obs_in)
         action = self.forward_actor(obs)
         value = self.forward_critic(obs, action)
         return (action, value)
@@ -72,10 +59,4 @@ class DDPGModel(U.Module):
         if obs_visual is None:
             return obs
         return (obs_visual / 256.0, obs_flat)
-
-    def z_update(self, obs):
-        if self.use_z_filter:
-            self.z_filter.z_update(obs)
-        else:
-            raise ValueError('Z_update called when network is set to ' +
-                'not use z_filter')
+        

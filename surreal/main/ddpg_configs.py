@@ -79,12 +79,16 @@ def generate(argv):
             'batch_size': 512,
             # 'memory_size': 1000000,
             'memory_size': 330000, # Note that actual replay size is memory_size * replay_shards
-            'sampling_start_size': 1000,
+            'sampling_start_size': 3000,
             'replay_shards': 3,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
-        }
+        },
+        'parameter_publish': {
+            # Minimum amount of time (seconds) between two parameter publish
+            'min_publish_interval': 3, 
+        },
     }
 
     env_config = {

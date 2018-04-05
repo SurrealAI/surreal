@@ -104,7 +104,8 @@ class DDPGAgent(Agent):
             flat_obs = Variable(flat_obs.unsqueeze(0))
 
         obs = (visual_obs, flat_obs)
-        action = self.model.forward_actor(obs).data.numpy()[0]
+        perception = self.model.forward_perception(obs)
+        action = self.model.forward_actor(perception).data.numpy()[0]
         action = action.clip(-1, 1)
 
         if self.agent_mode != 'eval_deterministic':
