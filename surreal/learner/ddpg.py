@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import itertools
 from .base import Learner
 from .aggregator import SSARAggregator, NstepReturnAggregator, MultistepAggregator
 from surreal.model.ddpg_net import DDPGModel
@@ -79,10 +80,11 @@ class DDPGLearner(Learner):
 
             self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
             self.critic_optim = torch.optim.Adam(
-                self.model.critic.parameters(),
+                itertools.chain(self.model.critic.parameters(), self.model.perception.parameters()),
                 lr=self.learner_config.algo.lr_critic,
                 weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
             )
+
 
             self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
             self.actor_optim = torch.optim.Adam(
@@ -150,34 +152,38 @@ class DDPGLearner(Learner):
                 rewards = Variable(rewards)
                 done = Variable(done)
 
+            torch.cuda.synchronize()
             with self.forward_time.time():
                 assert actions.max().data[0] <= 1.0
                 assert actions.min().data[0] >= -1.0
 
-                if self.use_z_filter:
-                    self.model.z_update(obs)
-
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
-                next_actions_target = self.model_target.forward_actor(obs_next)
+                perception_next_target = self.model_target.forward_perception(obs_next)
+                next_actions_target = self.model_target.forward_actor(perception_next_target)
 
                 # obs_next.volatile = False
-                next_Q_target = self.model_target.forward_critic(obs_next, next_actions_target)
+                next_Q_target = self.model_target.forward_critic(perception_next_target,
+                                                                 next_actions_target)
                 # next_Q_target.volatile = False
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
                 # compute Q(s_t, a_t)
+                perception = self.model.forward_perception(obs)
+                perception_next = self.model.forward_perception(obs_next)
                 y_policy = self.model.forward_critic(
-                    obs,
-                    actions.detach()
+                    perception,
+                    actions.detach() # TODO: why do we detach here
                 )
+                torch.cuda.synchronize()
 
             profile_critic = False
             profile_actor = False
             profile_gpu = False
 
             # critic update
+            torch.cuda.synchronize()
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()
                 #with torch.autograd.profiler.profile(profile_critic, profile_gpu) as prof:
@@ -186,43 +192,60 @@ class DDPGLearner(Learner):
                         # print('y_policy', y_policy.size())
                         # print('y', y.size())
                         critic_loss = self.critic_criterion(y_policy, y)
+                        torch.cuda.synchronize()
+                    torch.cuda.synchronize()
                     with self.critic_backward_time.time():
                         critic_loss.backward()
-                    
+                        torch.cuda.synchronize()
+                    torch.cuda.synchronize()
                     with self.critic_gradient_clip_time.time():
                         if self.clip_critic_gradient:
                             self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
+                        torch.cuda.synchronize()
                     # for p in self.model.critic.parameters():
                     #     p.grad.data.clamp_(-1.0, 1.0)
+                    torch.cuda.synchronize()
                     with self.critic_optim_time.time():
                         self.critic_optim.step()
-                if profile_critic:
-                        print(prof)
+                        torch.cuda.synchronize()
+                # if profile_critic:
+                #         print(prof)
+                torch.cuda.synchronize()
 
 
             # actor update
+            torch.cuda.synchronize()
             with self.actor_update_time.time():
                 self.model.actor.zero_grad()
                 #with torch.autograd.profiler.profile(profile_actor, profile_gpu) as prof:
                 if True:
+                    torch.cuda.synchronize()
                     with self.actor_forward_time.time():
                         actor_loss = -self.model.forward_critic(
-                            obs,
-                            self.model.forward_actor(obs)
+                            perception.detach(),
+                            self.model.forward_actor(perception.detach())
                         )
                         # print('actor_loss', actor_loss.size())
                         actor_loss = actor_loss.mean()
+                        torch.cuda.synchronize()
+                    torch.cuda.synchronize()
                     with self.actor_backward_time.time():
                         actor_loss.backward()
+                        torch.cuda.synchronize()
+                    torch.cuda.synchronize()
                     with self.actor_gradient_clip_time.time():
                         if self.clip_actor_gradient:
                             self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
+                        torch.cuda.synchronize()
                     # for p in self.model.actor.parameters():
                     #     p.grad.data.clamp_(-1.0, 1.0)
+                    torch.cuda.synchronize()
                     with self.actor_optim_time.time():
                         self.actor_optim.step()
-                if profile_actor:
-                        print(prof)
+                        torch.cuda.synchronize()
+                # if profile_actor:
+                #         print(prof)
+                torch.cuda.synchronize()
 
             tensorplex_update_dict = {
                 'actor_loss': actor_loss.data[0],
@@ -299,8 +322,10 @@ class DDPGLearner(Learner):
         if self.target_update_type == 'soft':
             U.soft_update(self.model_target.actor, self.model.actor, self.target_update_tau)
             U.soft_update(self.model_target.critic, self.model.critic, self.target_update_tau)
+            U.soft_update(self.model_target.perception, self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
             self.target_update_counter += 1
             if self.target_update_counter % self.target_update_interval == 0:
                 U.hard_update(self.model_target.actor, self.model.actor)
                 U.hard_update(self.model_target.critic, self.model.critic)
+                U.hard_update(self.model_target.perception, self.model.perception)

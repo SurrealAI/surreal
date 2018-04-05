@@ -313,7 +313,6 @@ class Learner(metaclass=LearnerMeta):
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
         for i, batch in enumerate(self.fetch_iterator()):
-            print('[{}] batch {}'.format(time.time(), i))
             self.current_iter = i
             data = batch.data
             with self.learn_timer.time():

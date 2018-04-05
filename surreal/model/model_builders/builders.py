@@ -7,6 +7,55 @@ import numpy as np
 
 from ..layer_norm import LayerNorm
 
+class PerceptionNetwork(U.Module):
+    def __init__(self, D_obs, D_out, use_layernorm=True):
+        super(PerceptionNetwork, self).__init__()
+        self.use_layernorm = use_layernorm
+        D_obs, _ = D_obs # Unpacking D_obs_visual, D_obs_flat, TODO: fix this strange line
+        if use_layernorm:
+            self.layer_norm = LayerNorm()
+        conv_channels=[32, 32]
+        C, H, W = D_obs.shape
+        self.conv1 = nn.Conv2d(C, 32, [3,3], stride=2)
+        self.conv2 = nn.Conv2d(32, 32, [3,3], stride=1)
+        # TODO: auto shape inference
+        conv_output_size = 48672
+        self.fc_obs = nn.Linear(conv_output_size, D_out)
+
+    def forward(self, obs_in):
+        obs, _ = obs_in # Unpacking obs_visual, obs_flat, TODO: fix this strange line
+        obs = F.elu(self.conv1(obs))
+        obs = F.elu(self.conv2(obs))
+        obs = obs.view(obs.size(0), -1)
+        obs = self.fc_obs(obs)
+        if self.use_layernorm:
+            obs = self.layer_norm(obs)
+        # obs = F.tanh(obs) # TODO: dm_control paper says that there is a tanh here
+        return obs
+
+class ActorNetworkX(U.Module):
+    def __init__(self, D_in, D_act, hidden_size=64):
+        super(ActorNetworkX, self).__init__()
+        self.fc_in = nn.Linear(D_in, hidden_size)
+        self.fc_out = nn.Linear(hidden_size, D_act)
+
+    def forward(self, obs):
+        x = F.elu(self.fc_in(obs))
+        x = F.tanh(self.fc_out(x))
+        return x
+        
+class CriticNetworkX(U.Module):
+    def __init__(self, D_in, D_act, hidden_size=64):
+        super(CriticNetworkX, self).__init__()
+        self.fc_in = nn.Linear(D_in + D_act, hidden_size)
+        self.fc_out = nn.Linear(hidden_size, 1)
+
+    def forward(self, obs, action):
+        x = torch.cat((obs, action), dim=1)
+        x = F.elu(self.fc_in(x))
+        x = self.fc_out(x)
+        return x
+
 class ActorNetwork(U.Module):
 
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
