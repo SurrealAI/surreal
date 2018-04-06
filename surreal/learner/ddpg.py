@@ -182,6 +182,7 @@ class DDPGLearner(Learner):
             # critic update
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()
+                self.model.perception.zero_grad()
                 critic_loss = self.critic_criterion(y_policy, y)        
                 critic_loss.backward()
                 if self.clip_critic_gradient:
