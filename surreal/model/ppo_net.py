@@ -6,6 +6,7 @@ import numpy as np
 
 from .model_builders import *
 from .z_filter import ZFilter
+import resource
 
 class DiagGauss(object):
     '''
@@ -227,13 +228,20 @@ class PPOModel(U.Module):
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 
-        if self.rnn_config.if_rnn_policy:
-            obs = obs.unsqueeze(1) # assume input is shape (1, obs_dim)
-            obs, cells = self.rnn_stem(obs, cells)
-            obs = obs.contiguous()
-            obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
-        action = self.actor(obs) # shape (1 * 1, action_dim)
+        if self.rnn_config.if_rnn_policy:
+            print('\tCheckpoint 2.1: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
+            obs = obs.unsqueeze(1) # assume input is shape (1, obs_dim)
+            print('\tCheckpoint 2.2: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            obs, cells = self.rnn_stem(obs, cells)
+            print('\tCheckpoint 2.3: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            # obs = obs.contiguous()
+            obs = obs.view(-1, self.rnn_config.rnn_hidden)
+            print('\tCheckpoint 2.4: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
+        action = self.actor(obs) # shape (1, action_dim)
+        print('\tCheckpoint 2.5: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
         return action, cells
 

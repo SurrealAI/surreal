@@ -10,6 +10,7 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 from surreal.utils.pytorch.hyper_scheduler import * 
 
+import time
 class PPOLearner(Learner):
     '''
     PPOLearner: subclass of Learner that contains PPO algorithm logic
@@ -251,7 +252,6 @@ class PPOLearner(Learner):
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        # advantages = advantages.view(-1, 1)
         surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
                                             max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
@@ -362,7 +362,7 @@ class PPOLearner(Learner):
                 lam   = lam.cuda()
 
             obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
-            ref_pol, values = self.model.forward_all(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -380,8 +380,7 @@ class PPOLearner(Learner):
                     mean = gae.mean()
                     gae = (gae - mean) / std
 
-                ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
-                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
+                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1)
 
     def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
         '''
@@ -414,8 +413,7 @@ class PPOLearner(Learner):
                 obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
             # obs_concat = obs_concat.contiguous()
 
-            ref_pol, values = self.model.forward_all(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
-            ref_pol = ref_pol[:, :-1, :].data.contiguous()
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -428,7 +426,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs, actions, advs, returns, ref_pol
+                return obs, actions, advs, returns
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 advs    = returns - values[:, 0]
@@ -436,9 +434,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-
-                ref_pol = ref_pol.view(self.batch_size, self.n_step + 1, -1).data
-                return obs[:, 0, :], actions[:, 0, :], advs.view(-1, 1), returns.view(-1, 1), ref_pol[:, 0, :]
+                return obs[:, 0, :], actions[:, 0, :], advs.view(-1, 1), returns.view(-1, 1)
 
     def _optimize(self, obs, actions, rewards, obs_next, persistent_infos, one_time_infos, dones):
         '''
@@ -473,8 +469,8 @@ class PPOLearner(Learner):
                 actions_iter = Variable(advantage_return[1])
                 advantages = Variable(advantage_return[2])
                 returns = Variable(advantage_return[3])
-                ref_pol = Variable(advantage_return[4])
                 behave_pol = Variable(pds[:, 0, :])
+                ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
                 if self.if_rnn_policy:
                     h = Variable(self.cells[0].data)

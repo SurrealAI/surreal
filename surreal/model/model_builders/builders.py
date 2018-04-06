@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import surreal.utils as U
 from surreal.utils.pytorch import GpuVariable as Variable
 import numpy as np 
+import resource
 
 class ActorNetwork(U.Module):
 
@@ -81,12 +82,17 @@ class PPO_ActorNetwork(U.Module):
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
 
     def forward(self, obs):
+        print('\tCheckpoint 2.4.1: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
+        print('\tCheckpoint 2.4.2: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         mean = self.fc_mean(h3)
         std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
+        print('\tCheckpoint 2.4.3: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
         action = torch.cat((mean, std), dim=1)
+        print('\tCheckpoint 2.4.4: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         return action
 
 

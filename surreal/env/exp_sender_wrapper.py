@@ -2,8 +2,7 @@ from .wrapper import Wrapper
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
-
-
+import resource
 exp_sender_wrapper_registry = {}
 
 def register_exp_sender_wrapper(target_class):
@@ -117,6 +116,7 @@ class ExpSenderWrapperSSARNStepBootstrap(ExpSenderWrapperSSAR):
         self.last_n.append([[self._obs, obs_next], action, reward, done, info])
         if len(self.last_n) == self.n_step:
             self.send(self.last_n.popleft())
+
         self._obs = obs_next
         return obs_next, reward, done, info
 
@@ -195,21 +195,28 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         return self._ob, info
 
     def _step(self, action):
+        print('\tCheckpoint 5: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         action_choice, action_info = action
         obs_next, reward, done, info = self.env.step(action_choice)
+        print('\tCheckpoint 6: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
         self.last_n.append([self._ob, action_choice, reward, done, action_info[1], info])
         if self.onetime_info is None: self.onetime_info = action_info[0]
 
+        print('\tCheckpoint 7: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
         if len(self.last_n) == self.n_step:
-            self.send(self.last_n, obs_next)
+            self.send(self.last_n, obs_next, self.onetime_info)
+            print('\tCheckpoint optional: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
+
         self._ob = obs_next
         return obs_next, reward, done, info
 
-    def send(self, data, obs_next):
-        # obs, actions, rewards, dones, infos = [], [], [], [], []
+    def send(self, data, obs_next, onetime_info):
         obs, actions, rewards, dones, persistent_infos, infos = [], [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
@@ -228,7 +235,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         }
         nonhash_dict = {
             'actions': actions,
-            'onetime_infos' : self.onetime_info,
+            'onetime_infos' : onetime_info,
             'persistent_infos': persistent_infos,
             'rewards': rewards,
             'dones': dones,
@@ -236,7 +243,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'n_step': len(data),
         }
         self.sender.send(hash_dict, nonhash_dict)
-        self.onetime_infos = None
+        # self.onetime_info = None
 
 
 class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
