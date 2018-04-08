@@ -1,3 +1,5 @@
+# WARNING: This is here temporarily, will be moved.
+
 # Use Terraform to Setup a Surreal Cluster
 [Terraform is a tool for building, changing, and versioning infrastructure safely and efficiently.](https://www.terraform.io/intro/index.html) You can use it to setup the cloud kubernetes cluster easily. Here are the instructions:
 
@@ -15,7 +17,7 @@ Depending on what provider you have, there are different instructions and templa
 You need to go to [Google Developers Console](https://console.developers.google.com/) and create a service account key (json format) for a Compute Engine default service account. [See "Authentication JSON File" section of this guide](https://www.terraform.io/docs/providers/google/). Link to the file in google-cloud.tf's `credential` variable so terraform knows where to find it.
 
 ## Use terraform to setup a Google Kubernetes Engine cluster
-In the directory containing `google-cloud.tf`, do 
+Create a new directory, copy `google-cloud.tf` to it, do 
 ```
 terraform init
 terraform plan
