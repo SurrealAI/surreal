@@ -76,7 +76,8 @@ Here we are going to create a default experiment (using DDPG by default) on dm_c
 kurreal create-dev [experiment-name] 4 --gpu
 ```
 * If everything runs fine, you will see an experiment running. We can inspect the actor/leaners (named pods in kubernetes's terminology) by using `kurreal p` (p is for pods)
-* Use `kurreal tb` to open the tensorboard for an experiment
+* Use `kurreal tb` to open the tensorboard for an experiment.
+* Use `kurreal logs [learner/agent-0/eval-1/replay/ps...]` to see the logs of respective processes.
 * Each experiment is under a specific namespace. 
 * `kurreal ns` tells you what is your current namespace.
 * `kurreal ls` lists all namespaces.
