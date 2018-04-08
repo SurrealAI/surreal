@@ -29,7 +29,7 @@ class DDPGModel(U.Module):
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
 
-        perception_hidden_dim = 50
+        perception_hidden_dim = 200
         self.perception = PerceptionNetwork(self.obs_dim, perception_hidden_dim,
                                             use_layernorm=self.use_layernorm)
         self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim)

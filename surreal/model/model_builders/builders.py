@@ -27,32 +27,36 @@ class PerceptionNetwork(U.Module):
         obs = F.elu(self.conv1(obs))
         obs = F.elu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
-        obs = self.fc_obs(obs)
-        if self.use_layernorm:
-            obs = self.layer_norm(obs)
+        obs = F.elu(self.fc_obs(obs))
+        #if self.use_layernorm:
+        #    obs = self.layer_norm(obs)
         # obs = F.tanh(obs) # TODO: dm_control paper says that there is a tanh here
         return obs
 
 class ActorNetworkX(U.Module):
-    def __init__(self, D_in, D_act, hidden_size=64):
+    def __init__(self, D_in, D_act, hidden_size=200):
         super(ActorNetworkX, self).__init__()
         self.fc_in = nn.Linear(D_in, hidden_size)
         self.fc_out = nn.Linear(hidden_size, D_act)
+        self.layer_norm = LayerNorm()
 
     def forward(self, obs):
         x = F.elu(self.fc_in(obs))
+        x = self.layer_norm(x)
         x = F.tanh(self.fc_out(x))
         return x
         
 class CriticNetworkX(U.Module):
-    def __init__(self, D_in, D_act, hidden_size=64):
+    def __init__(self, D_in, D_act, hidden_size=300):
         super(CriticNetworkX, self).__init__()
         self.fc_in = nn.Linear(D_in + D_act, hidden_size)
         self.fc_out = nn.Linear(hidden_size, 1)
+        self.layer_norm = LayerNorm()
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
         x = F.elu(self.fc_in(x))
+        x = self.layer_norm(x)
         x = self.fc_out(x)
         return x
 
