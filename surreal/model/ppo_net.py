@@ -1,4 +1,5 @@
 import torch.nn as nn
+from torch.autograd import Variable
 from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
@@ -6,7 +7,6 @@ import numpy as np
 
 from .model_builders import *
 from .z_filter import ZFilter
-import resource
 
 class DiagGauss(object):
     '''
@@ -205,43 +205,18 @@ class PPOModel(U.Module):
 
         return value
 
-    def forward_all(self, obs, cells=None):
-        if self.use_z_filter:
-            obs = self.z_filter.forward(obs)
-
-        if self.rnn_config.if_rnn_policy:
-            # self.rnn_stem.flatten_parameters()
-            obs, _ = self.rnn_stem(obs, cells)
-            obs = obs.contiguous() # because for some reason this can be noncontig
-            output_shape = obs.size()
-            obs = obs.view(-1, self.rnn_config.rnn_hidden)
-
-        value = self.critic(obs)
-        action = self.actor(obs)
-        if self.rnn_config.if_rnn_policy:
-            action = action.view(output_shape[0], output_shape[1], -1)
-            value = value.view(output_shape[0], output_shape[1], -1)
-
-        return action, value
-
     def forward_actor_expose_cells(self, obs, cells=None):
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 
-
         if self.rnn_config.if_rnn_policy:
-            print('\tCheckpoint 2.1: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
-            obs = obs.unsqueeze(1) # assume input is shape (1, obs_dim)
-            print('\tCheckpoint 2.2: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)
             obs, cells = self.rnn_stem(obs, cells)
-            print('\tCheckpoint 2.3: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            # obs = obs.contiguous()
+            cells = (Variable(cells[0].data),Variable(cells[0].data))
+            obs = obs.contiguous()  
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
-            print('\tCheckpoint 2.4: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
         action = self.actor(obs) # shape (1, action_dim)
-        print('\tCheckpoint 2.5: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
         return action, cells
 

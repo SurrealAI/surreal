@@ -195,24 +195,16 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         return self._ob, info
 
     def _step(self, action):
-        print('\tCheckpoint 5: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         action_choice, action_info = action
         obs_next, reward, done, info = self.env.step(action_choice)
-        print('\tCheckpoint 6: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
         self.last_n.append([self._ob, action_choice, reward, done, action_info[1], info])
         if self.onetime_info is None: self.onetime_info = action_info[0]
 
-        print('\tCheckpoint 7: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
         if len(self.last_n) == self.n_step:
             self.send(self.last_n, obs_next, self.onetime_info)
-            print('\tCheckpoint optional: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
-
         self._ob = obs_next
         return obs_next, reward, done, info
 

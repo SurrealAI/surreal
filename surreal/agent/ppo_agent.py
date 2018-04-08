@@ -9,7 +9,6 @@ import surreal.utils as U
 import numpy as np
 from surreal.session import ConfigError
 import time
-import resource
 
 class PPOAgent(Agent):
     '''
@@ -45,10 +44,10 @@ class PPOAgent(Agent):
         if self.rnn_config.if_rnn_policy:
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)),
+                                               self.rnn_config.rnn_hidden)).detach(),
                          Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                               1, # batch_size is 1
-                                              self.rnn_config.rnn_hidden)))
+                                              self.rnn_config.rnn_hidden)).detach())
 
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
@@ -75,18 +74,13 @@ class PPOAgent(Agent):
                     Note: this includes probability distribution the action is
                     sampled from, RNN hidden states
         '''
-        print('\tCheckpoint 1: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
+        
         action_info = [[], []] # 0: one time, 1: every time
-        print('\tCheckpoint 1.1: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
         action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
-        print('\tCheckpoint 1.2: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
         action_pd = action_pd.data.numpy()
-        print('\tCheckpoint 2: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
@@ -97,12 +91,11 @@ class PPOAgent(Agent):
         else:
             action_choice = self.pd.maxprob(action_pd)
         np.clip(action_choice, -1, 1, out=action_choice)
-        print('\tCheckpoint 3: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
         action_info[1].append(action_pd)
-        print('\tCheckpoint 4: ', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+
         if self.agent_mode != 'training':
             return action_choice
         else: 
@@ -130,8 +123,8 @@ class PPOAgent(Agent):
         if self.rnn_config.if_rnn_policy:
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)),
+                                               self.rnn_config.rnn_hidden)).detach(),
                           Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)))
+                                               self.rnn_config.rnn_hidden)).detach())
 

@@ -520,7 +520,7 @@ class PPOLearner(Learner):
                     stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
                     stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
-                    self.ref_target_model.update_target_z_filter(self.model)
+                    # self.ref_target_model.update_target_z_filter(self.model)
         return stats
 
     def learn(self, batch):
