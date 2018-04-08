@@ -10,6 +10,10 @@ variable "credential" {
   default = "surreal.json"
 }
 
+variable "cluster_name" {
+  default = "kurreal"
+}
+
 provider "google" {
   credentials = "${file(${var.credential})}"
   project     = "${var.project}"
@@ -17,7 +21,7 @@ provider "google" {
 }
 
 resource "google_container_cluster" "kurreal" {
-  name = "kurreal"
+  name = "${var.cluster_name}"
   zone = "${var.zone}"
   min_master_version = "1.9"
 
@@ -63,8 +67,8 @@ resource "google_container_node_pool" "n1-standard-2" {
     machine_type = "n1-standard-2"
     disk_size_gb = 30
     labels {
-      surreal-node  = "n1-standard-2"
-      surreal-alias = "agent-cpu"
+      surreal-machine  = "n1-standard-2"
+      surreal-node = "agent"
     }
     taint {
       key = "surreal"
@@ -89,8 +93,8 @@ resource "google_container_node_pool" "n1-highmem-8" {
   node_config {
     machine_type = "n1-highmem-8"
     labels {
-      surreal-node  = "n1-highmem-8"
-      surreal-alias = "nonagent-cpu"
+      surreal-machine  = "n1-highmem-8"
+      surreal-node = "nonagent-cpu"
     }
     taint {
       key = "surreal"
@@ -119,8 +123,8 @@ resource "google_container_node_pool" "n1-highmem-8-1k80" {
       count = 1
     }
     labels {
-      surreal-node  = "n1-highmem-8-1k80"
-      surreal-alias = "nonagent-1k80"
+      surreal-machine  = "n1-highmem-8-1k80"
+      surreal-node = "nonagent-gpu"
     }
     taint {
       key = "surreal"
@@ -150,8 +154,8 @@ resource "google_container_node_pool" "n1-standard-16-2k80" {
       count = 2
     }
     labels {
-      surreal-node  = "n1-standard-16-2k80"
-      surreal-alias = "nonagent-2k80"
+      surreal-machine  = "n1-standard-16-2k80"
+      surreal-node = "nonagent-2k80"
     }
     taint {
       key = "surreal"
@@ -181,8 +185,8 @@ resource "google_container_node_pool" "n1-standard-16-1p100" {
       count = 1
     }
     labels {
-      surreal-node  = "n1-standard-16-1p100"
-      surreal-alias = "nonagent-1p100"
+      surreal-machine  = "n1-standard-16-1p100"
+      surreal-node = "nonagent-gpu"
     }
     taint {
       key = "surreal"
