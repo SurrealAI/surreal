@@ -40,7 +40,8 @@ rm mjpro131_linux.zip
 ```
 * Also, you need to put the liscense file `mjkey.txt` into `~/.mujoco`. Ask Jim or Jiren (or anyone you know working on surreal) if you don't have it.
 
-## To run an experiment locally, we use jupyter notebook to manage the processes. Here is a short guide for setup.
+## Jupyter
+To run an experiment locally, we use jupyter notebook to manage the processes. Here is a short guide for setup.
 * If you don't have jupyter-notebook, install jupyter-notebook.
 ```bash
 pip install jupyter
@@ -51,7 +52,8 @@ pip install ipykernel
 python -m ipykernel install --user --name other-env 
 ```
 
-## To run an experiment remotely, we deploy the framework into docker containers. Here are the setup guides
+## Docker - Kubernetes - Google Cloud
+To run an experiment remotely, we deploy the framework into docker containers. Here are the setup guides
 * Ask Yuke to add you to the surreal-dev google cloud project.
 * (Skip this unless you are adding new dependencies to the codebase, which should be rare) Install [docker](https://www.docker.com)
 * Install [google cloud commandline tools](https://cloud.google.com/sdk/). 
