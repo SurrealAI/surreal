@@ -597,23 +597,9 @@ class PPOLearner(Learner):
         self.critic_lr_scheduler.step()
 
 '''
-implemetation sequence:
-    1) network structure: separate with shared RNN stem defined by itself √
-    2) agent interaction sequence (and shape): √
-        RNN: (iput_dim, hidden_dim, #layer)
-        input: (seq_len, batch, input_dim)
-        cell: (#layer, batch, hidden_dim) x 2
-        output: (seq_len, batch, hidden_dim)
-
-        ideally we can use batch first: then input and output turns to (batch, seq, feature)
-
-    3) model forward (or rather should be forward all?):  √
-        forward: call leaves separately
-        need to re-rewrite bunch of forward with cells=None
-        parameter works fine by calling .parameters on leaves
-        need to change return type of forward actor/critic
-    4) make sure exp_sender_wrapper and aggregator works well
-        if length 1 then don't stack
-        one_time and multi_time info
-    5) learner pass
+Current problem:
+    1) ref-behave-diff blowing up even with reference model
+        potential explanation:
+        * Z-filter updated in reference model but not in agent
+        * if step pull: end up having to interrupt in the middle of stride 10
 '''
