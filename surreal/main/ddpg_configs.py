@@ -76,7 +76,7 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'UniformReplay',
-            'batch_size': 512,
+            'batch_size': 64,
             # 'memory_size': 1000000,
             'memory_size': 330000, # Note that actual replay size is memory_size * replay_shards
             'sampling_start_size': 3000,
