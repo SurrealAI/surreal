@@ -28,9 +28,6 @@ class PerceptionNetwork(U.Module):
         obs = F.elu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
         obs = F.elu(self.fc_obs(obs))
-        #if self.use_layernorm:
-        #    obs = self.layer_norm(obs)
-        # obs = F.tanh(obs) # TODO: dm_control paper says that there is a tanh here
         return obs
 
 class ActorNetworkX(U.Module):
