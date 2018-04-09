@@ -116,6 +116,12 @@ def generate(argv):
                 'learner': 20,  # learner.tensorplex.add_scalars()
             }
         },
+        'agent': {
+            # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
+            # every episode, every n episodes, every step, every n steps
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 200,
+        },
         'sender': {
             'flush_iteration': 100,
         },
