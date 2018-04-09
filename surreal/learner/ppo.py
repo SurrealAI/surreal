@@ -8,9 +8,8 @@ from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-from surreal.utils.pytorch.hyper_scheduler import * 
+from surreal.utils.pytorch.hyper_scheduler import *   
 
-import time
 class PPOLearner(Learner):
     '''
     PPOLearner: subclass of Learner that contains PPO algorithm logic
@@ -453,6 +452,8 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
+                test_param_tensor = Variable(torch.FloatTensor([0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779])).view(1, 1, 17) 
+                print(self.ref_target_model.forward_actor(test_param_tensor))
                 pds = persistent_infos[-1]
 
                 if self.if_rnn_policy:
@@ -507,10 +508,6 @@ class PPOLearner(Learner):
                 new_likelihood = self.pd.likelihood(actions_iter, new_pol)
                 ref_likelihood = self.pd.likelihood(actions_iter, ref_pol)
                 behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
-
-                diff = ref_pol - behave_pol
-                for i in range(self.n_step):
-                    print(i,  self.pd.kl(ref_pol[:,i,:], behave_pol[:,i,:]).mean())
 
                 stats['_avg_return_targ'] = returns.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
@@ -607,3 +604,5 @@ Current problem:
         * Z-filter updated in reference model but not in agent
         * if step pull: end up having to interrupt in the middle of stride 10
 '''
+# prob because batched n-step rollout is wrong
+#  

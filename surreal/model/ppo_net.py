@@ -148,6 +148,8 @@ class PPOModel(U.Module):
         '''
         self.actor.load_state_dict(net.actor.state_dict())
         self.critic.load_state_dict(net.critic.state_dict())
+        if self.use_z_filter:
+            self.z_filter.load_state_dict(net.z_filter.state_dict())
 
     def update_target_z_filter(self, net):
         '''

@@ -234,17 +234,13 @@ class Agent(object, metaclass=AgentMeta):
                 if render:
                     env.render()
                 self.pre_action(obs)
-                pre_action_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                 action = self.act(obs)
                 obs_next, reward, done, info = env.step(action)
-                after_action_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                 self.post_action(obs, action, obs_next, reward, done, info)
                 obs = obs_next
                 if done:
                     break
             self.post_episode()
-            print('after episode: ',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-
 
     def prepare_env(self, env):
         """

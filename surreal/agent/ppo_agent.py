@@ -78,6 +78,9 @@ class PPOAgent(Agent):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
         
+        test_param_tensor = Variable(torch.FloatTensor([0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779])).view(1, 1, 17)  
+        print(self.model.forward_actor(test_param_tensor))
+
         action_info = [[], []] # 0: one time, 1: every time
         action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
         action_pd = action_pd.data.numpy()

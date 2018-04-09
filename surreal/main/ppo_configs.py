@@ -37,8 +37,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 1,
-            'stride': 1,
+            'n_step': 10,
+            'stride': 10,
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
