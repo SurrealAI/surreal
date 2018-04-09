@@ -158,11 +158,6 @@ class MultistepAggregatorWithInfo():
                 EasyDict of tensorized subtrajectory information
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
-        # for _ in range(len(exp_list[0]['onetime_infos'])):
-        #     onetime_infos.append([])
-        # for _ in range(len(exp_list[0]['persistent_infos'][0])):
-        #     persistent_infos.append([])
-
         for exp in exp_list:
             observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
             observations.append(observation_n_step)
@@ -170,20 +165,6 @@ class MultistepAggregatorWithInfo():
             rewards.append(reward_n_step)
             dones.append(done_n_step)
             next_obs.append(exp['obs_next'])
-
-            # for i in range(len(onetime_infos)):
-            #     onetime_infos[i].append(exp['onetime_infos'][i])
-            # for i in range(len(persistent_infos)):
-            #     one_exp_info = []
-            #     for info_list in exp['persistent_infos']:
-            #         one_exp_info.append(info_list[i])
-            #     persistent_infos[i].append(np.stack(one_exp_info))
-
-        # With RNN this should be [hidden, cell, pds]
-        # for i in range(len(onetime_infos)):
-        #     onetime_infos[i] = U.to_float_tensor(np.stack(onetime_infos[i]))
-        # onetime_infos = [U.to_float_tensor(np.stack(info)) for info in onetime_infos]
-        # persistent_infos = [U.to_float_tensor(np.asarray(infos)) for infos in persistent_infos]
 
         observations =  U.to_float_tensor(np.stack(observations))
         next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)

@@ -37,8 +37,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 10,
-            'stride': 10,
+            'n_step': 1,
+            'stride': 1,
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -86,7 +86,7 @@ def generate(argv):
             'batch_size': 64,
             'memory_size': 96,
             'sampling_start_size': 64,
-            'param_release_min': 8192,
+            'param_release_min': 4096,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -126,8 +126,8 @@ def generate(argv):
             'num_gpus': args.num_gpus,
         },
         'agent' : {
-            'fetch_parameter_mode': 'episode',
-            'fetch_parameter_interval': 1,
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 10,
         },
         'replay' : {
             'max_puller_queue': 3,

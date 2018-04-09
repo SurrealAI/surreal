@@ -235,7 +235,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'n_step': len(data),
         }
         self.sender.send(hash_dict, nonhash_dict)
-        # self.onetime_info = None
+        self.onetime_info = None
 
 
 class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):

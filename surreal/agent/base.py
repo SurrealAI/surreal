@@ -12,8 +12,6 @@ from surreal.env import (
     MaxStepWrapper, TrainingTensorplexMonitor,
     expSenderWrapperFactory, EvalTensorplexMonitor
 )
-import resource
-import sys
 agent_registry = {}
 
 
@@ -229,31 +227,17 @@ class Agent(object, metaclass=AgentMeta):
         env = self.prepare_env(env)
         self.env = env
         self.fetch_parameter()
-        print('initial memory: ',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
         while True:
             self.pre_episode()
             obs, info = env.reset()
-            print('after reset: ',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
             while True:
                 if render:
                     env.render()
                 self.pre_action(obs)
                 pre_action_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                print('after preaction: ', pre_action_usage)
                 action = self.act(obs)
                 obs_next, reward, done, info = env.step(action)
                 after_action_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                print('after action: {}, diff: {}'.format(after_action_usage,
-                                                          after_action_usage - pre_action_usage,))
-                if after_action_usage - pre_action_usage > 0:
-                    print('examining sizes')
-                    print('obs:{}, obs_next:{}, reward:{}, done:{}, info:{}, cell:{}'.format(sys.getsizeof(obs),
-                                                                                sys.getsizeof(obs_next),
-                                                                                sys.getsizeof(reward),
-                                                                                sys.getsizeof(done),
-                                                                                sys.getsizeof(info),
-                                                                                sys.getsizeof(self.cells)))
-                    print('---------------------')
                 self.post_action(obs, action, obs_next, reward, done, info)
                 obs = obs_next
                 if done:

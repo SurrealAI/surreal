@@ -508,6 +508,10 @@ class PPOLearner(Learner):
                 ref_likelihood = self.pd.likelihood(actions_iter, ref_pol)
                 behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
 
+                diff = ref_pol - behave_pol
+                for i in range(self.n_step):
+                    print(i,  self.pd.kl(ref_pol[:,i,:], behave_pol[:,i,:]).mean())
+
                 stats['_avg_return_targ'] = returns.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
