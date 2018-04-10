@@ -514,7 +514,6 @@ class PPOLearner(Learner):
                     stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
                     stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
-                    # self.ref_target_model.update_target_z_filter(self.model)
         return stats
 
     def learn(self, batch):
@@ -589,13 +588,3 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-
-'''
-Current problem:
-    1) ref-behave-diff blowing up even with reference model
-        potential explanation:
-        * Z-filter updated in reference model but not in agent
-        * if step pull: end up having to interrupt in the middle of stride 10
-'''
-# prob because batched n-step rollout is wrong
-#  
