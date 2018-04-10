@@ -77,17 +77,15 @@ class PPOAgent(Agent):
         obs = U.to_float_tensor(obs)
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
-        
-        test_param_tensor = Variable(torch.FloatTensor([0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779])).view(1, 1, 17)  
-        print(self.model.forward_actor(test_param_tensor))
 
         action_info = [[], []] # 0: one time, 1: every time
-        action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
-        action_pd = action_pd.data.numpy()
-
+        
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
             action_info[0].append(self.cells[1].squeeze(1).data.numpy())
+
+        action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
+        action_pd = action_pd.data.numpy()
 
         if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)

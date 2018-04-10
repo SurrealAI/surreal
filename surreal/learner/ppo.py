@@ -452,10 +452,7 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
-                test_param_tensor = Variable(torch.FloatTensor([0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779, 0.3260,0.1315, 0.5584, 0.4560, 0.2635, 0.2779])).view(1, 1, 17) 
-                print(self.ref_target_model.forward_actor(test_param_tensor))
                 pds = persistent_infos[-1]
-
                 if self.if_rnn_policy:
                     h = Variable(one_time_infos[0].transpose(0, 1))
                     c = Variable(one_time_infos[1].transpose(0, 1))
@@ -491,7 +488,7 @@ class PPOLearner(Learner):
                                                    advantages, 
                                                    behave_pol, 
                                                    ref_pol)
-                    curr_pol = self.model.forward_actor(obs_iter).detach()
+                    curr_pol = self.model.forward_actor(obs_iter, self.cells).detach()
                     kl = self.pd.kl(ref_pol, curr_pol).mean()
                     stats['_pol_kl'] = kl.data[0]
                     if kl.data[0] > self.kl_target * 4: break
@@ -500,20 +497,16 @@ class PPOLearner(Learner):
                 for _ in range(self.epoch_baseline):
                     baseline_stats = self._value_update(obs_iter, returns)
 
-                # updating tensorplex
+                # Collecting metrics and updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
 
-                new_pol = self.model.forward_actor(obs_iter).detach()
-                new_likelihood = self.pd.likelihood(actions_iter, new_pol)
-                ref_likelihood = self.pd.likelihood(actions_iter, ref_pol)
                 behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
 
                 stats['_avg_return_targ'] = returns.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
-                stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
                 stats['_lr'] = self.actor_lr_scheduler.get_lr()[0]
                 
                 if self.use_z_filter:
