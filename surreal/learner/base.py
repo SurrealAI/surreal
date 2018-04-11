@@ -1,7 +1,6 @@
 """
 Template class for all learners
 """
-import queue
 import time
 import surreal.utils as U
 from surreal.session import (
@@ -312,6 +311,7 @@ class Learner(metaclass=LearnerMeta):
         """
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
+
         for i, batch in enumerate(self.fetch_iterator()):
             self.current_iter = i
             data = batch.data

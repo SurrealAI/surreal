@@ -1,3 +1,4 @@
+from queue import Queue
 import torch.nn as nn
 from torch.nn.init import xavier_uniform
 import surreal.utils as U
@@ -45,6 +46,7 @@ class DDPGModel(U.Module):
         return self.perception(self.scale_image(obs_in))
 
     def forward(self, obs_in):
+        print('received shape', obs_in.shape)
         obs = self.forward_perception(obs_in)
         action = self.forward_actor(obs)
         value = self.forward_critic(obs, action)

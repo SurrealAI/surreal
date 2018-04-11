@@ -1,3 +1,4 @@
+from queue import Queue
 import torch
 import torch.nn as nn
 import numpy as np
@@ -17,6 +18,10 @@ class DDPGLearner(Learner):
         super().__init__(learner_config, env_config, session_config)
 
         self.current_iteration = 0
+
+        # load multiple optimization instances onto a single gpu
+        self.batch_queue_size = 5
+        self.batch_queue = Queue(maxsize=self.batch_queue_size)
 
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
@@ -102,6 +107,8 @@ class DDPGLearner(Learner):
             U.hard_update(self.model_target.critic, self.model.critic)
             # self.train_iteration = 0
             
+            self.aggregate_and_preprocess_time = U.TimeRecorder()
+            self.total_learn_time = U.TimeRecorder()
             self.data_prep_time = U.TimeRecorder()
             self.forward_time = U.TimeRecorder()
 
@@ -117,12 +124,7 @@ class DDPGLearner(Learner):
             self.actor_backward_time = U.TimeRecorder()
             self.actor_gradient_clip_time = U.TimeRecorder()
 
-    def _optimize(self, obs, actions, rewards, obs_next, done):
-        '''
-        obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
-        of observations, (N, C, H, W).  Note that while the replay contains uint8, the
-        aggregator returns float32 tensors
-        '''
+    def preprocess(self, obs, actions, rewards, obs_next, done):
         with U.torch_gpu_scope(self.gpu_ids):
             visual_obs, flat_obs = obs
 
@@ -146,38 +148,51 @@ class DDPGLearner(Learner):
                 flat_obs_next = Variable(flat_obs_next).detach()
 
             obs_next = (visual_obs_next, flat_obs_next)
+            #print('preprocess')
+            #print(type(obs_next[0].data))
 
             actions = Variable(actions)
             rewards = Variable(rewards)
             done = Variable(done)
+            return (obs, actions, rewards, obs_next, done)
 
-            assert actions.max().data[0] <= 1.0
-            assert actions.min().data[0] >= -1.0
+    def _optimize(self, obs, actions, rewards, obs_next, done):
+        '''
+        obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
+        of observations, (N, C, H, W).  Note that while the replay contains uint8, the
+        aggregator returns float32 tensors
+        '''
+        with U.torch_gpu_scope(self.gpu_ids):
 
-            # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
-            # obs_next.volatile = True
-            perception_next_target = self.model_target.forward_perception(obs_next)
-            next_actions_target = self.model_target.forward_actor(perception_next_target)
+            with self.forward_time.time():
 
-            # obs_next.volatile = False
-            next_Q_target = self.model_target.forward_critic(perception_next_target,
-                                                             next_actions_target)
-            # next_Q_target.volatile = False
-            y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
-            y = y.detach()
+                assert actions.max().data[0] <= 1.0
+                assert actions.min().data[0] >= -1.0
 
-            # compute Q(s_t, a_t)
-            perception = self.model.forward_perception(obs)
-            perception_next = self.model.forward_perception(obs_next)
-            y_policy = self.model.forward_critic(
-                perception,
-                actions.detach() # TODO: why do we detach here
-            )
-            torch.cuda.synchronize()
+                # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
+                # obs_next.volatile = True
+                perception_next_target = self.model_target.forward_perception(obs_next)
+                next_actions_target = self.model_target.forward_actor(perception_next_target)
 
-            profile_critic = False
-            profile_actor = False
-            profile_gpu = False
+                # obs_next.volatile = False
+                next_Q_target = self.model_target.forward_critic(perception_next_target,
+                                                                 next_actions_target)
+                # next_Q_target.volatile = False
+                y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
+                y = y.detach()
+
+                # compute Q(s_t, a_t)
+                perception = self.model.forward_perception(obs)
+                perception_next = self.model.forward_perception(obs_next)
+                y_policy = self.model.forward_critic(
+                    perception,
+                    actions.detach() # TODO: why do we detach here
+                )
+                torch.cuda.synchronize()
+
+            profile_critic = True
+            profile_actor = True
+            profile_gpu = True
 
             # critic update
             with self.critic_update_time.time():
@@ -188,6 +203,7 @@ class DDPGLearner(Learner):
                 if self.clip_critic_gradient:
                     self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
                 self.critic_optim.step()
+                torch.cuda.synchronize()
 
             # actor update
             with self.actor_update_time.time():
@@ -201,6 +217,7 @@ class DDPGLearner(Learner):
                 if self.clip_actor_gradient:
                     self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
                 self.actor_optim.step()
+                torch.cuda.synchronize()
 
             tensorplex_update_dict = {
                 'actor_loss': actor_loss.data[0],
@@ -209,14 +226,14 @@ class DDPGLearner(Learner):
                 'rewards': rewards.mean().data[0],
                 'Q_target': y.mean().data[0],
                 'Q_policy': y_policy.mean().data[0],
-                # 'performance/data_prep_time': self.data_prep_time.avg,
-                # 'performance/forward_time': self.forward_time.avg,
-                # 'performance/critic_update_time': self.critic_update_time.avg,
+                'performance/data_prep_time': self.data_prep_time.avg,
+                'performance/forward_time': self.forward_time.avg,
+                'performance/critic_update_time': self.critic_update_time.avg,
                 # # 'performance/critic_optim_time': self.critic_optim_time.avg,
                 # 'performance/critic_forward_time': self.critic_forward_time.avg,
                 # 'performance/critic_backward_time': self.critic_backward_time.avg,
                 # # 'performance/critic_gradient_clip_time': self.critic_gradient_clip_time.avg,
-                # 'performance/actor_update_time': self.actor_update_time.avg,
+                'performance/actor_update_time': self.actor_update_time.avg,
                 # # 'performance/actor_optim_time': self.actor_optim_time.avg,
                 # 'performance/actor_forward_time': self.actor_forward_time.avg,
                 # 'performance/actor_backward_time': self.actor_backward_time.avg,
@@ -234,19 +251,35 @@ class DDPGLearner(Learner):
 
     def learn(self, batch):
         self.current_iteration += 1
-        batch = self.aggregator.aggregate(batch)
-        tensorplex_update_dict = self._optimize(
-            batch.obs,
-            batch.actions,
-            batch.rewards,
-            batch.obs_next,
-            batch.dones
-        )
-        self.tensorplex.add_scalars(tensorplex_update_dict, global_step=self.current_iteration)
-        self.periodic_checkpoint(
-            global_steps=self.current_iteration,
-            score=None,
-        )
+        with self.aggregate_and_preprocess_time.time():
+            batch = self.aggregator.aggregate(batch)
+            # The preprocess step creates Variables which will become GpuVariables
+            batch.obs, batch.actions, batch.rewards, batch.obs_next, batch.dones = self.preprocess(
+                batch.obs,
+                batch.actions,
+                batch.rewards,
+                batch.obs_next, 
+                batch.dones
+            )
+            self.batch_queue.put(batch)
+        if self.batch_queue.qsize() == self.batch_queue_size:
+            with self.total_learn_time.time():
+                batch = self.batch_queue.get()
+
+                tensorplex_update_dict = self._optimize(
+                    batch.obs,
+                    batch.actions,
+                    batch.rewards,
+                    batch.obs_next,
+                    batch.dones
+                )
+                tensorplex_update_dict['performance/total_learn_time'] = self.total_learn_time.avg
+                tensorplex_update_dict['performance/aggregate_and_preprocess_time'] = self.aggregate_and_preprocess_time.avg
+                self.tensorplex.add_scalars(tensorplex_update_dict, global_step=self.current_iteration)
+                self.periodic_checkpoint(
+                    global_steps=self.current_iteration,
+                    score=None,
+                )
 
     def module_dict(self):
         return {
