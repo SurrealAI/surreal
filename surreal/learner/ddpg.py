@@ -251,6 +251,7 @@ class DDPGLearner(Learner):
 
     def learn(self, batch):
         self.current_iteration += 1
+        '''
         with self.aggregate_and_preprocess_time.time():
             batch = self.aggregator.aggregate(batch)
             # The preprocess step creates Variables which will become GpuVariables
@@ -262,9 +263,11 @@ class DDPGLearner(Learner):
                 batch.dones
             )
             self.batch_queue.put(batch)
-        if self.batch_queue.qsize() == self.batch_queue_size:
+        '''
+        #if self.batch_queue.qsize() == self.batch_queue_size:
+        if True:
             with self.total_learn_time.time():
-                batch = self.batch_queue.get()
+                #batch = self.batch_queue.get()
 
                 tensorplex_update_dict = self._optimize(
                     batch.obs,

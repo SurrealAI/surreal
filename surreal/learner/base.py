@@ -2,6 +2,8 @@
 Template class for all learners
 """
 import time
+import queue
+import threading
 import surreal.utils as U
 from surreal.session import (
     TimeThrottledTensorplex,
@@ -52,6 +54,7 @@ class Learner(metaclass=LearnerMeta):
         self._setup_connection()
         self._setup_logging()
         self._setup_checkpoint()
+        self._setup_batch_prefetch()
 
     def learn(self, batch_exp):
         """
@@ -302,6 +305,59 @@ class Learner(metaclass=LearnerMeta):
             self.log.info('successfully restored from checkpoint', restored)
 
     ######
+    # Batch Prefetch
+    ######
+    def _preprocess_batch(self):
+        total_process_timer = U.TimeRecorder()
+        fetch_timer = U.TimeRecorder()
+        aggregate_timer = U.TimeRecorder()
+        gpu_transfer_timer = U.TimeRecorder()
+        prefetch_timer = U.TimeRecorder()
+        #iterator = self.fetch_iterator().__iter__()
+        total_fetch_time = 0.0
+        start_time = time.time()
+        for batch in self.fetch_iterator():
+            end_time = time.time()
+            total_fetch_time += end_time - start_time
+            batch = None
+            with total_process_timer.time():
+                batch = batch.data
+                with aggregate_timer.time():
+                    batch = self.aggregator.aggregate(batch)
+                # The preprocess step creates Variables which will become GpuVariables
+                with gpu_transfer_timer.time():
+                    batch.obs, batch.actions, batch.rewards, batch.obs_next, batch.dones = self.preprocess(
+                        batch.obs,
+                        batch.actions,
+                        batch.rewards,
+                        batch.obs_next, 
+                        batch.dones
+                    )
+            with prefetch_timer.time():
+                self._preprocess_prefetch_queue.put(batch)
+            print('----------')
+            print('total_process_timer', total_process_timer.avg)
+            print('fetch_timer', fetch_timer.avg)
+            print('aggregate_timer', aggregate_timer.avg)
+            print('gpu_transfer_timer', gpu_transfer_timer.avg)
+            print('prefetch_timer', prefetch_timer.avg)
+            print('----------')
+            start_time = time.time()
+
+    def _setup_batch_prefetch(self):
+        self._preprocess_prefetch_queue = queue.Queue(maxsize=20)
+        self._preprocess_thread = threading.Thread(target=self._preprocess_batch)
+        self._preprocess_thread.start()
+
+    def fetch_processed_batch_iterator(self):
+        timer = U.TimeRecorder()
+        while True:
+            with timer.time():
+                yield self._preprocess_prefetch_queue.get()
+            print('batch dequeue time', timer.avg)
+            print('num elements in queue', self._preprocess_prefetch_queue.qsize())
+
+    ######
     # Main Loop
     # Override to completely change learner behavior
     ######
@@ -312,9 +368,9 @@ class Learner(metaclass=LearnerMeta):
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
 
-        for i, batch in enumerate(self.fetch_iterator()):
+        for i, data in enumerate(self.fetch_processed_batch_iterator()):
+            print('dequeued data')
             self.current_iter = i
-            data = batch.data
             with self.learn_timer.time():
                 self.learn(data)
             if self.should_publish_parameter():
