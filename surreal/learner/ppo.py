@@ -286,8 +286,8 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
-                                    self.actor_gradient_clip_value)
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(self.model.actor.parameters(), 
+                                                               self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -329,11 +329,12 @@ class PPOLearner(Learner):
         self.model.critic.zero_grad()
         loss.backward()
         if self.clip_critic_gradient:
-            nn.utils.clip_grad_norm(self.model.critic.parameters(), 
-                                    self.critic_gradient_clip_value)
+            stats['grad_norm_critic'] = nn.utils.clip_grad_norm(self.model.critic.parameters(), 
+                                                                self.critic_gradient_clip_value)
         self.critic_optim.step()
 
         return stats
+
 
     def _gae_and_return(self, obs, obs_next, actions, rewards, dones):
         '''
@@ -524,7 +525,7 @@ class PPOLearner(Learner):
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
                 stats['_lr'] = self.actor_lr_scheduler.get_lr()[0]
-                
+
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
                     stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
