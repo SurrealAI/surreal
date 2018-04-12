@@ -316,10 +316,11 @@ class Learner(metaclass=LearnerMeta):
         #iterator = self.fetch_iterator().__iter__()
         total_fetch_time = 0.0
         start_time = time.time()
-        for batch in self.fetch_iterator():
+        while True:
+        #for batch in self.fetch_iterator():
+            batch = self._prefetch_queue.get()
             end_time = time.time()
             total_fetch_time += end_time - start_time
-            batch = None
             with total_process_timer.time():
                 batch = batch.data
                 with aggregate_timer.time():
@@ -346,8 +347,10 @@ class Learner(metaclass=LearnerMeta):
 
     def _setup_batch_prefetch(self):
         self._preprocess_prefetch_queue = queue.Queue(maxsize=20)
-        self._preprocess_thread = threading.Thread(target=self._preprocess_batch)
-        self._preprocess_thread.start()
+        self._preprocess_threads = []
+        for i in range(3):
+            self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
+            self._preprocess_threads[-1].start()
 
     def fetch_processed_batch_iterator(self):
         timer = U.TimeRecorder()
