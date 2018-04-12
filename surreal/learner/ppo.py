@@ -354,21 +354,38 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
+            returns = torch.zeros(self.batch_size, self.n_step)
+            advs = torch.zeros(self.batch_size, self.n_step)
+
             if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
                 gamma = gamma.cuda()
                 lam   = lam.cuda()
+                returns = returns.cuda()
+                advs = advs.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
+            obs_concat = torch.cat([obs, obs_next], dim=1)
+            if not self.if_rnn_policy:
+                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+
             values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
+
             if self.if_rnn_policy:
-                # compute return and advantage then normalize
-                # to be implemented
-                pass
+                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
+                for step in range(self.n_step):
+                    returns[:, step] = torch.sum(gamma[step:] * rewards[:, step:], 1) + \
+                                       values[:, -1] * (self.gamma ** (self.n_step - step))
+                    advs[:, step] = torch.sum(tds[:, step:] * gamma[:self.n_step - step] * lam[:self.n_step - step], 1)
+                if self.norm_adv:
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
+                return obs, actions, advs, returns
+
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
@@ -410,7 +427,6 @@ class PPOLearner(Learner):
             obs_concat = torch.cat([obs, obs_next], dim=1)
             if not self.if_rnn_policy:
                 obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
-            # obs_concat = obs_concat.contiguous()
 
             values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -458,7 +474,7 @@ class PPOLearner(Learner):
                     c = Variable(one_time_infos[1].transpose(0, 1))
                     self.cells = (h, c)
 
-                advantage_return = self._advantage_and_return(obs, 
+                advantage_return = self._gae_and_return(obs, 
                                                         obs_next, 
                                                         actions, 
                                                         rewards, 
