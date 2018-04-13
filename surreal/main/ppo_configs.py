@@ -37,8 +37,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 100, # effective only for half of that for now, theres a bug in aggregator
-            'stride': 100,
+            'n_step': 20, # effective only for half of that for now, theres a bug in aggregator
+            'stride': 10,
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -127,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 100,
+            'fetch_parameter_interval': 10,
         },
         'replay' : {
             'max_puller_queue': 3,

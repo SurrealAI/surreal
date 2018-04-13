@@ -186,33 +186,31 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         if self.stride < 1:
             raise ConfigError('stride {} for experience generation cannot be less than 1'.format(self.learner_config.algo.stride))
         self.last_n = deque()
-        self.onetime_info = None
 
     def _reset(self):
         self._ob, info = self.env.reset()
         self.last_n.clear()
-        self.onetime_info = None
         return self._ob, info
 
     def _step(self, action):
         action_choice, action_info = action
         obs_next, reward, done, info = self.env.step(action_choice)
-        self.last_n.append([self._ob, action_choice, reward, done, action_info[1], info])
-        if self.onetime_info is None: self.onetime_info = action_info[0]
+        self.last_n.append([self._ob, action_choice, reward, done, action_info[0], action_info[1], info])
 
         if len(self.last_n) == self.n_step:
-            self.send(self.last_n, obs_next, self.onetime_info)
+            self.send(self.last_n, obs_next)
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
         self._ob = obs_next
         return obs_next, reward, done, info
 
-    def send(self, data, obs_next, onetime_info):
+    def send(self, data, obs_next):
         obs, actions, rewards, dones, persistent_infos, infos = [], [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
-        for index, (ob, action, reward, done, persistent_info, info) in enumerate(data):
+        onetime_infos = None
+        for index, (ob, action, reward, done, onetime_info, persistent_info, info) in enumerate(data):
             # Store observations in a deduplicated way
             obs.append(ob)
             actions.append(action)
@@ -220,6 +218,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             dones.append(done)
             infos.append(info)
             persistent_infos.append(persistent_info)
+            if onetime_infos == None: onetime_infos = onetime_info
 
         hash_dict = {
             'obs': obs,
@@ -227,7 +226,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         }
         nonhash_dict = {
             'actions': actions,
-            'onetime_infos' : onetime_info,
+            'onetime_infos' : onetime_infos,
             'persistent_infos': persistent_infos,
             'rewards': rewards,
             'dones': dones,
@@ -235,7 +234,6 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'n_step': len(data),
         }
         self.sender.send(hash_dict, nonhash_dict)
-        self.onetime_info = None
 
 
 class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
