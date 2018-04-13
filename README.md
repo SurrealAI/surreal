@@ -166,7 +166,7 @@ Unless you are adding new dependencies, you **should not rebuild or push the ima
 
 The CPU/GPU `Dockerfile`s are in `installation/` folder.
 
-- Docker hub: `stanfordvl/surreal` (will migrate to `surrealai/surreal-cpu` soon)
+- Docker hub: `SurrealAI/surreal` (will migrate to `surrealai/surreal-cpu` soon)
 
 TODO: more docs here
 
