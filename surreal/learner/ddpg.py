@@ -188,7 +188,6 @@ class DDPGLearner(Learner):
                     perception,
                     actions.detach() # TODO: why do we detach here
                 )
-                torch.cuda.synchronize()
 
             profile_critic = True
             profile_actor = True
@@ -203,7 +202,6 @@ class DDPGLearner(Learner):
                 if self.clip_critic_gradient:
                     self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
                 self.critic_optim.step()
-                torch.cuda.synchronize()
 
             # actor update
             with self.actor_update_time.time():
@@ -217,7 +215,6 @@ class DDPGLearner(Learner):
                 if self.clip_actor_gradient:
                     self.model.actor.clip_grad_value(self.actor_gradient_clip_value)
                 self.actor_optim.step()
-                torch.cuda.synchronize()
 
             tensorplex_update_dict = {
                 'actor_loss': actor_loss.data[0],
