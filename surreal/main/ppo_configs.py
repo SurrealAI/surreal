@@ -37,8 +37,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 10,
-            'stride': 10,
+            'n_step': 100, # effective only for half of that for now, theres a bug in aggregator
+            'stride': 100,
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -50,7 +50,7 @@ def generate(argv):
             'gradient': {
                 'clip_actor': True,
                 'clip_critic': True,
-                'clip_actor_val': 5.,
+                'clip_actor_val': 1.,
                 'clip_critic_val': 5.,
             },
             'lr': {
@@ -127,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10,
+            'fetch_parameter_interval': 100,
         },
         'replay' : {
             'max_puller_queue': 3,

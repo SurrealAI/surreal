@@ -76,6 +76,7 @@ class PPOLearner(Learner):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.norm_adv = self.learner_config.algo.norm_adv
         self.batch_size = self.learner_config.algo.batch_size
+        self.horizon = int(self.learner_config.algo.n_step/2)
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -374,18 +375,23 @@ class PPOLearner(Learner):
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
-
             if self.if_rnn_policy:
                 tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
-                for step in range(self.n_step):
-                    returns[:, step] = torch.sum(gamma[step:] * rewards[:, step:], 1) + \
-                                       values[:, -1] * (self.gamma ** (self.n_step - step))
-                    advs[:, step] = torch.sum(tds[:, step:] * gamma[:self.n_step - step] * lam[:self.n_step - step], 1)
+                gamma = gamma[:self.horizon]
+                lam = lam[:self.horizon]
+                returns = returns[:, :self.horizon]
+                advs = advs[:, :self.horizon]
+
+                for step in range(self.horizon):
+                    returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
+                                       values[:, step + self.horizon] * (self.gamma ** self.horizon)
+                    advs[:, step] = torch.sum(tds[:, step:step + self.horizon] * gamma * lam, 1)
+
                 if self.norm_adv:
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs, actions, advs, returns
+                return obs[:, :self.horizon, :], actions[:, :self.horizon, :], advs, returns
 
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
@@ -429,20 +435,22 @@ class PPOLearner(Learner):
             if not self.if_rnn_policy:
                 obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
 
-            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
             if self.if_rnn_policy:
-                for step in range(self.n_step):
-                    returns[:, step] = torch.sum(gamma[step:] * rewards[:, step:], 1) + \
-                                       values[:, -1] * (self.gamma ** (self.n_step - step))
-                advs = returns - values[:, :-1] # (batch, n_step)
+                gamma = gamma[:self.horizon]
+                returns = returns[:, :self.horizon]
+                for step in range(self.horizon):
+                    returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
+                                       values[:, step + self.horizon] * (self.gamma ** self.horizon)
+                advs = returns - values[:, :self.horizon] # (batch, n_step)
                 if self.norm_adv:
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs, actions, advs, returns
+                return obs[:, :self.horizon, :], actions[:, :self.horizon, :], advs, returns
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 advs    = returns - values[:, 0]
@@ -475,13 +483,13 @@ class PPOLearner(Learner):
                     c = Variable(one_time_infos[1].transpose(0, 1))
                     self.cells = (h, c)
 
-                advantage_return = self._gae_and_return(obs, 
+                advantage_return = self._advantage_and_return(obs, 
                                                         obs_next, 
                                                         actions, 
                                                         rewards, 
                                                         dones)
-                obs_iter = Variable(advantage_return[0])
-                actions_iter = Variable(advantage_return[1])
+                obs_iter = Variable(advantage_return[0]).contiguous()
+                actions_iter = Variable(advantage_return[1]).contiguous()
                 advantages = Variable(advantage_return[2])
                 returns = Variable(advantage_return[3])
                 behave_pol = Variable(pds[:, 0, :])
@@ -491,7 +499,7 @@ class PPOLearner(Learner):
                     h = Variable(self.cells[0].data)
                     c = Variable(self.cells[1].data)
                     self.cells = (h, c)
-                    behave_pol = Variable(pds)
+                    behave_pol = Variable(pds[:, :self.horizon, :]) 
 
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
