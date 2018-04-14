@@ -379,7 +379,7 @@ class PPOLearner(Learner):
                 tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
                 eff_len = self.n_step - self.horizon + 1
                 gamma = gamma[:self.horizon]
-                lam = lam[:eff_len]
+                lam = lam[:self.horizon]
                 returns = returns[:, :eff_len]
                 advs = advs[:, :eff_len]
 
@@ -392,7 +392,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs[:, :self.horizon, :], actions[:, :self.horizon, :], advs, returns
+                return obs[:, :eff_len, :], actions[:, :eff_len, :], advs, returns
 
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
@@ -485,7 +485,7 @@ class PPOLearner(Learner):
                     c = Variable(one_time_infos[1].transpose(0, 1))
                     self.cells = (h, c)
 
-                advantage_return = self._advantage_and_return(obs, 
+                advantage_return = self._gae_and_return(obs, 
                                                         obs_next, 
                                                         actions, 
                                                         rewards, 
