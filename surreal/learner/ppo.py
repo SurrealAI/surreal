@@ -76,7 +76,6 @@ class PPOLearner(Learner):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.norm_adv = self.learner_config.algo.norm_adv
         self.batch_size = self.learner_config.algo.batch_size
-        self.horizon = int(self.learner_config.algo.n_step/2)
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_dim = self.env_config.obs_spec.dim[0]
@@ -102,6 +101,7 @@ class PPOLearner(Learner):
         # PPO parameters
         self.ppo_mode = self.learner_config.algo.ppo_mode
         self.if_rnn_policy = self.learner_config.algo.rnn.if_rnn_policy
+        self.horizon = self.learner_config.algo.rnn.horizon
         self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
         self.lr_policy = self.learner_config.algo.lr.lr_policy
         self.lr_baseline = self.learner_config.algo.lr.lr_baseline
@@ -377,12 +377,13 @@ class PPOLearner(Learner):
 
             if self.if_rnn_policy:
                 tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
+                eff_len = self.n_step - self.horizon + 1
                 gamma = gamma[:self.horizon]
-                lam = lam[:self.horizon]
-                returns = returns[:, :self.horizon]
-                advs = advs[:, :self.horizon]
+                lam = lam[:eff_len]
+                returns = returns[:, :eff_len]
+                advs = advs[:, :eff_len]
 
-                for step in range(self.horizon):
+                for step in range(eff_len):
                     returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
                                        values[:, step + self.horizon] * (self.gamma ** self.horizon)
                     advs[:, step] = torch.sum(tds[:, step:step + self.horizon] * gamma * lam, 1)
@@ -441,16 +442,17 @@ class PPOLearner(Learner):
 
             if self.if_rnn_policy:
                 gamma = gamma[:self.horizon]
-                returns = returns[:, :self.horizon]
-                for step in range(self.horizon):
+                eff_len = self.n_step - self.horizon + 1
+                returns = returns[:, :eff_len]
+                for step in range(self.n_step - self.horizon + 1):
                     returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
                                        values[:, step + self.horizon] * (self.gamma ** self.horizon)
-                advs = returns - values[:, :self.horizon] # (batch, n_step)
+                advs = returns - values[:, :eff_len] # (batch, n_step)
                 if self.norm_adv:
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs[:, :self.horizon, :], actions[:, :self.horizon, :], advs, returns
+                return obs[:, :eff_len, :], actions[:, :eff_len, :], advs, returns
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 advs    = returns - values[:, 0]
@@ -499,7 +501,7 @@ class PPOLearner(Learner):
                     h = Variable(self.cells[0].data)
                     c = Variable(self.cells[1].data)
                     self.cells = (h, c)
-                    behave_pol = Variable(pds[:, :self.horizon, :]) 
+                    behave_pol = Variable(pds[:, :self.n_step - self.horizon + 1, :]) 
 
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
@@ -613,3 +615,7 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
+
+'''
+Distinguish between horizon and n-step: horizon up to 50, but n-step is  5-10
+'''

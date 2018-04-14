@@ -37,7 +37,7 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 20, # effective only for half of that for now, theres a bug in aggregator
+            'n_step': 15, # effective only for half of that for now, theres a bug in aggregator
             'stride': 10,
             'batch_size': 64, 
             # ppo specific parameters:
@@ -46,6 +46,7 @@ def generate(argv):
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
+                'horizon': 5,
             },
             'gradient': {
                 'clip_actor': True,
