@@ -1,17 +1,29 @@
 # this file should be saved at ~/.surreal.yml
+# You need to update all fields enclosed with <>
 version: 0.0.2
 local_kurreal_folder: ~/Temp/kurreal
+# When you create an experiment, we prefix your name before it to avoid conflict. 
+# Put your name here. We usually use SUNET ID: jimfan, jirenz, etc.
 username: <user_name_for_experiments_and_fs>
 prefix_experiment_with_username: True
+# The mujoco key is forwarded to containers on the cloud.
 mujoco_key_path: ~/.mujoco/mjkey.txt
-# https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+# 
+# We use git to sync code into containers on kubernetes, so you need to generate a token, 
+# See: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+# You also need to specify a sanpshot branch, and where are the repos that we need to sync
+# 
+# When you do kurreal create/dev-create, kurreal packs your local changes into a temporary git 
+# branch: named <myuser-snapshot>. Your containers will pull from these repos to get code 
+# for surreal. 
+# 
 git:
   user: <github_user_name>
   token: <generate_git_access_token_on_github_website>
   snapshot_branch: <myuser-snapshot>
   snapshot_repos:
-  - ~/my/repo/path/surreal
-  - ~/my/repo/path/tensorplex
+  - <~/my/repo/path/surreal>
+  - <~/my/repo/path/tensorplex>
 fs:
   type: nfs
   server: surreal-shared-fs-vm
@@ -75,7 +87,11 @@ pod_types:
     resource_request:
       cpu: 0.3
 
-
+#
+# Below is optional. You only need it if you want to use the tensorboard screenshot functionality.
+# Ask jiren about how to setup
+# TODO: Write up how to setup here.
+#
 capture_tensorboard:
   # bash >> which node
   node_path: .../v9.6.1/bin/node
