@@ -124,14 +124,19 @@ class MultistepAggregatorWithInfo():
             next_obs = batch_size * 1 * next_observation
             actions = batch_size * n_step * actions,
             rewards = batch_size * n_step,
-            actoin_infos = list of batched FloatTensor action infos
+            persistent_infos = list of batched FloatTensor action info per step,
+            onetime_infos = FloatTensor of action info for first step of batch,
             dones = batch_size * n_step,
         }
 
         This class of aggregator is used in companion with exp sender.
-        ExpSenderWrapperMultiStepMovingWindowWithInfo. One key return value is
-        a list of action_infos that are auxiliary information returned from the
-        agent. This aggregator should be used when the agent is required to 
+        ExpSenderWrapperMultiStepMovingWindowWithInfo. The key return values are
+        a list of persistent infos, and a FloatTensor of onetime info that are 
+        auxiliary information returned from the agent. The main difference is
+        that persistent infos are required for every step, whereas onetime infos
+        are needed only for first or last of the steps
+
+        This aggregator should be used when the agent is required to 
         expose attributes to the learner. For instance, PPO needs to use this
         aggregator to send over the action probability distribution and optional
         RNN hidden states.
@@ -139,7 +144,13 @@ class MultistepAggregatorWithInfo():
         This attribute will be returned as a list of batched FloatTensors. In
         the case of PPO without RNN policy, the action_infos attribute is of
         form:
-            [Float Tensor of shape (batch_size, 2 * act_dim)]
+            persistent info: [FloatTensor of shape (batch_size, 2 * act_dim)]
+            onetime infos: []
+
+        In case with RNN:
+            persistent info: [FloatTensor of shape (batch, horizon, 2 * act_dim)]
+            onetime infos: [LSTM hidden state, LSTM cell state]
+
     """
     def __init__(self, obs_spec, action_spec):
         U.assert_type(obs_spec, dict)
@@ -205,6 +216,14 @@ class MultistepAggregatorWithInfo():
         return observations, actions, rewards, dones
 
     def _gather_action_infos(self, exp_list):
+        """
+            Gathers corresponding action informations from partial trajectories
+            Args:
+                experience: a dictionry of subtrajectory information
+            Returns:
+                persistent_infos: list of batched FloatTensors
+                onetime_infos: one batched FloatTensor
+        """
         persistent_infos, onetime_infos = None, None
 
         exists_ones = (len(exp_list[0]['onetime_infos']) > 0)
@@ -231,9 +250,11 @@ class MultistepAggregatorWithInfo():
                     persistent_infos[i].append(np.stack(one_exp_info))
 
         if exists_ones:
-            onetime_infos = [U.to_float_tensor(np.stack(info)) for info in onetime_infos]
+            onetime_infos = [U.to_float_tensor(np.stack(info)) 
+                                for info in onetime_infos]
         if exists_pers:
-            persistent_infos = [U.to_float_tensor(np.asarray(infos)) for infos in persistent_infos]
+            persistent_infos = [U.to_float_tensor(np.asarray(infos)) 
+                                    for infos in persistent_infos]
 
         return onetime_infos, persistent_infos
 

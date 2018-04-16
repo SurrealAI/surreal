@@ -62,7 +62,6 @@ class ZFilter(U.Module):
             added_count = added_count.cuda()
         self.count += added_count 
 
-    # define forward prop operations in terms of layers
     def forward(self, inputs):
         '''
             Whiten observation (inputs) to have zero-mean, unit variance.
@@ -72,7 +71,6 @@ class ZFilter(U.Module):
             Returns:
                 0 mean std 1 weightened batch of observation
         '''
-        # adjust for 3D tensor input from RNN policy
         input_shape = inputs.size()
         assert len(input_shape) >= 2
         inputs = inputs.view(-1, input_shape[-1])

@@ -208,6 +208,14 @@ class PPOModel(U.Module):
         return value
 
     def forward_actor_expose_cells(self, obs, cells=None):
+        '''
+            forward pass critic to generate policy with option to use z-filter
+            also returns an updated LSTM hidden/cell state when necessary
+            Args: 
+                obs -- batch of observations
+            Returns:
+                output of critic network
+        '''
         if self.use_z_filter:
             obs = self.z_filter.forward(obs)
 

@@ -37,8 +37,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 15, # effective only for half of that for now, theres a bug in aggregator
-            'stride': 10,
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -46,7 +46,7 @@ def generate(argv):
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
-                'horizon': 5,
+                'horizon': 10,
             },
             'gradient': {
                 'clip_actor': True,
@@ -58,7 +58,7 @@ def generate(argv):
                 'lr_scheduler': "LinearWithMinLR",
                 'lr_policy': 1e-4,
                 'lr_baseline': 1e-4,
-                'frames_to_anneal': 8e7,
+                'frames_to_anneal': 1e8,
                 'lr_update_frequency': 100, 
                 'min_lr': 1e-5,
             },
@@ -128,7 +128,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10,
+            'fetch_parameter_interval': 20, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,

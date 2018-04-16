@@ -118,8 +118,7 @@ class PPOAgent(Agent):
 
     def reset(self):
         '''
-            Currently unimplemented. in the future it will contain reset of 
-            RNN hidden states
+            reset of LSTM hidden and cell states
         '''
         if self.rnn_config.if_rnn_policy:
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 

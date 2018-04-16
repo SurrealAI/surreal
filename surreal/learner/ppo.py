@@ -191,13 +191,13 @@ class PPOLearner(Learner):
             clip_loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        learn_pol = self.model.forward_actor(obs)
+        learn_pol = self.model.forward_actor(obs, self.cells)
         learn_prob = self.pd.likelihood(actions, learn_pol)
         behave_prob = self.pd.likelihood(actions, behave_pol)
         prob_ratio = learn_prob / behave_prob
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 
                                                1 + self.clip_epsilon)
-        surr = -prob_ratio * advantages
+        surr = -prob_ratio * advantages.view(-1, 1)
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
 
@@ -226,8 +226,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
-                                    self.actor_gradient_clip_value)
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+                                            self.model.actor.parameters(), 
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -287,8 +288,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(self.model.actor.parameters(), 
-                                                               self.actor_gradient_clip_value)
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+                                            self.model.actor.parameters(), 
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -330,14 +332,13 @@ class PPOLearner(Learner):
         self.model.critic.zero_grad()
         loss.backward()
         if self.clip_critic_gradient:
-            stats['grad_norm_critic'] = nn.utils.clip_grad_norm(self.model.critic.parameters(), 
-                                                                self.critic_gradient_clip_value)
+            stats['grad_norm_critic'] = nn.utils.clip_grad_norm(
+                                                self.model.critic.parameters(), 
+                                                self.critic_gradient_clip_value)
         self.critic_optim.step()
-
         return stats
 
-
-    def _gae_and_return(self, obs, obs_next, actions, rewards, dones):
+    def _gae_and_return(self, obs, obs_next, rewards, dones):
         '''
         computes generalized advantage estimate and corresponding N-step return. 
         Details of algorithm can be found here: https://arxiv.org/pdf/1506.02438.pdf
@@ -371,7 +372,7 @@ class PPOLearner(Learner):
             if not self.if_rnn_policy:
                 obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
 
-            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, act_dim), (batch, n+1, 1)
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -392,7 +393,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs[:, :eff_len, :], actions[:, :eff_len, :], advs, returns
+                return advs, returns
 
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
@@ -404,9 +405,9 @@ class PPOLearner(Learner):
                     mean = gae.mean()
                     gae = (gae - mean) / std
 
-                return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1)
+                return gae.view(-1, 1), returns.view(-1, 1)
 
-    def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
+    def _advantage_and_return(self, obs, obs_next, rewards, dones):
         '''
         computes  advantage estimate and corresponding N-step return with following:
             A = R - V(s)
@@ -452,7 +453,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs[:, :eff_len, :], actions[:, :eff_len, :], advs, returns
+                return advs, returns
             else:
                 returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
                 advs    = returns - values[:, 0]
@@ -460,7 +461,7 @@ class PPOLearner(Learner):
                     std = advs.std()
                     mean = advs.mean()
                     advs = (advs - mean) / std
-                return obs[:, 0, :], actions[:, 0, :], advs.view(-1, 1), returns.view(-1, 1)
+                return advs.view(-1, 1), returns.view(-1, 1)
 
     def _optimize(self, obs, actions, rewards, obs_next, persistent_infos, one_time_infos, dones):
         '''
@@ -485,23 +486,26 @@ class PPOLearner(Learner):
                     c = Variable(one_time_infos[1].transpose(0, 1))
                     self.cells = (h, c)
 
-                advantage_return = self._gae_and_return(obs, 
-                                                        obs_next, 
-                                                        actions, 
-                                                        rewards, 
-                                                        dones)
-                obs_iter = Variable(advantage_return[0]).contiguous()
-                actions_iter = Variable(advantage_return[1]).contiguous()
-                advantages = Variable(advantage_return[2])
-                returns = Variable(advantage_return[3])
-                behave_pol = Variable(pds[:, 0, :])
-                ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
+                advantages, returns = self._gae_and_return(obs, 
+                                                           obs_next,  
+                                                           rewards, 
+                                                           dones)
+                advantages = Variable(advantages)
+                returns    = Variable(returns)
 
                 if self.if_rnn_policy:
                     h = Variable(self.cells[0].data)
                     c = Variable(self.cells[1].data)
                     self.cells = (h, c)
-                    behave_pol = Variable(pds[:, :self.n_step - self.horizon + 1, :]) 
+                    eff_len = self.n_step - self.horizon + 1
+                    behave_pol = Variable(pds[:, :eff_len, :])
+                    obs_iter   = Variable(obs[:, :eff_len, :].contiguous())
+                    actions_iter = Variable(actions[:, :eff_len, :].contiguous())
+                else:
+                    behave_pol = Variable(pds[:, 0, :])
+                    obs_iter   = Variable(obs[:, 0, :])
+                    actions_iter = Variable(actions[:, 0, :])
+                ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
@@ -615,7 +619,3 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-
-'''
-Distinguish between horizon and n-step: horizon up to 50, but n-step is  5-10
-'''
