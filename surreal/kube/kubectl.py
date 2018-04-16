@@ -327,20 +327,42 @@ class Kubectl(object):
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
 
-        c = KubeCluster(dry_run=True)
+        # Read pod specifications
+        assert agent_pod_type in C.pod_types, \
+            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
+        assert nonagent_pod_type in C.pod_types, \
+            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
+        agent_pod_spec = C.pod_types[agent_pod_type]
+        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
+        agent_resource_request = agent_pod_spec.get('resource_request', {})
+        nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
+        agent_resource_limit = agent_pod_spec.get('resource_limit', {})
+        nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
 
-        learner = ProcessConfig('learner', container_image=nonagent_pod_spec.image, args=cmd_dict['learner'])
-        replay = ProcessConfig('replay', container_image=nonagent_pod_spec.image, args=cmd_dict['replay'])
-        ps = ProcessConfig('ps', container_image=nonagent_pod_spec.image, args=cmd_dict['ps'])
-        tensorboard = ProcessConfig('tensorboard', container_image=nonagent_pod_spec.image, args=cmd_dict['tensorboard'])
-        tensorplex = ProcessConfig('tensorplex', container_image=nonagent_pod_spec.image, args=cmd_dict['tensorplex'])
-        loggerplex = ProcessConfig('loggerplex', container_image=nonagent_pod_spec.image, args=cmd_dict['loggerplex'])
+        c = KubeCluster(dry_run=False)
 
-        nonagent = ProcessGroupConfig('Nonagent')
+        learner = ProcessConfig('learner', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['learner']])
+        replay = ProcessConfig('replay', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['replay']])
+        ps = ProcessConfig('ps', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['ps']])
+        tensorboard = ProcessConfig('tensorboard', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorboard']])
+        tensorplex = ProcessConfig('tensorplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorplex']])
+        loggerplex = ProcessConfig('loggerplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['loggerplex']])
+
+        nonagent = ProcessGroupConfig('nonagent')
         nonagent.add_process(learner, replay, ps, tensorboard, tensorplex, loggerplex)
 
+        agents = []
+        for i, arg in enumerate(cmd_dict['agent']):
+            agent_p = ProcessConfig('agent-{}'.format(i), container_image=agent_pod_spec.image, args=['--cmd', arg])
+            agents.append(agent_p)
+
+        evals = []
+        for i, arg in enumerate(cmd_dict['eval']):
+            eval_p = ProcessConfig('eval-{}'.format(i), container_image=agent_pod_spec.image, args=['--cmd', arg])
+            evals.append(eval_p)
+
         # TODO: Use kubernete's load-balancing instead
-        for proc in itertools.chain([agents, evals]):
+        for proc in itertools.chain(agents, evals):
             proc.requests('ps-frontend')
             proc.requests('collector-frontend')
         
@@ -359,21 +381,11 @@ class Kubectl(object):
 
         tensorplex.provides('tensorplex')
         loggerplex.provides('loggerplex')
-        for proc in itertools.chain([agents, evals, [ps, replay, learner]]):
+        for proc in itertools.chain(agents, evals, [ps, replay, learner]):
             proc.requests('tensorplex')
             proc.requests('loggerplex')
 
         tensorboard.exposes(tensorboard=6006)
-
-        agents = []
-        for i, arg in enumerate(cmd_dict.agent):
-            agent_p = ProcessConfig('agent-{}'.format(i), container_image=agent_pod_spec.image, args=arg)
-            agents.append(agent_p)
-
-        evals = []
-        for i, arg in enumerate(cmd_dict.eval):
-            eval_p = ProcessConfig('eval-{}'.format(i), container_image=agent_pod_spec.image, args=arg)
-            evals.append(eval_p)
 
         exp = ExperimentConfig(experiment_name)
         exp.add_process_group(nonagent)
@@ -383,18 +395,6 @@ class Kubectl(object):
         # Use kube-specific configs
         exp.use_kube()
 
-        # Read pod specifications
-        assert agent_pod_type in C.pod_types, \
-            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
-        assert nonagent_pod_type in C.pod_types, \
-            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
-        agent_pod_spec = C.pod_types[agent_pod_type]
-        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
-        agent_resource_request = agent_pod_spec.get('resource_request', {})
-        nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
-        agent_resource_limit = agent_pod_spec.get('resource_limit', {})
-        nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
-        
         # Mount volumes
         # TODO: support other fs
         
@@ -417,7 +417,13 @@ class Kubectl(object):
             # including that direcotry name of the repo locally should equal to cloud
             # which can be false
             for git_repo in repo_names:
-                repository = 'https://{}:{}@github.com/SurralAI/{}'.format(
+                # if git_repo == 'surreal':
+                #     git_repo_name_github='Surreal'
+                # elif git_repo == 'tensorplex':
+                #     git_repo_name_github='Tensorplex'
+                # else:
+                #     git_repo_name_github=git_repo
+                repository = 'https://{}:{}@github.com/SurrealAI/{}'.format(
                     C.git.user, C.git.token, git_repo)
                 revision = C.git.snapshot_branch
                 mount_path = '/mylibs/{}'.format(git_repo)
@@ -427,27 +433,32 @@ class Kubectl(object):
                 proc.kube.set_env(env_key, env_val) # TODO: is this env needed currently?
 
             # Add mujoco key: TODO: handle secret properly
-            proc.kube.set_env(mujoco_key_text, mjkey)
+            proc.kube.set_env('mujoco_key_text', mjkey)
             proc.kube.image_pull_policy('Always')
 
         agent_selector = agent_pod_spec.get('selector', {})
-        for proc in itertools.chain([agents, evals]):
+        for proc in itertools.chain(agents, evals):
             proc.kube.resource_request(cpu=1.5)
             proc.kube.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
             proc.kube.restart_policy('Never')
             # required services
-            for k, v in agent_selector:
+            for k, v in agent_selector.items():
                 proc.kube.node_selector(key=k, value=v)
             proc.kube.resource_request(**agent_resource_request)
             proc.kube.resource_limit(**agent_resource_limit)
 
-        learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
+        learner.kube.set_env('DISABLE_MUJOCO_RENDERING', "1")
         learner.kube.resource_request(**nonagent_resource_request)
-        learner.kube.resource_request(**nonagent_resource_limit)
+        if 'nvidia.com/gpu' in nonagent_resource_limit: 
+        # Note/TODO: We are passing resource limits as kwargs, so '/' cannot happen here
+        # Should we change this?
+            nonagent_resource_limit['gpu'] = nonagent_resource_limit['nvidia.com/gpu']
+            del nonagent_resource_limit['nvidia.com/gpu']
+        learner.kube.resource_limit(**nonagent_resource_limit)
         # learner.kube.resource_limit(gpu=0)
         
         non_agent_selector = nonagent_pod_spec.get('selector', {})
-        for k, v in non_agent_selector:
+        for k, v in non_agent_selector.items():
             nonagent.kube.node_selector(key=k, value=v)
         nonagent.kube.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
         nonagent.kube.image_pull_policy('Always')
