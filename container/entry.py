@@ -67,6 +67,11 @@ def init():
         os.system('pip install -e ' + tensorplex_path)
     else:
         print('WARNING: `tensorplex` lib not installed')
+    symphony_path = os.environ.get('repo_symphony', '')
+    if symphony_path and os.path.exists(symphony_path):
+        os.system('pip install -e ' + symphony_path)
+    else:
+        print('WARNING: `symphony` lib not installed')
 
     # convenient symlinks for GitVolumes to be accessible in the home dir
     for env_var in os.environ:

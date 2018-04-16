@@ -368,7 +368,7 @@ class Kubectl(object):
         
         ps.provides('ps-frontend')
         ps.reserves('ps-backend')
-        ps.requests('paramter-publish')
+        ps.requests('parameter-publish')
         
         replay.provides('collector-frontend')
         replay.provides('sampler-frontend')
@@ -376,7 +376,7 @@ class Kubectl(object):
         replay.reserves('sampler-backend')
         
         learner.requests('sampler-frontend')
-        learner.provides('paramter-publish')
+        learner.provides('parameter-publish')
         learner.reserves('prefetch-queue')
 
         tensorplex.provides('tensorplex')
