@@ -24,47 +24,9 @@
     - Maintain readable code for all future publications.
 
 
-# Community guidelines
+# [Community guidelines](https://github.com/SurrealAI/surreal-community-guide)
 
-## Checklist before you start
-
-- We have weekly Surreal all-hands meeting. It typically happens at 7 pm and provides free dinner! Wednesday is the most likely day, although it shifts from week to week to accommodate special situations like conference deadlines and midterm exams. Please check with the admins (@jimfan and @yukez) about your schedule.
- 
-- You should have write access to both `Surreal` and `Tensorplex` github repos. 
-
-- Join our Slack channel: https://stanfordvl.slack.com. You will be added as a multi-channel guest with at least one access, the `#surreal-dev` channel. Slack is our _primary means of communication_. Make sure you regularly check the messages.
-
-- Ask Yuke for access to our Google Cloud cluster.
-
-- Ask Jim for access to our Google Drive shared folder. It contains some more onboarding docs and reading materials. 
-
-## Coding requirements
-
-1. Please **periodically check your Github notifications** and address any comments in the issues that `@` you. 
-
-2. Please try your best to adhere to [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html). It's very hard to beautify big batches of nasty code, so please do it incrementally! Some of the most important rules:
-
-    * Do not exceed 80 chars per line unless it's a URL in the comment or a long error message.
-    * Two blank lines between class def and *top-level* function definitions.
-    * One blank line between *member methods inside* a class definition. 
-    * I strongly recommend you skim through the style guide. It's well-written. 
-
-3. Docs! Docs! Docs! Make sure you write docstrings as you write the code. We *will not have time* to go through every source file and write docs ad-hoc. Please conform to [Google docstring style](http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html). 
-
-4. **Report any breaking changes on Slack**. Please also make records on the wiki pages. The date on the wiki page should be Monday of the week.
-
-5. Report any bugs or feature requests on Slack **AND open Github issues**. Add appropriate labels to the issue, such as "urgent", "wishlist", etc. Make sure you assign either yourself or at least one other person.
-
-6. You should always create a pull request instead of committing directly to master, unless:
-    1. Your commit is a typo fix, documentation update, or other trivial fixes.
-    2. You created a new file/script that does not interfere with the rest of the codebase.
-    3. Feel free to commit to `surreal/scratch/` folder. It is meant for demos that you want to share with the team.
-
-## Wiki page
-
-Please check the [wiki page](https://github.com/StanfordVL/Surreal/wiki) regularly. 
-
-The wiki will record all performance progress, API changes and important breaking updates.
+Please read the entire [guideline document](https://github.com/SurrealAI/surreal-community-guide) very carefully. It contains extremely important membership policies, to-do list for new students, and coding principles.
 
 
 # Infrastructure design
@@ -166,7 +128,7 @@ Unless you are adding new dependencies, you **should not rebuild or push the ima
 
 The CPU/GPU `Dockerfile`s are in `installation/` folder.
 
-- Docker hub: `SurrealAI/surreal` (will migrate to `surrealai/surreal-cpu` soon)
+- Docker hub: `stanfordvl/surreal` (will migrate to `surrealai/surreal-cpu` soon)
 
 TODO: more docs here
 
