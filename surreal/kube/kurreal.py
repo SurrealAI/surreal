@@ -5,7 +5,8 @@ import re
 from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
-
+import symphony
+from .kubecreate import create_dev
 
 def _process_labels(label_string):
     """

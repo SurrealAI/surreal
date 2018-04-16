@@ -19,6 +19,10 @@ from surreal.kube.yaml_util import YamlList, JinjaYaml, file_content
 from surreal.kube.git_snapshot import push_snapshot
 from surreal.utils.ezdict import EzDict
 import surreal.utils as U
+from symphony.cluster.kubecluster import KubeCluster, KubeNFSVolume, KubeGitVolume
+from symphony.experiment import ProcessConfig, ProcessGroupConfig, ExperimentConfig
+import itertools
+
 
 
 SURREAL_YML_VERSION = '0.0.2'  # force version check
@@ -322,65 +326,133 @@ class Kubectl(object):
                 )
         repo_names = [path.basename(path.normpath(p)).lower()
                       for p in repo_paths]
-        context = {
-            'GIT_USER': C.git.user,
-            'GIT_TOKEN': C.git.token,
-            'GIT_SNAPSHOT_BRANCH': C.git.snapshot_branch,
-            'GIT_REPOS': repo_names,
-        }
-        if mujoco:
-            context['MUJOCO_KEY_TEXT'] = \
-                file_content(C.mujoco_key_path)
 
-        context['CMD_DICT'] = cmd_dict
-        context['NONAGENT_HOST_NAME'] = experiment_name
+        c = KubeCluster(dry_run=True)
 
-        # Mount file system from 
-        if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
-            context['FS_TYPE'] = 'emptyDir'
-            context['FS_SERVER'] = None
-            context['FS_PATH_ON_SERVER'] = None
-        elif C.fs.type.lower() in ['localhost', 'hostpath']:
-            context['FS_TYPE'] = 'hostPath'
-            context['FS_SERVER'] = None
-            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
-        elif C.fs.type.lower() in ['nfs']:
-            context['FS_TYPE'] = 'nfs'
-            context['FS_SERVER'] = C.fs.server
-            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
-        else:
-            raise NotImplementedError('Unsupported file server type: "{}". '
-              'Supported options are [emptyDir, hostPath, nfs]'.format(C.fs.type))
-        context['FS_MOUNT_PATH'] = C.fs.mount_path
+        learner = ProcessConfig('learner', container_image=nonagent_pod_spec.image, args=cmd_dict['learner'])
+        replay = ProcessConfig('replay', container_image=nonagent_pod_spec.image, args=cmd_dict['replay'])
+        ps = ProcessConfig('ps', container_image=nonagent_pod_spec.image, args=cmd_dict['ps'])
+        tensorboard = ProcessConfig('tensorboard', container_image=nonagent_pod_spec.image, args=cmd_dict['tensorboard'])
+        tensorplex = ProcessConfig('tensorplex', container_image=nonagent_pod_spec.image, args=cmd_dict['tensorplex'])
+        loggerplex = ProcessConfig('loggerplex', container_image=nonagent_pod_spec.image, args=cmd_dict['loggerplex'])
 
+        nonagent = ProcessGroupConfig('Nonagent')
+        nonagent.add_process(learner, replay, ps, tensorboard, tensorplex, loggerplex)
+
+        # TODO: Use kubernete's load-balancing instead
+        for proc in itertools.chain([agents, evals]):
+            proc.requests('ps-frontend')
+            proc.requests('collector-frontend')
+        
+        ps.provides('ps-frontend')
+        ps.reserves('ps-backend')
+        ps.requests('paramter-publish')
+        
+        replay.provides('collector-frontend')
+        replay.provides('sampler-frontend')
+        replay.reserves('collector-backend')
+        replay.reserves('sampler-backend')
+        
+        learner.requests('sampler-frontend')
+        learner.provides('paramter-publish')
+        learner.reserves('prefetch-queue')
+
+        tensorplex.provides('tensorplex')
+        loggerplex.provides('loggerplex')
+        for proc in itertools.chain([agents, evals, [ps, replay, learner]]):
+            proc.requests('tensorplex')
+            proc.requests('loggerplex')
+
+        tensorboard.exposes(tensorboard=6006)
+
+        agents = []
+        for i, arg in enumerate(cmd_dict.agent):
+            agent_p = ProcessConfig('agent-{}'.format(i), container_image=agent_pod_spec.image, args=arg)
+            agents.append(agent_p)
+
+        evals = []
+        for i, arg in enumerate(cmd_dict.eval):
+            eval_p = ProcessConfig('eval-{}'.format(i), container_image=agent_pod_spec.image, args=arg)
+            evals.append(eval_p)
+
+        exp = ExperimentConfig(experiment_name)
+        exp.add_process_group(nonagent)
+        exp.add_process(*agents)
+        exp.add_process(*evals)
+
+        # Use kube-specific configs
+        exp.use_kube()
+
+        # Read pod specifications
         assert agent_pod_type in C.pod_types, \
             'agent pod type not found in `pod_types` section in ~/.surreal.yml'
         assert nonagent_pod_type in C.pod_types, \
             'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
         agent_pod_spec = C.pod_types[agent_pod_type]
         nonagent_pod_spec = C.pod_types[nonagent_pod_type]
-        context['AGENT_IMAGE'] = agent_pod_spec.image
-        context['NONAGENT_IMAGE'] = nonagent_pod_spec.image
-        # select nodes from nodepool label to schedule agent/nonagent pods
-        context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
-        context['NONAGENT_SELECTOR'] = nonagent_pod_spec.get('selector', {})
-        # request for nodes so that multiple experiments won't crowd onto one machine
-        context['AGENT_RESOURCE_REQUEST'] = \
-            agent_pod_spec.get('resource_request', {})
-        context['NONAGENT_RESOURCE_REQUEST'] = \
-            nonagent_pod_spec.get('resource_request', {})
-        context['AGENT_RESOURCE_LIMIT'] = \
-            agent_pod_spec.get('resource_limit', {})
-        context['NONAGENT_RESOURCE_LIMIT'] = \
-            nonagent_pod_spec.get('resource_limit', {})
+        agent_resource_request = agent_pod_spec.get('resource_request', {})
+        nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
+        agent_resource_limit = agent_pod_spec.get('resource_limit', {})
+        nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
+        
+        # Mount volumes
+        # TODO: support other fs
+        
+        if not C.fs.type.lower() in ['nfs']:
+            raise NotImplementedError('Unsupported file server type: "{}". '
+              'Supported options are [nfs]'.format(C.fs.type)) 
+        nfs_server = C.fs.server
+        nfs_server_path = C.fs.path_on_server
+        nfs_mount_path = C.fs.mount_path
 
-        self.create(
-            namespace=experiment_name,
-            jinja_template=jinja_template,
-            rendered_path=rendered_path,
-            context=context,
-            check_experiment_exists=check_experiment_exists,
-        )
+        if mujoco:
+            mjkey = file_content(C.mujoco_key_path)
+
+        for proc in exp.processes.values():
+            # Mount nfs
+            proc.kube.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
+
+            # mount git
+            # This needs fixing, currently it has a lot of assumptions, 
+            # including that direcotry name of the repo locally should equal to cloud
+            # which can be false
+            for git_repo in repo_names:
+                repository = 'https://{}:{}@github.com/SurralAI/{}'.format(
+                    C.git.user, C.git.token, git_repo)
+                revision = C.git.snapshot_branch
+                mount_path = '/mylibs/{}'.format(git_repo)
+                proc.kube.mount_git_repo(repository=repository, revision=revision, mount_path=mount_path)
+                env_key = 'repo_{}'.format(git_repo.replace('-', '_'))
+                env_val = '/mylibs/{0}/{0}'.format(git_repo)
+                proc.kube.set_env(env_key, env_val) # TODO: is this env needed currently?
+
+            # Add mujoco key: TODO: handle secret properly
+            proc.kube.set_env(mujoco_key_text, mjkey)
+            proc.kube.image_pull_policy('Always')
+
+        agent_selector = agent_pod_spec.get('selector', {})
+        for proc in itertools.chain([agents, evals]):
+            proc.kube.resource_request(cpu=1.5)
+            proc.kube.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            proc.kube.restart_policy('Never')
+            # required services
+            for k, v in agent_selector:
+                proc.kube.node_selector(key=k, value=v)
+            proc.kube.resource_request(**agent_resource_request)
+            proc.kube.resource_limit(**agent_resource_limit)
+
+        learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
+        learner.kube.resource_request(**nonagent_resource_request)
+        learner.kube.resource_request(**nonagent_resource_limit)
+        # learner.kube.resource_limit(gpu=0)
+        
+        non_agent_selector = nonagent_pod_spec.get('selector', {})
+        for k, v in non_agent_selector:
+            nonagent.kube.node_selector(key=k, value=v)
+        nonagent.kube.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+        nonagent.kube.image_pull_policy('Always')
+
+        c.launch(exp)
 
     def create_tensorboard(self,
                            remote_path,
