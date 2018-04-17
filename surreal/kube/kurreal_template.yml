@@ -6,7 +6,7 @@ volumes:
 {% for git_repo in GIT_REPOS %}
 - name: {{ git_repo | to_hyphen }}
   gitRepo:
-    repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/stanfordvl/{{git_repo}}
+    repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/SurrealAI/{{git_repo}}
     revision: {{ GIT_SNAPSHOT_BRANCH }}
 {% endfor %}
 - name: fs

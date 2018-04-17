@@ -8,7 +8,7 @@ from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
-from surreal.utils.pytorch.hyper_scheduler import * 
+from surreal.utils.pytorch.hyper_scheduler import *   
 
 class PPOLearner(Learner):
     '''
@@ -59,6 +59,7 @@ class PPOLearner(Learner):
         super().__init__(learner_config, env_config, session_config)
 
         # GPU setting
+        self.global_step = 0
         num_gpus = session_config.learner.num_gpus
         self.gpu_id = list(range(num_gpus))
         self.use_cuda = len(self.gpu_id) > 0
@@ -84,6 +85,7 @@ class PPOLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
         self.ref_target_model = PPOModel(
@@ -91,12 +93,15 @@ class PPOLearner(Learner):
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
         self.ref_target_model.update_target_params(self.model)
 
         # PPO parameters
         self.ppo_mode = self.learner_config.algo.ppo_mode
+        self.if_rnn_policy = self.learner_config.algo.rnn.if_rnn_policy
+        self.horizon = self.learner_config.algo.rnn.horizon
         self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
         self.lr_policy = self.learner_config.algo.lr.lr_policy
         self.lr_baseline = self.learner_config.algo.lr.lr_baseline
@@ -168,6 +173,9 @@ class PPOLearner(Learner):
             # probability distribution. Gaussian only for now
             self.pd = DiagGauss(self.action_dim)
 
+            # placeholder for RNN hidden cells
+            self.cells = None
+
     def _clip_loss(self, obs, actions, advantages, behave_pol): 
         """
         Computes the loss with current data. also returns a dictionary of statistics
@@ -183,13 +191,13 @@ class PPOLearner(Learner):
             clip_loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        learn_pol = self.model.forward_actor(obs)
+        learn_pol = self.model.forward_actor(obs, self.cells)
         learn_prob = self.pd.likelihood(actions, learn_pol)
         behave_prob = self.pd.likelihood(actions, behave_pol)
         prob_ratio = learn_prob / behave_prob
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 
                                                1 + self.clip_epsilon)
-        surr = -prob_ratio * advantages
+        surr = -prob_ratio * advantages.view(-1, 1)
         cliped_surr = -cliped_ratio * advantages
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean()
 
@@ -218,8 +226,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
-                                    self.actor_gradient_clip_value)
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+                                            self.model.actor.parameters(), 
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -239,11 +248,12 @@ class PPOLearner(Learner):
             loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        learn_pol = self.model.forward_actor(obs)
+        learn_pol = self.model.forward_actor(obs, self.cells)
         prob_behave = self.pd.likelihood(actions, behave_pol)
         prob_learn  = self.pd.likelihood(actions, learn_pol)
+        
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages * torch.clamp(prob_learn/prob_behave, 
+        surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
                                             max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
@@ -278,8 +288,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            nn.utils.clip_grad_norm(self.model.actor.parameters(), 
-                                    self.actor_gradient_clip_value)
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+                                            self.model.actor.parameters(), 
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -295,7 +306,8 @@ class PPOLearner(Learner):
             loss: Variable for loss
             stats: dictionary of recorded statistics
         """
-        values = self.model.forward_critic(obs)
+        values = self.model.forward_critic(obs, self.cells)
+        if len(values.size()) == 3: values = values.squeeze(2)
         explained_var = 1 - torch.var(returns - values) / torch.var(returns)
         loss = (values - returns).pow(2).mean()
 
@@ -320,13 +332,13 @@ class PPOLearner(Learner):
         self.model.critic.zero_grad()
         loss.backward()
         if self.clip_critic_gradient:
-            nn.utils.clip_grad_norm(self.model.critic.parameters(), 
-                                    self.critic_gradient_clip_value)
+            stats['grad_norm_critic'] = nn.utils.clip_grad_norm(
+                                                self.model.critic.parameters(), 
+                                                self.critic_gradient_clip_value)
         self.critic_optim.step()
-
         return stats
 
-    def _gae_and_return(self, obs, obs_next, actions, rewards, dones):
+    def _gae_and_return(self, obs, obs_next, rewards, dones):
         '''
         computes generalized advantage estimate and corresponding N-step return. 
         Details of algorithm can be found here: https://arxiv.org/pdf/1506.02438.pdf
@@ -345,31 +357,57 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
             lam = torch.pow(self.lam, U.to_float_tensor(range(self.n_step)))
-                
+            returns = torch.zeros(self.batch_size, self.n_step)
+            advs = torch.zeros(self.batch_size, self.n_step)
+
             if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
                 gamma = gamma.cuda()
                 lam   = lam.cuda()
+                returns = returns.cuda()
+                advs = advs.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1).view(self.batch_size * (self.n_step + 1), -1)
-            values = self.model.forward_critic(Variable(obs_concat)).data # (batch * (n+1), 1)
-            values = values.view(self.batch_size, self.n_step + 1)
+            obs_concat = torch.cat([obs, obs_next], dim=1)
+            if not self.if_rnn_policy:
+                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) 
+            values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
-            returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+            if self.if_rnn_policy:
+                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
+                eff_len = self.n_step - self.horizon + 1
+                gamma = gamma[:self.horizon]
+                lam = lam[:self.horizon]
+                returns = returns[:, :eff_len]
+                advs = advs[:, :eff_len]
 
-            tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
-            gae = torch.sum(tds * gamma * lam, 1)
+                for step in range(eff_len):
+                    returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
+                                       values[:, step + self.horizon] * (self.gamma ** self.horizon)
+                    advs[:, step] = torch.sum(tds[:, step:step + self.horizon] * gamma * lam, 1)
 
-            if self.norm_adv:
-                std = gae.std()
-                mean = gae.mean()
-                gae = (gae - mean) / std
+                if self.norm_adv:
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
+                return advs, returns
 
-            return obs[:, 0, :], actions[:, 0, :], gae.view(-1, 1), returns.view(-1, 1)
+            else:
+                returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+                tds = rewards + self.gamma * values[:, 1:] - values[:, :-1] 
+                gae = torch.sum(tds * gamma * lam, 1)
 
-    def _advantage_and_return(self, obs, obs_next, actions, rewards, dones):
+                if self.norm_adv:
+                    std = gae.std()
+                    mean = gae.mean()
+                    gae = (gae - mean) / std
+
+                return gae.view(-1, 1), returns.view(-1, 1)
+
+    def _advantage_and_return(self, obs, obs_next, rewards, dones):
         '''
         computes  advantage estimate and corresponding N-step return with following:
             A = R - V(s)
@@ -387,32 +425,45 @@ class PPOLearner(Learner):
         '''
         with U.torch_gpu_scope(self.gpu_id):
             gamma = torch.pow(self.gamma, U.to_float_tensor(range(self.n_step)))
+            returns = torch.zeros(self.batch_size, self.n_step)
+
             if self.use_cuda: 
                 rewards = rewards.cuda()
                 dones = dones.cuda()
                 gamma = gamma.cuda()
+                returns = returns.cuda()
 
-            done_0 = dones[:, 0].contiguous()
-            done_n = dones[:, -1].contiguous()
-            obs_flat = obs[:, 0, :] # (batch, obs_dim)
-            actions_flat = actions[:, 0, :] # (batch, act_dim)
-            pds_flat = pds[:, 0, :] # (batch, 2* act_dim)
+            obs_concat = torch.cat([obs, obs_next], dim=1)
+            if not self.if_rnn_policy:
+                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
 
-            values   = self.model.forward_critic(Variable(obs_flat)).data * (1 - done_0.view(-1, 1))
-            next_val = self.model.forward_critic(Variable(obs_next.squeeze(1))).data * (1 - done_n.view(-1, 1))
+            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, 1)
+            values = values.view(self.batch_size, self.n_step + 1).data    
+            values[:, 1:] *= 1 - dones
 
-            returns = torch.sum(rewards * gamma, 1).view(-1, 1)
-            returns = returns + next_val * (self.gamma ** self.n_step) # value bootstrap
-            adv = returns - values
+            if self.if_rnn_policy:
+                gamma = gamma[:self.horizon]
+                eff_len = self.n_step - self.horizon + 1
+                returns = returns[:, :eff_len]
+                for step in range(self.n_step - self.horizon + 1):
+                    returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
+                                       values[:, step + self.horizon] * (self.gamma ** self.horizon)
+                advs = returns - values[:, :eff_len] # (batch, n_step)
+                if self.norm_adv:
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
+                return advs, returns
+            else:
+                returns = torch.sum(gamma * rewards, 1) + values[:, -1] * (self.gamma ** self.n_step)
+                advs    = returns - values[:, 0]
+                if self.norm_adv:
+                    std = advs.std()
+                    mean = advs.mean()
+                    advs = (advs - mean) / std
+                return advs.view(-1, 1), returns.view(-1, 1)
 
-            if self.norm_adv:
-                std = adv.std()
-                mean = adv.mean()
-                adv = (adv - mean) / std
-                
-            return obs_flat, actions_flat, adv, returns
-
-    def _optimize(self, obs, actions, rewards, obs_next, action_infos, dones):
+    def _optimize(self, obs, actions, rewards, obs_next, persistent_infos, one_time_infos, dones):
         '''
             main method for optimization that calls _adapt/clip_update and 
             _value_update epoch_policy and epoch_baseline times respectively
@@ -429,19 +480,33 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         with U.torch_gpu_scope(self.gpu_id):
-                pds = action_infos[0]
-                obs_iter, actions_iter, advantages, returns = self._gae_and_return(obs, 
-                                                                                   obs_next, 
-                                                                                   actions, 
-                                                                                   rewards, 
-                                                                                   dones)
-                obs_iter = Variable(obs_iter)
-                actions_iter = Variable(actions_iter)
-                advantages = Variable(advantages)
-                returns = Variable(returns)
-                behave_pol = Variable(pds[:, 0, :])
+                pds = persistent_infos[-1]
+                if self.if_rnn_policy:
+                    h = Variable(one_time_infos[0].transpose(0, 1))
+                    c = Variable(one_time_infos[1].transpose(0, 1))
+                    self.cells = (h, c)
 
-                ref_pol = self.ref_target_model.forward_actor(obs_iter).detach()
+                advantages, returns = self._gae_and_return(obs, 
+                                                           obs_next,  
+                                                           rewards, 
+                                                           dones)
+                advantages = Variable(advantages)
+                returns    = Variable(returns)
+
+                if self.if_rnn_policy:
+                    h = Variable(self.cells[0].data)
+                    c = Variable(self.cells[1].data)
+                    self.cells = (h, c)
+                    eff_len = self.n_step - self.horizon + 1
+                    behave_pol = Variable(pds[:, :eff_len, :])
+                    obs_iter   = Variable(obs[:, :eff_len, :].contiguous())
+                    actions_iter = Variable(actions[:, :eff_len, :].contiguous())
+                else:
+                    behave_pol = Variable(pds[:, 0, :])
+                    obs_iter   = Variable(obs[:, 0, :])
+                    actions_iter = Variable(actions[:, 0, :])
+                ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
+
                 for _ in range(self.epoch_policy):
                     if self.ppo_mode == 'clip':
                         stats =  self._clip_update(obs_iter, 
@@ -454,7 +519,7 @@ class PPOLearner(Learner):
                                                    advantages, 
                                                    behave_pol, 
                                                    ref_pol)
-                    curr_pol = self.model.forward_actor(obs_iter).detach()
+                    curr_pol = self.model.forward_actor(obs_iter, self.cells).detach()
                     kl = self.pd.kl(ref_pol, curr_pol).mean()
                     stats['_pol_kl'] = kl.data[0]
                     if kl.data[0] > self.kl_target * 4: break
@@ -463,29 +528,23 @@ class PPOLearner(Learner):
                 for _ in range(self.epoch_baseline):
                     baseline_stats = self._value_update(obs_iter, returns)
 
-                # updating tensorplex
+                # Collecting metrics and updating tensorplex
                 for k in baseline_stats:
                     stats[k] = baseline_stats[k]
 
-                new_pol = self.model.forward_actor(obs_iter).detach()
-                new_likelihood = self.pd.likelihood(actions_iter, new_pol)
-                ref_likelihood = self.pd.likelihood(actions_iter, ref_pol)
                 behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
 
                 stats['_avg_return_targ'] = returns.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
-                stats['_avg_IS_weight'] = (new_likelihood/torch.clamp(behave_likelihood, min = 1e-5)).mean().data[0]
                 stats['_lr'] = self.actor_lr_scheduler.get_lr()[0]
-                
+
                 if self.use_z_filter:
                     self.model.z_update(obs_iter)
                     stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
                     stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                     stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
-                    self.ref_target_model.update_target_z_filter(self.model)
-
         return stats
 
     def learn(self, batch):
@@ -501,11 +560,13 @@ class PPOLearner(Learner):
             batch.actions,
             batch.rewards,
             batch.next_obs,
-            batch.action_infos, 
+            batch.persistent_infos,
+            batch.onetime_infos, 
             batch.dones,
         )
-        self.tensorplex.add_scalars(tensorplex_update_dict)
+        self.tensorplex.add_scalars(tensorplex_update_dict, self.global_step)
         self.exp_counter += self.batch_size
+        self.global_step += 1
 
     def module_dict(self):
         '''
@@ -542,17 +603,17 @@ class PPOLearner(Learner):
         if self.ppo_mode == 'clip': # adapts clip ratios
             if final_kl > self.kl_target * self.clip_adjust_threshold[1]:
                 if self.clip_lower < self.clip_epsilon:
-                    self.clip_epsilon = self.clip_epsilon / 1.2
+                    self.clip_epsilon = self.clip_epsilon / self.learner_config.algo.clip_consts.scale_constant
             elif final_kl < self.kl_target * self.clip_adjust_threshold[0]:
                 if self.clip_upper > self.clip_epsilon:
-                    self.clip_epsilon = self.clip_epsilon * 1.2
+                    self.clip_epsilon = self.clip_epsilon * self.learner_config.algo.clip_consts.scale_constant
         else: # adapt KL divergence penalty before returning the statistics 
             if final_kl > self.kl_target * self.beta_adjust_threshold[1]:
                 if self.beta_upper > self.beta:
-                    self.beta = self.beta * 1.5
+                    self.beta = self.beta * self.learner_config.algo.adapt_consts.scale_constant
             elif final_kl < self.kl_target * self.beta_adjust_threshold[0]:
                 if self.beta_lower < self.beta:
-                    self.beta = self.beta / 1.5
+                    self.beta = self.beta / self.learner_config.algo.adapt_consts.scale_constant
         self.ref_target_model.update_target_params(self.model)
         self.kl_record = []
         self.exp_counter = 0

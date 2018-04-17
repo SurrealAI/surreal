@@ -54,6 +54,7 @@ class ZFilter(U.Module):
                 x: input tensor to be kept in record. 
         """
         # only called in learner, so we can assume it has the correct type
+        if len(x.size()) == 3: x = x.view(-1, self.in_size)
         self.running_sum += torch.sum(x.data, dim=0)
         self.running_sumsq += torch.sum(x.data * x.data, dim=0)
         added_count = U.to_float_tensor(np.array([len(x)]))
@@ -61,7 +62,6 @@ class ZFilter(U.Module):
             added_count = added_count.cuda()
         self.count += added_count 
 
-    # define forward prop operations in terms of layers
     def forward(self, inputs):
         '''
             Whiten observation (inputs) to have zero-mean, unit variance.
@@ -71,13 +71,17 @@ class ZFilter(U.Module):
             Returns:
                 0 mean std 1 weightened batch of observation
         '''
-        # if True: return inputs
+        input_shape = inputs.size()
+        assert len(input_shape) >= 2
+        inputs = inputs.view(-1, input_shape[-1])
+
         running_mean = (self.running_sum / self.count)
         running_std = torch.clamp((self.running_sumsq / self.count \
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
+        normed = normed.view(input_shape)
         return normed
 
     def cuda(self):
