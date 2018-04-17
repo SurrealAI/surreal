@@ -1,9 +1,11 @@
 """
 Template class for all learners
 """
-import time
-import queue
 import threading
+import queue
+import time
+from easydict import EasyDict
+import numpy as np
 import surreal.utils as U
 from surreal.session import (
     TimeThrottledTensorplex,
@@ -103,6 +105,7 @@ class Learner(metaclass=LearnerMeta):
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
+            preprocess_task = self._prefetch_thread_preprocess,
         )
 
 
@@ -307,48 +310,60 @@ class Learner(metaclass=LearnerMeta):
     ######
     # Batch Prefetch
     ######
+    def preprocess(self, batch):
+        '''
+        Perform algorithm-specific preprocessing tasks, overridden in subclasses
+        For example, ddpg converts relevant variables onto gpu
+        '''
+        for key in batch:
+            if type(batch[key]) == np.ndarray:
+                batch[key] = U.to_float_tensor(batch[key])
+        return batch
+
+    def _prefetch_thread_preprocess(self, batch):
+        with self.total_process_timer.time():
+            with self.aggregate_timer.time():
+                batch = self.aggregator.aggregate(batch)
+                batch = batch.__dict__
+        return batch
+
     def _preprocess_batch(self):
-        total_process_timer = U.TimeRecorder()
-        fetch_timer = U.TimeRecorder()
-        aggregate_timer = U.TimeRecorder()
-        gpu_transfer_timer = U.TimeRecorder()
-        prefetch_timer = U.TimeRecorder()
         #iterator = self.fetch_iterator().__iter__()
         total_fetch_time = 0.0
         start_time = time.time()
+
+        aggregated_batch = None
         while True:
-        #for batch in self.fetch_iterator():
+            #for batch in self.fetch_iterator():
             batch = self._prefetch_queue.get()
+            batch = EasyDict(batch.data)
             end_time = time.time()
             total_fetch_time += end_time - start_time
-            with total_process_timer.time():
-                batch = batch.data
-                with aggregate_timer.time():
-                    batch = self.aggregator.aggregate(batch)
-                # The preprocess step creates Variables which will become GpuVariables
-                with gpu_transfer_timer.time():
-                    batch.obs, batch.actions, batch.rewards, batch.obs_next, batch.dones = self.preprocess(
-                        batch.obs,
-                        batch.actions,
-                        batch.rewards,
-                        batch.obs_next, 
-                        batch.dones
-                    )
-            with prefetch_timer.time():
+            # The preprocess step creates Variables which will become GpuVariables
+            with self.gpu_transfer_timer.time():
+                batch = self.preprocess(batch)
+            with self.prefetch_timer.time():
                 self._preprocess_prefetch_queue.put(batch)
             print('----------')
-            print('total_process_timer', total_process_timer.avg)
-            print('fetch_timer', fetch_timer.avg)
-            print('aggregate_timer', aggregate_timer.avg)
-            print('gpu_transfer_timer', gpu_transfer_timer.avg)
-            print('prefetch_timer', prefetch_timer.avg)
+            print('total_process_timer', self.total_process_timer.avg)
+            print('fetch_timer', self.fetch_timer.avg)
+            print('aggregate_timer', self.aggregate_timer.avg)
+            print('gpu_transfer_timer', self.gpu_transfer_timer.avg)
+            print('prefetch_timer', self.prefetch_timer.avg)
             print('----------')
             start_time = time.time()
 
     def _setup_batch_prefetch(self):
+        self.total_process_timer = U.TimeRecorder()
+        self.fetch_timer = U.TimeRecorder()
+        self.aggregate_timer = U.TimeRecorder()
+        self.gpu_transfer_timer = U.TimeRecorder()
+        self.prefetch_timer = U.TimeRecorder()
+
         self._preprocess_prefetch_queue = queue.Queue(maxsize=20)
         self._preprocess_threads = []
         for i in range(3):
+            #self._preprocess_threads.append(multiprocessing.Process(target=self._preprocess_batch))
             self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
             self._preprocess_threads[-1].start()
 

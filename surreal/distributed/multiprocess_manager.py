@@ -98,11 +98,12 @@ class MultiprocessManagerQueue(MultiprocessManager):
 
 
 class DataBatchFetchingTask(MultiprocessTask):
-    def __init__(self, host, port, request, num_workers):
+    def __init__(self, host, port, request, num_workers, preprocess_task=None):
         """
             Override this to setup states in the main process
         """
         super().__init__()
+        self.preprocess_task = preprocess_task
         self.pool = ZmqReqClientPoolFixedRequest(host=host, 
                                                 port=port, 
                                                 request=request,
@@ -119,6 +120,8 @@ class DataBatchFetchingTask(MultiprocessTask):
 
     def handler(self, data):
         data = U.deserialize(data)
+        if self.preprocess_task is not None:
+            data = self.preprocess_task(data)
         with self.lock:
             self.sender.send(data)
 
@@ -128,7 +131,7 @@ class LearnerDataPrefetcher(MultiprocessManagerQueue):
         Convenience class that initializes everything from session config
         + batch_size
     """
-    def __init__(self, session_config, batch_size):
+    def __init__(self, session_config, batch_size, preprocess_task=None):
         self.sampler_host = session_config.replay.sampler_frontend_host
         self.sampler_port = session_config.replay.sampler_frontend_port
         self.batch_size = batch_size
@@ -142,7 +145,8 @@ class LearnerDataPrefetcher(MultiprocessManagerQueue):
         kwargs = {  'host': self.sampler_host,
                     'port': self.sampler_port,
                     'request': U.serialize(batch_size),
-                    'num_workers': self.prefetch_threads_per_process
+                    'num_workers': self.prefetch_threads_per_process,
+                    'preprocess_task': preprocess_task
                  }
         super().__init__(host=self.prefetch_host, 
                         port=self.prefetch_port, 
