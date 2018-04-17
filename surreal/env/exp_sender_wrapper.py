@@ -2,8 +2,7 @@ from .wrapper import Wrapper
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
-
-
+import resource
 exp_sender_wrapper_registry = {}
 
 def register_exp_sender_wrapper(target_class):
@@ -117,6 +116,7 @@ class ExpSenderWrapperSSARNStepBootstrap(ExpSenderWrapperSSAR):
         self.last_n.append([[self._obs, obs_next], action, reward, done, info])
         if len(self.last_n) == self.n_step:
             self.send(self.last_n.popleft())
+
         self._obs = obs_next
         return obs_next, reward, done, info
 
@@ -168,10 +168,16 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'actions': [action_1, ...],
             'rewards': [reward_1, ...],
             'dones': [done_1, ...],
-            'action_infos': [action_info_list_1, ...]
+            'persistent_infos': [infolist_1, ...],
+            'onetime_infos': [infos],
             'infos': [info_1, ...],
             'n_step': n
         }
+
+        Note: distinction between persistent infos and onetime infos is subtle.
+        Persistent info is collected for each step of rollout (i.e. prob distrib)
+        Onetime info is collected once for the first state in partial trajectory,
+            i.e. LSTM hidden/cell states
 
         Requires:
             @self.learner_config.algo.n_step: n, number of steps per experience
@@ -195,7 +201,8 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
     def _step(self, action):
         action_choice, action_info = action
         obs_next, reward, done, info = self.env.step(action_choice)
-        self.last_n.append([self._ob, action_choice, reward, done, action_info, info])
+        self.last_n.append([self._ob, action_choice, reward, done, action_info[0], action_info[1], info])
+
         if len(self.last_n) == self.n_step:
             self.send(self.last_n, obs_next)
             for i in range(self.stride):
@@ -205,17 +212,19 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         return obs_next, reward, done, info
 
     def send(self, data, obs_next):
-        obs, actions, rewards, dones, action_infos, infos = [], [], [], [], [], []
+        obs, actions, rewards, dones, persistent_infos, infos = [], [], [], [], [], []
         hash_dict = {}
         nonhash_dict = {}
-        for index, (ob, action, reward, done, action_info, info) in enumerate(data):
+        onetime_infos = None
+        for index, (ob, action, reward, done, onetime_info, persistent_info, info) in enumerate(data):
             # Store observations in a deduplicated way
             obs.append(ob)
             actions.append(action)
             rewards.append(reward)
             dones.append(done)
-            action_infos.append(action_info)
             infos.append(info)
+            persistent_infos.append(persistent_info)
+            if onetime_infos == None: onetime_infos = onetime_info
 
         hash_dict = {
             'obs': obs,
@@ -223,14 +232,14 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         }
         nonhash_dict = {
             'actions': actions,
-            'action_infos' : action_infos,
+            'onetime_infos' : onetime_infos,
+            'persistent_infos': persistent_infos,
             'rewards': rewards,
             'dones': dones,
             'infos': infos,
             'n_step': len(data),
         }
         self.sender.send(hash_dict, nonhash_dict)
-
 
 
 class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):

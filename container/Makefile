@@ -1,4 +1,4 @@
-# URL='stanfordvl/surreal-cpu'
+# URL='surrealai/surreal-cpu'
 URL = 'us.gcr.io/surreal-dev-188523/surreal-cpu'
 test:
 	docker run -ti --privileged -v `pwd`/:/code -v $(HOME)/.mujoco:/mujoco $(URL) --cmd python /code/test_install.py "a b" 'c d e' f
@@ -21,7 +21,7 @@ rebuild:
 # Can't do as container requires gpu hosts
 # test-gpu:
 
-# GPU_URL='stanfordvl/surreal-gpu'
+# GPU_URL='surrealai/surreal-gpu'
 GPU_URL = 'us.gcr.io/surreal-dev-188523/surreal-gpu'
 push-gpu:
 	gcloud docker -- push $(GPU_URL):`cat VERSION`

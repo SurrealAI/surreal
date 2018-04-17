@@ -37,16 +37,30 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 10,
-            'stride': 10,
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
+            'rnn': {
+                'if_rnn_policy': True, 
+                'rnn_hidden': 100,
+                'rnn_layer': 2,
+                'horizon': 10,
+            },
             'gradient': {
                 'clip_actor': True,
                 'clip_critic': True,
-                'clip_actor_val': 5.,
+                'clip_actor_val': 1.,
                 'clip_critic_val': 5.,
+            },
+            'lr': {
+                'lr_scheduler': "LinearWithMinLR",
+                'lr_policy': 1e-4,
+                'lr_baseline': 1e-4,
+                'frames_to_anneal': 1e8,
+                'lr_update_frequency': 100, 
+                'min_lr': 1e-5,
             },
             'consts': {
                 'init_log_sig': -1.,
@@ -56,22 +70,16 @@ def generate(argv):
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.01, # target KL divergence between before and after
             },
-            'lr': {
-                'lr_scheduler': "LinearWithMinLR",
-                'lr_policy': 1e-4,
-                'lr_baseline': 1e-4,
-                'frames_to_anneal': 8e7,
-                'lr_update_frequency': 100, 
-                'min_lr': 1e-5,
-            },
             'adapt_consts': {
                 'kl_cutoff_coeff': 50, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
-                'beta_range': (1/35.0 , 35.0) # range of the adapted penalty factor
+                'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
+                'scale_constant': 1.5,
             },
             'clip_consts': {
                 'clip_epsilon_init': 0.2, # factor of clipped loss
                 'clip_range': (0.05, 0.3), # range of the adapted penalty factor
+                'scale_constant': 1.2,
             },
         },
         'replay': {
@@ -120,7 +128,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10,
+            'fetch_parameter_interval': 20, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,

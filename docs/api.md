@@ -36,7 +36,7 @@ Public methods:
 
 Public attribute:
 
-- `.log`: [Loggerplex](https://github.com/stanfordvl/tensorplex) instance. You can record any agent activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
+- `.log`: [Loggerplex](https://github.com/SurrealAI/tensorplex) instance. You can record any agent activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
 - `.tensorplex`: instead of interacting with this attribute, you typically call `tensorplex.add_scalars()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
 
 Agent also encapsulates exploration logic. It needs to have support for both the training and evaluation mode, e.g. epsilon greedy during training but `argmax` at evaluation. 
@@ -107,7 +107,7 @@ Public methods:
 
 Public attribute:
 
-- `.log`: [Loggerplex](https://github.com/stanfordvl/tensorplex) instance. You can record any learner activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
+- `.log`: [Loggerplex](https://github.com/SurrealAI/tensorplex) instance. You can record any learner activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
 - `.tensorplex`: instead of interacting with this attribute, you typically call `tensorplex.add_scalars()` method, which periodically sends the info to the Tensorplex server. You can directly call `self.tensorplex.add_scalar(...)` if you want more control.
 
 Learner main entry:
@@ -143,7 +143,7 @@ Public attribute:
 
 Public attribute:
 
-- `.log`: [Loggerplex](https://github.com/stanfordvl/tensorplex) instance. You can record any replay activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
+- `.log`: [Loggerplex](https://github.com/SurrealAI/tensorplex) instance. You can record any replay activity with it by calling `self.log.info("info message")`, `self.log.warning("something bad happened")`, etc.
 - `.tensorplex`: call `self.tensorplex.add_scalar(...)` to display any stats you care about.
 
 TODO: the eviction thread needs to be configured in Config.
@@ -393,9 +393,9 @@ Configures the cluster, monitor, evaluator, Tensorplex, and logger. Takes care o
 - `folder`: root folder that stores everything about the experiment run, including Tensorboard files, logs, and checkpoints.
 - `replay`: replay server specs. In v0.2, replay server is a _standalone process_ independent from learner.
 - `ps`: parameter server specs.
-- `tensorplex`: distributed Tensorboard, see [Tensorplex](https://github.com/stanfordvl/tensorplex).
+- `tensorplex`: distributed Tensorboard, see [Tensorplex](https://github.com/SurrealAI/tensorplex).
 	- `update_schedule`: Tensorplex update periods in various components.
-- `loggerplex`: distributed logging, see [Tensorplex](https://github.com/stanfordvl/tensorplex).
+- `loggerplex`: distributed logging, see [Tensorplex](https://github.com/SurrealAI/tensorplex).
 - `sender`: agent side calls `env.ExpSenderWrapper` to send experience tuples to the replay server. Sender config includes `flush_iteration`, `flush_time`, etc. 
 
 Please refer to `session.default_configs.BASE_SESSION_CONFIG`.
