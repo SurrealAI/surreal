@@ -60,9 +60,9 @@ class ShardedParameterServer(object):
         self.ps_config = config.session_config.ps
         self.shards = self.ps_config.shards
 
-        self.frontend_host, self.frontend_port = ab.request('parameter-publish')
+        self.frontend_host, self.frontend_port = self.ab.request('parameter-publish')
         self.backend_host = 'localhost'
-        self.backend_port = ab.reserve('ps-backend')
+        self.backend_port = self.ab.reserve('ps-backend')
 
         self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
         self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)

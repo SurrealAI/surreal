@@ -50,7 +50,6 @@ class Replay(object, metaclass=ReplayMeta):
             exp_handler=self._insert_wrapper,
             load_balanced=True,
         )
-        sampler_port = ab.
         self._sampler_server = ZmqSimpleServer(
             host='localhost',
             port=sampler_port,

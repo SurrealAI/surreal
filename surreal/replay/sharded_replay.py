@@ -28,7 +28,7 @@ class ShardedReplay(object):
         _, self.collector_frontend_port = ab.provide('collector-frontend')
         self.collector_backend_port = ab.reserve('collector-backend')
         _, self.sampler_frontend_port = ab.provide('sampler-frontend')
-        self.sampler_backend_port = ab.provide('sampler-backend-backend')
+        self.sampler_backend_port = ab.reserve('sampler-backend')
 
         self.collector_frontend_add = "tcp://*:{}".format(self.collector_frontend_port)
         self.collector_backend_add = "tcp://*:{}".format(self.collector_backend_port)

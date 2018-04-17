@@ -1,5 +1,6 @@
 import os
 from tensorplex import Tensorplex
+from symphony import AddressBook
 
 
 def tensorplex_parser_setup(parser):
@@ -7,6 +8,7 @@ def tensorplex_parser_setup(parser):
 
 
 def run_tensorplexserver_main(args, config):
+    ab = AddressBook()
     folder = os.path.join(config.session_config.folder, 'tensorboard')
     tensorplex_config = config.session_config.tensorplex
 
@@ -28,6 +30,7 @@ def run_tensorplexserver_main(args, config):
         .register_indexed_group('replay', 10)
     )
 
+    _, port = ab.provide('tensorplex')
     tensorplex.start_server(
-        port=tensorplex_config.port,
+        port=port,
     )

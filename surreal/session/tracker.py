@@ -176,7 +176,7 @@ def get_loggerplex_client(name, session_config):
     """
     C = session_config.loggerplex
     ab = AddressBook()
-    host, port = AddressBook.request('loggerplex')
+    host, port = ab.request('loggerplex')
     return LoggerplexClient(
         name,
         host=host,
@@ -190,7 +190,7 @@ def get_loggerplex_client(name, session_config):
 
 def get_tensorplex_client(client_id, session_config):
     ab = AddressBook()
-    host, port = AddressBook.request('tensorplex')
+    host, port = ab.request('tensorplex')
     return TensorplexClient(
         client_id,
         host=host,
