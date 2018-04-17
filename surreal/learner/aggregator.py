@@ -58,26 +58,26 @@ class SSARAggregator():
         if visual_obs0[0].shape == ():
             visual_obs0 = None
         else:
-            visual_obs0 = U.to_float_tensor(visual_obs0)
+            visual_obs0 = np.array(visual_obs0)
         if flat_obs0[0].shape == ():
             flat_obs0 = None
         else:
-            flat_obs0 = U.to_float_tensor(flat_obs0)
+            flat_obs0 = np.array(flat_obs0)
         if visual_obs1[0].shape == ():
             visual_obs1 = None
         else:
-            visual_obs1 = U.to_float_tensor(visual_obs1)
+            visual_obs1 = np.array(visual_obs1)
         if flat_obs1[0].shape == ():
             flat_obs1 = None
         else:
-            flat_obs1 = U.to_float_tensor(flat_obs1)
+            flat_obs1 = np.array(flat_obs1)
 
         return EasyDict(
             obs=(visual_obs0, flat_obs0),
             obs_next=(visual_obs1, flat_obs1),
-            actions=actions,
-            rewards=U.to_float_tensor(rewards).unsqueeze(1),
-            dones=U.to_float_tensor(dones).unsqueeze(1),
+            actions=np.array(actions),
+            rewards=np.array(U.to_float_tensor(rewards).unsqueeze(1)),
+            dones=np.array(U.to_float_tensor(dones).unsqueeze(1)),
         )
 
 class MultistepAggregator():

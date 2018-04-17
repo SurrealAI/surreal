@@ -124,37 +124,59 @@ class DDPGLearner(Learner):
             self.actor_backward_time = U.TimeRecorder()
             self.actor_gradient_clip_time = U.TimeRecorder()
 
-    def preprocess(self, obs, actions, rewards, obs_next, done):
+    def preprocess(self, batch):
         with U.torch_gpu_scope(self.gpu_ids):
+            obs, actions, rewards, obs_next, done = (
+                batch['obs'],
+                batch['actions'],
+                batch['rewards'],
+                batch['obs_next'],
+                batch['dones']
+            )
+
             visual_obs, flat_obs = obs
 
             if visual_obs is not None:
-                assert torch.is_tensor(visual_obs)
-                visual_obs = Variable(visual_obs).detach()
+                #assert torch.is_tensor(visual_obs)
+                visual_obs = Variable(U.to_float_tensor(visual_obs)).detach()
 
             if flat_obs is not None:
-                assert torch.is_tensor(flat_obs)
-                flat_obs = Variable(flat_obs).detach()
+                #assert torch.is_tensor(flat_obs)
+                flat_obs = Variable(U.to_float_tensor(flat_obs)).detach()
 
             obs = (visual_obs, flat_obs)
             visual_obs_next, flat_obs_next = obs_next
 
             if visual_obs_next is not None:
-                assert torch.is_tensor(visual_obs_next)
-                visual_obs_next = Variable(visual_obs_next).detach()
+                #assert torch.is_tensor(visual_obs_next)
+                visual_obs_next = Variable(U.to_float_tensor(visual_obs_next)).detach()
 
             if flat_obs_next is not None:
-                assert torch.is_tensor(flat_obs_next)
-                flat_obs_next = Variable(flat_obs_next).detach()
+                #assert torch.is_tensor(flat_obs_next)
+                flat_obs_next = Variable(U.to_float_tensor(flat_obs_next)).detach()
 
             obs_next = (visual_obs_next, flat_obs_next)
             #print('preprocess')
             #print(type(obs_next[0].data))
 
-            actions = Variable(actions)
-            rewards = Variable(rewards)
-            done = Variable(done)
-            return (obs, actions, rewards, obs_next, done)
+            actions = Variable(U.to_float_tensor(actions))
+            rewards = Variable(U.to_float_tensor(rewards))
+            done = Variable(U.to_float_tensor(done))
+
+            (
+                batch['obs'],
+                batch['actions'],
+                batch['rewards'],
+                batch['obs_next'],
+                batch['dones']
+            ) = (
+                obs,
+                actions,
+                rewards,
+                obs_next, 
+                done
+            )
+            return batch
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''

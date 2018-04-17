@@ -1,4 +1,5 @@
 import contextlib
+import time
 import torch
 from torch.autograd import Variable
 from surreal.utils.common import noop_context
@@ -25,7 +26,11 @@ def _data_to_cuda(data):
     gpu = gpu[0]
     assert isinstance(gpu, int), 'internal error'
     if gpu >= 0:
-        return data.cuda(gpu)
+        start = time.time()
+        data = data.cuda(gpu, async=True)
+        end = time.time()
+        print('cudatime', end - start)
+        return data
     else:
         return data
 
