@@ -94,7 +94,7 @@ class Learner(metaclass=LearnerMeta):
     def _setup_connection(self):  
         # sampler_host = self.session_config.replay.sampler_frontend_host
         # sampler_port = self.session_config.replay.sampler_frontend_port
-        ps_publish_port = self.ab.provide('parameter-publish')
+        _, ps_publish_port = self.ab.provide('parameter-publish')
         batch_size = self.learner_config.replay.batch_size
         # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
