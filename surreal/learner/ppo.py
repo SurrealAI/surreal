@@ -619,3 +619,5 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
+
+# incorporating pixel input into ppo
