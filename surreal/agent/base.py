@@ -12,6 +12,8 @@ from surreal.env import (
     MaxStepWrapper, TrainingTensorplexMonitor,
     expSenderWrapperFactory, EvalTensorplexMonitor
 )
+from symphony import AddressBook
+
 agent_registry = {}
 
 
@@ -65,6 +67,8 @@ class Agent(object, metaclass=AgentMeta):
         self.cumulative_steps = 0
         self.current_step = 0
 
+        self.ab = AddressBook(verbose=False)
+
     #######
     # Internal initialization methods
     #######
@@ -73,9 +77,10 @@ class Agent(object, metaclass=AgentMeta):
             implements AutoInitializeMeta meta class.
             self.module_dict can only happen after the module is constructed by subclasses.
         """
+        host, port = self.ab.request('ps-frontend')
         self._ps_client = ParameterClient(
-            host=self.session_config.ps.parameter_serving_frontend_host,
-            port=self.session_config.ps.parameter_serving_frontend_port,
+            host=host,
+            port=port,
             module_dict=self.module_dict(),
         )
     

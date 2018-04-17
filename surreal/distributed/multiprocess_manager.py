@@ -128,13 +128,12 @@ class LearnerDataPrefetcher(MultiprocessManagerQueue):
         Convenience class that initializes everything from session config
         + batch_size
     """
-    def __init__(self, session_config, batch_size):
-        self.sampler_host = session_config.replay.sampler_frontend_host
-        self.sampler_port = session_config.replay.sampler_frontend_port
+    def __init__(self, session_config, batch_size, ab):
+        self.sampler_host, self.sampler_port = ab.request('sampler-frontend')
         self.batch_size = batch_size
         self.max_queue_size = session_config.learner.max_prefetch_batch_queue
-        self.prefetch_host = session_config.learner.prefetch_host
-        self.prefetch_port = session_config.learner.prefetch_port
+        self.prefetch_host = 'localhost'
+        self.prefetch_port = ab.reserve('prefetch-queue')
         self.prefetch_processes = session_config.learner.prefetch_processes
         self.prefetch_threads_per_process = session_config.learner.prefetch_threads_per_process
 

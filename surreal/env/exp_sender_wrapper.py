@@ -2,6 +2,7 @@ from .wrapper import Wrapper
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
+from symphony import AddressBook
 
 
 exp_sender_wrapper_registry = {}
@@ -31,9 +32,11 @@ class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
         # TODO: initialize config in a unified place 
         self.session_config = Config(session_config).extend(BASE_SESSION_CONFIG)
         self.learner_config = Config(learner_config).extend(BASE_LEARNER_CONFIG)
+        ab = AddressBook()
+        host,port = ab.request('collector-frontend')
         self.sender = ExpSender(
-            host=self.session_config.replay.collector_frontend_host,
-            port=self.session_config.replay.collector_frontend_port,
+            host=host,
+            port=port,
             flush_iteration=self.session_config.sender.flush_iteration,
         )
         
