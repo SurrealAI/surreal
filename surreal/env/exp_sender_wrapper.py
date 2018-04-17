@@ -168,12 +168,16 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'actions': [action_1, ...],
             'rewards': [reward_1, ...],
             'dones': [done_1, ...],
-            'persistent_infos': [infolist_1, ...]
-            'onetime_infos': [infos]
-            'onetime_info': one_time 
+            'persistent_infos': [infolist_1, ...],
+            'onetime_infos': [infos],
             'infos': [info_1, ...],
             'n_step': n
         }
+
+        Note: distinction between persistent infos and onetime infos is subtle.
+        Persistent info is collected for each step of rollout (i.e. prob distrib)
+        Onetime info is collected once for the first state in partial trajectory,
+            i.e. LSTM hidden/cell states
 
         Requires:
             @self.learner_config.algo.n_step: n, number of steps per experience

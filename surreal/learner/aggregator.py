@@ -133,8 +133,9 @@ class MultistepAggregatorWithInfo():
         ExpSenderWrapperMultiStepMovingWindowWithInfo. The key return values are
         a list of persistent infos, and a FloatTensor of onetime info that are 
         auxiliary information returned from the agent. The main difference is
-        that persistent infos are required for every step, whereas onetime infos
-        are needed only for first or last of the steps
+        that persistent infos are required for every step, for instance the probability
+        distribution for policy, whereas onetime infos are needed only for first or 
+        last of the steps, for example the LSTM hidden/cell states.
 
         This aggregator should be used when the agent is required to 
         expose attributes to the learner. For instance, PPO needs to use this
@@ -202,7 +203,7 @@ class MultistepAggregatorWithInfo():
         """
             Stacks n steps into single numpy arrays
             Args:
-                experience: a dictionry of subtrajectory information
+                experience: (type: dictionary) subtrajectory information
             Returns:
                 observations: stacked numpy array for observations in dim 0
                 actions: stacked numpy array for actions in dim 0
@@ -219,7 +220,7 @@ class MultistepAggregatorWithInfo():
         """
             Gathers corresponding action informations from partial trajectories
             Args:
-                experience: a dictionry of subtrajectory information
+                experience: (type: dictionary) subtrajectory information
             Returns:
                 persistent_infos: list of batched FloatTensors
                 onetime_infos: one batched FloatTensor

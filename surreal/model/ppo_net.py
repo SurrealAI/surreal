@@ -222,6 +222,11 @@ class PPOModel(U.Module):
         if self.rnn_config.if_rnn_policy:
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)
             obs, cells = self.rnn_stem(obs, cells)
+            
+            # Note that this is effectively the same of a .detach() call.
+            # .detach() is necessary here to prevent overflow of memory
+            # otherwise rollout in length of thousands will prevent previously
+            # accumulated hidden/cell states from being freed.
             cells = (Variable(cells[0].data),Variable(cells[1].data))
             obs = obs.contiguous()  
             obs = obs.view(-1, self.rnn_config.rnn_hidden)

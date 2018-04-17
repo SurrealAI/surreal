@@ -42,6 +42,9 @@ class PPOAgent(Agent):
 
         self.cells = None
         if self.rnn_config.if_rnn_policy:
+            # Note that .detach() is necessary here to prevent overflow of memory
+            # otherwise rollout in length of thousands will prevent previously
+            # accumulated hidden/cell states from being freed.
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
                                                self.rnn_config.rnn_hidden)).detach(),
@@ -78,7 +81,11 @@ class PPOAgent(Agent):
         assert torch.is_tensor(obs)
         obs = Variable(obs.unsqueeze(0))
 
-        action_info = [[], []] # 0: one time, 1: every time
+        # Note: we collect two kinds of action infos, one persistent one onetime
+        # persistent info is collected for every step in rollout (i.e. policy probability distribution)
+        # onetime info is collected for the first step in partial trajectory (i.e. RNN hidden state)
+        # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
+        action_info = [[], []]
         
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
@@ -121,6 +128,9 @@ class PPOAgent(Agent):
             reset of LSTM hidden and cell states
         '''
         if self.rnn_config.if_rnn_policy:
+            # Note that .detach() is necessary here to prevent overflow of memory
+            # otherwise rollout in length of thousands will prevent previously
+            # accumulated hidden/cell states from being freed.
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
                                                self.rnn_config.rnn_hidden)).detach(),
