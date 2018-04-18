@@ -78,7 +78,7 @@ class PPOLearner(Learner):
         self.batch_size = self.learner_config.algo.batch_size
 
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[1] # screwy design!
+        self.obs_dim = self.env_config.obs_spec.dim[1] # screwy design! 
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         pixel_config = self.learner_config.algo.pixel \
                             if self.env_config.pixel_input else None
