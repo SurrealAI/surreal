@@ -144,6 +144,7 @@ class PPOModel(U.Module):
 
         input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.obs_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
+        print(self.obs_dim)
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 

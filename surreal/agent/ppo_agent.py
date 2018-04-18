@@ -35,7 +35,7 @@ class PPOAgent(Agent):
             agent_mode=agent_mode,
         )
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.obs_dim = self.env_config.obs_spec.dim[1] # this is a screwy design
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.rnn_config = self.learner_config.algo.rnn
@@ -53,7 +53,7 @@ class PPOAgent(Agent):
                                               self.rnn_config.rnn_hidden)).detach())
 
         pixel_config = self.learner_config.algo.pixel \
-                            if self.env_config.if_pixel_input else None
+                            if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
@@ -85,10 +85,12 @@ class PPOAgent(Agent):
         # onetime info is collected for the first step in partial trajectory (i.e. RNN hidden state)
         # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
         action_info = [[], []]
-
-        if self.env_config.if_pixel_input:
+        print(obs)
+        if self.env_config.pixel_input:
             obs_pixel, obs_ld = obs
             action_info[1].append(obs_ld)
+
+            print("observations shapes:", obs_pixel.shape, obs_ld.shape)
 
             obs_pixel = U.to_float_tensor(obs_pixel)
             assert torch.is_tensor(obs_pixel)

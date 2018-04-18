@@ -78,10 +78,10 @@ class PPOLearner(Learner):
         self.batch_size = self.learner_config.algo.batch_size
 
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.obs_dim = self.env_config.obs_spec.dim[1] # screwy design!
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         pixel_config = self.learner_config.algo.pixel \
-                            if self.env_config.if_pixel_input else None
+                            if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
@@ -439,7 +439,7 @@ class PPOLearner(Learner):
                 gamma = gamma.cuda()
                 returns = returns.cuda()
 
-            if self.env_config.if_pixel_input:
+            if self.env_config.pixel_input:
                 obs_concat = (Variable(torch.cat([obs[0], obs_next[0]], dim=1)), 
                               Variable(torch.cat([obs[1], obs_next[1]], dim=1)))
             else:
@@ -493,7 +493,7 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
 
-                if self.env_config.if_pixel_input:
+                if self.env_config.pixel_input:
                     obs_ld = persistent_infos[0]
                     obs_next_ld = one_time_infos[-1]
                     obs = (obs, obs_ld)
@@ -518,7 +518,7 @@ class PPOLearner(Learner):
                     self.cells = (h, c)
                     eff_len = self.n_step - self.horizon + 1
 
-                if self.env_config.if_pixel_input:
+                if self.env_config.pixel_input:
                     obs_pixel, obs_ld = obs
                     obs_pixel = Variable(obs_pixel[:, :eff_len, :].contiguous())
                     obs_pixel = Variable(obs_ld[:, :eff_len, :].contiguous())
@@ -640,12 +640,5 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-
-'''
-    PPO model √
-    PPO agent (act method asserting its tensor + put low dimension in info) √
-    PPO learner (batching logic in GAE computation)
-    exp_sender_wrapper: make sure to send only the first one of the two √
-'''
 
 
