@@ -443,3 +443,31 @@ class FrameStackWrapper(Wrapper):
 
     def action_spec(self):
         return self.env.action_spec()
+
+class FlatOnlyWrapper(Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def _step(self, action):
+        obs_next, reward, done, info = self.env.step(action)
+        visual, flat = obs_next
+        if visual is None:
+            obs_next = flat
+        return obs_next_stacked, reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        visual, flat = obs
+        if visual is None:
+            obs = flat
+        return obs, info
+
+    def observation_spec(self):
+        spec = self.env.observation_spec()
+        visual, flat = spec['dim']
+        if visual is None:
+            spec['dim'] = flat
+        return spec
+
+    def action_spec(self):
+        return self.env.action_spec()
