@@ -138,7 +138,9 @@ class DDPGLearner(Learner):
 
             if visual_obs is not None:
                 #assert torch.is_tensor(visual_obs)
-                visual_obs = Variable(U.to_float_tensor(visual_obs)).detach()
+                visual_obs = Variable(torch.ByteTensor(visual_obs)).float().detach()
+                #visual_obs = Variable(torch.ByteTensor(visual_obs)).detach()
+                #visual_obs = Variable(U.to_float_tensor(visual_obs)).detach()
 
             if flat_obs is not None:
                 #assert torch.is_tensor(flat_obs)
@@ -149,7 +151,9 @@ class DDPGLearner(Learner):
 
             if visual_obs_next is not None:
                 #assert torch.is_tensor(visual_obs_next)
-                visual_obs_next = Variable(U.to_float_tensor(visual_obs_next)).detach()
+                visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).float().detach()
+                #visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).detach()
+                #visual_obs_next = Variable(U.to_float_tensor(visual_obs_next)).detach()
 
             if flat_obs_next is not None:
                 #assert torch.is_tensor(flat_obs_next)
@@ -283,7 +287,14 @@ class DDPGLearner(Learner):
             )
             self.batch_queue.put(batch)
         '''
+        '''
+        visual, flat = batch.obs
+        batch.obs = [visual.float().detach(), flat]
+
+        visual, flat = batch.obs_next
+        batch.obs_next = [visual.float().detach(), flat]
         #if self.batch_queue.qsize() == self.batch_queue_size:
+        '''
         if True:
             with self.total_learn_time.time():
                 #batch = self.batch_queue.get()

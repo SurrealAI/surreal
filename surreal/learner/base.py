@@ -344,6 +344,7 @@ class Learner(metaclass=LearnerMeta):
                 batch = self.preprocess(batch)
             with self.prefetch_timer.time():
                 self._preprocess_prefetch_queue.put(batch)
+            '''
             print('----------')
             print('total_process_timer', self.total_process_timer.avg)
             print('fetch_timer', self.fetch_timer.avg)
@@ -351,6 +352,7 @@ class Learner(metaclass=LearnerMeta):
             print('gpu_transfer_timer', self.gpu_transfer_timer.avg)
             print('prefetch_timer', self.prefetch_timer.avg)
             print('----------')
+            '''
             start_time = time.time()
 
     def _setup_batch_prefetch(self):
@@ -360,9 +362,9 @@ class Learner(metaclass=LearnerMeta):
         self.gpu_transfer_timer = U.TimeRecorder()
         self.prefetch_timer = U.TimeRecorder()
 
-        self._preprocess_prefetch_queue = queue.Queue(maxsize=20)
+        self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
         self._preprocess_threads = []
-        for i in range(3):
+        for i in range(1):
             #self._preprocess_threads.append(multiprocessing.Process(target=self._preprocess_batch))
             self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
             self._preprocess_threads[-1].start()
@@ -372,8 +374,10 @@ class Learner(metaclass=LearnerMeta):
         while True:
             with timer.time():
                 yield self._preprocess_prefetch_queue.get()
+            '''
             print('batch dequeue time', timer.avg)
             print('num elements in queue', self._preprocess_prefetch_queue.qsize())
+            '''
 
     ######
     # Main Loop
@@ -387,7 +391,6 @@ class Learner(metaclass=LearnerMeta):
         self.publish_parameter(0, message='batch '+str(0))
 
         for i, data in enumerate(self.fetch_processed_batch_iterator()):
-            print('dequeued data')
             self.current_iter = i
             with self.learn_timer.time():
                 self.learn(data)
