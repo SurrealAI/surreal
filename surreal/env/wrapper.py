@@ -465,7 +465,7 @@ class FlatOnlyWrapper(Wrapper):
     def observation_spec(self):
         spec = self.env.observation_spec()
         visual, flat = spec['dim']
-        if flat is None:
+        if visual is None:
             spec['dim'] = flat
         return spec
 
