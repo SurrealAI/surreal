@@ -67,7 +67,7 @@ class PPOLearner(Learner):
         if not self.use_cuda:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using GPU: {}'.format(self.gpu_id))
+            self.log.info('Using GPU: {}'.format(self.gpu_id)) 
 
         # RL general parameters
         self.gamma = self.learner_config.algo.gamma
