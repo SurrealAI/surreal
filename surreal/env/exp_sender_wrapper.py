@@ -218,13 +218,18 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         onetime_infos = None
         for index, (ob, action, reward, done, onetime_info, persistent_info, info) in enumerate(data):
             # Store observations in a deduplicated way
-            obs.append(ob)
+            ob_send = ob[0] if type(ob) is tuple else ob
+            obs.append(ob_send)
             actions.append(action)
             rewards.append(reward)
             dones.append(done)
             infos.append(info)
             persistent_infos.append(persistent_info)
             if onetime_infos == None: onetime_infos = onetime_info
+
+        if type(obs_next) is tuple:
+            onetime_infos.append(obs_next[1])
+            obs_next = obs_next[0]
 
         hash_dict = {
             'obs': obs,

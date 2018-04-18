@@ -110,6 +110,7 @@ class PPOModel(U.Module):
                  obs_dim,
                  action_dim,
                  use_z_filter,
+                 pixel_config,
                  rnn_config,
                  use_cuda):
         super(PPOModel, self).__init__()
@@ -119,26 +120,40 @@ class PPOModel(U.Module):
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
+        self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
-        self.rnn_stem = None
+        self.rnn_stem, self.cnn_stem = None, None
+
+        self.if_pixel_input = self.pixel_config is not None
+        if self.if_pixel_input:
+            self.cnn_stem = PerceptionNetwork(self.obs_dim,
+                                              self.pixel_config.perception_hidden_dim,
+                                              use_layernorm=self.pixel_config.use_layernorm)
+            if use_cuda:
+                self.cnn_stem = self.cnn_stem.cuda()
+
         if self.rnn_config.if_rnn_policy:
-            self.rnn_stem = nn.LSTM(self.obs_dim,
-                            self.rnn_config.rnn_hidden,
-                            self.rnn_config.rnn_layer,
-                            batch_first=True)
+            self.rnn_stem = nn.LSTM(self.obs_dim if not self.if_pixel_input else \
+                                    self.pixel_config.perception_hidden_dim,
+                                    self.rnn_config.rnn_hidden,
+                                    self.rnn_config.rnn_layer,
+                                    batch_first=True)
             if use_cuda:
                 self.rnn_stem = self.rnn_stem.cuda()
 
-        input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else self.obs_dim
+        input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.obs_dim
+        input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
                                       self.init_log_sig, 
+                                      self.cnn_stem,
                                       self.rnn_stem)
-        self.critic = PPO_CriticNetwork(input_size, self.rnn_stem)
+        self.critic = PPO_CriticNetwork(input_size, self.cnn_stem, self.rnn_stem)
         if self.use_z_filter:
-            self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
+            z_filter_dim = obs_dim[1] if self.if_pixel_input else obs_dim
+            self.z_filter = ZFilter(z_filter_dim, use_cuda=use_cuda)
 
     def update_target_params(self, net):
         '''
@@ -169,7 +184,21 @@ class PPOModel(U.Module):
                 The output of actor network
         '''
         if self.use_z_filter:
+            # currently NOT IMPLEMENTED for pixel based training
             obs = self.z_filter.forward(obs)
+
+        if self.if_pixel_input:
+            # assumes observation are tuples when CNN is used 
+            obs_pixel_shape = obs[0].size()
+
+            obs = (obs[0].view(-1, obs_pixel_shape[2],
+                                   obs_pixel_shape[3],
+                                   obs_pixel_shape[4]), obs[1])
+            obs = self.cnn_stem(obs)
+            if self.rnn_config.if_rnn_policy:
+                obs = obs.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
+            else:
+                obs = obs.view(obs_pixel_shape[0], -1)
 
         if self.rnn_config.if_rnn_policy:
             assert len(obs.size()) == 3
@@ -193,7 +222,21 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         if self.use_z_filter:
+            # currently NOT IMPLEMENTED for pixel based training
             obs = self.z_filter.forward(obs)
+
+        if self.if_pixel_input:
+            # assumes observation are tuples when CNN is used 
+            obs_pixel_shape = obs[0].size()
+
+            obs = (obs[0].view(-1, obs_pixel_shape[2],
+                                   obs_pixel_shape[3],
+                                   obs_pixel_shape[4]), obs[1])
+            obs = self.cnn_stem(obs)
+            if self.rnn_config.if_rnn_policy:
+                obs = obs.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
+            else:
+                obs = obs.view(obs_pixel_shape[0], -1)
 
         if self.rnn_config.if_rnn_policy:
             obs, _ = self.rnn_stem(obs, cells)
@@ -217,7 +260,12 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         if self.use_z_filter:
+            # currently NOT IMPLEMENTED for pixel based training
             obs = self.z_filter.forward(obs)
+
+        if self.if_pixel_input:
+            # assumes observation are tuples when CNN is used 
+            obs = self.cnn_stem(obs)
 
         if self.rnn_config.if_rnn_policy:
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)
@@ -241,6 +289,7 @@ class PPOModel(U.Module):
             Args: obs -- batch of observations
         '''
         if self.use_z_filter:
+            # z-filter currently NOT IMPLEMENTED for pixel input
             self.z_filter.z_update(obs)
         else:
             raise ValueError('Z_update called when network is set to not use z_filter')

@@ -52,12 +52,15 @@ class PPOAgent(Agent):
                                               1, # batch_size is 1
                                               self.rnn_config.rnn_hidden)).detach())
 
+        pixel_config = self.learner_config.algo.pixel \
+                            if self.env_config.if_pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
             obs_dim=self.obs_dim,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             rnn_config=self.rnn_config,
+            pixel_config=pixel_config,
             use_cuda=False,
         )
 
@@ -73,19 +76,31 @@ class PPOAgent(Agent):
 
             Returns:
                 action_choice: sampled or max likelihood action to input to env
-                action_info: list of auxiliary information
+                action_info: list of auxiliary information - [onetime, persistent]
                     Note: this includes probability distribution the action is
                     sampled from, RNN hidden states
         '''
-        obs = U.to_float_tensor(obs)
-        assert torch.is_tensor(obs)
-        obs = Variable(obs.unsqueeze(0))
-
         # Note: we collect two kinds of action infos, one persistent one onetime
         # persistent info is collected for every step in rollout (i.e. policy probability distribution)
         # onetime info is collected for the first step in partial trajectory (i.e. RNN hidden state)
         # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
         action_info = [[], []]
+
+        if self.env_config.if_pixel_input:
+            obs_pixel, obs_ld = obs
+            action_info[1].append(obs_ld)
+
+            obs_pixel = U.to_float_tensor(obs_pixel)
+            assert torch.is_tensor(obs_pixel)
+            obs_pixel = Variable(obs_pixel.unsqueeze(0))
+            obs_ld = U.to_float_tensor(obs_ld)
+            assert torch.is_tensor(obs_ld)
+            obs_ld = Variable(obs_ld.unsqueeze(0))
+            obs = (obs_pixel, obs_ld)
+        else:
+            obs = U.to_float_tensor(obs)
+            assert torch.is_tensor(obs)
+            obs = Variable(obs.unsqueeze(0))
         
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
