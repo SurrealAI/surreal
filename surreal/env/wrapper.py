@@ -453,7 +453,7 @@ class FlatOnlyWrapper(Wrapper):
         visual, flat = obs_next
         if visual is None:
             obs_next = flat
-        return obs_next_stacked, reward, done, info
+        return obs_next, reward, done, info
 
     def _reset(self):
         obs, info = self.env.reset()
