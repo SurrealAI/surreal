@@ -230,17 +230,21 @@ class Agent(object, metaclass=AgentMeta):
         while True:
             self.pre_episode()
             obs, info = env.reset()
+            total_reward = 0.0
             while True:
                 if render:
                     env.render()
                 self.pre_action(obs)
                 action = self.act(obs)
                 obs_next, reward, done, info = env.step(action)
+                total_reward += reward
                 self.post_action(obs, action, obs_next, reward, done, info)
                 obs = obs_next
                 if done:
                     break
             self.post_episode()
+            if self.current_episode % 20 == 0:
+                print('episode', self.current_episode, 'reward', total_reward)
 
     def prepare_env(self, env):
         """
