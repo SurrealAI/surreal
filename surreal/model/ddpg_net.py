@@ -43,10 +43,11 @@ class DDPGModel(U.Module):
         return self.critic(obs, action)
 
     def forward_perception(self, obs_in):
-        return self.perception(self.scale_image(obs_in))
+        if self.is_uint8_pixel_input:
+            obs_in = self.scale_image(obs_in['image'])
+        return self.perception(obs_in)
 
     def forward(self, obs_in):
-        print('received shape', obs_in.shape)
         obs = self.forward_perception(obs_in)
         action = self.forward_actor(obs)
         value = self.forward_critic(obs, action)

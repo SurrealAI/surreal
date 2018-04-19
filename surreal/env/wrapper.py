@@ -8,6 +8,7 @@ import functools
 import sys
 import gym
 import dm_control
+from surreal.utils import get_matching_keys_for_modality
 from dm_control.suite.wrappers import pixels
 from dm_control.rl.environment import StepType
 
@@ -294,6 +295,7 @@ def flatten_obs(obs):
         flat_observations = np.concatenate(flat_observations)
     return [visual_observations, flat_observations]
 
+'''
 class ObservationConcatenationWrapper(Wrapper):
     def _step(self, action):
         #print('obs concat sub', type(self.env))
@@ -339,16 +341,42 @@ class ObservationConcatenationWrapper(Wrapper):
             'dim': self.env.action_spec().shape,
         }
     # TODO: what about upper/lower bound information
+'''
+
+class TransposeWrapper(Wrapper):
+    def __init__(self, env, learner_config):
+        super().__init__(env)
+        self._learner_config = learner_config
+
+    def _step(self, obs):
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
+            # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
+            obs[key] = obs[key].transpose((2, 0, 1))
+        return obs
+
+    def observation_spec(self):
+        spec = self.env.observation_spec()
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+            H, W, C = spec[key].shape
+            # We transpose to (C, H, W) to work with pytorch convolutions
+            visual_dim = (C, H, W)
+            spec[key] = dm_control.rl.specs.ArraySpec(
+                shape=(C, H, W), dtype=np.dtype('uint8'), name='pixels')
+        return spec
 
 class GrayscaleWrapper(Wrapper):
+    def __init__(self, env, learner_config):
+        super().__init__(env)
+        self._learner_config = learner_config
+
     def _grayscale(self, obs):
-        obs_visual, obs_flat = obs
-        if obs_visual is None:
-            return obs
-        C, H, W = obs_visual.shape
-        assert obs_visual.shape == (3, 84, 84)
-        obs_visual = np.mean(obs_visual, 0, 'uint8').reshape(1, H, W)
-        return [obs_visual, obs_flat]
+        for key in get_matching_keys_for_modality(obs, 'pixel', self.learner_config):
+            observation_modality = obs[key]
+            C, H, W = observation_modality.shape
+            # For now, we expect an RGB image
+            assert C == 3
+            obs[key] = np.mean(observation_modality, 0, 'uint8').reshape(1, H, W)
+        return obs
 
     def _step(self, action):
         obs, reward, done, info = self.env.step(action)
@@ -365,54 +393,49 @@ class GrayscaleWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        visual_dim, flat_dim = spec['dim']
-        if visual_dim is None:
-            visual_dim = None
-        else:
-            assert visual_dim == (3, 84, 84)
-            C, H, W = visual_dim
-            visual_dim = dm_control.rl.specs.ArraySpec(
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+            dimensions = spec
+            C, H, W = dimensions
+            # We expect rgb for now
+            assert C == 3
+            spec[key] = dm_control.rl.specs.ArraySpec(
                 shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
-        return {
-            'type': 'continuous',
-            'dim': (visual_dim, flat_dim)
-        }
+        return spec
 
     def action_spec(self):
         return self.env.action_spec()
 
 class FrameStackWrapper(Wrapper):
-    def __init__(self, env, env_config):
+    def __init__(self, env, env_config, learner_config):
         super().__init__(env)
         self.n = env_config.frame_stacks
         self._history = deque(maxlen=self.n)
+        self._learner_config = learner_config
 
-    def _stacked_observation(self):
+    def _stacked_observation(self, obs):
         '''
         Assumes self._history contains the last n frames from the environment
         Concatenates the frames together along the depth axis
         '''
-        visual_obs = []
-        flat_obs = []
-        for v, f in self._history:
-            visual_obs.append(v)
-            flat_obs.append(f)
-        if visual_obs[0] is None:
-            visual_obs = None
-        else:
-            assert visual_obs[0].shape == (1, 84, 84) # C, H, W
-            visual_obs = np.concatenate(visual_obs, axis=0)
-        if flat_obs[0] is None:
-            flat_obs = None
-        else:
-            flat_obs = flat_obs[-1] # Most recent observation
-        #print(visual_obs, flat_obs)
-        return [visual_obs, flat_obs]
+        stacked_obs_dict_unordered = {}
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
+            obs_stacked = []
+            for obs in self.history:
+                obs_stacked.append(obs[key])
+                stacked = np.concatenate(obs_stacked, axis=0)
+                stacked_obs_dict_unordered[key] = stacked
+        stacked_obs_dict_ordered = OrderedDict()
+        for key in obs:
+            if key in stacked_obs_dict_unordered:
+                stacked_obs_dict_ordered[key] = stacked_obs_dict_unordered[key]
+            else:
+                stacked_obs_dict_ordered[key] = obs[key]
+        return stacked_obs_dict_ordered
 
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
         self._history.append(obs_next)
-        obs_next_stacked = self._stacked_observation()
+        obs_next_stacked = self._stacked_observation(obs_next)
         return obs_next_stacked, reward, done, info
 
     def _reset(self):
@@ -427,23 +450,19 @@ class FrameStackWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        #print(spec)
-        visual_dim, flat_dim = spec['dim']
-        if visual_dim is None:
-            visual_dim = None
-        else:
-            C, H, W = visual_dim.shape
-            assert (H, W) == (84, 84)
-            visual_dim = dm_control.rl.specs.ArraySpec(
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+            dimensions = spec[key]
+            C, H, W = dimensions.shape
+            # We expect grayscale input as input
+            assert C == 1
+            spec[key] = dm_control.rl.specs.ArraySpec(
                 shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
-        return {
-            'type': 'continuous', 
-            'dim': [visual_dim, flat_dim]
-        }
+        return spec
 
     def action_spec(self):
         return self.env.action_spec()
 
+'''
 class FlatOnlyWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
@@ -471,3 +490,4 @@ class FlatOnlyWrapper(Wrapper):
 
     def action_spec(self):
         return self.env.action_spec()
+'''

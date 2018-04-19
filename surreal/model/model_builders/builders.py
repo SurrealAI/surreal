@@ -11,14 +11,10 @@ from ..layer_norm import LayerNorm
 class PerceptionNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
-        self.use_layernorm = use_layernorm
-        D_obs, _ = D_obs # Unpacking D_obs_visual, D_obs_flat, TODO: fix this strange line
-        if use_layernorm:
-            self.layer_norm = LayerNorm()
         conv_channels=[32, 32]
         C, H, W = D_obs.shape
-        self.conv1 = nn.Conv2d(C, 32, [3,3], stride=2)
-        self.conv2 = nn.Conv2d(32, 32, [3,3], stride=1)
+        self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
+        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
         # TODO: auto shape inference
         conv_output_size = 48672
         self.fc_obs = nn.Linear(conv_output_size, D_out)
