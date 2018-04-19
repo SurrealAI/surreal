@@ -192,23 +192,28 @@ class MultistepAggregatorWithInfo():
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
-            observations.append(observation_n_step)
+            action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
+            observations.append(exp['obs'])
             next_obs.append(exp['obs_next'])
 
-        observations =  U.to_float_tensor(np.stack(observations))
-        next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
-        if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
-        elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(2)
+        # observations =  U.to_float_tensor(np.stack(observations))
+        # next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
+
+        observations = self.batch_obs(observations)
+        next_obs = self.batch_obs(next_obs)
+        for k in next_obs.keys():
+            next_obs[k] = np.expand_dims(next_obs[k], 1)
+
+        # if self.action_type == ActionType.continuous:
+        #     actions = U.to_float_tensor(actions)
+        if self.action_type == ActionType.discrete:
+            actions = np.expand_dims(2).astype('int64')
+            # actions = torch.LongTensor(actions).unsqueeze(2)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        rewards = U.to_float_tensor(rewards)
-        dones = U.to_float_tensor(dones)
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
 
@@ -219,6 +224,22 @@ class MultistepAggregatorWithInfo():
                     persistent_infos=persistent_infos,
                     onetime_infos=onetime_infos,
                     dones=dones,)
+
+    def batch_obs(self, traj_list):
+        batched_obs = {}
+
+        for k in traj_list[0][0].keys():
+            batched_obs[k] = []
+            for sub_traj in traj_list:
+                tmp_obs = []
+                for obs_n in sub_traj: 
+                    tmp_obs.append(obs_n[k])
+                batched_obs[k].append(np.stack(tmp_obs))
+
+        for k in batched_obs.keys():
+            batched_obs[k] = np.stack(batched_obs[k])
+
+        return batched_obs
 
     def stack_n_step_experience(self, experience):
         """
@@ -231,11 +252,10 @@ class MultistepAggregatorWithInfo():
                 rewards: stacked numpy array for rewards in dim 0
                 dones: stacked numpy array for termination flag in dim 0
         """
-        observations = np.stack(experience['obs'])
         actions = np.stack(experience['actions'])
         rewards = np.array(experience['rewards'])
         dones = np.array(experience['dones'])
-        return observations, actions, rewards, dones
+        return actions, rewards, dones
 
     def _gather_action_infos(self, exp_list):
         """
@@ -272,11 +292,9 @@ class MultistepAggregatorWithInfo():
                     persistent_infos[i].append(np.stack(one_exp_info))
 
         if exists_ones:
-            onetime_infos = [U.to_float_tensor(np.stack(info)) 
-                                for info in onetime_infos]
+            onetime_infos = [np.stack(info) for info in onetime_infos]
         if exists_pers:
-            persistent_infos = [U.to_float_tensor(np.asarray(infos)) 
-                                    for infos in persistent_infos]
+            persistent_infos = [np.asarray(infos) for infos in persistent_infos]
 
         return onetime_infos, persistent_infos
 
