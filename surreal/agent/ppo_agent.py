@@ -36,6 +36,7 @@ class PPOAgent(Agent):
         )
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
+        self.input_config = self.learner_config.model.input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.rnn_config = self.learner_config.algo.rnn
@@ -93,13 +94,13 @@ class PPOAgent(Agent):
         obs_tensor = {}
         for k in obs.keys():
            tmp_tensor = U.to_float_tensor(obs[k])
-           obs[k] = Variable(tmp_tensor.unsqueeze(0))
+           obs_tensor[k] = Variable(tmp_tensor.unsqueeze(0))
         
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
             action_info[0].append(self.cells[1].squeeze(1).data.numpy())
 
-        action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
+        action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
         action_pd = action_pd.data.numpy()
 
         if self.agent_mode != 'eval_deterministic':

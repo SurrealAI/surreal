@@ -48,7 +48,7 @@ def generate(argv):
             'ppo_mode': 'adapt',
             'network': {
                 'actor_regularization': 0.0,
-                'critic_reguarization': 0.0,
+                'critic_regularization': 0.0,
                 'clip_actor': True,
                 'clip_critic': True,
                 'clip_actor_val': 1.,
