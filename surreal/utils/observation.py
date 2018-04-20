@@ -1,4 +1,4 @@
-def get_matching_keys_for_modality(obs, modality, learner_config):
+def get_matching_keys_for_modality(obs, modality, input_config):
     '''
     Extracts observation keys that match the given modality
     Args:
@@ -17,7 +17,7 @@ def get_matching_keys_for_modality(obs, modality, learner_config):
         this function will return ['image']
     '''
     
-    valid_keys = learner_config.model.input[modality]
+    valid_keys = input_config[modality]
     # Iterate over keys manually to compute intersection of 
     # obs.keys() and valid_keys in order to preserve order
     matching_keys = []
