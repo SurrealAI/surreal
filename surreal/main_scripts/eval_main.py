@@ -18,7 +18,7 @@ def run_eval_main(args, config):
     session_config, learner_config, env_config = \
         config.session_config, config.learner_config, config.env_config
 
-    env, env_config = make_env(env_config, session_config, eval_mode=True)
+    env, env_config = make_env(env_config, session_config, learner_config, eval_mode=True)
 
     agent_mode = args.mode
     assert agent_mode != 'training'
