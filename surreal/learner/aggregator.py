@@ -201,8 +201,6 @@ class MultistepAggregatorWithInfo():
 
         observations = self._batch_obs(observations)
         next_obs = self._batch_obs(next_obs)
-        for k in next_obs.keys():
-            next_obs[k] = np.expand_dims(next_obs[k], 1)
 
         if self.action_type == ActionType.discrete:
             actions = np.expand_dims(2).astype('int64')
@@ -210,20 +208,14 @@ class MultistepAggregatorWithInfo():
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
-        # return EasyDict(obs=observations,
-        #             next_obs = next_obs,
-        #             actions=actions, 
-        #             rewards=rewards, 
-        #             persistent_infos=persistent_infos,
-        #             onetime_infos=onetime_infos,
-        #             dones=dones,)
+        
         return {'obs': observations,
                     'next_obs': next_obs,
-                    'actions': actions,
-                    'rewards': rewards,
+                    'actions': np.stack(actions),
+                    'rewards': np.stack(rewards),
                     'persistent_infos': persistent_infos,
                     'onetime_infos': onetime_infos,
-                    'dones': dones}
+                    'dones': np.stack(dones)}
 
     def _batch_obs(self, traj_list):
         batched_obs = {}

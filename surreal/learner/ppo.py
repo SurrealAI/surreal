@@ -575,8 +575,13 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
-        print('one batch :', batch)
-        print('----------------')
+
+        for key in batch.next_obs.keys():
+            print(key, ":",batch.next_obs[key].shape)
+
+        print(batch.actions.shape)
+        print(batch.dones.shape)
+        print('-------')
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
