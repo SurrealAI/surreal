@@ -352,7 +352,7 @@ class TransposeWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _transpose(self, obs):
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
             # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
             obs[key] = obs[key].transpose((2, 0, 1))
         return obs
@@ -367,7 +367,7 @@ class TransposeWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
             H, W, C = spec[key].shape
             # We transpose to (C, H, W) to work with pytorch convolutions
             visual_dim = (C, H, W)
@@ -381,7 +381,7 @@ class GrayscaleWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _grayscale(self, obs):
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
             observation_modality = obs[key]
             C, H, W = observation_modality.shape
             # For now, we expect an RGB image
@@ -404,7 +404,7 @@ class GrayscaleWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
             dimensions = spec[key].shape
             C, H, W = dimensions
             # We expect rgb for now
@@ -429,7 +429,7 @@ class FrameStackWrapper(Wrapper):
         Concatenates the frames together along the depth axis
         '''
         stacked_obs_dict_unordered = {}
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
             obs_stacked = []
             for obs in self._history:
                 obs_stacked.append(obs[key])
@@ -462,7 +462,7 @@ class FrameStackWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
+        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
             dimensions = spec[key]
             C, H, W = dimensions.shape
             # We expect grayscale input as input
