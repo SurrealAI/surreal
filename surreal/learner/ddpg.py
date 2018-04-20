@@ -26,6 +26,7 @@ class DDPGLearner(Learner):
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
+        self.is_pixel_input = self.env_config.pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
         self.use_layernorm = self.learner_config.algo.use_layernorm
@@ -55,12 +56,11 @@ class DDPGLearner(Learner):
                 self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
-            self.obs_dim = self.env_config.obs_spec.dim
-
             self.model = DDPGModel(
-                obs_dim=self.obs_dim,
+                obs_spec=self.env_config.obs_spec,
                 action_dim=self.action_dim,
                 is_uint8_pixel_input=self.is_uint8_pixel_input,
+                is_pixel_input = self.is_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,
@@ -70,9 +70,10 @@ class DDPGLearner(Learner):
             # self.model.train()
 
             self.model_target = DDPGModel(
-                obs_dim=self.obs_dim,
+                obs_spec=self.env_config.obs_spec,
                 action_dim=self.action_dim,
                 is_uint8_pixel_input=self.is_uint8_pixel_input,
+                is_pixel_input = self.is_pixel_input,
                 use_z_filter=self.use_z_filter,
                 use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,

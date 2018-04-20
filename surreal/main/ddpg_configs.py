@@ -29,7 +29,11 @@ def generate(argv):
             'mlp_spec': {
                 'sizes': [128],
                 'use_dropout': False
-            }
+            },
+            'input': {
+                'pixel':['pixels'],
+                'low_dim':['joint_pos', 'joint_vel'],
+            },
         },
         'algo': {
             'agent_class': 'DDPGAgent',

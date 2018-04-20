@@ -11,20 +11,15 @@ from ..layer_norm import LayerNorm
 class PerceptionNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
-        self.use_layernorm = use_layernorm
-        D_obs, _ = D_obs # Unpacking D_obs_visual, D_obs_flat, TODO: fix this strange line
-        if use_layernorm:
-            self.layer_norm = LayerNorm()
         conv_channels=[32, 32]
         C, H, W = D_obs.shape
-        self.conv1 = nn.Conv2d(C, 32, [3,3], stride=2)
-        self.conv2 = nn.Conv2d(32, 32, [3,3], stride=1)
+        self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
+        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
         # TODO: auto shape inference
         conv_output_size = 48672
         self.fc_obs = nn.Linear(conv_output_size, D_out)
 
-    def forward(self, obs_in):
-        obs, _ = obs_in # Unpacking obs_visual, obs_flat, TODO: fix this strange line
+    def forward(self, obs):
         obs = F.elu(self.conv1(obs))
         obs = F.elu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
@@ -79,7 +74,7 @@ class ActorNetwork(U.Module):
             conv_output_size = 400 * 32
             conv_output_size = 48672
             #print('channels', conv_channels[1])
-            #print('chw', C, H, W)
+            #print('chw', c, h, w)
             #print('size',conv_output_size)
             self.fc_obs = nn.Linear(conv_output_size, 50)
             self.fc_hidden = nn.Linear(50, 50)

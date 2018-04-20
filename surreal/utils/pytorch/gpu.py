@@ -26,10 +26,7 @@ def _data_to_cuda(data):
     gpu = gpu[0]
     assert isinstance(gpu, int), 'internal error'
     if gpu >= 0:
-        start = time.time()
         data = data.cuda(gpu, async=True)
-        end = time.time()
-        print('cudatime', end - start)
         return data
     else:
         return data

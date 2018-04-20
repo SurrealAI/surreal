@@ -26,7 +26,11 @@ def generate(argv):
             'mlp_spec': {
                 'sizes': [64],
                 'use_dropout': False
-            }
+            },
+            'input': {
+                'pixel':['image'],
+                'low_dim':['joint_pos', 'joint_vel'],
+            },
         },
         'algo': {
             # base configs

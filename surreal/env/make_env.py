@@ -1,10 +1,10 @@
 from surreal.env.video_env import VideoWrapper
-from .wrapper import GymAdapter, DMControlAdapter, ObservationConcatenationWrapper, DMControlDummyWrapper, FrameStackWrapper, GrayscaleWrapper, FlatOnlyWrapper
+from .wrapper import GymAdapter, DMControlAdapter, DMControlDummyWrapper, FrameStackWrapper, GrayscaleWrapper, TransposeWrapper
 from dm_control.suite.wrappers import pixels
 import os
 
 
-def make_env(env_config, session_config, eval_mode=False):
+def make_env(env_config, session_config, learner_config, eval_mode=False):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
@@ -22,7 +22,7 @@ def make_env(env_config, session_config, eval_mode=False):
     elif env_category == 'mujocomanip':
         env, env_config = make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
-        env, env_config = make_dm_control(env_name, env_config, record_video)
+        env, env_config = make_dm_control(env_name, env_config, learner_config, record_video)
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
     if record_video:
@@ -45,7 +45,7 @@ def make_mujocomanip(env_name, env_config):
     pass
 
 
-def make_dm_control(env_name, env_config, record_video=False):
+def make_dm_control(env_name, env_config, learner_config, record_video=False):
     from dm_control import suite
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
@@ -66,11 +66,11 @@ def make_dm_control(env_name, env_config, record_video=False):
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
 
     env = DMControlAdapter(env)
-    env = ObservationConcatenationWrapper(env)
+    env = TransposeWrapper(env, learner_config)
     if pixel_input:
-        env = GrayscaleWrapper(env)
-        env = FrameStackWrapper(env, env_config)
-    env = FlatOnlyWrapper(env)
+        env = GrayscaleWrapper(env, learner_config)
+        env = FrameStackWrapper(env, env_config, learner_config)
+    #env = FlatOnlyWrapper(env)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
