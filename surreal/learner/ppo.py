@@ -84,7 +84,7 @@ class PPOLearner(Learner):
                             if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_spec=self.obs_spec,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             pixel_config=pixel_config,
@@ -93,7 +93,7 @@ class PPOLearner(Learner):
         )
         self.ref_target_model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_spec=self.obs_spec,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             pixel_config=pixel_config,
