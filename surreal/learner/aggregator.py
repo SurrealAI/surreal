@@ -140,7 +140,7 @@ class MultistepAggregatorWithInfo():
     """
         Accepts input by ExpSenderWrapperMultiStepMovingWindowWithInfo
         aggregate() returns float Tensors
-        EasyDict{
+        {
             obs = batch_size * n_step * observation
             next_obs = batch_size * 1 * next_observation
             actions = batch_size * n_step * actions,
@@ -210,13 +210,20 @@ class MultistepAggregatorWithInfo():
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
-        return EasyDict(obs=observations,
-                    next_obs = next_obs,
-                    actions=actions, 
-                    rewards=rewards, 
-                    persistent_infos=persistent_infos,
-                    onetime_infos=onetime_infos,
-                    dones=dones,)
+        # return EasyDict(obs=observations,
+        #             next_obs = next_obs,
+        #             actions=actions, 
+        #             rewards=rewards, 
+        #             persistent_infos=persistent_infos,
+        #             onetime_infos=onetime_infos,
+        #             dones=dones,)
+        return {'obs': observations,
+                    'next_obs': next_obs,
+                    'actions': actions,
+                    'rewards': rewards,
+                    'persistent_infos': persistent_infos,
+                    'onetime_infos': onetime_infos,
+                    'dones': dones}
 
     def _batch_obs(self, traj_list):
         batched_obs = {}

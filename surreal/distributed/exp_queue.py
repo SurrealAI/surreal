@@ -44,6 +44,9 @@ class ExperienceCollectorServer(Thread):
                     new_key = key[:-len('_hash')]  # delete suffix
                     exp[new_key] = self._retrieve_storage(exp[key], storage)
                     del exp[key]
+                else:
+                    exp[key] = self._retrieve_storage(exp[key], storage)
+
         elif isinstance(exp, str):
             exphash = exp
             if exphash in self._weakref_map:

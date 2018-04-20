@@ -98,7 +98,7 @@ class DDPGAgent(Agent):
             action += self.noise()
 
         action = action.clip(-1, 1)
-        return action
+        return action, [[], []]
 
     def module_dict(self):
         return {
