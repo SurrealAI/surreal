@@ -197,7 +197,7 @@ class MultistepAggregatorWithInfo():
             rewards.append(reward_n_step)
             dones.append(done_n_step)
             observations.append(exp['obs'])
-            next_obs.append(exp['obs_next'])
+            next_obs.append([exp['obs_next']])
 
         # observations =  U.to_float_tensor(np.stack(observations))
         # next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
