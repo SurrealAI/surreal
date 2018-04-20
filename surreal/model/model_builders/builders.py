@@ -74,7 +74,7 @@ class ActorNetwork(U.Module):
             conv_output_size = 400 * 32
             conv_output_size = 48672
             #print('channels', conv_channels[1])
-            #print('chw', C, H, W)
+            #print('chw', c, h, w)
             #print('size',conv_output_size)
             self.fc_obs = nn.Linear(conv_output_size, 50)
             self.fc_hidden = nn.Linear(50, 50)

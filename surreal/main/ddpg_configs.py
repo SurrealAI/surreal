@@ -31,7 +31,7 @@ def generate(argv):
                 'use_dropout': False
             },
             'input': {
-                'pixel':['image'],
+                'pixel':['pixels'],
                 'low_dim':['joint_pos', 'joint_vel'],
             },
         },

@@ -250,7 +250,10 @@ class DMControlAdapter(Wrapper):
         return self.env.observation_spec()
 
     def action_spec(self):
-        return self.env.action_spec()
+        return {
+            'type': ActionType.continuous,
+            'dim': self.env.action_spec().shape,
+        }
 
     def render(self, *args, width=480, height=480, camera_id=1, **kwargs):
         # safe for multiple calls
@@ -348,11 +351,19 @@ class TransposeWrapper(Wrapper):
         super().__init__(env)
         self._learner_config = learner_config
 
-    def _step(self, obs):
+    def _transpose(self, obs):
         for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
             # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
             obs[key] = obs[key].transpose((2, 0, 1))
         return obs
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return self._transpose(obs), info
+
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return self._transpose(obs), reward, done, info
 
     def observation_spec(self):
         spec = self.env.observation_spec()
@@ -370,7 +381,7 @@ class GrayscaleWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _grayscale(self, obs):
-        for key in get_matching_keys_for_modality(obs, 'pixel', self.learner_config):
+        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
             observation_modality = obs[key]
             C, H, W = observation_modality.shape
             # For now, we expect an RGB image
@@ -394,7 +405,7 @@ class GrayscaleWrapper(Wrapper):
     def observation_spec(self):
         spec = self.env.observation_spec()
         for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config):
-            dimensions = spec
+            dimensions = spec[key].shape
             C, H, W = dimensions
             # We expect rgb for now
             assert C == 3
@@ -420,11 +431,11 @@ class FrameStackWrapper(Wrapper):
         stacked_obs_dict_unordered = {}
         for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config):
             obs_stacked = []
-            for obs in self.history:
+            for obs in self._history:
                 obs_stacked.append(obs[key])
                 stacked = np.concatenate(obs_stacked, axis=0)
                 stacked_obs_dict_unordered[key] = stacked
-        stacked_obs_dict_ordered = OrderedDict()
+        stacked_obs_dict_ordered = collections.OrderedDict()
         for key in obs:
             if key in stacked_obs_dict_unordered:
                 stacked_obs_dict_ordered[key] = stacked_obs_dict_unordered[key]
@@ -442,7 +453,8 @@ class FrameStackWrapper(Wrapper):
         obs, info = self.env.reset()
         for i in range(self.n):
             self._history.append(obs)
-        return self._stacked_observation(), info
+        a = self._stacked_observation(obs)
+        return a, info
 
     @property
     def spec_format(self):

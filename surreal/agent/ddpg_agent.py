@@ -3,6 +3,7 @@ Actor function
 """
 import torch
 from torch.autograd import Variable
+import collections
 from .base import Agent
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
@@ -30,7 +31,7 @@ class DDPGAgent(Agent):
 
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim
+        self.obs_spec = self.env_config.obs_spec
         self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_batchnorm = self.learner_config.algo.use_batchnorm
@@ -47,9 +48,10 @@ class DDPGAgent(Agent):
             raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
 
         self.model = DDPGModel(
-            obs_dim=self.obs_dim,
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
             is_uint8_pixel_input=self.is_uint8_pixel_input,
+            is_pixel_input=self.env_config.pixel_input,
             use_z_filter=self.use_z_filter,
             use_batchnorm=self.use_batchnorm,
             use_layernorm=self.use_layernorm,
@@ -85,26 +87,10 @@ class DDPGAgent(Agent):
     def act(self, obs):
         if self.sleep_time > 0.0:
             time.sleep(self.sleep_time)
-        visual_obs, flat_obs = obs
-
-        if visual_obs is not None:
-            if ((self.is_uint8_pixel_input and visual_obs.dtype != np.dtype('uint8')) or
-                (not self.is_uint8_pixel_input and visual_obs.dtype == np.dtype('uint8'))):
-                raise Exception('Unrecognized image data type: ' +
-                    'is_uint8_pixel_input set to ' +
-                    str(self.is_uint8_pixel_input) +
-                    ', received type ' + str(visual_obs.dtype))
-            visual_obs = U.to_float_tensor(visual_obs)
-            assert torch.is_tensor(visual_obs)
-            visual_obs = Variable(visual_obs.unsqueeze(0))
-
-        if flat_obs is not None:
-            flat_obs = U.to_float_tensor(flat_obs)
-            assert torch.is_tensor(flat_obs)
-            flat_obs = Variable(flat_obs.unsqueeze(0))
-
-        obs = (visual_obs, flat_obs)
-        perception = self.model.forward_perception(obs)
+        obs_variable = collections.OrderedDict()
+        for key in obs:
+            obs_variable[key] = Variable(U.to_float_tensor(obs[key]).unsqueeze(0))
+        perception = self.model.forward_perception(obs_variable)
         action = self.model.forward_actor(perception).data.numpy()[0]
         action = action.clip(-1, 1)
 
