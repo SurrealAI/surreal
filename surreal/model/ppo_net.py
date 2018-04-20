@@ -178,12 +178,6 @@ class PPOModel(U.Module):
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
 
-    def _gather_low_dim_input(self, obs):
-        list_obs_ld = [obs[key] for key in self.input_config['low_dim']] # technically here we should use the intersect
-        if len(list_obs_ld) < 1: return None
-        obs_low_dim = torch.cat(list_obs_ld, 1)
-        return obs_low_dim
-
     def forward_actor(self, obs, cells=None):
         '''
             forward pass actor to generate policy with option to use z-filter
@@ -311,7 +305,23 @@ class PPOModel(U.Module):
             Args: obs -- batch of observations
         '''
         if self.use_z_filter:
-            # z-filter currently NOT IMPLEMENTED for pixel input
-            self.z_filter.z_update(obs)
+            obs_flat = self._gather_low_dim_input(obs)
+            self.z_filter.z_update(obs_flat)
         else:
             raise ValueError('Z_update called when network is set to not use z_filter')
+
+    def _gather_low_dim_input(self, obs):
+        matching_keys = U.observation.get_matching_keys_for_modality(obs, 
+                                                                     'low_dim', 
+                                                                     self.input_config)
+        list_obs_ld = [obs[key] for key in matching_keys] # technically here we should use the intersect
+        if len(list_obs_ld) < 1: return None
+        obs_low_dim = torch.cat(list_obs_ld, 1)
+        return obs_low_dim
+
+    def _scale_image(self, obs):
+        '''
+        Given uint8 input from the environment, scale to float32 and
+        divide by 256 to scale inputs between 0.0 and 1.0
+        '''
+        return obs / 256.0

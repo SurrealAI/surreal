@@ -53,6 +53,8 @@ class ZFilter(U.Module):
             Args:
                 x: input tensor to be kept in record. 
         """
+        if x is None: return
+
         # only called in learner, so we can assume it has the correct type
         if len(x.size()) == 3: x = x.view(-1, self.in_size)
         self.running_sum += torch.sum(x.data, dim=0)
@@ -71,6 +73,8 @@ class ZFilter(U.Module):
             Returns:
                 0 mean std 1 weightened batch of observation
         '''
+        if inputs is None: return None
+
         input_shape = inputs.size()
         assert len(input_shape) >= 2
         inputs = inputs.view(-1, input_shape[-1])
