@@ -374,11 +374,15 @@ class PPOLearner(Learner):
                 returns = returns.cuda()
                 advs = advs.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1)
-            if not self.if_rnn_policy:
-                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+            obs_concat_var = {}
+            for k in obs.keys():
+                obs_concat_var[k] = torch.cat([obs[k], obs_next[k]], dim=1)
+                if not self.if_rnn_policy:
+                    obs_concat_var[k] = obs_concat_var[k].view(self.batch_size * \
+                                                              (self.n_step + 1), -1)
+                    obs_concat_var[k] = Variable(obs_concat_var[k])
 
-            values = self.model.forward_critic(Variable(obs_concat), self.cells) 
+            values = self.model.forward_critic(obs_concat_var, self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -439,16 +443,15 @@ class PPOLearner(Learner):
                 gamma = gamma.cuda()
                 returns = returns.cuda()
 
-            if self.env_config.pixel_input:
-                obs_concat = (Variable(torch.cat([obs[0], obs_next[0]], dim=1)), 
-                              Variable(torch.cat([obs[1], obs_next[1]], dim=1)))
-            else:
-                obs_concat = torch.cat([obs, obs_next], dim=1)
+            obs_concat_var = {}
+            for k in obs.keys():
+                obs_concat_var[k] = torch.cat([obs[k], obs_next[k]], dim=1)
                 if not self.if_rnn_policy:
-                    obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
-                obs_concat = Variable(obs_concat)
+                    obs_concat_var[k] = obs_concat_var[k].view(self.batch_size * \
+                                                              (self.n_step + 1), -1)
+                    obs_concat_var[k] = Variable(obs_concat_var[k])
 
-            values = self.model.forward_critic(obs_concat, self.cells) # (batch, n+1, 1)
+            values = self.model.forward_critic(obs_concat_var, self.cells) # (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -490,6 +493,20 @@ class PPOLearner(Learner):
             Returns:
                 dictionary of recorded statistics
         '''
+        # convert everything to float tensor: 
+        for k in obs.keys():
+            obs[k] = U.to_float_tensor(obs[k])
+            obs_next[k] = U.to_float_tensor(obs_next[k])
+        actions = U.to_float_tensor(actions)
+        rewards = U.to_float_tensor(rewards)
+        dones   = U.to_float_tensor(dones)
+        if persistent_infos is not None:
+            for i in range(len(persistent_infos)):
+                persistent_infos[i] = U.to_float_tensor(persistent_infos[i])
+        if one_time_infos is not None:
+            for i in range(len(one_time_infos)):
+                one_time_infos[i] = U.to_float_tensor(one_time_infos[i])
+
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
 
@@ -518,12 +535,10 @@ class PPOLearner(Learner):
                     self.cells = (h, c)
                     eff_len = self.n_step - self.horizon + 1
 
-                if self.env_config.pixel_input:
-                    obs_pixel, obs_ld = obs
-                    obs_pixel = Variable(obs_pixel[:, :eff_len, :].contiguous())
-                    obs_pixel = Variable(obs_ld[:, :eff_len, :].contiguous())
-                    obs_iter = (obs_pixel, obs_ld)
-                behave_pol = Variable(pds[:, :eff_len, :])
+                obs_iter = {}
+                for k in obs.keys():
+                    obs_iter[k] = Variable(obs[k][:, :eff_len, :].contiguous())
+                behave_pol = Variable(pds[:, :eff_len, :].contiguous())
                 actions_iter = Variable(actions[:, :eff_len, :].contiguous())
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
@@ -575,13 +590,7 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
-
-        for key in batch.next_obs.keys():
-            print(key, ":",batch.next_obs[key].shape)
-
-        print(batch.actions.shape)
-        print(batch.dones.shape)
-        print('-------')
+        print('ran one batch')
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
@@ -648,5 +657,4 @@ class PPOLearner(Learner):
         self.critic_lr_scheduler.step()
 
 # remaining changes:
-# learner class 
 # z-filter

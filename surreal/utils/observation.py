@@ -1,3 +1,5 @@
+import torch
+
 def get_matching_keys_for_modality(obs, modality, input_config):
     '''
     Extracts observation keys that match the given modality
@@ -25,3 +27,12 @@ def get_matching_keys_for_modality(obs, modality, input_config):
     	if key in valid_keys:
     		matching_keys.append(key)
     return matching_keys
+
+def gather_low_dim_input(obs, input_config):
+    matching_keys = get_matching_keys_for_modality(obs, 
+                                                  'low_dim', 
+                                                  input_config)
+    list_obs_ld = [obs[key] for key in matching_keys] # technically here we should use the intersect
+    if len(list_obs_ld) < 1: return None
+    obs_low_dim = torch.cat(list_obs_ld, -1)
+    return obs_low_dim

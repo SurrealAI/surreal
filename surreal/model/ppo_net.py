@@ -187,7 +187,7 @@ class PPOModel(U.Module):
                 The output of actor network
         '''
         obs_list = []
-        obs_flat = self._gather_low_dim_input(obs)
+        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -229,7 +229,7 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         obs_list = []
-        obs_flat = self._gather_low_dim_input(obs)
+        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -271,7 +271,7 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         obs_list = []
-        obs_flat = self._gather_low_dim_input(obs)
+        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -305,19 +305,10 @@ class PPOModel(U.Module):
             Args: obs -- batch of observations
         '''
         if self.use_z_filter:
-            obs_flat = self._gather_low_dim_input(obs)
+            obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
             self.z_filter.z_update(obs_flat)
         else:
             raise ValueError('Z_update called when network is set to not use z_filter')
-
-    def _gather_low_dim_input(self, obs):
-        matching_keys = U.observation.get_matching_keys_for_modality(obs, 
-                                                                     'low_dim', 
-                                                                     self.input_config)
-        list_obs_ld = [obs[key] for key in matching_keys] # technically here we should use the intersect
-        if len(list_obs_ld) < 1: return None
-        obs_low_dim = torch.cat(list_obs_ld, 1)
-        return obs_low_dim
 
     def _scale_image(self, obs):
         '''
