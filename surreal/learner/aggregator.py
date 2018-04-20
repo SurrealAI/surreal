@@ -192,31 +192,24 @@ class MultistepAggregatorWithInfo():
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
-            action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
+            action_n_step, reward_n_step, done_n_step = self._stack_n_step_experience(exp)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
             observations.append(exp['obs'])
             next_obs.append([exp['obs_next']])
 
-        # observations =  U.to_float_tensor(np.stack(observations))
-        # next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
-
-        observations = self.batch_obs(observations)
-        next_obs = self.batch_obs(next_obs)
+        observations = self._batch_obs(observations)
+        next_obs = self._batch_obs(next_obs)
         for k in next_obs.keys():
             next_obs[k] = np.expand_dims(next_obs[k], 1)
 
-        # if self.action_type == ActionType.continuous:
-        #     actions = U.to_float_tensor(actions)
         if self.action_type == ActionType.discrete:
             actions = np.expand_dims(2).astype('int64')
-            # actions = torch.LongTensor(actions).unsqueeze(2)
-        else:
+        elif self.action_type is not ActionType.continuous:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
-
         return EasyDict(obs=observations,
                     next_obs = next_obs,
                     actions=actions, 
@@ -225,9 +218,8 @@ class MultistepAggregatorWithInfo():
                     onetime_infos=onetime_infos,
                     dones=dones,)
 
-    def batch_obs(self, traj_list):
+    def _batch_obs(self, traj_list):
         batched_obs = {}
-
         for k in traj_list[0][0].keys():
             batched_obs[k] = []
             for sub_traj in traj_list:
@@ -241,7 +233,7 @@ class MultistepAggregatorWithInfo():
 
         return batched_obs
 
-    def stack_n_step_experience(self, experience):
+    def _stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays
             Args:
