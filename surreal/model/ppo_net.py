@@ -107,7 +107,7 @@ class PPOModel(U.Module):
     '''
     def __init__(self,
                  init_log_sig,
-                 obs_dim,
+                 obs_config,
                  action_dim,
                  use_z_filter,
                  pixel_config,
@@ -116,25 +116,29 @@ class PPOModel(U.Module):
         super(PPOModel, self).__init__()
 
         # hyperparameters
-        self.obs_dim = obs_dim
+        self.obs_spec, self.input_config = obs_config
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
         self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
-        self.rnn_stem, self.cnn_stem = None, None
+        self.low_dim = 0
+        for key in self.input_config['low_dim']:
+            self.low_dim += self.obs_spec[key].shape[0]
 
+        self.cnn_stem = None
         self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
-            self.cnn_stem = PerceptionNetwork(self.obs_dim,
+            self.cnn_stem = PerceptionNetwork(self.obs_spec['pixels'],
                                               self.pixel_config.perception_hidden_dim,
                                               use_layernorm=self.pixel_config.use_layernorm)
             if use_cuda:
                 self.cnn_stem = self.cnn_stem.cuda()
 
+        self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
-            self.rnn_stem = nn.LSTM(self.obs_dim if not self.if_pixel_input else \
+            self.rnn_stem = nn.LSTM(self.low_dim if not self.if_pixel_input else \
                                     self.pixel_config.perception_hidden_dim,
                                     self.rnn_config.rnn_hidden,
                                     self.rnn_config.rnn_layer,
@@ -142,9 +146,8 @@ class PPOModel(U.Module):
             if use_cuda:
                 self.rnn_stem = self.rnn_stem.cuda()
 
-        input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.obs_dim
+        input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
-        print(self.obs_dim)
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
@@ -153,8 +156,7 @@ class PPOModel(U.Module):
                                       self.rnn_stem)
         self.critic = PPO_CriticNetwork(input_size, self.cnn_stem, self.rnn_stem)
         if self.use_z_filter:
-            z_filter_dim = obs_dim[1] if self.if_pixel_input else obs_dim
-            self.z_filter = ZFilter(z_filter_dim, use_cuda=use_cuda)
+            self.z_filter = ZFilter(self.low_dim, use_cuda=use_cuda)
 
     def update_target_params(self, net):
         '''
@@ -176,6 +178,12 @@ class PPOModel(U.Module):
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
 
+    def _gather_low_dim_input(self, obs):
+        list_obs_ld = [obs[key] for key in self.input_config['low_dim']] # technically here we should use the intersect
+        if len(list_obs_ld) < 1: return None
+        obs_low_dim = torch.cat(list_obs_ld, 1)
+        return obs_low_dim
+
     def forward_actor(self, obs, cells=None):
         '''
             forward pass actor to generate policy with option to use z-filter
@@ -184,22 +192,26 @@ class PPOModel(U.Module):
             Returns:
                 The output of actor network
         '''
+        obs_list = []
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
-            # currently NOT IMPLEMENTED for pixel based training
-            obs = self.z_filter.forward(obs)
+            obs_flat = self.z_filter.forward(obs_flat)
+        obs_list.append(obs_flat)
 
         if self.if_pixel_input:
-            # assumes observation are tuples when CNN is used 
-            obs_pixel_shape = obs[0].size()
-
-            obs = (obs[0].view(-1, obs_pixel_shape[2],
-                                   obs_pixel_shape[3],
-                                   obs_pixel_shape[4]), obs[1])
-            obs = self.cnn_stem(obs)
+            # right now assumes only one camera angle.
+            obs_pixel_shape = obs[self.input_config['pixel'][0]].size()
+            obs_pixel = obs[self.input_config['pixel'][0]].view(-1, obs_pixel_shape[-3],
+                                                                    obs_pixel_shape[-2],
+                                                                    obs_pixel_shape[-1])
+            obs_pixel = self.cnn_stem(obs_pixel)
             if self.rnn_config.if_rnn_policy:
-                obs = obs.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
+                obs_pixel = obs_pixel.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
             else:
-                obs = obs.view(obs_pixel_shape[0], -1)
+                obs_pixel = obs_pixel.view(obs_pixel_shape[0], -1)
+            obs_list.append(obs_pixel)
+
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
 
         if self.rnn_config.if_rnn_policy:
             assert len(obs.size()) == 3
@@ -222,22 +234,26 @@ class PPOModel(U.Module):
             Returns:
                 output of critic network
         '''
+        obs_list = []
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
-            # currently NOT IMPLEMENTED for pixel based training
-            obs = self.z_filter.forward(obs)
+            obs_flat = self.z_filter.forward(obs_flat)
+        obs_list.append(obs_flat)
 
         if self.if_pixel_input:
-            # assumes observation are tuples when CNN is used 
-            obs_pixel_shape = obs[0].size()
-
-            obs = (obs[0].view(-1, obs_pixel_shape[2],
-                                   obs_pixel_shape[3],
-                                   obs_pixel_shape[4]), obs[1])
-            obs = self.cnn_stem(obs)
+            # right now assumes only one camera angle.
+            obs_pixel_shape = obs[self.input_config['pixel'][0]].size()
+            obs_pixel = obs[self.input_config['pixel'][0]].view(-1, obs_pixel_shape[-3],
+                                                                    obs_pixel_shape[-2],
+                                                                    obs_pixel_shape[-1])
+            obs_pixel = self.cnn_stem(obs_pixel)
             if self.rnn_config.if_rnn_policy:
-                obs = obs.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
+                obs_pixel = obs_pixel.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
             else:
-                obs = obs.view(obs_pixel_shape[0], -1)
+                obs_pixel = obs_pixel.view(obs_pixel_shape[0], -1)
+            obs_list.append(obs_pixel)
+
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
 
         if self.rnn_config.if_rnn_policy:
             obs, _ = self.rnn_stem(obs, cells)
@@ -260,13 +276,18 @@ class PPOModel(U.Module):
             Returns:
                 output of critic network
         '''
+        obs_list = []
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
-            # currently NOT IMPLEMENTED for pixel based training
-            obs = self.z_filter.forward(obs)
+            obs_flat = self.z_filter.forward(obs_flat)
+        obs_list.append(obs_flat)
 
         if self.if_pixel_input:
-            # assumes observation are tuples when CNN is used 
-            obs = self.cnn_stem(obs)
+            # right now assumes only one camera angle.
+            obs_pixel = self.cnn_stem(obs[self.input_config['pixel'][0]]) 
+            obs_list.append(obs_pixel)
+
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
 
         if self.rnn_config.if_rnn_policy:
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)

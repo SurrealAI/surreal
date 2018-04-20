@@ -28,8 +28,8 @@ def generate(argv):
                 'use_dropout': False
             },
             'input': {
-                'pixel':['image'],
-                'low_dim':['joint_pos', 'joint_vel'],
+                'pixel':['pixels'],
+                'low_dim':['position', 'velocity'],
             },
         },
         'algo': {
@@ -57,8 +57,8 @@ def generate(argv):
             'pixel': {
                 'if_uint8': True,
                 'perception_hidden_dim': 200,
-                'batchnorm': False,
-                'layernorm': True,
+                'use_batchnorm': False,
+                'use_layernorm': True,
             }, 
             'rnn': {
                 'if_rnn_policy': False, 

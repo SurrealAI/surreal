@@ -35,10 +35,14 @@ class PPOAgent(Agent):
             agent_mode=agent_mode,
         )
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[1] # this is a screwy design
+        self.obs_spec = self.env_config.obs_spec
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.rnn_config = self.learner_config.algo.rnn
+
+        self.low_dim = 0
+        for key in self.input_config['low_dim']:
+            self.low_dim += self.obs_spec[key].shape[0]
 
         self.cells = None
         if self.rnn_config.if_rnn_policy:
@@ -56,7 +60,7 @@ class PPOAgent(Agent):
                             if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_dim=self.obs_dim,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             rnn_config=self.rnn_config,
@@ -85,24 +89,11 @@ class PPOAgent(Agent):
         # onetime info is collected for the first step in partial trajectory (i.e. RNN hidden state)
         # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
         action_info = [[], []]
-        print(obs)
-        if self.env_config.pixel_input:
-            obs_pixel, obs_ld = obs
-            action_info[1].append(obs_ld)
 
-            print("observations shapes:", obs_pixel.shape, obs_ld.shape)
-
-            obs_pixel = U.to_float_tensor(obs_pixel)
-            assert torch.is_tensor(obs_pixel)
-            obs_pixel = Variable(obs_pixel.unsqueeze(0))
-            obs_ld = U.to_float_tensor(obs_ld)
-            assert torch.is_tensor(obs_ld)
-            obs_ld = Variable(obs_ld.unsqueeze(0))
-            obs = (obs_pixel, obs_ld)
-        else:
-            obs = U.to_float_tensor(obs)
-            assert torch.is_tensor(obs)
-            obs = Variable(obs.unsqueeze(0))
+        obs_tensor = {}
+        for k in obs.keys():
+           tmp_tensor = U.to_float_tensor(obs[k])
+           obs[k] = Variable(tmp_tensor.unsqueeze(0))
         
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
