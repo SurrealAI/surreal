@@ -40,11 +40,7 @@ class PPOAgent(Agent):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.rnn_config = self.learner_config.algo.rnn
-
-        self.low_dim = 0
-        for key in self.input_config['low_dim']:
-            self.low_dim += self.obs_spec[key].shape[0]
-
+        
         self.cells = None
         if self.rnn_config.if_rnn_policy:
             # Note that .detach() is necessary here to prevent overflow of memory
@@ -114,6 +110,7 @@ class PPOAgent(Agent):
         action_info[1].append(action_pd)
 
         # print('position', obs['position'])
+        # print('action', action_choice)
         # print('policy', action_pd)
         # print('------------')
         

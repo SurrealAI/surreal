@@ -376,11 +376,10 @@ class PPOLearner(Learner):
 
             obs_concat_var = {}
             for k in obs.keys():
-                obs_concat_var[k] = torch.cat([obs[k], obs_next[k]], dim=1)
+                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
                 if not self.if_rnn_policy:
-                    obs_concat_var[k] = obs_concat_var[k].view(self.batch_size * \
-                                                              (self.n_step + 1), -1)
-                obs_concat_var[k] = Variable(obs_concat_var[k])
+                    obs_shape = obs_concat_var[k].size()
+                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
 
             values = self.model.forward_critic(obs_concat_var, self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -445,11 +444,10 @@ class PPOLearner(Learner):
 
             obs_concat_var = {}
             for k in obs.keys():
-                obs_concat_var[k] = torch.cat([obs[k], obs_next[k]], dim=1)
+                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
                 if not self.if_rnn_policy:
-                    obs_concat_var[k] = obs_concat_var[k].view(self.batch_size * \
-                                                              (self.n_step + 1), -1)
-                    obs_concat_var[k] = Variable(obs_concat_var[k])
+                    obs_shape = obs_concat_var[k].size()
+                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
 
             values = self.model.forward_critic(obs_concat_var, self.cells) # (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -509,12 +507,6 @@ class PPOLearner(Learner):
 
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
-                if self.env_config.pixel_input:
-                    obs_ld = persistent_infos[0]
-                    obs_next_ld = one_time_infos[-1]
-                    obs = (obs, obs_ld)
-                    obs_next = (obs_next, obs_next_ld)
-
                 if self.if_rnn_policy:
                     h = Variable(one_time_infos[0].transpose(0, 1).contiguous())
                     c = Variable(one_time_infos[1].transpose(0, 1).contiguous())
@@ -658,6 +650,3 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-
-# remaining changes:
-# z-filter

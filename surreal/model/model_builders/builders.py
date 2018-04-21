@@ -20,10 +20,18 @@ class PerceptionNetwork(U.Module):
         self.fc_obs = nn.Linear(conv_output_size, D_out)
 
     def forward(self, obs):
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 5)
+        if if_high_dim: 
+            obs = obs.view(-1, *obs_shape[2:])
+
         obs = F.elu(self.conv1(obs))
         obs = F.elu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
         obs = F.elu(self.fc_obs(obs))
+
+        if if_high_dim:
+            obs = obs.view(obs_shape[0], obs_shape[1], -1)
         return obs
 
 class ActorNetworkX(U.Module):
@@ -215,6 +223,11 @@ class PPO_ActorNetwork(U.Module):
         # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 3)
+        if if_high_dim: 
+            obs = obs.view(-1, obs_shape[2])
+
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
@@ -222,6 +235,8 @@ class PPO_ActorNetwork(U.Module):
         std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
 
         action = torch.cat((mean, std), dim=1)
+        if if_high_dim:
+            action = action.view(obs_shape[0], obs_shape[1], -1)
         return action
 
 
@@ -247,9 +262,17 @@ class PPO_CriticNetwork(U.Module):
         # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 3)
+        if if_high_dim: 
+            obs = obs.view(-1, obs_shape[2])
+
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
         v  = self.fc_v(h3) 
+
+        if if_high_dim:
+            v = v.view(obs_shape[0], obs_shape[1], 1)
         return v
 

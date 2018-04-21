@@ -37,12 +37,12 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 10, # 10 for without RNN
-            'stride': 10, # 10 for without RNN
+            'n_step': 15, # 10 for without RNN
+            'stride': 5, # 10 for without RNN
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -108,7 +108,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {

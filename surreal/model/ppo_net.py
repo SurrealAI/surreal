@@ -158,6 +158,7 @@ class PPOModel(U.Module):
                                       self.rnn_stem)
         self.critic = PPO_CriticNetwork(input_size, self.cnn_stem, self.rnn_stem)
         if self.use_z_filter:
+            assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
             self.z_filter = ZFilter(self.low_dim, use_cuda=use_cuda)
 
     def update_target_params(self, net):
@@ -192,40 +193,29 @@ class PPOModel(U.Module):
         obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
-
         obs_list.append(obs_flat)
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel_shape = obs[self.input_config['pixel'][0]].size()
-            obs_pixel = obs[self.input_config['pixel'][0]].view(-1, obs_pixel_shape[-3],
-                                                                    obs_pixel_shape[-2],
-                                                                    obs_pixel_shape[-1])
+            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
-            if self.rnn_config.if_rnn_policy:
-                obs_pixel = obs_pixel.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
-            else:
-                obs_pixel = obs_pixel.view(obs_pixel_shape[0], -1)
             obs_list.append(obs_pixel)
 
-        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=-1)
 
         if self.rnn_config.if_rnn_policy:
-            assert len(obs.size()) == 3
-            obs, _ = self.rnn_stem(obs, cells) # assumes that input has the correct shape
+            obs, _ = self.rnn_stem(obs, cells)
             obs = obs.contiguous()
-            output_shape = obs.size()
-            obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
         action = self.actor(obs)
-        if self.rnn_config.if_rnn_policy:
-            action = action.view(output_shape[0], output_shape[1], -1)
-            
         return action
 
     def forward_critic(self, obs, cells=None):
         '''
             forward pass critic to generate policy with option to use z-filter
+            Note: assumes input has either shape length 2 or 4 without RNN and
+            length 3 or 5 with RNN depending on if image based training is used
             Args: 
                 obs -- batch of observations
             Returns:
@@ -239,29 +229,18 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel_shape = obs[self.input_config['pixel'][0]].size()
-            obs_pixel = obs[self.input_config['pixel'][0]].view(-1, obs_pixel_shape[-3],
-                                                                    obs_pixel_shape[-2],
-                                                                    obs_pixel_shape[-1])
+            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
-            if self.rnn_config.if_rnn_policy:
-                obs_pixel = obs_pixel.view(obs_pixel_shape[0], obs_pixel_shape[1], -1)
-            else:
-                obs_pixel = obs_pixel.view(obs_pixel_shape[0], -1)
             obs_list.append(obs_pixel)
 
-        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=-1)
 
         if self.rnn_config.if_rnn_policy:
             obs, _ = self.rnn_stem(obs, cells)
             obs = obs.contiguous()
-            output_shape = obs.size()
-            obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
         value = self.critic(obs)
-        if self.rnn_config.if_rnn_policy:
-            value = value.view(output_shape[0], output_shape[1], 1)
-
         return value
 
     def forward_actor_expose_cells(self, obs, cells=None):
@@ -281,10 +260,12 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = self.cnn_stem(obs[self.input_config['pixel'][0]]) 
+            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self.cnn_stem(obs_pixel) 
             obs_list.append(obs_pixel)
 
-        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=1)
+        obs = torch.cat([ob for ob in obs_list if ob is not None], dim=-1)
 
         if self.rnn_config.if_rnn_policy:
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)

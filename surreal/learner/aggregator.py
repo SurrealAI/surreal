@@ -193,6 +193,7 @@ class MultistepAggregatorWithInfo():
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
             # print('position', exp['obs'])
+            # print('action', exp['actions'])
             # print('policy', exp['persistent_infos'][0])
             action_n_step, reward_n_step, done_n_step = self._stack_n_step_experience(exp)
             actions.append(action_n_step)
