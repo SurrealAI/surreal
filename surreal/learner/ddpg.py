@@ -127,7 +127,7 @@ class DDPGLearner(Learner):
 
     def preprocess(self, batch):
         with U.torch_gpu_scope(self.gpu_ids):
-            obs, actions, rewards, obs_next, done = (
+            obs, actions, rewards, next_obs, done = (
                 batch['obs'],
                 batch['actions'],
                 batch['rewards'],
@@ -135,34 +135,11 @@ class DDPGLearner(Learner):
                 batch['dones']
             )
 
-            visual_obs, flat_obs = obs
+            for key in obs:
+                obs[key] = Variable(torch.ByteTensor(obs[key])).float().detach()
 
-            if visual_obs is not None:
-                #assert torch.is_tensor(visual_obs)
-                visual_obs = Variable(torch.ByteTensor(visual_obs)).float().detach()
-                #visual_obs = Variable(torch.ByteTensor(visual_obs)).detach()
-                #visual_obs = Variable(U.to_float_tensor(visual_obs)).detach()
-
-            if flat_obs is not None:
-                #assert torch.is_tensor(flat_obs)
-                flat_obs = Variable(U.to_float_tensor(flat_obs)).detach()
-
-            obs = (visual_obs, flat_obs)
-            visual_obs_next, flat_obs_next = obs_next
-
-            if visual_obs_next is not None:
-                #assert torch.is_tensor(visual_obs_next)
-                visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).float().detach()
-                #visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).detach()
-                #visual_obs_next = Variable(U.to_float_tensor(visual_obs_next)).detach()
-
-            if flat_obs_next is not None:
-                #assert torch.is_tensor(flat_obs_next)
-                flat_obs_next = Variable(U.to_float_tensor(flat_obs_next)).detach()
-
-            obs_next = (visual_obs_next, flat_obs_next)
-            #print('preprocess')
-            #print(type(obs_next[0].data))
+            for key in next_obs:
+                next_obs[key] = Variable(torch.ByteTensor(next_obs[key])).float().detach()
 
             actions = Variable(U.to_float_tensor(actions))
             rewards = Variable(U.to_float_tensor(rewards))
@@ -178,7 +155,7 @@ class DDPGLearner(Learner):
                 obs,
                 actions,
                 rewards,
-                obs_next, 
+                next_obs,
                 done
             )
             return batch
