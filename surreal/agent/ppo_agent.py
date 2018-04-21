@@ -95,7 +95,7 @@ class PPOAgent(Agent):
         for k in obs.keys():
            tmp_tensor = U.to_float_tensor(obs[k])
            obs_tensor[k] = Variable(tmp_tensor.unsqueeze(0))
-        
+
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
             action_info[0].append(self.cells[1].squeeze(1).data.numpy())
@@ -113,6 +113,10 @@ class PPOAgent(Agent):
         action_pd     = action_pd.reshape((-1,))
         action_info[1].append(action_pd)
 
+        # print('position', obs['position'])
+        # print('policy', action_pd)
+        # print('------------')
+        
         if self.agent_mode != 'training':
             return action_choice
         else: 

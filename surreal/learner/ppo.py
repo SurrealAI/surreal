@@ -380,7 +380,7 @@ class PPOLearner(Learner):
                 if not self.if_rnn_policy:
                     obs_concat_var[k] = obs_concat_var[k].view(self.batch_size * \
                                                               (self.n_step + 1), -1)
-                    obs_concat_var[k] = Variable(obs_concat_var[k])
+                obs_concat_var[k] = Variable(obs_concat_var[k])
 
             values = self.model.forward_critic(obs_concat_var, self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -509,7 +509,6 @@ class PPOLearner(Learner):
 
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
-
                 if self.env_config.pixel_input:
                     obs_ld = persistent_infos[0]
                     obs_next_ld = one_time_infos[-1]
@@ -517,8 +516,8 @@ class PPOLearner(Learner):
                     obs_next = (obs_next, obs_next_ld)
 
                 if self.if_rnn_policy:
-                    h = Variable(one_time_infos[0].transpose(0, 1))
-                    c = Variable(one_time_infos[1].transpose(0, 1))
+                    h = Variable(one_time_infos[0].transpose(0, 1).contiguous())
+                    c = Variable(one_time_infos[1].transpose(0, 1).contiguous())
                     self.cells = (h, c)
 
                 advantages, returns = self._gae_and_return(obs, 
@@ -528,18 +527,23 @@ class PPOLearner(Learner):
                 advantages = Variable(advantages)
                 returns    = Variable(returns)
 
-                eff_len = 1
                 if self.if_rnn_policy:
                     h = Variable(self.cells[0].data)
                     c = Variable(self.cells[1].data)
                     self.cells = (h, c)
                     eff_len = self.n_step - self.horizon + 1
+                    behave_pol = Variable(pds[:, :eff_len, :].contiguous())
+                    actions_iter = Variable(actions[:, :eff_len, :].contiguous())
+                else:
+                    behave_pol = Variable(pds[:, 0, :].contiguous())
+                    actions_iter = Variable(actions[:, 0, :].contiguous())
 
                 obs_iter = {}
                 for k in obs.keys():
-                    obs_iter[k] = Variable(obs[k][:, :eff_len, :].contiguous())
-                behave_pol = Variable(pds[:, :eff_len, :].contiguous())
-                actions_iter = Variable(actions[:, :eff_len, :].contiguous())
+                    if self.if_rnn_policy:
+                        obs_iter[k] = Variable(obs[k][:, :self.n_step - self.horizon + 1, :].contiguous())
+                    else: 
+                        obs_iter[k] = Variable(obs[k][:, 0, :].contiguous())
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
@@ -590,7 +594,6 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
-        print('ran one batch')
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,

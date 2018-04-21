@@ -124,7 +124,9 @@ class PPOModel(U.Module):
         self.rnn_config = rnn_config
 
         self.low_dim = 0
-        for key in self.input_config['low_dim']:
+        for key in U.observation.get_matching_keys_for_modality(self.obs_spec,
+                                                                'low_dim',
+                                                                self.input_config):
             self.low_dim += self.obs_spec[key].shape[0]
 
         self.cnn_stem = None
@@ -190,6 +192,7 @@ class PPOModel(U.Module):
         obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
+
         obs_list.append(obs_flat)
 
         if self.if_pixel_input:

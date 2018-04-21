@@ -37,7 +37,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
@@ -61,7 +61,7 @@ def generate(argv):
                 'use_layernorm': True,
             }, 
             'rnn': {
-                'if_rnn_policy': False, 
+                'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,

@@ -32,7 +32,7 @@ def gather_low_dim_input(obs, input_config):
     matching_keys = get_matching_keys_for_modality(obs, 
                                                   'low_dim', 
                                                   input_config)
-    list_obs_ld = [obs[key] for key in matching_keys] # technically here we should use the intersect
+    list_obs_ld = [obs[key] for key in matching_keys]
     if len(list_obs_ld) < 1: return None
     obs_low_dim = torch.cat(list_obs_ld, -1)
     return obs_low_dim

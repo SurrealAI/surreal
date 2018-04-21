@@ -192,6 +192,8 @@ class MultistepAggregatorWithInfo():
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
+            # print('position', exp['obs'])
+            # print('policy', exp['persistent_infos'][0])
             action_n_step, reward_n_step, done_n_step = self._stack_n_step_experience(exp)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
@@ -208,7 +210,7 @@ class MultistepAggregatorWithInfo():
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
-        
+        # print('------------')
         return {'obs': observations,
                     'next_obs': next_obs,
                     'actions': np.stack(actions),
