@@ -136,10 +136,14 @@ class DDPGLearner(Learner):
             )
 
             for key in obs:
-                obs[key] = Variable(torch.ByteTensor(obs[key])).float().detach()
+                # MultistepAggregatorWithInfo gives (batch_size, n_step, C, H, W),
+                # we don't need n_step
+                obs[key] = Variable(torch.ByteTensor(obs[key][:, 0, :, :, :])).float().detach()
 
             for key in next_obs:
-                next_obs[key] = Variable(torch.ByteTensor(next_obs[key])).float().detach()
+                # MultistepAggregatorWithInfo gives (batch_size, n_step, C, H, W),
+                # we don't need n_step
+                next_obs[key] = Variable(torch.ByteTensor(next_obs[key][:, 0, :, :, :])).float().detach()
 
             actions = Variable(U.to_float_tensor(actions))
             rewards = Variable(U.to_float_tensor(rewards))
