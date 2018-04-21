@@ -109,10 +109,10 @@ class PPOAgent(Agent):
         action_pd     = action_pd.reshape((-1,))
         action_info[1].append(action_pd)
 
-        # print('position', obs['position'])
-        # print('action', action_choice)
-        # print('policy', action_pd)
-        # print('------------')
+        print('position', obs['position'])
+        print('action', action_choice)
+        print('policy', action_pd)
+        print('------------')
         
         if self.agent_mode != 'training':
             return action_choice

@@ -41,9 +41,9 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 15, # 10 for without RNN
-            'stride': 5, # 10 for without RNN
-            'batch_size': 64, 
+            'n_step': 1, # 10 for without RNN
+            'stride': 1, # 10 for without RNN
+            'batch_size': 2, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'network': {
@@ -96,9 +96,9 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 64,
+            'batch_size': 2,
             'memory_size': 96,
-            'sampling_start_size': 64,
+            'sampling_start_size': 2,
             'param_release_min': 4096,
         },
         'eval': {
@@ -108,9 +108,9 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3, 
-        'sleep_time': 0.0,
+        'sleep_time': 5.0,
         'video': {
             'record_video': True,
             'save_folder': None,
