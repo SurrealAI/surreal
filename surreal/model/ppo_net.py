@@ -198,7 +198,8 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs[self.input_config['pixel'][0]]
-            obs_pixel = self._scale_image(obs_pixel)
+            if self.pixel_config.if_uint8:
+                obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -230,7 +231,8 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs[self.input_config['pixel'][0]]
-            obs_pixel = self._scale_image(obs_pixel)
+            if self.pixel_config.if_uint8:
+                obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -261,7 +263,8 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs[self.input_config['pixel'][0]]
-            obs_pixel = self._scale_image(obs_pixel)
+            if self.pixel_config.if_uint8:
+                obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel) 
             obs_list.append(obs_pixel)
 
