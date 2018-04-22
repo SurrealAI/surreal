@@ -37,13 +37,13 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 1, # 10 for without RNN
-            'stride': 1, # 10 for without RNN
-            'batch_size': 2, 
+            'n_step': 10, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
+            'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'network': {
@@ -61,7 +61,7 @@ def generate(argv):
                 'use_layernorm': True,
             }, 
             'rnn': {
-                'if_rnn_policy': True, 
+                'if_rnn_policy': False, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
@@ -96,9 +96,9 @@ def generate(argv):
         },
         'replay': {
             'replay_class': 'FIFOReplay',
-            'batch_size': 2,
+            'batch_size': 64,
             'memory_size': 96,
-            'sampling_start_size': 2,
+            'sampling_start_size': 64,
             'param_release_min': 4096,
         },
         'eval': {
@@ -110,7 +110,7 @@ def generate(argv):
         'env_name': args.env, 
         'pixel_input': False,
         'frame_stacks': 3, 
-        'sleep_time': 5.0,
+        'sleep_time': 0.0,
         'video': {
             'record_video': True,
             'save_folder': None,

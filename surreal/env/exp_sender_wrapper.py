@@ -2,7 +2,7 @@ from .wrapper import Wrapper
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
-import resource
+import copy
 exp_sender_wrapper_registry = {}
 
 def register_exp_sender_wrapper(target_class):
@@ -194,7 +194,8 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         self.last_n = deque()
 
     def _reset(self):
-        self._ob, info = self.env.reset()
+        obs, info = self.env.reset()
+        self._ob = copy.deepcopy(obs)
         self.last_n.clear()
         return self._ob, info
 
@@ -208,7 +209,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
-        self._ob = obs_next
+        self._ob = copy.deepcopy(obs_next)
         return obs_next, reward, done, info
 
     def send(self, data, obs_next):
@@ -227,10 +228,10 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             if onetime_infos == None: onetime_infos = onetime_info
 
         hash_dict = {
-            'obs': obs,
-            'obs_next': obs_next,
         }
         nonhash_dict = {
+            'obs': obs,
+            'obs_next': obs_next,
             'actions': actions,
             'onetime_infos' : onetime_infos,
             'persistent_infos': persistent_infos,

@@ -507,6 +507,7 @@ class PPOLearner(Learner):
 
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
+
                 if self.if_rnn_policy:
                     h = Variable(one_time_infos[0].transpose(0, 1).contiguous())
                     c = Variable(one_time_infos[1].transpose(0, 1).contiguous())

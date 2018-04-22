@@ -203,7 +203,7 @@ class PPOModel(U.Module):
             obs_list.append(obs_pixel)
 
         obs = torch.cat([ob for ob in obs_list if ob is not None], dim=-1)
-
+            
         if self.rnn_config.if_rnn_policy:
             obs, _ = self.rnn_stem(obs, cells)
             obs = obs.contiguous()
@@ -280,7 +280,6 @@ class PPOModel(U.Module):
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
         action = self.actor(obs) # shape (1, action_dim)
-
         return action, cells
 
     def z_update(self, obs):
