@@ -74,17 +74,16 @@ def generate(argv):
             # 'agent_sleep_time': 1/50.0,
             #'agent_sleep_time': 1/10.0,
             'n_step': 5,
-            # 'experience': 'ExpSenderWrapperMultiStepMovingWindow',
-            'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
+            'experience': 'ExpSenderWrapperMultiStepMovingWindow',
             'stride': 1,
         },
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 512,
             # 'memory_size': 1000000,
-            'memory_size': 330000, # Note that actual replay size is memory_size * replay_shards
+            'memory_size': int(1000000/4), # Note that actual replay size is memory_size * replay_shards
             'sampling_start_size': 3000,
-            'replay_shards': 3,
+            'replay_shards': 4,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -130,6 +129,7 @@ def generate(argv):
             'flush_iteration': 100,
         },
         'learner': {
+            'prefetch_processes': 6,
             'num_gpus': args.num_gpus,
         },
     })
