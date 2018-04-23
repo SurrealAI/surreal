@@ -1,4 +1,8 @@
-# Surreal initiative
+# [Surreal Community Guide](https://github.com/SurrealAI/surreal-community-guide)
+
+Please read the [guide](https://github.com/SurrealAI/surreal-community-guide) very carefully. It contains new recruit onboarding checklist, membership policy, and coding principles.
+
+# Overview
 
 - **SURREAL** stands for "**S**tanford **U**niversity **R**epository for **Re**inforcement-learning **Al**gorithms". Note that this is just a temporary acronym. Surreal will become something much more impactful in the years to come. Stay tuned. 
 
@@ -24,11 +28,6 @@
     - Maintain readable code for all future publications.
 
 
-# [Community guidelines](https://github.com/SurrealAI/surreal-community-guide)
-
-Please read the entire [guideline document](https://github.com/SurrealAI/surreal-community-guide) very carefully. It contains extremely important membership policies, to-do list for new students, and coding principles.
-
-
 # Infrastructure design
 
 ## Fully-integrated cloud solution for RL
@@ -48,6 +47,8 @@ Please read the entire [guideline document](https://github.com/SurrealAI/surreal
 
 ### Kubernetes: logical grouping
 
+Powered by [symphony repo](https://github.com/SurrealAI/symphony).
+
 Each distributed RL experiment is a logical set of processes. 
 
 For example, an [Ape-X](https://arxiv.org/abs/1803.00933) experiment with 8 actors would require 8 processes plus learner, parameter server, replay server, tensorboard, and logging server. They should be scheduled on the cloud as a logical set that can communicate internally. Different sets of processes denote different experiments that should not interfere with each other. 
@@ -56,7 +57,9 @@ To achieve this, _Surreal_ has tight integrations with [Kubernetes](https://kube
 
 ### Terraform: automate cloud setup
 
-**TODO**: Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
+Powered by [overture repo](https://github.com/SurrealAI/overture).
+
+Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
 
 Fortunately, [Terraform](https://www.terraform.io/intro/index.html) comes to our rescue. Configuration files describe to Terraform the components needed to run a single application or an entire datacenter. Terraform generates an execution plan describing what it will do to reach the desired state, and then executes it to build the described infrastructure. 
 
