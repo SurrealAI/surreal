@@ -108,6 +108,11 @@ gcloud beta container node-pools create nonagent-pool-gpu-4k80-32cpu -m n1-stand
 gcloud beta container node-pools create nonagent-pool-gpu-4k80-16cpu -m n1-standard-16 --accelerator type=nvidia-tesla-k80,count=4 --node-labels surreal-node=nonagent-gpu-4k80-16cpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
 
 gcloud beta container node-pools create nonagent-pool-gpu-1p100-16cpu -m n1-standard-16 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=nonagent-gpu --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create n1-standard-16-1p100 -m n1-standard-16 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=n1-standard-16-1p100 --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+
+gcloud beta container node-pools create n1-highmem-16-1p100 -m n1-highmem-16 --accelerator type=nvidia-tesla-p100,count=1 --node-labels surreal-node=n1-highmem-16-1p100 --enable-autoscaling --min-nodes 0 --max-nodes 100 --num-nodes 1 --node-taints surreal=true:NoExecute
+
 ```
 
 Create a daemonset to install dependencies (e.g. nvidia drivers) on every new gpu-node
