@@ -38,8 +38,8 @@ def generate(argv):
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
-            'lr_actor': 8e-4,
-            'lr_critic': 8e-4,
+            'lr_actor': 1e-4,
+            'lr_critic': 1e-4,
             'optimizer': 'Adam',
             'clip_actor_gradient': True,
             'actor_gradient_clip_value': 1.,
@@ -82,9 +82,9 @@ def generate(argv):
             'replay_class': 'UniformReplay',
             'batch_size': 512,
             # 'memory_size': 1000000,
-            'memory_size': int(1000000/4), # Note that actual replay size is memory_size * replay_shards
+            'memory_size': int(1000000/3), # Note that actual replay size is memory_size * replay_shards
             'sampling_start_size': 3000,
-            'replay_shards': 4,
+            'replay_shards': 3,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -130,7 +130,7 @@ def generate(argv):
             'flush_iteration': 100,
         },
         'learner': {
-            'prefetch_processes': 6,
+            'prefetch_processes': 3,
             'num_gpus': args.num_gpus,
         },
     })
