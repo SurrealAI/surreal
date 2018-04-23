@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import itertools
 from .base import Learner
-from .aggregator import NstepReturnAggregator
+from .aggregator import NstepReturnAggregator, SSARAggregator
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
@@ -101,7 +101,8 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
-            self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+            self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            #self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
             #self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
 
             U.hard_update(self.model_target.actor, self.model.actor)

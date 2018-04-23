@@ -74,7 +74,8 @@ def generate(argv):
             # 'agent_sleep_time': 1/50.0,
             #'agent_sleep_time': 1/10.0,
             'n_step': 5,
-            'experience': 'ExpSenderWrapperMultiStepMovingWindow',
+            #'experience': 'ExpSenderWrapperMultiStepMovingWindow',
+            'experience': 'ExpSenderWrapperSSAR',
             'stride': 1,
         },
         'replay': {

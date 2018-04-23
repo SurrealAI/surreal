@@ -11,9 +11,8 @@ from surreal.env import ActionType
 class SSARAggregator():
     """
         Accepts experience sent by SSAR experience senders
-        aggregate() returns float tensors:
-        TODO: make them Tensors 
-        EasyDict{
+        aggregate() returns float arrays:
+        {
             obs = batch_size * observation
             obs_next = batch_size * next_observation
             actions = batch_size * actions,
@@ -39,47 +38,34 @@ class SSARAggregator():
             aggregated experience
         """
         
-        visual_obs0, flat_obs0, actions, rewards, visual_obs1, flat_obs1, dones = [], [], [], [], [], [], []
+        obs0, actions, rewards, obs1, dones = (
+            collections.defaultdict(list), [], [], collections.defaultdict(list), [])
         for exp in exp_list:  # dict
-            visual_obs0.append(np.array(exp['obs'][0][0], copy=False))
-            flat_obs0.append(np.array(exp['obs'][0][1], copy=False))
+            for key in exp['obs'][0]:
+                obs0[key].append(np.array(exp['obs'][0][key], copy=False))
             actions.append(exp['action'])
             rewards.append(exp['reward'])
-            visual_obs1.append(np.array(exp['obs'][1][0], copy=False))
-            flat_obs1.append(np.array(exp['obs'][1][1], copy=False))
+            for key in exp['obs'][1]:
+                obs1[key].append(np.array(exp['obs'][1][key], copy=False))
             dones.append(float(exp['done']))
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = np.array(actions, dtype=np.float32)
         elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(1)
+            actions = np.array(actions, dtype=np.int32)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
-        # Check whether the first element of the list is array(None)
-        if visual_obs0[0].shape == ():
-            visual_obs0 = None
-        else:
-            visual_obs0 = np.array(visual_obs0)
-        if flat_obs0[0].shape == ():
-            flat_obs0 = None
-        else:
-            flat_obs0 = np.array(flat_obs0)
-        if visual_obs1[0].shape == ():
-            visual_obs1 = None
-        else:
-            visual_obs1 = np.array(visual_obs1)
-        if flat_obs1[0].shape == ():
-            flat_obs1 = None
-        else:
-            flat_obs1 = np.array(flat_obs1)
+        for obs in obs0, obs1:
+            for key in obs:
+                obs[key] = np.array(obs[key])
 
-        return EasyDict(
-            obs=(visual_obs0, flat_obs0),
-            obs_next=(visual_obs1, flat_obs1),
-            actions=np.array(actions),
-            rewards=np.array(U.to_float_tensor(rewards).unsqueeze(1)),
-            dones=np.array(U.to_float_tensor(dones).unsqueeze(1)),
-        )
+        return {
+            'obs': dict(obs0),
+            'obs_next': dict(obs1),
+            'actions': np.array(actions),
+            'rewards': np.expand_dims(rewards, axis=1),
+            'dones': np.expand_dims(dones, axis=1),
+        }
 
 class MultistepAggregator():
     """
@@ -340,18 +326,18 @@ class NstepReturnAggregator():
         for obs in [obs0, obs1]:
             for key in obs:
                 obs[key] = np.array(obs[key])
-        '''
+
         # TODO: convert action to appropriate numpy array
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = np.array(actions, dtype=np.float32)
         elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(1)
+            actions = np.array(actions, dtype=np.int32)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        '''
+
         return {
-            'obs': obs0,
-            'obs_next': obs1,
+            'obs': dict(obs0),
+            'obs_next': dict(obs1),
             'actions': np.array(actions),
             'rewards': np.expand_dims(np.array(rewards), axis=1),
             'dones': np.expand_dims(np.array(dones), axis=1),
