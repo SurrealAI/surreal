@@ -35,7 +35,7 @@ class ShardedReplay(object):
     def launch(self):
         self.collector_proxy = ZmqLoadBalancerThread(in_add=self.collector_frontend_add, 
                                                     out_add=self.collector_backend_add,
-                                                    pattern='pull-push')
+                                                    pattern='router-dealer')
         self.sampler_proxy = ZmqLoadBalancerThread(in_add=self.sampler_frontend_add,
                                                     out_add=self.sampler_backend_add,
                                                     pattern='router-dealer')

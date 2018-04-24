@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import itertools
 from .base import Learner
-from .aggregator import SSARAggregator, MultistepAggregatorWithInfo
+from .aggregator import NstepReturnAggregator, SSARAggregator
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
@@ -101,8 +101,9 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
-            # self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-            self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
+            self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
+            #self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
+            #self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
@@ -131,38 +132,15 @@ class DDPGLearner(Learner):
                 batch['obs'],
                 batch['actions'],
                 batch['rewards'],
-                batch['next_obs'],
+                batch['obs_next'],
                 batch['dones']
             )
 
-            visual_obs, flat_obs = obs
+            for key in obs:
+                obs[key] = Variable(torch.ByteTensor(obs[key])).float().detach()
 
-            if visual_obs is not None:
-                #assert torch.is_tensor(visual_obs)
-                visual_obs = Variable(torch.ByteTensor(visual_obs)).float().detach()
-                #visual_obs = Variable(torch.ByteTensor(visual_obs)).detach()
-                #visual_obs = Variable(U.to_float_tensor(visual_obs)).detach()
-
-            if flat_obs is not None:
-                #assert torch.is_tensor(flat_obs)
-                flat_obs = Variable(U.to_float_tensor(flat_obs)).detach()
-
-            obs = (visual_obs, flat_obs)
-            visual_obs_next, flat_obs_next = obs_next
-
-            if visual_obs_next is not None:
-                #assert torch.is_tensor(visual_obs_next)
-                visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).float().detach()
-                #visual_obs_next = Variable(torch.ByteTensor(visual_obs_next)).detach()
-                #visual_obs_next = Variable(U.to_float_tensor(visual_obs_next)).detach()
-
-            if flat_obs_next is not None:
-                #assert torch.is_tensor(flat_obs_next)
-                flat_obs_next = Variable(U.to_float_tensor(flat_obs_next)).detach()
-
-            obs_next = (visual_obs_next, flat_obs_next)
-            #print('preprocess')
-            #print(type(obs_next[0].data))
+            for key in obs_next:
+                obs_next[key] = Variable(torch.ByteTensor(obs_next[key])).float().detach()
 
             actions = Variable(U.to_float_tensor(actions))
             rewards = Variable(U.to_float_tensor(rewards))
@@ -172,13 +150,13 @@ class DDPGLearner(Learner):
                 batch['obs'],
                 batch['actions'],
                 batch['rewards'],
-                batch['next_obs'],
+                batch['obs_next'],
                 batch['dones']
             ) = (
                 obs,
                 actions,
                 rewards,
-                obs_next, 
+                obs_next,
                 done
             )
             return batch
@@ -304,7 +282,7 @@ class DDPGLearner(Learner):
                     batch.obs,
                     batch.actions,
                     batch.rewards,
-                    batch.next_obs,
+                    batch.obs_next,
                     batch.dones
                 )
                 tensorplex_update_dict['performance/total_learn_time'] = self.total_learn_time.avg
