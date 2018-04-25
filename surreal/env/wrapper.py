@@ -473,3 +473,46 @@ class FrameStackWrapper(Wrapper):
 
     def action_spec(self):
         return self.env.action_spec()
+
+class FilterWrapper(Wrapper):
+    '''
+    Given the inputs allowed in learner_config.model.input, reject any inputs
+    not specified in the config.
+    '''
+    def __init__(self, env, learner_config):
+        super().__init__(env)
+        input_list = learner_config.model.input
+        self._allowed_items = []
+        for key in input_list:
+            self._allowed_items += input_list[key]
+        self._allowed_items = set(self._allowed_items)
+
+    def _filtered_obs(self, obs):
+        filtered = collections.OrderedDict()
+        for key in obs:
+            if key in self._allowed_items:
+                filtered[key] = obs[key]
+        return filtered
+
+    def _step(self, action):
+        obs_next, reward, done, info = self.env.step(action)
+        return self._filtered_obs(obs_next), reward, done, info
+
+    def _reset(self):
+        obs, info = self.env.reset()
+        return self._filtered_obs(obs), info
+
+    @property
+    def spec_format(self):
+        return SpecFormat.SURREAL_CLASSIC
+
+    def observation_spec(self):
+        spec = self.env.observation_spec()
+        filtered = collections.OrderedDict()
+        for key in spec:
+            if key in self._allowed_items:
+                filtered[key] = spec[key]
+        return filtered
+
+    def action_spec(self):
+        return self.env.action_spec()
