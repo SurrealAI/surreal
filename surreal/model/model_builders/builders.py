@@ -259,7 +259,6 @@ class PPO_CriticNetwork(U.Module):
         self.fc_h2 = nn.Linear(hid_1, hid_2)
         self.fc_h3 = nn.Linear(hid_2, hid_3)
         self.fc_v  = nn.Linear(hid_3, 1)
-        # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
         obs_shape = obs.size()

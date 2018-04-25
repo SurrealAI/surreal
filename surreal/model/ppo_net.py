@@ -123,12 +123,7 @@ class PPOModel(U.Module):
         self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
-        self.low_dim = 0
-        for key in U.observation.get_matching_keys_for_modality(self.obs_spec,
-                                                                'low_dim',
-                                                                self.input_config):
-            self.low_dim += self.obs_spec[key].shape[0]
-
+        self.low_dim = get_low_dim_shape(self.obs_spec, self.input_config)
         self.cnn_stem = None
         self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
@@ -159,7 +154,10 @@ class PPOModel(U.Module):
         self.critic = PPO_CriticNetwork(input_size, self.cnn_stem, self.rnn_stem)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
-            self.z_filter = ZFilter(self.low_dim, use_cuda=use_cuda)
+            self.z_filter = ZFilter(self.obs_spec, 
+                                    self.input_config, 
+                                    pixel_input=self.if_pixel_input,
+                                    use_cuda=use_cuda)
 
     def update_target_params(self, net):
         '''

@@ -22,7 +22,7 @@ class ZFilter(U.Module):
             count: number of experiences accumulated
                 (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
     """
-    def __init__(self, in_size, eps=1e-2, use_cuda=False):
+    def __init__(self, obs_spec, input_config, pixel_input = False, eps=1e-2, use_cuda=False):
         """
         Constructor for ZFilter class
         Args:
@@ -32,7 +32,10 @@ class ZFilter(U.Module):
         """
         super(ZFilter, self).__init__()
         self.eps = eps
-        self.in_size = in_size
+        self.obs_spec = obs_spec
+        self.input_config = input_config
+
+        insize = U.observation.get_low_dim_shape(obs_spec, input_config)
 
         # Keep some buffers for doing whitening. 
         self.register_buffer('running_sum', torch.zeros(in_size))

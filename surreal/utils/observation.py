@@ -36,3 +36,12 @@ def gather_low_dim_input(obs, input_config):
     if len(list_obs_ld) < 1: return None
     obs_low_dim = torch.cat(list_obs_ld, -1)
     return obs_low_dim
+
+def get_low_dim_shape(obs_spec, input_config):
+    low_dim = 0
+    for key in get_matching_keys_for_modality(obs_spec,
+                                             'low_dim',
+                                              input_config):
+        low_dim += obs_spec[key].shape[0] 
+    return low_dim
+

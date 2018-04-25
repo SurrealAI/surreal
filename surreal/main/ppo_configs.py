@@ -37,7 +37,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
@@ -72,7 +72,7 @@ def generate(argv):
                 'lr_baseline': 1e-4,
                 'frames_to_anneal': 1e8,
                 'lr_update_frequency': 100, 
-                'min_lr': 1e-5,
+                'min_lr': 5e-5,
             },
             'consts': {
                 'init_log_sig': -1.,
@@ -99,7 +99,7 @@ def generate(argv):
             'batch_size': 64,
             'memory_size': 96,
             'sampling_start_size': 64,
-            'param_release_min': 4096,
+            'param_release_min': 6144,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -108,7 +108,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {
@@ -139,8 +139,8 @@ def generate(argv):
             'num_gpus': args.num_gpus,
         },
         'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10, # 10 for without RNN
+            'fetch_parameter_mode': 'episode',
+            'fetch_parameter_interval': 1, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,
