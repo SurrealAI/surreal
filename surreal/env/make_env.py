@@ -1,6 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter, DMControlAdapter, DMControlDummyWrapper
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
+from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 from dm_control.suite.wrappers import pixels
 import os
 
@@ -41,9 +42,15 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    # import mujocomanip
-    raise NotImplementedError()
-    pass
+    import MujocoManip
+    env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000) 
+    env = MujocoManipulationWrapper(env)
+    env = ObservationConcatenationWrapper(env)
+    # set to true and to receive camera input
+    # Remove observation concatenation wrapper and parse observation spec properly
+    env_config.action_spec = env.observation_spec()
+    env_config.obs_spec = env.observation_spec()
+    return env, env_config
 
 
 def make_dm_control(env_name, env_config, learner_config, record_video=False):

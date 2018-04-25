@@ -32,7 +32,7 @@ COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
 # required for imageio
-# RUN conda install --yes ffmpeg -c conda-forge
+# RUN conda install -y ffmpeg -c conda-forge
 
 # DM control suite
 RUN pip install git+git://github.com/deepmind/dm_control.git
