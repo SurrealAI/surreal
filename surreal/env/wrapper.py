@@ -11,6 +11,7 @@ from dm_control.rl.environment import StepType
 class SpecFormat(U.StringEnum):
     SURREAL_CLASSIC = ()
     DM_CONTROL = ()
+    MUJOCOMANIP = ()
 
 
 class Wrapper(Env):
@@ -212,7 +213,7 @@ class DMControlAdapter(Wrapper):
     def action_spec(self):
         return self.env.action_spec()
 
-    def render(self, *args, width=480, height=480, camera_id=1, **kwargs):
+    def _render(self, *args, width=480, height=480, camera_id=1, **kwargs):
         # safe for multiple calls
         import pygame
         pygame.init()
@@ -229,6 +230,40 @@ class DMControlAdapter(Wrapper):
         pygame.pixelcopy.array_to_surface(self.screen, im)
         pygame.display.update()
         return im
+
+class MujocoManipulationWrapper(Wrapper):
+    def __init__(self, env):
+        # dm_control envs don't have metadata
+        env.metadata = {}
+        super().__init__(env)
+
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return obs, reward, done, info
+
+    def _reset(self):
+        obs = self.env.reset()
+        return obs, {}
+
+    def _close(self):
+        self.env.close()
+
+    @property
+    def spec_format(self):
+        return SpecFormat.DM_CONTROL
+
+    def observation_spec(self):
+        return self.env.observation_spec()
+
+    def action_spec(self): # we haven't finalized the action spec of mujocomanip
+        # for now I am confirming to dm_control for ease of integration
+        low, high = self.env.action_spec()
+        return low
+
+    def _render(self, camera_id=0, *args, **kwargs):
+        return
+        self.env.render(camera_id)
+        
 
 def flatten_obs(obs):
     return np.concatenate([v.flatten() for k, v in obs.items()])

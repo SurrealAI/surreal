@@ -5,9 +5,15 @@
 volumes:
 {% for git_repo in GIT_REPOS %}
 - name: {{ git_repo | to_hyphen }}
+  {% if git_repo == 'mujocomanipulation' %}
+  gitRepo:
+    repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/StanfordVL/MujocoManipulation
+    revision: {{ GIT_SNAPSHOT_BRANCH }}
+  {% else %}
   gitRepo:
     repository: https://{{GIT_USER}}:{{GIT_TOKEN}}@github.com/SurrealAI/{{git_repo}}
     revision: {{ GIT_SNAPSHOT_BRANCH }}
+  {% endif %}
 {% endfor %}
 - name: fs
 {% if FS_TYPE == 'emptyDir' %}
@@ -31,10 +37,17 @@ volumes:
   imagePullPolicy: Always
   env:
   {% for git_repo in GIT_REPOS %}
+  {% if git_repo == 'mujocomanipulation' %}
+  - name: repo_{{git_repo | to_underscore}}
+    # Note that the path is duplicated because gitVolume doesn't allow the
+    # same mount path, but the git repos are cloned as a subdir.
+    value: /mylibs/{{git_repo}}/MujocoManipulation
+  {% else %}
   - name: repo_{{git_repo | to_underscore}}
     # Note that the path is duplicated because gitVolume doesn't allow the
     # same mount path, but the git repos are cloned as a subdir.
     value: /mylibs/{{git_repo}}/{{git_repo}}
+  {% endif %}
   {% endfor %}
   - name: mujoco_key_text
     value: {{ MUJOCO_KEY_TEXT }}
