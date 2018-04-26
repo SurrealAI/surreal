@@ -15,7 +15,7 @@ class MultiprocessTask(Process):
         pass
 
     def run(self):
-        # You must initilize the transmission channel AFTER you fork off
+        # You must initialize the transmission channel AFTER you fork off
         self.sender = ZmqSender(self.host, self.port, preprocess=inmem_serialize)
         # self.pusher = ZmqPusher(self.host, self.port, preprocess=inmem_serialize, hwm=5)
 
