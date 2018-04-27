@@ -11,12 +11,13 @@ from ..layer_norm import LayerNorm
 class PerceptionNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
-        conv_channels=[32, 32]
+        conv_channels=[16, 32]
         C, H, W = D_obs.shape
-        self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
+        # DQN architecture
+        self.conv1 = nn.Conv2d(C, conv_channels[0], [8,8], stride=4)
+        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [4,4], stride=2)
         # TODO: auto shape inference
-        conv_output_size = 48672
+        conv_output_size = 2592
         self.fc_obs = nn.Linear(conv_output_size, D_out)
 
     def forward(self, obs):

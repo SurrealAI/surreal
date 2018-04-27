@@ -123,7 +123,7 @@ class PPOModel(U.Module):
         self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
-        self.low_dim = get_low_dim_shape(self.obs_spec, self.input_config)
+        self.low_dim = U.observation.get_low_dim_shape(self.obs_spec, self.input_config)
         self.cnn_stem = None
         self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
