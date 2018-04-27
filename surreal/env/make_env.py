@@ -41,11 +41,11 @@ def make_gym(env_name, env_config):
     return env, env_config
 
 
-def make_mujocomanip(env_name, env_config):
+def make_mujocomanip(env_name, env_config, learner_config):
     import MujocoManip
     env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000) 
     env = MujocoManipulationWrapper(env)
-    env = ObservationConcatenationWrapper(env)
+    env = ObservationConcatenationWrapper(env, learner_config)
     # set to true and to receive camera input
     # Remove observation concatenation wrapper and parse observation spec properly
     env_config.action_spec = env.observation_spec()
@@ -73,12 +73,13 @@ def make_dm_control(env_name, env_config, learner_config, record_video=False):
     # Reward visualization should only be done in the eval agent
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
 
-    env = DMControlAdapter(env)
+    env = DMControlAdapter(env, pixel_input)
+    env = FilterWrapper(env, learner_config)
+    env = ObservationConcatenationWrapper(env, learner_config)
     env = TransposeWrapper(env, learner_config)
     if pixel_input:
         env = GrayscaleWrapper(env, learner_config)
         env = FrameStackWrapper(env, env_config, learner_config)
-    env = FilterWrapper(env, learner_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config

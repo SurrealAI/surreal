@@ -12,7 +12,7 @@ class PerceptionNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
         conv_channels=[32, 32]
-        C, H, W = D_obs.shape
+        C, H, W = D_obs
         self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
         self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
         # TODO: auto shape inference
@@ -38,7 +38,7 @@ class ActorNetworkX(U.Module):
         x = self.layer_norm(x)
         x = F.tanh(self.fc_out(x))
         return x
-        
+
 class CriticNetworkX(U.Module):
     def __init__(self, D_in, D_act, hidden_size=300):
         super(CriticNetworkX, self).__init__()

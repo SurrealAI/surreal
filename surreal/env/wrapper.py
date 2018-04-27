@@ -201,9 +201,9 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return collections.OrderedDict([('pixels',
-            dm_control.rl.specs.ArraySpec(shape=(84, 84, 3),
-                dtype=np.dtype('uint8'), name='pixels'))])
+        modality = collections.OrderedDict([('pixels', (84, 84, 3))])
+        return modality
+        #return collections.OrderedDict([('pixel', modality)])
 
     def action_spec(self):
         return self.env.action_spec()
@@ -214,46 +214,61 @@ class DMControlDummyWrapper(Wrapper):
         #     maximum=[1., 1., 1., 1., 1., 1.])
 
 class DMControlAdapter(Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, is_pixel_input):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
         self.screen = None
+        self.is_pixel_input = is_pixel_input
         assert (isinstance(env, dm_control.rl.control.Environment) or
             isinstance(env, pixels.Wrapper) or
             isinstance(env, DMControlDummyWrapper))
 
+    def _add_modality(self, obs):
+        if self.is_pixel_input:
+            return collections.OrderedDict([('pixel', obs)])
+        else:
+            return collections.OrderedDict([('low_dim', obs)])
+
     def _step(self, action):
         ts = self.env.step(action)
+        for key in ts.observation:
+            ts.observation[]
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none
             print('None reward')
             reward = 0
-        # input is (84, 84, 3), we want (C, H, W) == (3, 84, 84)
-        #print('hi', ts.observation.shape)
-        #obs = ts.observation.transpose((2, 1, 0))
-        #print('hi2', obs.shape)
-        return ts.observation, reward, ts.step_type == StepType.LAST, {}
+        return self._add_modality(ts.observation), reward, ts.step_type == StepType.LAST, {}
 
     def _reset(self):
         ts = self.env.reset()
-        return ts.observation, {}
+        return self._add_modality(ts.observation), {}
 
     def _close(self):
         self.env.close()
 
     @property
     def spec_format(self):
-        return SpecFormat.DM_CONTROL
+        return SpecFormat.SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        return self.env.observation_spec()
+        obs_spec = collections.OrderedDict()
+        print('potato', self.env.observation_spec())
+        for modality, v in self._add_modality(self.env.observation_spec()).items():
+            modality_spec = collections.OrderedDict()
+            for key, obs_shape in v.items():
+                # Deepmind observation spec uses Deepmind data types, we just need shape as tuple
+                modality_spec[key] = obs_shape.shape
+            obs_spec[modality] = modality_spec
+        print(obs_spec)
+        return obs_spec
 
     def action_spec(self):
+        print('spec', self.env.action_spec().shape)
         return {
             'type': ActionType.continuous,
-            'dim': self.env.action_spec().shape,
+            'dim': self.env.action_spec().shape, # DM_control returns int, we want all dim to be tuple
         }
 
     def _render(self, *args, width=480, height=480, camera_id=1, **kwargs):
@@ -294,13 +309,13 @@ class MujocoManipulationWrapper(Wrapper):
 
     @property
     def spec_format(self):
-        return SpecFormat.DM_CONTROL
+        return SpecFormat.MUJOCOMANIP
 
     def observation_spec(self):
         return self.env.observation_spec()
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        # for now I am confirming to dm_control for ease of integration
+        # for now I am conforming to dm_control for ease of integration
         low, high = self.env.action_spec()
         return low
 
@@ -308,78 +323,50 @@ class MujocoManipulationWrapper(Wrapper):
         return
         self.env.render(camera_id)
         
-
-def flatten_obs(obs):
-    flat_observations = []
-    visual_observations = None
-    for k, v in obs.items():
-        if len(v.shape) > 1: # visual input
-            # This is the desired pixel size of dm_control environments
-            #print('visual shape',v.shape)
-            # input is (84, 84, 3), we want (C, H, W) == (3, 84, 84)
-            assert v.shape == (84, 84, 3)
-            v = v.transpose((2, 1, 0))
-            assert v.shape == (3, 84, 84)
-            # We should only have one visual obsevations, all other items should be flat
-            assert visual_observations is None
-            visual_observations = v
-        elif len(v.shape) == 1:
-            flat_observations.append(v)
-        else:
-            raise Exception("Unrecognized data format")
-    if len(flat_observations) == 0:
-        flat_observations = None
-    else:
-        flat_observations = np.concatenate(flat_observations)
-    return [visual_observations, flat_observations]
-
-'''
 class ObservationConcatenationWrapper(Wrapper):
+    def __init__(self, env, learner_config, concatenated_obs_name='flat_inputs'):
+        super().__init__(env)
+        self._concatenated_obs_name = concatenated_obs_name
+        self._flat_inputs = learner_config.model.input.low_dim
+
+    def _flatten_obs(self, obs):
+        flat_observations = []
+        for modality, v in obs.low_dim.items():
+            flat_observations.append(v)
+        if len(flat_observations) > 0:
+            flat_observations = np.concatenate(flat_observations)
+            del obs['low_dim']
+            obs[self._concatenated_obs_name] = flat_observations
+        return obs
+
     def _step(self, action):
-        #print('obs concat sub', type(self.env))
         obs, reward, done, info = self.env.step(action)
-        return flatten_obs(obs), reward, done, info
+        return self._flatten_obs(obs), reward, done, info
 
     def _reset(self):
         obs, info = self.env.reset()
-        return flatten_obs(obs), info
+        return self._flatten_obs(obs), info
 
     @property
     def spec_format(self):
         return SpecFormat.SURREAL_CLASSIC
 
     def observation_spec(self):
-        visual_dim = None
-        flat_dim = 0
-        print('parent obsspec', self.env.observation_spec().items())
+        spec = self.env.observation_spec()
+        flattened_spec = collections.OrderedDict()
+        flat_observation_dim = 0
+        print(spec)
+        if 'low_dim' in spec:
+            for k, shape in spec['low_dim'].items():
+                assert len(shape) == 1
+                flat_observation_dim += shape[0]
+            spec['low_dim'] = collections.OrderedDict([self._concatenated_obs_name, flat_observation_dim])
 
-        for k, x in self.env.observation_spec().items():
-            if len(x.shape) > 1:
-                assert visual_dim is None # Should only be one visual observation
-                assert x.shape == (84, 84, 3) # Expected pixel size of dm_control environments
-                H, W, C = x.shape
-                # transpose to (C, H, W) to work with pytorch convolutions
-                visual_dim = (C, H, W)
-            elif len(x.shape) == 1:
-                flat_dim += x.shape[0]
-            else:
-                raise Exception("Unexpected data format")
-        if flat_dim == 0:
-            flat_dim = None
-        print('observation spec', (visual_dim, flat_dim))
-
-        return {
-            'type': 'continuous',
-            'dim': (visual_dim, flat_dim)
-        }
+        print('concat', spec)
+        return spec
 
     def action_spec(self):
-        return {
-            'type': ActionType.continuous,
-            'dim': self.env.action_spec().shape,
-        }
-    # TODO: what about upper/lower bound information
-'''
+        return self.env.action_spec()
 
 class TransposeWrapper(Wrapper):
     def __init__(self, env, learner_config):
@@ -403,11 +390,11 @@ class TransposeWrapper(Wrapper):
     def observation_spec(self):
         spec = self.env.observation_spec()
         for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
-            H, W, C = spec[key].shape
+            H, W, C = spec[key]
             # We transpose to (C, H, W) to work with pytorch convolutions
             visual_dim = (C, H, W)
-            spec[key] = dm_control.rl.specs.ArraySpec(
-                shape=(C, H, W), dtype=np.dtype('uint8'), name='pixels')
+            spec[key] = visual_dim
+        print('389transpose', spec)
         return spec
 
 class GrayscaleWrapper(Wrapper):
@@ -440,12 +427,12 @@ class GrayscaleWrapper(Wrapper):
     def observation_spec(self):
         spec = self.env.observation_spec()
         for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
-            dimensions = spec[key].shape
+            dimensions = spec[key]
             C, H, W = dimensions
             # We expect rgb for now
             assert C == 3
-            spec[key] = dm_control.rl.specs.ArraySpec(
-                shape=(1, H, W), dtype=np.dtype('uint8'), name='pixels')
+            spec[key] = (1, H, W)
+        print('Grayscael', spec)
         return spec
 
     def action_spec(self):
@@ -497,13 +484,15 @@ class FrameStackWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
-            dimensions = spec[key]
-            C, H, W = dimensions.shape
-            # We expect grayscale input as input
-            assert C == 1
-            spec[key] = dm_control.rl.specs.ArraySpec(
-                shape=(C * self.n, H, W), dtype=np.dtype('uint8'), name='pixels')
+        if 'pixel' in spec:
+            for key in spec['pixel']:
+                dimensions = spec['pixel'][key]
+                C, H, W = dimensions
+                if C > 4:
+                    print('Received input of size (C, H, W) == ', dimensions)
+                    print('number of channels is greater than 4')
+                spec['pixel'][key] = (C * self.n, H, W)
+        print('Frame', spec)
         return spec
 
     def action_spec(self):
@@ -517,16 +506,20 @@ class FilterWrapper(Wrapper):
     def __init__(self, env, learner_config):
         super().__init__(env)
         input_list = learner_config.model.input
-        self._allowed_items = []
-        for key in input_list:
-            self._allowed_items += input_list[key]
-        self._allowed_items = set(self._allowed_items)
+        self._allowed_items = learner_config.model.input
+        #for key in input_list:
+        #    self._allowed_items += input_list[key]
+        #self._allowed_items = set(self._allowed_items)
 
     def _filtered_obs(self, obs):
         filtered = collections.OrderedDict()
-        for key in obs:
-            if key in self._allowed_items:
-                filtered[key] = obs[key]
+        for modality in obs:
+            if modality in self._allowed_items:
+                modality_spec = collections.OrderedDict()
+                for key in obs[modality]:
+                    if key in self._allowed_items[modality]:
+                        modality_spec[key] = obs[modality][key]
+                filtered[modality] = modality_spec
         return filtered
 
     def _step(self, action):
@@ -543,11 +536,8 @@ class FilterWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        filtered = collections.OrderedDict()
-        for key in spec:
-            if key in self._allowed_items:
-                filtered[key] = spec[key]
-        return filtered
+        print('inputspec', spec)
+        return self._filtered_obs(spec)
 
     def action_spec(self):
         return self.env.action_spec()

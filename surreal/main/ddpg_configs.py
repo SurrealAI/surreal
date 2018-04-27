@@ -31,8 +31,8 @@ def generate(argv):
                 'use_dropout': False
             },
             'input': {
-                'pixel':['pixels'],
-                'low_dim':['joint_pos', 'joint_vel'],
+                'pixel':['pixels', 'image'],
+                'low_dim':['joint_pos', 'joint_vel', 'gripper_pos', 'flat_inputs'],
             },
         },
         'algo': {
