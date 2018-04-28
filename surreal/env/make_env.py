@@ -76,8 +76,8 @@ def make_dm_control(env_name, env_config, learner_config, record_video=False):
     env = DMControlAdapter(env, pixel_input)
     env = FilterWrapper(env, learner_config)
     env = ObservationConcatenationWrapper(env, learner_config)
-    env = TransposeWrapper(env, learner_config)
     if pixel_input:
+        env = TransposeWrapper(env, learner_config)
         env = GrayscaleWrapper(env, learner_config)
         env = FrameStackWrapper(env, env_config, learner_config)
     env_config.action_spec = env.action_spec()

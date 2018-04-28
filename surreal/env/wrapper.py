@@ -71,7 +71,6 @@ class Wrapper(Env):
         return self.env.close()
 
     def _assert_conforms_to_spec(self, obs):
-        return
         spec = self.observation_spec()
         for modality in spec:
             for key in spec[modality]:
@@ -351,7 +350,7 @@ class ObservationConcatenationWrapper(Wrapper):
             if len(flat_observations) > 0:
                 flat_observations = np.concatenate(flat_observations)
                 del obs['low_dim']
-                obs[self._concatenated_obs_name] = flat_observations
+                obs['low_dim'] = collections.OrderedDict([(self._concatenated_obs_name, flat_observations)])
         return obs
 
     def _step(self, action):
@@ -373,8 +372,7 @@ class ObservationConcatenationWrapper(Wrapper):
             for k, shape in spec['low_dim'].items():
                 assert len(shape) == 1
                 flat_observation_dim += shape[0]
-            spec['low_dim'] = collections.OrderedDict([self._concatenated_obs_name, flat_observation_dim])
-
+            spec['low_dim'] = collections.OrderedDict([(self._concatenated_obs_name, (flat_observation_dim,))])
         return spec
 
     def action_spec(self):
@@ -386,9 +384,10 @@ class TransposeWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _transpose(self, obs):
-        for key in obs['pixel']:
-            # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
-            obs['pixel'][key] = obs['pixel'][key].transpose((2, 0, 1))
+        if 'pixel' in obs:
+            for key in obs['pixel']:
+                # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
+                obs['pixel'][key] = obs['pixel'][key].transpose((2, 0, 1))
         return obs
 
     def _reset(self):
@@ -401,11 +400,12 @@ class TransposeWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in spec['pixel']:
-            H, W, C = spec['pixel'][key]
-            # We transpose to (C, H, W) to work with pytorch convolutions
-            visual_dim = (C, H, W)
-            spec['pixel'][key] = visual_dim
+        if 'pixel' in spec:
+            for key in spec['pixel']:
+                H, W, C = spec['pixel'][key]
+                # We transpose to (C, H, W) to work with pytorch convolutions
+                visual_dim = (C, H, W)
+                spec['pixel'][key] = visual_dim
         return spec
 
 class GrayscaleWrapper(Wrapper):
@@ -506,7 +506,7 @@ class FrameStackWrapper(Wrapper):
                 dimensions = spec['pixel'][key]
                 C, H, W = dimensions
                 if C > 4:
-                    print('Received input of size (C, H, W) == ', dimensions)
+                    print('WARNING: Received input of size (C, H, W) == ', dimensions)
                     print('number of channels is greater than 4')
                 spec['pixel'][key] = (C * self.n, H, W)
         return spec
@@ -527,7 +527,7 @@ class FilterWrapper(Wrapper):
         #    self._allowed_items += input_list[key]
         #self._allowed_items = set(self._allowed_items)
 
-    def _filtered_obs(self, obs):
+    def _filtered_obs(self, obs, verbose=False):
         filtered = collections.OrderedDict()
         for modality in obs:
             if modality in self._allowed_items:
@@ -535,6 +535,8 @@ class FilterWrapper(Wrapper):
                 for key in obs[modality]:
                     if key in self._allowed_items[modality]:
                         modality_spec[key] = obs[modality][key]
+                    elif verbose:
+                        print('Skipping observation key:', modality, '/', key)
                 filtered[modality] = modality_spec
         return filtered
 
@@ -552,7 +554,7 @@ class FilterWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        return self._filtered_obs(spec)
+        return self._filtered_obs(spec, verbose=True)
 
     def action_spec(self):
         return self.env.action_spec()

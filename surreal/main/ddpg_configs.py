@@ -32,7 +32,7 @@ def generate(argv):
             },
             'input': {
                 'pixel':['pixels', 'image'],
-                'low_dim':['joint_pos', 'joint_vel', 'gripper_pos', 'flat_inputs'],
+                'low_dim':['joint_pos', 'joint_vel', 'gripper_pos', 'flat_inputs', 'position', 'velocity'],
             },
         },
         'algo': {
@@ -96,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3,
         'video': {
             'record_video': True,

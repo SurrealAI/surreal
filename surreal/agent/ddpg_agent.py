@@ -93,8 +93,10 @@ class DDPGAgent(Agent):
             for key in obs[modality]:
                 modality_dict[key] = Variable(U.to_float_tensor(obs[modality][key]).unsqueeze(0))
             obs_variable[modality] = modality_dict
-        perception = self.model.forward_perception(obs_variable)
-        action = self.model.forward_actor(perception).data.numpy()[0]
+        action, _ = self.model.forward(obs_variable, calculate_value=False)
+        action = action.data.numpy()[0]
+        #perception = self.model.forward_perception(obs_variable)
+        #action = self.model.forward_actor(perception).data.numpy()[0]
         action = action.clip(-1, 1)
 
         if self.agent_mode != 'eval_deterministic':

@@ -9,20 +9,25 @@ import resource
 from ..layer_norm import LayerNorm
 
 class PerceptionNetwork(U.Module):
-    def __init__(self, D_obs, D_out, use_layernorm=True):
+    def __init__(self, D_obs, D_out, pixel_input, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
-        conv_channels=[32, 32]
-        C, H, W = D_obs
-        self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
-        # TODO: auto shape inference
-        conv_output_size = 48672
-        self.fc_obs = nn.Linear(conv_output_size, D_out)
+        self.pixel_input = pixel_input
+        if pixel_input:
+            conv_channels=[32, 32]
+            C, H, W = D_obs
+            self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
+            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
+            # TODO: auto shape inference
+            conv_output_size = 48672
+            self.fc_obs = nn.Linear(conv_output_size, D_out)
+        else:
+            self.fc_obs = nn.Linear(D_obs, D_out)
 
     def forward(self, obs):
-        obs = F.elu(self.conv1(obs))
-        obs = F.elu(self.conv2(obs))
-        obs = obs.view(obs.size(0), -1)
+        if self.pixel_input:
+            obs = F.elu(self.conv1(obs))
+            obs = F.elu(self.conv2(obs))
+            obs = obs.view(obs.size(0), -1)
         obs = F.elu(self.fc_obs(obs))
         return obs
 
@@ -47,8 +52,6 @@ class CriticNetworkX(U.Module):
         self.layer_norm = LayerNorm()
 
     def forward(self, obs, action):
-        print('50', obs.shape)
-        print('51', action.shape)
         x = torch.cat((obs, action), dim=1)
         x = F.elu(self.fc_in(x))
         x = self.layer_norm(x)

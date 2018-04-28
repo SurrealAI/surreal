@@ -86,7 +86,7 @@ class DDPGLearner(Learner):
 
             self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
             self.critic_optim = torch.optim.Adam(
-                itertools.chain(self.model.critic.parameters(), self.model.perception.parameters()),
+                self.model.get_critic_parameters(),
                 lr=self.learner_config.algo.lr_critic,
                 weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
             )
@@ -190,7 +190,7 @@ class DDPGLearner(Learner):
 
                 # compute Q(s_t, a_t)
                 perception = self.model.forward_perception(obs)
-                perception_next = self.model.forward_perception(obs_next)
+                perception_next = self.model.forward_perception(obs_next) # TODO: unused?
                 y_policy = self.model.forward_critic(
                     perception,
                     actions.detach() # TODO: why do we detach here
@@ -255,45 +255,23 @@ class DDPGLearner(Learner):
 
     def learn(self, batch):
         self.current_iteration += 1
-        '''
-        with self.aggregate_and_preprocess_time.time():
-            batch = self.aggregator.aggregate(batch)
-            # The preprocess step creates Variables which will become GpuVariables
-            batch.obs, batch.actions, batch.rewards, batch.obs_next, batch.dones = self.preprocess(
+        with self.total_learn_time.time():
+            #batch = self.batch_queue.get()
+
+            tensorplex_update_dict = self._optimize(
                 batch.obs,
                 batch.actions,
                 batch.rewards,
-                batch.obs_next, 
+                batch.obs_next,
                 batch.dones
             )
-            self.batch_queue.put(batch)
-        '''
-        '''
-        visual, flat = batch.obs
-        batch.obs = [visual.float().detach(), flat]
-
-        visual, flat = batch.obs_next
-        batch.obs_next = [visual.float().detach(), flat]
-        #if self.batch_queue.qsize() == self.batch_queue_size:
-        '''
-        if True:
-            with self.total_learn_time.time():
-                #batch = self.batch_queue.get()
-
-                tensorplex_update_dict = self._optimize(
-                    batch.obs,
-                    batch.actions,
-                    batch.rewards,
-                    batch.obs_next,
-                    batch.dones
-                )
-                tensorplex_update_dict['performance/total_learn_time'] = self.total_learn_time.avg
-                tensorplex_update_dict['performance/aggregate_and_preprocess_time'] = self.aggregate_and_preprocess_time.avg
-                self.tensorplex.add_scalars(tensorplex_update_dict, global_step=self.current_iteration)
-                self.periodic_checkpoint(
-                    global_steps=self.current_iteration,
-                    score=None,
-                )
+            tensorplex_update_dict['performance/total_learn_time'] = self.total_learn_time.avg
+            tensorplex_update_dict['performance/aggregate_and_preprocess_time'] = self.aggregate_and_preprocess_time.avg
+            self.tensorplex.add_scalars(tensorplex_update_dict, global_step=self.current_iteration)
+            self.periodic_checkpoint(
+                global_steps=self.current_iteration,
+                score=None,
+            )
 
     def module_dict(self):
         return {
