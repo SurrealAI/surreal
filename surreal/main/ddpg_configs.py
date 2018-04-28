@@ -96,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3,
         'video': {
             'record_video': True,
