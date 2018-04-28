@@ -31,7 +31,6 @@ class DDPGModel(U.Module):
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
 
-        print(obs_spec)
         if self.is_pixel_input:
             self.obs_spec = obs_spec['pixel']['pixels']
         else:
@@ -64,7 +63,7 @@ class DDPGModel(U.Module):
         else:
             obs_in = obs_in['low_dim']['flat_inputs']
         action = self.forward_actor(obs_in)
-        value = self.forward_critic(obs, action)
+        value = self.forward_critic(obs_in, action)
         return (action, value)
 
     def scale_image(self, obs):

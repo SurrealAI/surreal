@@ -71,6 +71,7 @@ class Wrapper(Env):
         return self.env.close()
 
     def _assert_conforms_to_spec(self, obs):
+        return
         spec = self.observation_spec()
         for modality in spec:
             for key in spec[modality]:

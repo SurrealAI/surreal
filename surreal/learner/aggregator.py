@@ -37,22 +37,28 @@ class SSARAggregator():
         Returns:
             aggregated experience
         """
-        
+
         obs0, actions, rewards, obs1, dones = (
-            dict(), [], [], dict(), [])
+            collections.OrderedDict(), [], [], collections.OrderedDict(), [])
+        i = 0
         for exp in exp_list:  # dict
+            i += 1
             for modality in exp['obs'][0]:
-                obs0[modality] = collections.defaultdict(list)
+                if modality not in obs0:
+                    obs0[modality] = collections.OrderedDict()
                 for key in exp['obs'][0][modality]:
+                    if key not in obs0[modality]:
+                        obs0[modality][key] = []
                     obs0[modality][key].append(np.array(exp['obs'][0][modality][key], copy=False))
-                obs0[modality] = dict(obs0[modality])
             actions.append(exp['action'])
             rewards.append(exp['reward'])
             for modality in exp['obs'][1]:
-                obs1[modality] = collections.defaultdict(list)
+                if modality not in obs1:
+                    obs1[modality] = collections.OrderedDict()
                 for key in exp['obs'][1][modality]:
+                    if key not in obs1[modality]:
+                        obs1[modality][key] = []
                     obs1[modality][key].append(np.array(exp['obs'][1][modality][key], copy=False))
-                obs1[modality] = dict(obs1[modality])
             dones.append(float(exp['done']))
         if self.action_type == ActionType.continuous:
             actions = np.array(actions, dtype=np.float32)
@@ -62,12 +68,13 @@ class SSARAggregator():
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         for obs in obs0, obs1:
-            for key in obs:
-                obs[key] = np.array(obs[key])
+            for modality in obs:
+                for key in obs[modality]:
+                    obs[modality][key] = np.array(obs[modality][key])
 
         return {
-            'obs': dict(obs0),
-            'obs_next': dict(obs1),
+            'obs': obs0,
+            'obs_next': obs1,
             'actions': np.array(actions),
             'rewards': np.expand_dims(rewards, axis=1),
             'dones': np.expand_dims(dones, axis=1),

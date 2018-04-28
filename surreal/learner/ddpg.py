@@ -136,11 +136,13 @@ class DDPGLearner(Learner):
                 batch['dones']
             )
 
-            for key in obs:
-                obs[key] = Variable(torch.ByteTensor(obs[key])).float().detach()
+            for modality in obs:
+                for key in obs[modality]:
+                    obs[modality][key] = Variable(torch.ByteTensor(obs[modality][key])).float().detach()
 
-            for key in obs_next:
-                obs_next[key] = Variable(torch.ByteTensor(obs_next[key])).float().detach()
+            for modality in obs_next:
+                for key in obs_next[modality]:
+                    obs_next[modality][key] = Variable(torch.ByteTensor(obs_next[modality][key])).float().detach()
 
             actions = Variable(U.to_float_tensor(actions))
             rewards = Variable(U.to_float_tensor(rewards))

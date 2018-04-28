@@ -47,6 +47,8 @@ class CriticNetworkX(U.Module):
         self.layer_norm = LayerNorm()
 
     def forward(self, obs, action):
+        print('50', obs.shape)
+        print('51', action.shape)
         x = torch.cat((obs, action), dim=1)
         x = F.elu(self.fc_in(x))
         x = self.layer_norm(x)
