@@ -120,44 +120,6 @@ class ExpSenderWrapperSSARNStepBootstrap(ExpSenderWrapperSSAR):
         self._obs = obs_next
         return obs_next, reward, done, info
 
-class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
-    """
-        Base class for all classes that send experience in format
-        {   
-            'obs_arr': [state_1, ..., state_n]
-            'obs_next': [state_{n + 1}]
-            'action_arr': [action_1, ...],
-            'reward_arr': [reward_1, ...],
-            'done_arr': [done_1, ...],
-            'info_arr': [info_1, ...],
-            'n_step': n, length of all arrays,
-        }
-    """
-    def send(self, data, obs_next):
-        obs_arr, action_arr, reward_arr, done_arr, info_arr = [], [], [], [], []
-        hash_dict = {}
-        nonhash_dict = {}
-        for index, (obs, action, reward, done, info) in enumerate(data):
-            # Store observations in a deduplicated way
-            obs_arr.append(obs)
-            action_arr.append(action)
-            reward_arr.append(reward)
-            done_arr.append(done)
-            info_arr.append(info)
-
-        hash_dict = {
-        }
-        nonhash_dict = {
-            'obs_arr': obs_arr,
-            'obs_next': obs_next,
-            'action_arr': action_arr,
-            'reward_arr': reward_arr,
-            'done_arr': done_arr,
-            'info_arr': info_arr,
-            'n_step': len(data),
-        }
-        self.sender.send(hash_dict, nonhash_dict)
-
 
 class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
     """
@@ -283,40 +245,5 @@ class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
-        self._obs = obs_next
-        return obs_next, reward, done, info
-
-
-class ExpSenderWrapperMultiStepEpisode(ExpSenderWrapperMultiStep):
-    """
-        Base class for all classes that send experience in format
-        {   
-            'obs_arr': [state_1, ..., state_T]
-            'obs_next': [None]
-            'action_arr': [action_1, ...],
-            'reward_arr': [reward_1, ...],
-            'done_arr': [done_1, ...],
-            'info_arr': [info_1, ...],
-            'n_step': T
-        }
-
-        T is episode length
-    """
-    def __init__(self, env, learner_config, session_config):
-        super().__init__(env, learner_config, session_config)
-        self._obs = None  # obs of the current time step
-        self.trajectory = deque()
-
-    def _reset(self):
-        self._obs, info = self.env.reset()
-        self.trajectory.clear()
-        return self._obs, info
-
-    def _step(self, action):
-        obs_next, reward, done, info = self.env.step(action)
-        self.trajectory.append([self._obs, action, reward, done, info])
-        if done:
-            self.send(self.trajectory, None)
-            self.trajectory.clear()
         self._obs = obs_next
         return obs_next, reward, done, info
