@@ -52,7 +52,6 @@ class Wrapper(Env):
 
     def step(self, action):
         obs, reward, done, info = super().step(action)
-        self._assert_conforms_to_spec(obs)
         return obs, reward, done, info
 
     def _step(self, action):
@@ -60,7 +59,6 @@ class Wrapper(Env):
 
     def _reset(self):
         obs, info = self.env.reset()
-        self._assert_conforms_to_spec(obs)
         return obs
 
 
