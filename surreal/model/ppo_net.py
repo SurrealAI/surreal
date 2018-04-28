@@ -127,7 +127,7 @@ class PPOModel(U.Module):
         self.cnn_stem = None
         self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
-            self.cnn_stem = PerceptionNetwork(self.obs_spec['pixels'],
+            self.cnn_stem = PerceptionNetwork(self.obs_spec['pixel']['pixels'],
                                               self.pixel_config.perception_hidden_dim,
                                               use_layernorm=self.pixel_config.use_layernorm)
             if use_cuda:
@@ -148,10 +148,8 @@ class PPOModel(U.Module):
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
-                                      self.init_log_sig, 
-                                      self.cnn_stem,
-                                      self.rnn_stem)
-        self.critic = PPO_CriticNetwork(input_size, self.cnn_stem, self.rnn_stem)
+                                      self.init_log_sig)
+        self.critic = PPO_CriticNetwork(input_size)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
             self.z_filter = ZFilter(self.obs_spec, 
@@ -167,6 +165,13 @@ class PPOModel(U.Module):
         '''
         self.actor.load_state_dict(net.actor.state_dict())
         self.critic.load_state_dict(net.critic.state_dict())
+
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
+
+        if self.if_pixel_input:
+            self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
+
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
 
@@ -195,7 +200,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = obs['pixel']['pixels']
             if self.pixel_config.if_uint8:
                 obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
@@ -228,7 +233,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = obs['pixel']['pixels']
             if self.pixel_config.if_uint8:
                 obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
@@ -260,7 +265,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs[self.input_config['pixel'][0]]
+            obs_pixel = obs['pixel']['pixels']
             if self.pixel_config.if_uint8:
                 obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel) 

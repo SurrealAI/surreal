@@ -209,28 +209,28 @@ class MultistepAggregatorWithInfo():
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
         return {'obs': observations,
-                    'next_obs': next_obs,
-                    'actions': np.stack(actions),
-                    'rewards': np.stack(rewards),
-                    'persistent_infos': persistent_infos,
-                    'onetime_infos': onetime_infos,
-                    'dones': np.stack(dones)}
+                'next_obs': next_obs,
+                'actions': np.stack(actions),
+                'rewards': np.stack(rewards),
+                'persistent_infos': persistent_infos,
+                'onetime_infos': onetime_infos,
+                'dones': np.stack(dones)}
 
     def _batch_obs(self, traj_list):
         batched_obs = {}
-        for k in traj_list[0][0].keys():
-            batched_obs[k] = []
-            for sub_traj in traj_list:
-                tmp_obs = []
-                for obs_n in sub_traj: 
-                    tmp_obs.append(obs_n[k])
-                batched_obs[k].append(np.stack(tmp_obs))
-
-        for k in batched_obs.keys():
-            batched_obs[k] = np.stack(batched_obs[k])
-
+        for modality in self.obs_spec.keys():
+            batched_obs[modality] = {}
+            for key in self.obs_spec[modality].keys():
+                batched_obs[modality][key] = []
+                for exp in traj_list: # exp ~= ex['obs']
+                    n_step_obs = []
+                    for obs in exp: 
+                        n_step_obs.append(obs[modality][key])
+                    n_step_obs = np.stack(n_step_obs)
+                    batched_obs[modality][key].append(n_step_obs)
+                batched_obs[modality][key] = np.stack(batched_obs[modality][key])
         return batched_obs
-
+        
     def _stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays

@@ -10,6 +10,8 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 from surreal.utils.pytorch.hyper_scheduler import *   
 
+import itertools
+
 class PPOLearner(Learner):
     '''
     PPOLearner: subclass of Learner that contains PPO algorithm logic
@@ -145,13 +147,23 @@ class PPOLearner(Learner):
             self.actor_gradient_clip_value = self.learner_config.algo.network.clip_actor_val
             self.clip_critic_gradient = self.learner_config.algo.network.clip_critic
             self.critic_gradient_clip_value = self.learner_config.algo.network.clip_critic_val
+
+            critic_param = self.model.critic.parameters()
+            actor_param  = self.model.actor.parameters()
+            if self.if_rnn_policy:
+                critic_param = itertools.chain(critic_param, self.model.rnn_stem.parameters())
+                actor_param  = itertools.chain(actor_param, self.model.rnn_stem.parameters())
+            if self.env_config.pixel_input:
+                critic_param = itertools.chain(critic_param, self.model.cnn_stem.parameters())
+                actor_param  = itertools.chain(actor_param, self.model.cnn_stem.parameters())
+
             self.critic_optim = torch.optim.Adam(
-                self.model.critic.parameters(),
+                actor_param,
                 lr=self.lr_baseline,
                 weight_decay=self.learner_config.algo.network.critic_regularization
             )
             self.actor_optim = torch.optim.Adam(
-                self.model.actor.parameters(),
+                critic_param,
                 lr=self.lr_policy,
                 weight_decay=self.learner_config.algo.network.actor_regularization
             )
@@ -375,11 +387,13 @@ class PPOLearner(Learner):
                 advs = advs.cuda()
 
             obs_concat_var = {}
-            for k in obs.keys():
-                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
-                if not self.if_rnn_policy:
-                    obs_shape = obs_concat_var[k].size()
-                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
+            for mod in obs.keys():
+                obs_concat_var[mod] = {}
+                for k in obs[mod].keys():
+                    obs_concat_var[mod][k] = Variable(torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
+                    if not self.if_rnn_policy:
+                        obs_shape = obs_concat_var[mod][k].size()
+                        obs_concat_var[mod][k] = obs_concat_var[mod][k].view(-1, *obs_shape[2:])
 
             values = self.model.forward_critic(obs_concat_var, self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -443,11 +457,13 @@ class PPOLearner(Learner):
                 returns = returns.cuda()
 
             obs_concat_var = {}
-            for k in obs.keys():
-                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
-                if not self.if_rnn_policy:
-                    obs_shape = obs_concat_var[k].size()
-                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
+            for mod in obs.keys():
+                obs_concat_var[mod] = {}
+                for k in obs[mod].keys():
+                    obs_concat_var[mod][k] = Variable(torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
+                    if not self.if_rnn_policy:
+                        obs_shape = obs_concat_var[mod][k].size()
+                        obs_concat_var[mod][k] = obs_concat_var[mod][k].view(-1, *obs_shape[2:])
 
             values = self.model.forward_critic(obs_concat_var, self.cells) # (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
@@ -492,9 +508,10 @@ class PPOLearner(Learner):
                 dictionary of recorded statistics
         '''
         # convert everything to float tensor: 
-        for k in obs.keys():
-            obs[k] = U.to_float_tensor(obs[k])
-            obs_next[k] = U.to_float_tensor(obs_next[k])
+        for mod in obs.keys():
+            for k in obs[mod].keys():
+                obs[mod][k] = U.to_float_tensor(obs[mod][k])
+                obs_next[mod][k] = U.to_float_tensor(obs_next[mod][k])
         actions = U.to_float_tensor(actions)
         rewards = U.to_float_tensor(rewards)
         dones   = U.to_float_tensor(dones)
@@ -532,11 +549,13 @@ class PPOLearner(Learner):
                     actions_iter = Variable(actions[:, 0, :].contiguous())
 
                 obs_iter = {}
-                for k in obs.keys():
-                    if self.if_rnn_policy:
-                        obs_iter[k] = Variable(obs[k][:, :self.n_step - self.horizon + 1, :].contiguous())
-                    else: 
-                        obs_iter[k] = Variable(obs[k][:, 0, :].contiguous())
+                for mod in obs.keys():
+                    obs_iter[mod] = {}
+                    for k in obs[mod].keys():
+                        if self.if_rnn_policy:
+                            obs_iter[mod][k] = Variable(obs[mod][k][:, :self.n_step - self.horizon + 1, :].contiguous())
+                        else: 
+                            obs_iter[mod][k] = Variable(obs[mod][k][:, 0, :].contiguous())
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
@@ -651,3 +670,6 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
+
+# ppo_learner
+# aggregator

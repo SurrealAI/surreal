@@ -12,7 +12,7 @@ class PerceptionNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
         conv_channels=[16, 32]
-        C, H, W = D_obs.shape
+        C, H, W = D_obs
         # DQN architecture
         self.conv1 = nn.Conv2d(C, conv_channels[0], [8,8], stride=4)
         self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [4,4], stride=2)
@@ -205,11 +205,8 @@ class PPO_ActorNetwork(U.Module):
     '''
         PPO custom actor network structure
     '''
-    def __init__(self, D_obs, D_act, init_log_sig, cnn_stem=None, rnn_stem=None):
+    def __init__(self, D_obs, D_act, init_log_sig):
         super(PPO_ActorNetwork, self).__init__()
-
-        self.rnn_stem = rnn_stem
-        self.cnn_stem = cnn_stem
         # assumes D_obs here is the correct RNN hidden dim
 
         self.D_obs = D_obs
@@ -245,13 +242,9 @@ class PPO_CriticNetwork(U.Module):
     '''
         PPO custom critic network structure
     '''
-    def __init__(self, D_obs, cnn_stem=None,rnn_stem=None):
+    def __init__(self, D_obs):
         super(PPO_CriticNetwork, self).__init__()
-
         # assumes D_obs here is the correct RNN hidden dim if necessary
-        self.rnn_stem = rnn_stem
-        self.cnn_stem = cnn_stem
-
         hid_1 = D_obs * 10
         hid_3 = 64
         hid_2 = int(np.sqrt(hid_1 * hid_3))

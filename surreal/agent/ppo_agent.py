@@ -49,9 +49,9 @@ class PPOAgent(Agent):
             self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
                                                self.rnn_config.rnn_hidden)).detach(),
-                         Variable(torch.zeros(self.rnn_config.rnn_layer, 
-                                              1, # batch_size is 1
-                                              self.rnn_config.rnn_hidden)).detach())
+                          Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               1, # batch_size is 1
+                                               self.rnn_config.rnn_hidden)).detach())
 
         pixel_config = self.learner_config.algo.pixel \
                             if self.env_config.pixel_input else None
@@ -88,9 +88,11 @@ class PPOAgent(Agent):
         action_info = [[], []]
 
         obs_tensor = {}
-        for k in obs.keys():
-           tmp_tensor = U.to_float_tensor(obs[k])
-           obs_tensor[k] = Variable(tmp_tensor.unsqueeze(0))
+        for mod in obs.keys():
+            obs_tensor[mod] = {}
+            for k in obs[mod].keys():
+                tmp_tensor = U.to_float_tensor(obs[mod][k])
+                obs_tensor[mod][k] = Variable(tmp_tensor.unsqueeze(0))
 
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
