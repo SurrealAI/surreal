@@ -232,3 +232,71 @@ class MultistepAggregatorWithInfo():
             persistent_infos = [np.asarray(infos) for infos in persistent_infos]
 
         return onetime_infos, persistent_infos
+
+class NstepReturnAggregator():
+    """
+        Accepts input by ExpSenderWrapperMultiStepMovingWindow
+        Sums over the moving window for bootstrap n_step return
+
+        {
+            obs = batch_size * observation
+            obs_next = batch_size * next_observation
+            actions = batch_size * actions,
+            rewards = batch_size,
+            dones = batch_size,
+        }
+    """
+    def __init__(self, obs_spec, action_spec, gamma):
+        U.assert_type(obs_spec, dict)
+        U.assert_type(action_spec, dict)
+        self.action_type = ActionType[action_spec['type']]
+        self.action_spec = action_spec
+        self.obs_spec = obs_spec
+        self.gamma = gamma
+    
+    def aggregate(self, exp_list):
+        # TODO add support for more diverse obs_spec and action_spec
+        """
+
+        Args:
+            exp_list:
+        
+        Returns:
+            aggregated experience
+        """
+        
+        obs0, actions, rewards, obs1, dones, num_steps = (
+            collections.defaultdict(list), [], [], collections.defaultdict(list), [], [])
+        for exp in exp_list:  # dict
+            n_step = exp['n_step']
+            num_steps.append(n_step)
+            for key in exp['obs_arr'][0]:
+                obs0[key].append(np.array(exp['obs_arr'][0][key], copy=False))
+            actions.append(exp['action_arr'][0])
+            cum_reward = 0
+            for i, r in enumerate(exp['reward_arr']):
+                cum_reward += pow(self.gamma, i) * r
+            rewards.append(cum_reward)
+            for key in exp['obs_next']:
+                obs1[key].append(np.array(exp['obs_next'][key], copy=False))
+            dones.append(float(exp['done_arr'][n_step - 1]))
+        for obs in [obs0, obs1]:
+            for key in obs:
+                obs[key] = np.array(obs[key])
+
+        # TODO: convert action to appropriate numpy array
+        if self.action_type == ActionType.continuous:
+            actions = np.array(actions, dtype=np.float32)
+        elif self.action_type == ActionType.discrete:
+            actions = np.array(actions, dtype=np.int32)
+        else:
+            raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
+
+        return {
+            'obs': dict(obs0),
+            'obs_next': dict(obs1),
+            'actions': np.array(actions),
+            'rewards': np.expand_dims(np.array(rewards), axis=1),
+            'dones': np.expand_dims(np.array(dones), axis=1),
+            'num_steps': np.expand_dims(np.array(num_steps), axis=1),
+        }

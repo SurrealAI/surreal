@@ -120,6 +120,44 @@ class ExpSenderWrapperSSARNStepBootstrap(ExpSenderWrapperSSAR):
         self._obs = obs_next
         return obs_next, reward, done, info
 
+class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
+    """
+        Base class for all classes that send experience in format
+        {   
+            'obs_arr': [state_1, ..., state_n]
+            'obs_next': [state_{n + 1}]
+            'action_arr': [action_1, ...],
+            'reward_arr': [reward_1, ...],
+            'done_arr': [done_1, ...],
+            'info_arr': [info_1, ...],
+            'n_step': n, length of all arrays,
+        }
+    """
+    def send(self, data, obs_next):
+        obs_arr, action_arr, reward_arr, done_arr, info_arr = [], [], [], [], []
+        hash_dict = {}
+        nonhash_dict = {}
+        for index, (obs, action, reward, done, info) in enumerate(data):
+            # Store observations in a deduplicated way
+            obs_arr.append(obs)
+            action_arr.append(action)
+            reward_arr.append(reward)
+            done_arr.append(done)
+            info_arr.append(info)
+
+        hash_dict = {
+        }
+        nonhash_dict = {
+            'obs_arr': obs_arr,
+            'obs_next': obs_next,
+            'action_arr': action_arr,
+            'reward_arr': reward_arr,
+            'done_arr': done_arr,
+            'info_arr': info_arr,
+            'n_step': len(data),
+        }
+        self.sender.send(hash_dict, nonhash_dict)
+
 
 class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
     """
