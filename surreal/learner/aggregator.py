@@ -208,7 +208,6 @@ class MultistepAggregatorWithInfo():
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
-        
         return {'obs': observations,
                     'next_obs': next_obs,
                     'actions': np.stack(actions),

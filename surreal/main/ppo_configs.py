@@ -28,8 +28,8 @@ def generate(argv):
                 'use_dropout': False
             },
             'input': {
-                'pixel':['image'],
-                'low_dim':['joint_pos', 'joint_vel'],
+                'pixel':['pixels'],
+                'low_dim':['position', 'velocity'],
             },
         },
         'algo': {
@@ -37,26 +37,34 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 10, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
-            'rnn': {
-                'if_rnn_policy': True, 
-                'rnn_hidden': 100,
-                'rnn_layer': 2,
-                'horizon': 10,
-            },
-            'gradient': {
+            'network': {
+                'actor_regularization': 0.0,
+                'critic_regularization': 0.0,
                 'clip_actor': True,
                 'clip_critic': True,
                 'clip_actor_val': 1.,
                 'clip_critic_val': 5.,
+            },
+            'pixel': {
+                'if_uint8': True,
+                'perception_hidden_dim': 256,
+                'use_batchnorm': False,
+                'use_layernorm': False,
+            }, 
+            'rnn': {
+                'if_rnn_policy': False, 
+                'rnn_hidden': 100,
+                'rnn_layer': 2,
+                'horizon': 10,
             },
             'lr': {
                 'lr_scheduler': "LinearWithMinLR",
@@ -91,16 +99,17 @@ def generate(argv):
             'batch_size': 64,
             'memory_size': 96,
             'sampling_start_size': 64,
-            'param_release_min': 4096,
+            'param_release_min': 8192,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
         }
     }
 
-
     env_config = {
-        'env_name': args.env,  
+        'env_name': args.env, 
+        'pixel_input': True,
+        'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {
             'record_video': True,
@@ -109,7 +118,6 @@ def generate(argv):
             'record_every': 100,
         }
     }
-
 
     session_config = Config({
         'folder': '_str_',
@@ -132,7 +140,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 20, # 10 for without RNN
+            'fetch_parameter_interval': 500, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,
@@ -142,3 +150,11 @@ def generate(argv):
 
     session_config.extend(LOCAL_SESSION_CONFIG)
     return learner_config, env_config, session_config
+
+'''
+    RNN specific parameter difference:
+        * n_step -> 30
+        * stride -> 20
+        * fetch_parameter_mode -> 'episode'
+        * fetch_parameter_interval -> 1
+'''

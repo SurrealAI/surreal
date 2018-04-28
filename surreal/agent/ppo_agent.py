@@ -35,11 +35,12 @@ class PPOAgent(Agent):
             agent_mode=agent_mode,
         )
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.obs_spec = self.env_config.obs_spec
+        self.input_config = self.learner_config.model.input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.rnn_config = self.learner_config.algo.rnn
-
+        
         self.cells = None
         if self.rnn_config.if_rnn_policy:
             # Note that .detach() is necessary here to prevent overflow of memory
@@ -52,12 +53,15 @@ class PPOAgent(Agent):
                                               1, # batch_size is 1
                                               self.rnn_config.rnn_hidden)).detach())
 
+        pixel_config = self.learner_config.algo.pixel \
+                            if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_dim=self.obs_dim,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             rnn_config=self.rnn_config,
+            pixel_config=pixel_config,
             use_cuda=False,
         )
 
@@ -73,25 +77,26 @@ class PPOAgent(Agent):
 
             Returns:
                 action_choice: sampled or max likelihood action to input to env
-                action_info: list of auxiliary information
+                action_info: list of auxiliary information - [onetime, persistent]
                     Note: this includes probability distribution the action is
                     sampled from, RNN hidden states
         '''
-        obs = U.to_float_tensor(obs)
-        assert torch.is_tensor(obs)
-        obs = Variable(obs.unsqueeze(0))
-
         # Note: we collect two kinds of action infos, one persistent one onetime
         # persistent info is collected for every step in rollout (i.e. policy probability distribution)
         # onetime info is collected for the first step in partial trajectory (i.e. RNN hidden state)
         # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
         action_info = [[], []]
-        
+
+        obs_tensor = {}
+        for k in obs.keys():
+           tmp_tensor = U.to_float_tensor(obs[k])
+           obs_tensor[k] = Variable(tmp_tensor.unsqueeze(0))
+
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).data.numpy())
             action_info[0].append(self.cells[1].squeeze(1).data.numpy())
 
-        action_pd, self.cells = self.model.forward_actor_expose_cells(obs, self.cells)
+        action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
         action_pd = action_pd.data.numpy()
 
         if self.agent_mode != 'eval_deterministic':
@@ -103,7 +108,7 @@ class PPOAgent(Agent):
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
         action_info[1].append(action_pd)
-
+        
         if self.agent_mode != 'training':
             return action_choice
         else: 

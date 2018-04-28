@@ -9,26 +9,30 @@ import resource
 from ..layer_norm import LayerNorm
 
 class PerceptionNetwork(U.Module):
-    def __init__(self, D_obs, D_out, pixel_input, use_layernorm=True):
+    def __init__(self, D_obs, D_out, use_layernorm=True):
         super(PerceptionNetwork, self).__init__()
-        self.pixel_input = pixel_input
-        if pixel_input:
-            conv_channels=[32, 32]
-            C, H, W = D_obs
-            self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
-            # TODO: auto shape inference
-            conv_output_size = 48672
-            self.fc_obs = nn.Linear(conv_output_size, D_out)
-        else:
-            self.fc_obs = nn.Linear(D_obs, D_out)
+        conv_channels=[16, 32]
+        C, H, W = D_obs.shape
+        # DQN architecture
+        self.conv1 = nn.Conv2d(C, conv_channels[0], [8,8], stride=4)
+        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [4,4], stride=2)
+        # TODO: auto shape inference
+        conv_output_size = 2592
+        self.fc_obs = nn.Linear(conv_output_size, D_out)
 
     def forward(self, obs):
-        if self.pixel_input:
-            obs = F.elu(self.conv1(obs))
-            obs = F.elu(self.conv2(obs))
-            obs = obs.view(obs.size(0), -1)
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 5)
+        if if_high_dim: 
+            obs = obs.view(-1, *obs_shape[2:])
+
+        obs = F.elu(self.conv1(obs))
+        obs = F.elu(self.conv2(obs))
+        obs = obs.view(obs.size(0), -1)
         obs = F.elu(self.fc_obs(obs))
+
+        if if_high_dim:
+            obs = obs.view(obs_shape[0], obs_shape[1], -1)
         return obs
 
 class ActorNetworkX(U.Module):
@@ -201,10 +205,11 @@ class PPO_ActorNetwork(U.Module):
     '''
         PPO custom actor network structure
     '''
-    def __init__(self, D_obs, D_act, init_log_sig, rnn_stem=None):
+    def __init__(self, D_obs, D_act, init_log_sig, cnn_stem=None, rnn_stem=None):
         super(PPO_ActorNetwork, self).__init__()
 
         self.rnn_stem = rnn_stem
+        self.cnn_stem = cnn_stem
         # assumes D_obs here is the correct RNN hidden dim
 
         self.D_obs = D_obs
@@ -216,8 +221,14 @@ class PPO_ActorNetwork(U.Module):
         self.fc_h3 = nn.Linear(hid_2, hid_3)
         self.fc_mean = nn.Linear(hid_3, D_act)
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
+        # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 3)
+        if if_high_dim: 
+            obs = obs.view(-1, obs_shape[2])
+
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
@@ -225,6 +236,8 @@ class PPO_ActorNetwork(U.Module):
         std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
 
         action = torch.cat((mean, std), dim=1)
+        if if_high_dim:
+            action = action.view(obs_shape[0], obs_shape[1], -1)
         return action
 
 
@@ -232,11 +245,12 @@ class PPO_CriticNetwork(U.Module):
     '''
         PPO custom critic network structure
     '''
-    def __init__(self, D_obs, rnn_stem=None):
+    def __init__(self, D_obs, cnn_stem=None,rnn_stem=None):
         super(PPO_CriticNetwork, self).__init__()
 
-        # assumes D_obs here is the correct RNN hidden dim
+        # assumes D_obs here is the correct RNN hidden dim if necessary
         self.rnn_stem = rnn_stem
+        self.cnn_stem = cnn_stem
 
         hid_1 = D_obs * 10
         hid_3 = 64
@@ -248,9 +262,17 @@ class PPO_CriticNetwork(U.Module):
         self.fc_v  = nn.Linear(hid_3, 1)
 
     def forward(self, obs):
+        obs_shape = obs.size()
+        if_high_dim = (len(obs_shape) == 3)
+        if if_high_dim: 
+            obs = obs.view(-1, obs_shape[2])
+
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
         h3 = F.tanh(self.fc_h3(h2))
         v  = self.fc_v(h3) 
+
+        if if_high_dim:
+            v = v.view(obs_shape[0], obs_shape[1], 1)
         return v
 

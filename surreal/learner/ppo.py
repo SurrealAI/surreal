@@ -67,7 +67,7 @@ class PPOLearner(Learner):
         if not self.use_cuda:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using GPU: {}'.format(self.gpu_id))
+            self.log.info('Using GPU: {}'.format(self.gpu_id)) 
 
         # RL general parameters
         self.gamma = self.learner_config.algo.gamma
@@ -78,21 +78,25 @@ class PPOLearner(Learner):
         self.batch_size = self.learner_config.algo.batch_size
 
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.obs_spec = self.env_config.obs_spec                                           
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
+        pixel_config = self.learner_config.algo.pixel \
+                            if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_dim=self.obs_dim,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            pixel_config=pixel_config,
             rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
         self.ref_target_model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_dim=self.obs_dim,
+            obs_config=(self.obs_spec, self.learner_config.model.input),
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
+            pixel_config=pixel_config,
             rnn_config = self.learner_config.algo.rnn,
             use_cuda = self.use_cuda, 
         )
@@ -137,17 +141,19 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
 
             # Learning parameters and optimizer
-            self.clip_actor_gradient = self.learner_config.algo.gradient.clip_actor
-            self.actor_gradient_clip_value = self.learner_config.algo.gradient.clip_actor_val
-            self.clip_critic_gradient = self.learner_config.algo.gradient.clip_critic
-            self.critic_gradient_clip_value = self.learner_config.algo.gradient.clip_critic_val
+            self.clip_actor_gradient = self.learner_config.algo.network.clip_actor
+            self.actor_gradient_clip_value = self.learner_config.algo.network.clip_actor_val
+            self.clip_critic_gradient = self.learner_config.algo.network.clip_critic
+            self.critic_gradient_clip_value = self.learner_config.algo.network.clip_critic_val
             self.critic_optim = torch.optim.Adam(
                 self.model.critic.parameters(),
-                lr=self.lr_baseline
+                lr=self.lr_baseline,
+                weight_decay=self.learner_config.algo.network.critic_regularization
             )
             self.actor_optim = torch.optim.Adam(
                 self.model.actor.parameters(),
-                lr=self.lr_policy
+                lr=self.lr_policy,
+                weight_decay=self.learner_config.algo.network.actor_regularization
             )
 
             # learning rate scheduler
@@ -368,11 +374,14 @@ class PPOLearner(Learner):
                 returns = returns.cuda()
                 advs = advs.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1)
-            if not self.if_rnn_policy:
-                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+            obs_concat_var = {}
+            for k in obs.keys():
+                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
+                if not self.if_rnn_policy:
+                    obs_shape = obs_concat_var[k].size()
+                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
 
-            values = self.model.forward_critic(Variable(obs_concat), self.cells) 
+            values = self.model.forward_critic(obs_concat_var, self.cells) 
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -433,11 +442,14 @@ class PPOLearner(Learner):
                 gamma = gamma.cuda()
                 returns = returns.cuda()
 
-            obs_concat = torch.cat([obs, obs_next], dim=1)
-            if not self.if_rnn_policy:
-                obs_concat = obs_concat.view(self.batch_size * (self.n_step + 1), -1)
+            obs_concat_var = {}
+            for k in obs.keys():
+                obs_concat_var[k] = Variable(torch.cat([obs[k], obs_next[k]], dim=1))
+                if not self.if_rnn_policy:
+                    obs_shape = obs_concat_var[k].size()
+                    obs_concat_var[k] = obs_concat_var[k].view(-1, *obs_shape[2:])
 
-            values = self.model.forward_critic(Variable(obs_concat), self.cells) # (batch, n+1, 1)
+            values = self.model.forward_critic(obs_concat_var, self.cells) # (batch, n+1, 1)
             values = values.view(self.batch_size, self.n_step + 1).data    
             values[:, 1:] *= 1 - dones
 
@@ -479,11 +491,26 @@ class PPOLearner(Learner):
             Returns:
                 dictionary of recorded statistics
         '''
+        # convert everything to float tensor: 
+        for k in obs.keys():
+            obs[k] = U.to_float_tensor(obs[k])
+            obs_next[k] = U.to_float_tensor(obs_next[k])
+        actions = U.to_float_tensor(actions)
+        rewards = U.to_float_tensor(rewards)
+        dones   = U.to_float_tensor(dones)
+        if persistent_infos is not None:
+            for i in range(len(persistent_infos)):
+                persistent_infos[i] = U.to_float_tensor(persistent_infos[i])
+        if one_time_infos is not None:
+            for i in range(len(one_time_infos)):
+                one_time_infos[i] = U.to_float_tensor(one_time_infos[i])
+
         with U.torch_gpu_scope(self.gpu_id):
                 pds = persistent_infos[-1]
+
                 if self.if_rnn_policy:
-                    h = Variable(one_time_infos[0].transpose(0, 1))
-                    c = Variable(one_time_infos[1].transpose(0, 1))
+                    h = Variable(one_time_infos[0].transpose(0, 1).contiguous())
+                    c = Variable(one_time_infos[1].transpose(0, 1).contiguous())
                     self.cells = (h, c)
 
                 advantages, returns = self._gae_and_return(obs, 
@@ -498,13 +525,19 @@ class PPOLearner(Learner):
                     c = Variable(self.cells[1].data)
                     self.cells = (h, c)
                     eff_len = self.n_step - self.horizon + 1
-                    behave_pol = Variable(pds[:, :eff_len, :])
-                    obs_iter   = Variable(obs[:, :eff_len, :].contiguous())
+                    behave_pol = Variable(pds[:, :eff_len, :].contiguous())
                     actions_iter = Variable(actions[:, :eff_len, :].contiguous())
                 else:
-                    behave_pol = Variable(pds[:, 0, :])
-                    obs_iter   = Variable(obs[:, 0, :])
-                    actions_iter = Variable(actions[:, 0, :])
+                    behave_pol = Variable(pds[:, 0, :].contiguous())
+                    actions_iter = Variable(actions[:, 0, :].contiguous())
+
+                obs_iter = {}
+                for k in obs.keys():
+                    if self.if_rnn_policy:
+                        obs_iter[k] = Variable(obs[k][:, :self.n_step - self.horizon + 1, :].contiguous())
+                    else: 
+                        obs_iter[k] = Variable(obs[k][:, 0, :].contiguous())
+
                 ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
                 for _ in range(self.epoch_policy):
@@ -554,7 +587,6 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
-        batch = self.aggregator.aggregate(batch)
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,
