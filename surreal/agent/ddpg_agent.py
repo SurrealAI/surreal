@@ -88,8 +88,11 @@ class DDPGAgent(Agent):
         if self.sleep_time > 0.0:
             time.sleep(self.sleep_time)
         obs_variable = collections.OrderedDict()
-        for key in obs:
-            obs_variable[key] = Variable(U.to_float_tensor(obs[key]).unsqueeze(0))
+        for modality in obs:
+            modality_dict = collections.OrderedDict()
+            for key in obs[modality]:
+                modality_dict[key] = Variable(U.to_float_tensor(obs[modality][key]).unsqueeze(0))
+            obs_variable[modality] = modality_dict
         perception = self.model.forward_perception(obs_variable)
         action = self.model.forward_actor(perception).data.numpy()[0]
         action = action.clip(-1, 1)

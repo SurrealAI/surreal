@@ -8,7 +8,6 @@ import functools
 import sys
 import gym
 import dm_control
-from surreal.utils import get_matching_keys_for_modality
 from dm_control.suite.wrappers import pixels
 from dm_control.rl.environment import StepType
 
@@ -51,17 +50,31 @@ class Wrapper(Env):
             else:
                 break
 
+    def step(self, action):
+        obs, reward, done, info = super().step(action)
+        self._assert_conforms_to_spec(obs)
+        return obs, reward, done, info
+
     def _step(self, action):
         return self.env.step(action)
 
     def _reset(self):
-        return self.env.reset()
+        obs, info = self.env.reset()
+        self._assert_conforms_to_spec(obs)
+        return obs
+
 
     def _render(self, *args, **kwargs):
         return self.env.render(*args, **kwargs)
 
     def _close(self):
         return self.env.close()
+
+    def _assert_conforms_to_spec(self, obs):
+        spec = self.observation_spec()
+        for modality in spec:
+            for key in spec[modality]:
+                assert spec[modality][key] == obs[modality][key].shape
 
     def __str__(self):
         return '<{}{}>'.format(type(self).__name__, self.env)
@@ -201,7 +214,7 @@ class DMControlDummyWrapper(Wrapper):
         return SpecFormat.DM_CONTROL
 
     def observation_spec(self):
-        modality = collections.OrderedDict([('pixels', (84, 84, 3))])
+        modality = collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('float32')))])
         return modality
         #return collections.OrderedDict([('pixel', modality)])
 
@@ -232,8 +245,11 @@ class DMControlAdapter(Wrapper):
 
     def _step(self, action):
         ts = self.env.step(action)
+        '''
         for key in ts.observation:
-            ts.observation[]
+            # DM_control gives arrayspec, we just need tuple as shape
+            ts.observation[key] = ts.observation[key]
+            '''
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none
@@ -254,18 +270,15 @@ class DMControlAdapter(Wrapper):
 
     def observation_spec(self):
         obs_spec = collections.OrderedDict()
-        print('potato', self.env.observation_spec())
         for modality, v in self._add_modality(self.env.observation_spec()).items():
             modality_spec = collections.OrderedDict()
             for key, obs_shape in v.items():
                 # Deepmind observation spec uses Deepmind data types, we just need shape as tuple
                 modality_spec[key] = obs_shape.shape
             obs_spec[modality] = modality_spec
-        print(obs_spec)
         return obs_spec
 
     def action_spec(self):
-        print('spec', self.env.action_spec().shape)
         return {
             'type': ActionType.continuous,
             'dim': self.env.action_spec().shape, # DM_control returns int, we want all dim to be tuple
@@ -331,12 +344,13 @@ class ObservationConcatenationWrapper(Wrapper):
 
     def _flatten_obs(self, obs):
         flat_observations = []
-        for modality, v in obs.low_dim.items():
-            flat_observations.append(v)
-        if len(flat_observations) > 0:
-            flat_observations = np.concatenate(flat_observations)
-            del obs['low_dim']
-            obs[self._concatenated_obs_name] = flat_observations
+        if 'low_dim' in obs:
+            for modality, v in obs['low_dim'].items():
+                flat_observations.append(v)
+            if len(flat_observations) > 0:
+                flat_observations = np.concatenate(flat_observations)
+                del obs['low_dim']
+                obs[self._concatenated_obs_name] = flat_observations
         return obs
 
     def _step(self, action):
@@ -353,16 +367,13 @@ class ObservationConcatenationWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        flattened_spec = collections.OrderedDict()
         flat_observation_dim = 0
-        print(spec)
         if 'low_dim' in spec:
             for k, shape in spec['low_dim'].items():
                 assert len(shape) == 1
                 flat_observation_dim += shape[0]
             spec['low_dim'] = collections.OrderedDict([self._concatenated_obs_name, flat_observation_dim])
 
-        print('concat', spec)
         return spec
 
     def action_spec(self):
@@ -374,9 +385,9 @@ class TransposeWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _transpose(self, obs):
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
+        for key in obs['pixel']:
             # input is (H, W, 3), we want (C, H, W) == (3, 84, 84)
-            obs[key] = obs[key].transpose((2, 0, 1))
+            obs['pixel'][key] = obs['pixel'][key].transpose((2, 0, 1))
         return obs
 
     def _reset(self):
@@ -389,12 +400,11 @@ class TransposeWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
-            H, W, C = spec[key]
+        for key in spec['pixel']:
+            H, W, C = spec['pixel'][key]
             # We transpose to (C, H, W) to work with pytorch convolutions
             visual_dim = (C, H, W)
-            spec[key] = visual_dim
-        print('389transpose', spec)
+            spec['pixel'][key] = visual_dim
         return spec
 
 class GrayscaleWrapper(Wrapper):
@@ -403,12 +413,12 @@ class GrayscaleWrapper(Wrapper):
         self._learner_config = learner_config
 
     def _grayscale(self, obs):
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
-            observation_modality = obs[key]
+        for key in obs['pixel']:
+            observation_modality = obs['pixel'][key]
             C, H, W = observation_modality.shape
             # For now, we expect an RGB image
             assert C == 3
-            obs[key] = np.mean(observation_modality, 0, 'uint8').reshape(1, H, W)
+            obs['pixel'][key] = np.mean(observation_modality, 0, 'uint8').reshape(1, H, W)
         return obs
 
     def _step(self, action):
@@ -418,7 +428,8 @@ class GrayscaleWrapper(Wrapper):
 
     def _reset(self):
         obs, info = self.env.reset()
-        return self._grayscale(obs), info
+        scaled = self._grayscale(obs)
+        return scaled, info
 
     @property
     def spec_format(self):
@@ -426,13 +437,13 @@ class GrayscaleWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        for key in get_matching_keys_for_modality(spec, 'pixel', self._learner_config.model.input):
-            dimensions = spec[key]
+        # TODO: make constant pixel_modality='pixel'
+        for key in spec['pixel']:
+            dimensions = spec['pixel'][key]
             C, H, W = dimensions
             # We expect rgb for now
             assert C == 3
-            spec[key] = (1, H, W)
-        print('Grayscael', spec)
+            spec['pixel'][key] = (1, H, W)
         return spec
 
     def action_spec(self):
@@ -450,20 +461,25 @@ class FrameStackWrapper(Wrapper):
         Assumes self._history contains the last n frames from the environment
         Concatenates the frames together along the depth axis
         '''
-        stacked_obs_dict_unordered = {}
-        for key in get_matching_keys_for_modality(obs, 'pixel', self._learner_config.model.input):
+        #stacked_obs_dict_unordered = collections.OrderedDict()
+        #stacked_obs_dict_unordered['pixel'] = collections.OrderedDict()
+        new_pixel_modality = collections.OrderedDict()
+
+        for key in obs['pixel']:
             obs_stacked = []
-            for obs in self._history:
-                obs_stacked.append(obs[key])
-                stacked = np.concatenate(obs_stacked, axis=0)
-                stacked_obs_dict_unordered[key] = stacked
-        stacked_obs_dict_ordered = collections.OrderedDict()
+            for history_obs in self._history:
+                obs_stacked.append(history_obs['pixel'][key])
+            assert len(obs_stacked) <= self.n
+            stacked = np.concatenate(obs_stacked, axis=0)
+            #stacked_obs_dict_unordered['pixel'][key] = stacked
+            new_pixel_modality[key] = stacked
+        next_stacked_dict = collections.OrderedDict()
         for key in obs:
-            if key in stacked_obs_dict_unordered:
-                stacked_obs_dict_ordered[key] = stacked_obs_dict_unordered[key]
+            if key == 'pixel':
+                next_stacked_dict[key] = new_pixel_modality
             else:
-                stacked_obs_dict_ordered[key] = obs[key]
-        return stacked_obs_dict_ordered
+                next_stacked_dict[key] = obs[key]
+        return next_stacked_dict
 
     def _step(self, action):
         obs_next, reward, done, info = self.env.step(action)
@@ -492,7 +508,6 @@ class FrameStackWrapper(Wrapper):
                     print('Received input of size (C, H, W) == ', dimensions)
                     print('number of channels is greater than 4')
                 spec['pixel'][key] = (C * self.n, H, W)
-        print('Frame', spec)
         return spec
 
     def action_spec(self):
@@ -536,7 +551,6 @@ class FilterWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
-        print('inputspec', spec)
         return self._filtered_obs(spec)
 
     def action_spec(self):

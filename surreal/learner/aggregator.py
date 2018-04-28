@@ -39,14 +39,20 @@ class SSARAggregator():
         """
         
         obs0, actions, rewards, obs1, dones = (
-            collections.defaultdict(list), [], [], collections.defaultdict(list), [])
+            dict(), [], [], dict(), [])
         for exp in exp_list:  # dict
-            for key in exp['obs'][0]:
-                obs0[key].append(np.array(exp['obs'][0][key], copy=False))
+            for modality in exp['obs'][0]:
+                obs0[modality] = collections.defaultdict(list)
+                for key in exp['obs'][0][modality]:
+                    obs0[modality][key].append(np.array(exp['obs'][0][modality][key], copy=False))
+                obs0[modality] = dict(obs0[modality])
             actions.append(exp['action'])
             rewards.append(exp['reward'])
-            for key in exp['obs'][1]:
-                obs1[key].append(np.array(exp['obs'][1][key], copy=False))
+            for modality in exp['obs'][1]:
+                obs1[modality] = collections.defaultdict(list)
+                for key in exp['obs'][1][modality]:
+                    obs1[modality][key].append(np.array(exp['obs'][1][modality][key], copy=False))
+                obs1[modality] = dict(obs1[modality])
             dones.append(float(exp['done']))
         if self.action_type == ActionType.continuous:
             actions = np.array(actions, dtype=np.float32)
