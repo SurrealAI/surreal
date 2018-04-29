@@ -41,8 +41,8 @@ def generate(argv):
             'norm_adv': True,
             'gamma': .995,
             'lam': 0.97,
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 10, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
             'batch_size': 64, 
             # ppo specific parameters:
             'ppo_mode': 'adapt',
@@ -61,7 +61,7 @@ def generate(argv):
                 'use_layernorm': False,
             }, 
             'rnn': {
-                'if_rnn_policy': True, 
+                'if_rnn_policy': False, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
