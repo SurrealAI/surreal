@@ -150,13 +150,6 @@ class PPOLearner(Learner):
 
             critic_param = self.model.critic.parameters()
             actor_param  = self.model.actor.parameters()
-            if self.if_rnn_policy:
-                critic_param = itertools.chain(critic_param, self.model.rnn_stem.parameters())
-                actor_param  = itertools.chain(actor_param, self.model.rnn_stem.parameters())
-            if self.env_config.pixel_input:
-                critic_param = itertools.chain(critic_param, self.model.cnn_stem.parameters())
-                actor_param  = itertools.chain(actor_param, self.model.cnn_stem.parameters())
-
             self.critic_optim = torch.optim.Adam(
                 critic_param,
                 lr=self.lr_baseline,

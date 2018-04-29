@@ -205,8 +205,11 @@ class PPO_ActorNetwork(U.Module):
     '''
         PPO custom actor network structure
     '''
-    def __init__(self, D_obs, D_act, init_log_sig):
+    def __init__(self, D_obs, D_act, init_log_sig, cnn_stem = None, rnn_stem = None):
         super(PPO_ActorNetwork, self).__init__()
+
+        self.rnn_stem = rnn_stem
+        self.cnn_stem = cnn_stem
         # assumes D_obs here is the correct RNN hidden dim
 
         self.D_obs = D_obs
@@ -242,8 +245,12 @@ class PPO_CriticNetwork(U.Module):
     '''
         PPO custom critic network structure
     '''
-    def __init__(self, D_obs):
+    def __init__(self, D_obs, cnn_stem = None, rnn_stem = None):
         super(PPO_CriticNetwork, self).__init__()
+
+        self.rnn_stem = rnn_stem
+        self.cnn_stem = cnn_stem
+
         # assumes D_obs here is the correct RNN hidden dim if necessary
         hid_1 = D_obs * 10
         hid_3 = 64

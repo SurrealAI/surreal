@@ -148,8 +148,12 @@ class PPOModel(U.Module):
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
-                                      self.init_log_sig)
-        self.critic = PPO_CriticNetwork(input_size)
+                                      self.init_log_sig,
+                                      self.cnn_stem,
+                                      self.rnn_stem)
+        self.critic = PPO_CriticNetwork(input_size,
+                                      self.cnn_stem,
+                                      self.rnn_stem)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
             self.z_filter = ZFilter(self.obs_spec, 
@@ -166,11 +170,11 @@ class PPOModel(U.Module):
         self.actor.load_state_dict(net.actor.state_dict())
         self.critic.load_state_dict(net.critic.state_dict())
 
-        if self.rnn_config.if_rnn_policy:
-            self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
+        # if self.rnn_config.if_rnn_policy:
+        #     self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
 
-        if self.if_pixel_input:
-            self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
+        # if self.if_pixel_input:
+        #     self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
 
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
