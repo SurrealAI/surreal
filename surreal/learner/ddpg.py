@@ -198,10 +198,6 @@ class DDPGLearner(Learner):
                     actions.detach() # TODO: why do we detach here
                 )
 
-            profile_critic = True
-            profile_actor = True
-            profile_gpu = True
-
             # critic update
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()

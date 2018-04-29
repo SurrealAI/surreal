@@ -67,10 +67,9 @@ class ActorNetwork(U.Module):
     For use with flat observations
     '''
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(ActorNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
-        self.use_layernorm = use_layernorm
         self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
         self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
         self.fc_act = nn.Linear(hidden_sizes[1], D_act)
@@ -94,10 +93,9 @@ class ActorNetwork(U.Module):
 
 class CriticNetwork(U.Module):
 
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(CriticNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
-        self.use_layernorm = use_layernorm
         if self.use_batchnorm:
             self.bn_obs = nn.BatchNorm1d(D_obs)
             self.bn_act = nn.BatchNorm1d(D_act)
