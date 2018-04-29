@@ -158,12 +158,12 @@ class PPOLearner(Learner):
                 actor_param  = itertools.chain(actor_param, self.model.cnn_stem.parameters())
 
             self.critic_optim = torch.optim.Adam(
-                actor_param,
+                critic_param,
                 lr=self.lr_baseline,
                 weight_decay=self.learner_config.algo.network.critic_regularization
             )
             self.actor_optim = torch.optim.Adam(
-                critic_param,
+                actor_param,
                 lr=self.lr_policy,
                 weight_decay=self.learner_config.algo.network.actor_regularization
             )
