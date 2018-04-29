@@ -178,19 +178,21 @@ class DDPGLearner(Learner):
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
+                '''
                 perception_next_target = self.model_target.forward_perception(obs_next)
                 next_actions_target = self.model_target.forward_actor(perception_next_target)
 
                 # obs_next.volatile = False
                 next_Q_target = self.model_target.forward_critic(perception_next_target,
                                                                  next_actions_target)
+                '''
+                _, next_Q_target = self.model_target.forward(obs_next)
                 # next_Q_target.volatile = False
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
                 # compute Q(s_t, a_t)
                 perception = self.model.forward_perception(obs)
-                perception_next = self.model.forward_perception(obs_next) # TODO: unused?
                 y_policy = self.model.forward_critic(
                     perception,
                     actions.detach() # TODO: why do we detach here
@@ -203,7 +205,8 @@ class DDPGLearner(Learner):
             # critic update
             with self.critic_update_time.time():
                 self.model.critic.zero_grad()
-                self.model.perception.zero_grad()
+                if self.is_pixel_input:
+                    self.model.perception.zero_grad()
                 critic_loss = self.critic_criterion(y_policy, y)        
                 critic_loss.backward()
                 if self.clip_critic_gradient:
@@ -302,10 +305,12 @@ class DDPGLearner(Learner):
         if self.target_update_type == 'soft':
             U.soft_update(self.model_target.actor, self.model.actor, self.target_update_tau)
             U.soft_update(self.model_target.critic, self.model.critic, self.target_update_tau)
-            U.soft_update(self.model_target.perception, self.model.perception, self.target_update_tau)
+            if self.is_pixel_input:
+                U.soft_update(self.model_target.perception, self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
             self.target_update_counter += 1
             if self.target_update_counter % self.target_update_interval == 0:
                 U.hard_update(self.model_target.actor, self.model.actor)
                 U.hard_update(self.model_target.critic, self.model.critic)
-                U.hard_update(self.model_target.perception, self.model.perception)
+                if self.is_pixel_input:
+                    U.hard_update(self.model_target.perception, self.model.perception)

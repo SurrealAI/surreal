@@ -33,25 +33,21 @@ class DDPGModel(U.Module):
         self.use_layernorm = use_layernorm
 
         if self.is_pixel_input:
-            self.obs_spec = obs_spec['pixel']['pixels']
+            self.input_dim = obs_spec['pixel']['pixels']
         else:
-            self.obs_spec = obs_spec['low_dim']['flat_inputs'][0]
+            self.input_dim = obs_spec['low_dim']['flat_inputs'][0]
 
-        perception_hidden_dim = None
         if self.is_pixel_input:
             perception_hidden_dim = 200
-            self.perception = PerceptionNetwork(self.obs_spec, perception_hidden_dim, pixel_input=True,
+            self.perception = PerceptionNetwork(self.input_dim, perception_hidden_dim,
                                                 use_layernorm=self.use_layernorm)
+            self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim)
+            self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim)
         else:
-            perception_hidden_dim = 200
-            self.perception = PerceptionNetwork(self.obs_spec, perception_hidden_dim, pixel_input=False,
-                                                use_layernorm=self.use_layernorm)
-
-        self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim)
-        self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim)
+            self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes)
+            self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes)
 
     def get_critic_parameters(self):
-        return itertools.chain(self.critic.parameters(), self.perception.parameters())
         if self.is_pixel_input:
             return itertools.chain(self.critic.parameters(), self.perception.parameters())
         else:
@@ -67,9 +63,10 @@ class DDPGModel(U.Module):
         if self.is_uint8_pixel_input and self.is_pixel_input:
             obs = obs['pixel']['pixels']
             obs = self.scale_image(obs)
+            return self.perception(obs)
         else:
             obs = obs['low_dim']['flat_inputs']
-        return self.perception(obs)
+            return obs
 
     def forward(self, obs_in, calculate_value=True):
         obs_in = self.forward_perception(obs_in)
@@ -77,7 +74,7 @@ class DDPGModel(U.Module):
         value = None
         if calculate_value:
             value = self.forward_critic(obs_in, action)
-        return (action, value)
+        return action, value
 
     def scale_image(self, obs):
         '''

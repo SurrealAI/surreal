@@ -63,73 +63,34 @@ class CriticNetworkX(U.Module):
         return x
 
 class ActorNetwork(U.Module):
+    '''
+    For use with flat observations
+    '''
 
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], conv_channels=[32, 32], use_batchnorm=False, use_layernorm=True):
         super(ActorNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
-        D_obs_visual, D_obs_flat = D_obs
-        # TODO: support both visual and flat observations
-        #print('input_obs_network', D_obs_visual, D_obs_flat)
-        assert not (D_obs_visual is not None and D_obs_flat is not None)
-        if D_obs_visual is not None:
-            if use_layernorm:
-                self.layer_norm = LayerNorm()
-            # D_obs_visual should be (C, H, W)
-            C, H, W = D_obs_visual.shape
-            self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
-            #conv_output_size = int(conv_channels[1] * H / 4 * W / 4)
-            conv_output_size = 400 * 32
-            conv_output_size = 48672
-            #print('channels', conv_channels[1])
-            #print('chw', c, h, w)
-            #print('size',conv_output_size)
-            self.fc_obs = nn.Linear(conv_output_size, 50)
-            self.fc_hidden = nn.Linear(50, 50)
-            self.fc_act = nn.Linear(50, D_act)
-        if D_obs_flat is not None:
-            self.fc_h1 = nn.Linear(D_obs_flat, hidden_sizes[0])
-            self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-            self.fc_act = nn.Linear(hidden_sizes[1], D_act)
+        self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
+        self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fc_act = nn.Linear(hidden_sizes[1], D_act)
 
         if self.use_batchnorm:
-            self.bn_h1 = nn.BatchNorm1d(D_obs_flat)
+            self.bn_h1 = nn.BatchNorm1d(D_obs)
             self.bn_h2 = nn.BatchNorm1d(hidden_sizes[0])
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
 
     def forward(self, obs):
-        obs_visual, obs_flat = obs
-        assert not ((obs_visual is not None) and (obs_flat is not None))
-        if obs_visual is not None:
-            obs = obs_visual
-            c1 = self.conv1(obs)
-            c1 = F.elu(c1)
-            c2 = self.conv2(c1)
-            c2 = F.elu(c2)
-            batch_size = c2.size()[0]
-            c2 = c2.view(batch_size, -1)
-            flat_obs = self.fc_obs(c2)
-            if self.use_layernorm:
-                flat_obs = self.layer_norm(flat_obs)
-            flat_obs = F.elu(flat_obs)
-            hidden = self.fc_hidden(flat_obs)
-            hidden = F.elu(hidden)
-            action = self.fc_act(hidden)
-            action = F.tanh(action)
-            return action
-        if obs_flat is not None:
-            obs = obs_flat
-            if self.use_batchnorm:
-                obs = self.bn_h1(obs)
-            h1 = F.elu(self.fc_h1(obs))
-            if self.use_batchnorm:
-                h1 = self.bn_h2(h1)
-            h2 = F.elu(self.fc_h2(h1))
-            if self.use_batchnorm:
-                h2 = self.bn_out(h2)
-            action = F.tanh(self.fc_act(h2))
-            return action
+        if self.use_batchnorm:
+            obs = self.bn_h1(obs)
+        h1 = F.elu(self.fc_h1(obs))
+        if self.use_batchnorm:
+            h1 = self.bn_h2(h1)
+        h2 = F.elu(self.fc_h2(h1))
+        if self.use_batchnorm:
+            h2 = self.bn_out(h2)
+        action = F.tanh(self.fc_act(h2))
+        return action
 
 class CriticNetwork(U.Module):
 
@@ -137,69 +98,28 @@ class CriticNetwork(U.Module):
         super(CriticNetwork, self).__init__()
         self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
-        D_obs_visual, D_obs_flat = D_obs
         if self.use_batchnorm:
-            self.bn_obs = nn.BatchNorm1d(D_obs_flat)
+            self.bn_obs = nn.BatchNorm1d(D_obs)
             self.bn_act = nn.BatchNorm1d(D_act)
             # Critic architecture from https://github.com/Breakend/baselines/blob/50ffe01d254221db75cdb5c2ba0ab51a6da06b0a/baselines/ddpg/models.py
             self.bn_h2 = nn.BatchNorm1d(hidden_sizes[0] + D_act)
             self.bn_out = nn.BatchNorm1d(hidden_sizes[1])
-        assert not (D_obs_visual is not None and D_obs_flat is not None)
-        if D_obs_visual is not None:
-            if use_layernorm:
-                self.layer_norm = LayerNorm()
-            # D_obs_visual should be (C, H, W)
-            C, H, W = D_obs_visual.shape
-            self.conv1 = nn.Conv2d(C, conv_channels[0], [3,3], stride=2)
-            self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [3,3], stride=1)
-            #conv_output_size = conv_channels[1] * H / 4 * W / 4
-            conv_output_size = 400 * 32
-            conv_output_size = 48672
-            #print('conv', conv_output_size)
-            #print('chw', C, H, W)
-            conv_output_size = int(conv_output_size)
-            self.fc_obs = nn.Linear(conv_output_size, 50)
-            # TODO: consider 1 mlp instead of 2, or different hidden size
-            self.fc_hidden = nn.Linear(50 + D_act, 50)
-            self.fc_out = nn.Linear(50, D_act)
-        if D_obs_flat is not None:
-            self.fc_obs = nn.Linear(D_obs_flat, hidden_sizes[0])
-            self.fc_h2 = nn.Linear(hidden_sizes[0] + D_act, hidden_sizes[1])
-            self.fc_q = nn.Linear(hidden_sizes[1], 1)
+        self.fc_obs = nn.Linear(D_obs, hidden_sizes[0])
+        self.fc_h2 = nn.Linear(hidden_sizes[0] + D_act, hidden_sizes[1])
+        self.fc_q = nn.Linear(hidden_sizes[1], 1)
 
     def forward(self, obs, act):
-        obs_visual, obs_flat = obs
-        assert not (obs_visual is not None and obs_flat is not None)
-        if obs_visual is not None:
-            obs = obs_visual
-            c1 = self.conv1(obs)
-            c1 = F.elu(c1)
-            c2 = self.conv2(c1)
-            c2 = F.elu(c2)
-            batch_size = c2.size()[0]
-            c2 = c2.view(batch_size, -1)
-            flat_obs = self.fc_obs(c2)
-            if self.use_layernorm:
-                flat_obs = self.layer_norm(flat_obs)
-            flat_obs = F.elu(flat_obs)
-            flat_obs = torch.cat((flat_obs, act), dim=1)
-            hidden = self.fc_hidden(flat_obs)
-            hidden = F.elu(hidden)
-            value = self.fc_out(hidden)
-            return value
-        if obs_flat is not None:
-            obs = obs_flat
-            if self.use_batchnorm:
-                obs = self.bn_obs(obs)
-            h_obs = F.elu(self.fc_obs(obs))
-            h1 = torch.cat((h_obs, act), 1)
-            if self.use_batchnorm:
-                h1 = self.bn_h2(h1)
-            h2 = F.elu(self.fc_h2(h1))
-            if self.use_batchnorm:
-                h2 = self.bn_out(h2)
-            value = self.fc_q(h2)
-            return value
+        if self.use_batchnorm:
+            obs = self.bn_obs(obs)
+        h_obs = F.elu(self.fc_obs(obs))
+        h1 = torch.cat((h_obs, act), 1)
+        if self.use_batchnorm:
+            h1 = self.bn_h2(h1)
+        h2 = F.elu(self.fc_h2(h1))
+        if self.use_batchnorm:
+            h2 = self.bn_out(h2)
+        value = self.fc_q(h2)
+        return value
 
 class PPO_ActorNetwork(U.Module):
     '''
