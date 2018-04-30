@@ -123,7 +123,11 @@ class PPOModel(U.Module):
         self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
-        self.low_dim = U.observation.get_low_dim_shape(self.obs_spec, self.input_config)
+        self.low_dim = 0
+        if 'low_dim' in self.obs_spec.keys():
+            for key in self.obs_spec['low_dim'].keys():
+                self.low_dim += self.obs_spec['low_dim'][key][0]
+
         self.cnn_stem = None
         self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
@@ -161,6 +165,12 @@ class PPOModel(U.Module):
                                     pixel_input=self.if_pixel_input,
                                     use_cuda=use_cuda)
 
+    def _gather_low_dim_input(self, obs):
+        if 'low_dim' not in obs.keys(): return None
+        list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
+        obs_low_dim = torch.cat(list_obs_ld, -1)
+        return obs_low_dim
+
     def update_target_params(self, net):
         '''
             updates kept parameters to that of another model
@@ -197,7 +207,7 @@ class PPOModel(U.Module):
                 The output of actor network
         '''
         obs_list = []
-        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -230,7 +240,7 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         obs_list = []
-        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -262,7 +272,7 @@ class PPOModel(U.Module):
                 output of critic network
         '''
         obs_list = []
-        obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
+        obs_flat = self._gather_low_dim_input(obs)
         if self.use_z_filter:
             obs_flat = self.z_filter.forward(obs_flat)
         obs_list.append(obs_flat)
@@ -298,7 +308,7 @@ class PPOModel(U.Module):
             Args: obs -- batch of observations
         '''
         if self.use_z_filter:
-            obs_flat = U.observation.gather_low_dim_input(obs, self.input_config)
+            obs_flat = self._gather_low_dim_input(obs)
             self.z_filter.z_update(obs_flat)
         else:
             raise ValueError('Z_update called when network is set to not use z_filter')
