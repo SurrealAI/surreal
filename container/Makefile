@@ -16,9 +16,6 @@ build:
 
 # TODO: add version
 CPU_04_URL = 'us.gcr.io/surreal-dev-188523/surreal-cpu-th04'
-test-c04:
-	docker run -ti --privileged -v `pwd`/:/code -v $(HOME)/.mujoco:/mujoco $(URL) --cmd python /code/test_install.py "a b" 'c d e' f
-
 push-c04:
 	gcloud docker -- push $(CPU_04_URL):latest
 
@@ -27,6 +24,17 @@ pull-c04:
 
 build-c04:
 	docker build -t $(CPU_04_URL):latest -f Dockerfile-cpu04 .
+
+# TODO: add version
+GPU_04_URL = 'us.gcr.io/surreal-dev-188523/surreal-gpu-th04'
+push-g04:
+	gcloud docker -- push $(GPU_04_URL):latest
+
+pull-g04:
+	docker pull $(GPU_04_URL):latest
+
+build-g04:
+	docker build -t $(GPU_04_URL):latest -f Dockerfile-gpu04 .
 
 # Can't do as container requires gpu hosts
 # test-gpu:

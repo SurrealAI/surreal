@@ -1,4 +1,4 @@
-from nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04
+from nvidia/cuda:9.0-cudnn7-runtime-ubuntu16.04
 
 LABEL author="Stanford Surreal team"
 
@@ -27,7 +27,7 @@ RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
     && rm mjpro131_linux.zip
 
 # pytorch
-RUN conda install --yes pytorch torchvision -c pytorch
+RUN conda install --yes pytorch  torchvision -c pytorch
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
