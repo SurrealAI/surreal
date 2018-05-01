@@ -22,7 +22,7 @@ def make_env(env_config, session_config, learner_config, eval_mode=False):
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
-        env, env_config = make_mujocomanip(env_name, env_config)
+        env, env_config = make_mujocomanip(env_name, env_config, learner_config)
     elif env_category == 'dm_control':
         env, env_config = make_dm_control(env_name, env_config, learner_config, record_video)
     else:
