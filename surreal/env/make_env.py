@@ -43,7 +43,7 @@ def make_gym(env_name, env_config):
 
 def make_mujocomanip(env_name, env_config, learner_config):
     import MujocoManip
-    env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000) 
+    env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000, has_renderer=False) 
     env = MujocoManipulationWrapper(env)
     env = ObservationConcatenationWrapper(env, learner_config)
     # set to true and to receive camera input
