@@ -561,6 +561,7 @@ class Kurreal:
             'ch': 'dm_control:cheetah-run',
             'cheetah': 'dm_control:cheetah-run',
             'hopper': 'dm_control:hopper-hop',
+            'mj': 'mujocomanip:SawyerLiftEnv'
         }
         if args.env:
             env = args.env

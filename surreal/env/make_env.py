@@ -22,7 +22,7 @@ def make_env(env_config, session_config, learner_config, eval_mode=False):
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
-        env, env_config = make_mujocomanip(env_name, env_config)
+        env, env_config = make_mujocomanip(env_name, env_config, learner_config)
     elif env_category == 'dm_control':
         env, env_config = make_dm_control(env_name, env_config, learner_config, record_video)
     else:
@@ -43,7 +43,7 @@ def make_gym(env_name, env_config):
 
 def make_mujocomanip(env_name, env_config, learner_config):
     import MujocoManip
-    env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000) 
+    env = MujocoManip.make(env_name, use_camera_obs=False, horizon=50000, has_renderer=False) 
     env = MujocoManipulationWrapper(env)
     env = ObservationConcatenationWrapper(env, learner_config)
     # set to true and to receive camera input
