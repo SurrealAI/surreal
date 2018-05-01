@@ -44,3 +44,4 @@ COPY entry.py /mylibs
 RUN chmod +x /mylibs/entry.py
 ENTRYPOINT ["/mylibs/entry.py"]
 
+RUN apt-get update && apt-get install -y libgl1-mesa-dev libgl1-mesa-glx libosmesa6-dev
