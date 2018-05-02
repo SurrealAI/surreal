@@ -456,539 +456,539 @@ class Kubectl(object):
         nonagent.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
         nonagent.image_pull_policy('Always')
 
-        cluster.launch(exp)
+        cluster.launch(exp, force=(not check_experiment_exists))
 
-    def create_tensorboard(self,
-                           remote_path,
-                           jinja_template,
-                           rendered_path,
-                           tensorboard_pod_type,
-                           ):
-        """
-        Create a standalone pod under namespace "tb-remote-folder". The "remote-folder"
-        part is determined from the last two level of folders in remote_path,
-        and replace any special character with "-"
+    # def create_tensorboard(self,
+    #                        remote_path,
+    #                        jinja_template,
+    #                        rendered_path,
+    #                        tensorboard_pod_type,
+    #                        ):
+    #     """
+    #     Create a standalone pod under namespace "tb-remote-folder". The "remote-folder"
+    #     part is determined from the last two level of folders in remote_path,
+    #     and replace any special character with "-"
 
-        Args:
-            remote_path: absolute path to the experiment folder
-                "tensorboard" should be a subfolder under remote_path
-            jinja_template: tensorboard_template.yml file path
-            rendered_path: rendered yaml file path
-            tensorboard_pod_type: key to spec defined in
-                `pod_types` section of .surreal.yml
+    #     Args:
+    #         remote_path: absolute path to the experiment folder
+    #             "tensorboard" should be a subfolder under remote_path
+    #         jinja_template: tensorboard_template.yml file path
+    #         rendered_path: rendered yaml file path
+    #         tensorboard_pod_type: key to spec defined in
+    #             `pod_types` section of .surreal.yml
 
-        Returns:
-            newly created namespace for the tensorboard pod
-        """
-        remote_parts = U.f_split_path(remote_path, normpath=True)
-        namespace = 'tb-' + '-'.join(remote_parts[-2:])
-        namespace = namespace.replace('.', '-').replace('_', '-')
-        C = self.config
-        context = {
-            'TENSORBOARD_CMD':
-                'tensorboard --logdir {} --port 6006'.format(remote_path)
-        }
-        # Mount file system from
-        if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
-            context['FS_TYPE'] = 'emptyDir'
-            context['FS_SERVER'] = None
-            context['FS_PATH_ON_SERVER'] = None
-        elif C.fs.type.lower() in ['localhost', 'hostpath']:
-            context['FS_TYPE'] = 'hostPath'
-            context['FS_SERVER'] = None
-            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
-        elif C.fs.type.lower() in ['nfs']:
-            context['FS_TYPE'] = 'nfs'
-            context['FS_SERVER'] = C.fs.server
-            context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
-        else:
-            raise NotImplementedError('Unsupported file server type: "{}". '
-                                      'Supported options are [emptyDir, hostPath, nfs]'.format(C.fs.type))
-        context['FS_MOUNT_PATH'] = C.fs.mount_path
+    #     Returns:
+    #         newly created namespace for the tensorboard pod
+    #     """
+    #     remote_parts = U.f_split_path(remote_path, normpath=True)
+    #     namespace = 'tb-' + '-'.join(remote_parts[-2:])
+    #     namespace = namespace.replace('.', '-').replace('_', '-')
+    #     C = self.config
+    #     context = {
+    #         'TENSORBOARD_CMD':
+    #             'tensorboard --logdir {} --port 6006'.format(remote_path)
+    #     }
+    #     # Mount file system from
+    #     if C.fs.type.lower() in ['temp', 'temporary', 'emptydir']:
+    #         context['FS_TYPE'] = 'emptyDir'
+    #         context['FS_SERVER'] = None
+    #         context['FS_PATH_ON_SERVER'] = None
+    #     elif C.fs.type.lower() in ['localhost', 'hostpath']:
+    #         context['FS_TYPE'] = 'hostPath'
+    #         context['FS_SERVER'] = None
+    #         context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
+    #     elif C.fs.type.lower() in ['nfs']:
+    #         context['FS_TYPE'] = 'nfs'
+    #         context['FS_SERVER'] = C.fs.server
+    #         context['FS_PATH_ON_SERVER'] = C.fs.path_on_server
+    #     else:
+    #         raise NotImplementedError('Unsupported file server type: "{}". '
+    #                                   'Supported options are [emptyDir, hostPath, nfs]'.format(C.fs.type))
+    #     context['FS_MOUNT_PATH'] = C.fs.mount_path
 
-        assert tensorboard_pod_type in C.pod_types, \
-            'tensorboard pod type not found in `pod_types` section in ~/.surreal.yml'
-        agent_pod_spec = C.pod_types[tensorboard_pod_type]
-        context['AGENT_IMAGE'] = agent_pod_spec.image
-        context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
-        context['AGENT_RESOURCE_REQUEST'] = \
-            agent_pod_spec.get('resource_request', {})
-        context['AGENT_RESOURCE_LIMIT'] = \
-            agent_pod_spec.get('resource_limit', {})
+    #     assert tensorboard_pod_type in C.pod_types, \
+    #         'tensorboard pod type not found in `pod_types` section in ~/.surreal.yml'
+    #     agent_pod_spec = C.pod_types[tensorboard_pod_type]
+    #     context['AGENT_IMAGE'] = agent_pod_spec.image
+    #     context['AGENT_SELECTOR'] = agent_pod_spec.get('selector', {})
+    #     context['AGENT_RESOURCE_REQUEST'] = \
+    #         agent_pod_spec.get('resource_request', {})
+    #     context['AGENT_RESOURCE_LIMIT'] = \
+    #         agent_pod_spec.get('resource_limit', {})
 
-        self.create(
-            namespace=namespace,
-            jinja_template=jinja_template,
-            rendered_path=rendered_path,
-            context=context,
-            check_experiment_exists=False,
-        )
-        return namespace
+    #     self.create(
+    #         namespace=namespace,
+    #         jinja_template=jinja_template,
+    #         rendered_path=rendered_path,
+    #         context=context,
+    #         check_experiment_exists=False,
+    #     )
+    #     return namespace
 
-    def delete(self, namespace, yaml_path=None):
-        """
-        kubectl delete -f kurreal.yml --namespace <experiment_name>
-        kubectl delete namespace <experiment_name>
+    # def delete(self, namespace, yaml_path=None):
+    #     """
+    #     kubectl delete -f kurreal.yml --namespace <experiment_name>
+    #     kubectl delete namespace <experiment_name>
 
-        Notes:
-            Delete a namespace will automatically delete all resources under it.
+    #     Notes:
+    #         Delete a namespace will automatically delete all resources under it.
 
-        Args:
-            namespace
-            yaml_path: if None, delete the namespace.
-        """
-        check_valid_dns(namespace)
-        if yaml_path:
-            if not U.f_exists(yaml_path) and not self.dry_run:
-                raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
-            self.run_verbose(
-                'delete -f "{}" --namespace {}'
-                    .format(yaml_path, namespace),
-                print_out=True, raise_on_error=False
-            )
-        self.run_verbose(
-            'delete namespace {}'.format(namespace),
-            print_out=True, raise_on_error=False
-        )
+    #     Args:
+    #         namespace
+    #         yaml_path: if None, delete the namespace.
+    #     """
+    #     check_valid_dns(namespace)
+    #     if yaml_path:
+    #         if not U.f_exists(yaml_path) and not self.dry_run:
+    #             raise FileNotFoundError(yaml_path + ' does not exist, cannot stop.')
+    #         self.run_verbose(
+    #             'delete -f "{}" --namespace {}'
+    #                 .format(yaml_path, namespace),
+    #             print_out=True, raise_on_error=False
+    #         )
+    #     self.run_verbose(
+    #         'delete namespace {}'.format(namespace),
+    #         print_out=True, raise_on_error=False
+    #     )
 
-    def current_context(self):
-        out, err, retcode = self.run_verbose(
-            'config current-context', print_out=False, raise_on_error=True
-        )
-        return out
+    # def current_context(self):
+    #     out, err, retcode = self.run_verbose(
+    #         'config current-context', print_out=False, raise_on_error=True
+    #     )
+    #     return out
 
-    def current_namespace(self):
-        """
-        Parse from `kubectl config view`
-        """
-        config = self.config_view()
-        current_context = self.current_context()
-        if self.dry_run:
-            return 'dummy-namespace'
-        for context in config['contexts']:
-            if context['name'] == current_context:
-                return context['context']['namespace']
-        raise RuntimeError('INTERNAL: current context not found')
+    # def current_namespace(self):
+    #     """
+    #     Parse from `kubectl config view`
+    #     """
+    #     config = self.config_view()
+    #     current_context = self.current_context()
+    #     if self.dry_run:
+    #         return 'dummy-namespace'
+    #     for context in config['contexts']:
+    #         if context['name'] == current_context:
+    #             return context['context']['namespace']
+    #     raise RuntimeError('INTERNAL: current context not found')
 
-    def list_namespaces(self):
-        all_names = self.query_resources('namespace', output_format='name')
-        # names look like namespace/<actual_name>, need to postprocess
-        return [n.split('/')[-1] for n in all_names]
+    # def list_namespaces(self):
+    #     all_names = self.query_resources('namespace', output_format='name')
+    #     # names look like namespace/<actual_name>, need to postprocess
+    #     return [n.split('/')[-1] for n in all_names]
 
-    def set_namespace(self, namespace):
-        """
-        https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
-        After this call, all subsequent `kubectl` will default to the namespace
-        """
-        check_valid_dns(namespace)
-        _, _, retcode = self.run_verbose(
-            'config set-context $(kubectl config current-context) --namespace='
-            + namespace,
-            print_out=True, raise_on_error=False
-        )
-        if not self.dry_run and retcode == 0:
-            print('successfully switched to namespace `{}`'.format(namespace))
+    # def set_namespace(self, namespace):
+    #     """
+    #     https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+    #     After this call, all subsequent `kubectl` will default to the namespace
+    #     """
+    #     check_valid_dns(namespace)
+    #     _, _, retcode = self.run_verbose(
+    #         'config set-context $(kubectl config current-context) --namespace='
+    #         + namespace,
+    #         print_out=True, raise_on_error=False
+    #     )
+    #     if not self.dry_run and retcode == 0:
+    #         print('successfully switched to namespace `{}`'.format(namespace))
 
-    def _deduplicate_with_order(self, seq):
-        """
-        https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
-        deduplicate list while preserving order
-        """
-        return list(OrderedDict.fromkeys(seq))
+    # def _deduplicate_with_order(self, seq):
+    #     """
+    #     https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
+    #     deduplicate list while preserving order
+    #     """
+    #     return list(OrderedDict.fromkeys(seq))
 
-    def fuzzy_match_namespace(self, name, max_matches=10):
-        """
-        Fuzzy match namespace, precedence from high to low:
-        1. exact match of <prefix + name>, if prefix option is turned on in ~/.surreal.yml
-        2. exact match of <name> itself
-        3. starts with <prefix + name>, sorted alphabetically
-        4. starts with <name>, sorted alphabetically
-        5. contains <name>, sorted alphabetically
-        Up to `max_matches` number of matches
+    # def fuzzy_match_namespace(self, name, max_matches=10):
+    #     """
+    #     Fuzzy match namespace, precedence from high to low:
+    #     1. exact match of <prefix + name>, if prefix option is turned on in ~/.surreal.yml
+    #     2. exact match of <name> itself
+    #     3. starts with <prefix + name>, sorted alphabetically
+    #     4. starts with <name>, sorted alphabetically
+    #     5. contains <name>, sorted alphabetically
+    #     Up to `max_matches` number of matches
 
-        Returns:
-            - string if the matching is exact
-            - OR list of fuzzy matches
-        """
-        all_names = self.list_namespaces()
-        prefixed_name = self.prefix_username(name)
-        if prefixed_name in all_names:
-            return prefixed_name
-        if name in all_names:
-            return name
-        # fuzzy matching
-        matches = []
-        matches += sorted([n for n in all_names if n.startswith(prefixed_name)])
-        matches += sorted([n for n in all_names if n.startswith(name)])
-        matches += sorted([n for n in all_names if name in n])
-        matches = self._deduplicate_with_order(matches)
-        return matches[:max_matches]
+    #     Returns:
+    #         - string if the matching is exact
+    #         - OR list of fuzzy matches
+    #     """
+    #     all_names = self.list_namespaces()
+    #     prefixed_name = self.prefix_username(name)
+    #     if prefixed_name in all_names:
+    #         return prefixed_name
+    #     if name in all_names:
+    #         return name
+    #     # fuzzy matching
+    #     matches = []
+    #     matches += sorted([n for n in all_names if n.startswith(prefixed_name)])
+    #     matches += sorted([n for n in all_names if n.startswith(name)])
+    #     matches += sorted([n for n in all_names if name in n])
+    #     matches = self._deduplicate_with_order(matches)
+    #     return matches[:max_matches]
 
-    def label_nodes(self, old_labels, new_label_name, new_label_value):
-        """
-        Select nodes that comply with `old_labels` spec, and assign them
-        a set of new nodes: `label:value`
-        https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-        """
-        node_names = self.query_resources('node', 'name', labels=old_labels)
-        for node_name in node_names:
-            new_label_string = shlex.quote('{}={}'.format(
-                new_label_name, new_label_value
-            ))
-            # no need for `kubectl label nodes` because the `names` returned
-            # will have fully qualified name "nodes/my-node-name`
-            self.run_verbose('label --overwrite {} {}'.format(
-                node_name, new_label_string
-            ))
+    # def label_nodes(self, old_labels, new_label_name, new_label_value):
+    #     """
+    #     Select nodes that comply with `old_labels` spec, and assign them
+    #     a set of new nodes: `label:value`
+    #     https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    #     """
+    #     node_names = self.query_resources('node', 'name', labels=old_labels)
+    #     for node_name in node_names:
+    #         new_label_string = shlex.quote('{}={}'.format(
+    #             new_label_name, new_label_value
+    #         ))
+    #         # no need for `kubectl label nodes` because the `names` returned
+    #         # will have fully qualified name "nodes/my-node-name`
+    #         self.run_verbose('label --overwrite {} {}'.format(
+    #             node_name, new_label_string
+    #         ))
 
-    def _get_selectors(self, labels, fields):
-        """
-        Helper for list_resources and list_jsonpath
-        """
-        labels, fields = labels.strip(), fields.strip()
-        cmd= ' '
-        if labels:
-            cmd += '--selector ' + shlex.quote(labels)
-        if fields:
-            cmd += ' --field-selector ' + shlex.quote(fields)
-        return cmd
+    # def _get_selectors(self, labels, fields):
+    #     """
+    #     Helper for list_resources and list_jsonpath
+    #     """
+    #     labels, fields = labels.strip(), fields.strip()
+    #     cmd= ' '
+    #     if labels:
+    #         cmd += '--selector ' + shlex.quote(labels)
+    #     if fields:
+    #         cmd += ' --field-selector ' + shlex.quote(fields)
+    #     return cmd
 
-    def query_resources(self, resource,
-                        output_format,
-                        names=None,
-                        labels='',
-                        fields='',
-                        namespace=''):
-        """
-        Query all items in the resource with `output_format`
-        JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
-        label selectors: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    # def query_resources(self, resource,
+    #                     output_format,
+    #                     names=None,
+    #                     labels='',
+    #                     fields='',
+    #                     namespace=''):
+    #     """
+    #     Query all items in the resource with `output_format`
+    #     JSONpath: https://kubernetes.io/docs/reference/kubectl/jsonpath/
+    #     label selectors: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 
-        Args:
-            resource: pod, service, deployment, etc.
-            output_format: https://kubernetes.io/docs/reference/kubectl/overview/#output-options
-              - custom-columns=<spec>
-              - custom-columns-file=<filename>
-              - json: returns a dict
-              - jsonpath=<template>
-              - jsonpath-file=<filename>
-              - name: list
-              - wide
-              - yaml: returns a dict
-            names: list of names to get resource, mutually exclusive with
-                label and field selectors. Should only specify one.
-            labels: label selector syntax, comma separated as logical AND. E.g:
-              - equality: mylabel=production
-              - inequality: mylabel!=production
-              - set: mylabel in (group1, group2)
-              - set exclude: mylabel notin (group1, group2)
-              - don't check value, only check key existence: mylabel
-              - don't check value, only check key nonexistence: !mylabel
-            fields: field selector, similar to label selector but operates on the
-              pod fields, such as `status.phase=Running`
-              fields can be found from `kubectl get pod <mypod> -o yaml`
+    #     Args:
+    #         resource: pod, service, deployment, etc.
+    #         output_format: https://kubernetes.io/docs/reference/kubectl/overview/#output-options
+    #           - custom-columns=<spec>
+    #           - custom-columns-file=<filename>
+    #           - json: returns a dict
+    #           - jsonpath=<template>
+    #           - jsonpath-file=<filename>
+    #           - name: list
+    #           - wide
+    #           - yaml: returns a dict
+    #         names: list of names to get resource, mutually exclusive with
+    #             label and field selectors. Should only specify one.
+    #         labels: label selector syntax, comma separated as logical AND. E.g:
+    #           - equality: mylabel=production
+    #           - inequality: mylabel!=production
+    #           - set: mylabel in (group1, group2)
+    #           - set exclude: mylabel notin (group1, group2)
+    #           - don't check value, only check key existence: mylabel
+    #           - don't check value, only check key nonexistence: !mylabel
+    #         fields: field selector, similar to label selector but operates on the
+    #           pod fields, such as `status.phase=Running`
+    #           fields can be found from `kubectl get pod <mypod> -o yaml`
 
-        Returns:
-            dict if output format is yaml or json
-            list if output format is name
-            string from stdout otherwise
-        """
-        if names and (labels or fields):
-            raise ValueError('names and (labels or fields) are mutually exclusive')
-        cmd = 'get ' + resource
-        cmd += self._get_ns_cmd(namespace)
-        if names is None:
-            cmd += self._get_selectors(labels, fields)
-        else:
-            assert isinstance(names, (list, tuple))
-            cmd += ' ' + ' '.join(names)
-        if '=' in output_format:
-            # quoting the part after jsonpath=<...>
-            prefix, arg = output_format.split('=', 1)
-            output_format = prefix + '=' + shlex.quote(arg)
-        cmd += ' -o ' + output_format
-        out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
-        if output_format == 'yaml':
-            return EzDict.loads_yaml(out)
-        elif output_format == 'json':
-            return EzDict.loads_json(out)
-        elif output_format == 'name':
-            return out.split('\n')
-        else:
-            return out
+    #     Returns:
+    #         dict if output format is yaml or json
+    #         list if output format is name
+    #         string from stdout otherwise
+    #     """
+    #     if names and (labels or fields):
+    #         raise ValueError('names and (labels or fields) are mutually exclusive')
+    #     cmd = 'get ' + resource
+    #     cmd += self._get_ns_cmd(namespace)
+    #     if names is None:
+    #         cmd += self._get_selectors(labels, fields)
+    #     else:
+    #         assert isinstance(names, (list, tuple))
+    #         cmd += ' ' + ' '.join(names)
+    #     if '=' in output_format:
+    #         # quoting the part after jsonpath=<...>
+    #         prefix, arg = output_format.split('=', 1)
+    #         output_format = prefix + '=' + shlex.quote(arg)
+    #     cmd += ' -o ' + output_format
+    #     out, _, _ = self.run_verbose(cmd, print_out=False, raise_on_error=True)
+    #     if output_format == 'yaml':
+    #         return EzDict.loads_yaml(out)
+    #     elif output_format == 'json':
+    #         return EzDict.loads_json(out)
+    #     elif output_format == 'name':
+    #         return out.split('\n')
+    #     else:
+    #         return out
 
-    def query_jsonpath(self, resource,
-                       jsonpath,
-                       names=None,
-                       labels='',
-                       fields='',
-                       namespace=''):
-        """
-        Query items in the resource with jsonpath
-        https://kubernetes.io/docs/reference/kubectl/jsonpath/
-        This method is an extension of list_resources()
-        Args:
-            resource:
-            jsonpath: make sure you escape dot if resource key string contains dot.
-              key must be enclosed in *single* quote!!
-              e.g. {.metadata.labels['kubernetes\.io/hostname']}
-              you don't have to do the range over items, we take care of it
-            labels: see `list_resources`
-            fields:
+    # def query_jsonpath(self, resource,
+    #                    jsonpath,
+    #                    names=None,
+    #                    labels='',
+    #                    fields='',
+    #                    namespace=''):
+    #     """
+    #     Query items in the resource with jsonpath
+    #     https://kubernetes.io/docs/reference/kubectl/jsonpath/
+    #     This method is an extension of list_resources()
+    #     Args:
+    #         resource:
+    #         jsonpath: make sure you escape dot if resource key string contains dot.
+    #           key must be enclosed in *single* quote!!
+    #           e.g. {.metadata.labels['kubernetes\.io/hostname']}
+    #           you don't have to do the range over items, we take care of it
+    #         labels: see `list_resources`
+    #         fields:
 
-        Returns:
-            a list of returned jsonpath values
-        """
-        if '{' not in jsonpath:
-            jsonpath = '{' + jsonpath + '}'
-        jsonpath = '{range .items[*]}' + jsonpath + '{"\\n\\n"}{end}'
-        output_format = "jsonpath=" + jsonpath
-        out = self.query_resources(
-            resource=resource,
-            names=names,
-            output_format=output_format,
-            labels=labels,
-            fields=fields,
-            namespace=namespace
-        )
-        return out.split('\n\n')
+    #     Returns:
+    #         a list of returned jsonpath values
+    #     """
+    #     if '{' not in jsonpath:
+    #         jsonpath = '{' + jsonpath + '}'
+    #     jsonpath = '{range .items[*]}' + jsonpath + '{"\\n\\n"}{end}'
+    #     output_format = "jsonpath=" + jsonpath
+    #     out = self.query_resources(
+    #         resource=resource,
+    #         names=names,
+    #         output_format=output_format,
+    #         labels=labels,
+    #         fields=fields,
+    #         namespace=namespace
+    #     )
+    #     return out.split('\n\n')
 
-    def config_view(self):
-        """
-        kubectl config view
-        Generates a yaml of context and cluster info
-        """
-        out, err, retcode = self.run_verbose(
-            'config view', print_out=False, raise_on_error=True
-        )
-        return EzDict.loads_yaml(out)
+    # def config_view(self):
+    #     """
+    #     kubectl config view
+    #     Generates a yaml of context and cluster info
+    #     """
+    #     out, err, retcode = self.run_verbose(
+    #         'config view', print_out=False, raise_on_error=True
+    #     )
+    #     return EzDict.loads_yaml(out)
 
-    def external_ip(self, pod_name, namespace=''):
-        """
-        Returns:
-            "<ip>:<port>"
-        """
-        tb = self.query_resources('svc', 'yaml',
-                                  names=[pod_name], namespace=namespace)
-        conf = tb.status.loadBalancer
-        if not ('ingress' in conf and 'ip' in conf.ingress[0]):
-            return ''
-        ip = conf.ingress[0].ip
-        port = tb.spec.ports[0].port
-        return '{}:{}'.format(ip, port)
+    # def external_ip(self, pod_name, namespace=''):
+    #     """
+    #     Returns:
+    #         "<ip>:<port>"
+    #     """
+    #     tb = self.query_resources('svc', 'yaml',
+    #                               names=[pod_name], namespace=namespace)
+    #     conf = tb.status.loadBalancer
+    #     if not ('ingress' in conf and 'ip' in conf.ingress[0]):
+    #         return ''
+    #     ip = conf.ingress[0].ip
+    #     port = tb.spec.ports[0].port
+    #     return '{}:{}'.format(ip, port)
 
-    def _get_ns_cmd(self, namespace):
-        if namespace:
-            return ' --namespace ' + namespace
-        else:
-            return ''
+    # def _get_ns_cmd(self, namespace):
+    #     if namespace:
+    #         return ' --namespace ' + namespace
+    #     else:
+    #         return ''
 
-    def _get_logs_cmd(self, pod_name, container_name,
-                      follow, since=0, tail=-1, namespace=''):
-        return 'logs {} {} {} --since={} --tail={}{}'.format(
-            pod_name,
-            container_name,
-            '--follow' if follow else '',
-            since,
-            tail,
-            self._get_ns_cmd(namespace)
-        )
+    # def _get_logs_cmd(self, pod_name, container_name,
+    #                   follow, since=0, tail=-1, namespace=''):
+    #     return 'logs {} {} {} --since={} --tail={}{}'.format(
+    #         pod_name,
+    #         container_name,
+    #         '--follow' if follow else '',
+    #         since,
+    #         tail,
+    #         self._get_ns_cmd(namespace)
+    #     )
 
-    def logs(self, pod_name,
-             container_name='',
-             since=0,
-             tail=100,
-             namespace=''):
-        """
-        kubectl logs <pod_name> <container_name> --follow --since= --tail=
-        https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
+    # def logs(self, pod_name,
+    #          container_name='',
+    #          since=0,
+    #          tail=100,
+    #          namespace=''):
+    #     """
+    #     kubectl logs <pod_name> <container_name> --follow --since= --tail=
+    #     https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
 
-        Returns:
-            stdout string
-        """
-        out, err, retcode = self.run_verbose(
-            self._get_logs_cmd(
-                pod_name, container_name, follow=False,
-                since=since, tail=tail, namespace=namespace
-            ),
-            print_out=False,
-            raise_on_error=False
-        )
-        if retcode != 0:
-            return ''
-        else:
-            return out
+    #     Returns:
+    #         stdout string
+    #     """
+    #     out, err, retcode = self.run_verbose(
+    #         self._get_logs_cmd(
+    #             pod_name, container_name, follow=False,
+    #             since=since, tail=tail, namespace=namespace
+    #         ),
+    #         print_out=False,
+    #         raise_on_error=False
+    #     )
+    #     if retcode != 0:
+    #         return ''
+    #     else:
+    #         return out
 
-    def describe(self, pod_name, namespace=''):
-        cmd = 'describe pod ' + pod_name + self._get_ns_cmd(namespace)
-        return self.run_verbose(cmd, print_out=True, raise_on_error=False)
+    # def describe(self, pod_name, namespace=''):
+    #     cmd = 'describe pod ' + pod_name + self._get_ns_cmd(namespace)
+    #     return self.run_verbose(cmd, print_out=True, raise_on_error=False)
 
-    def print_logs(self, pod_name,
-                   container_name='',
-                   follow=False,
-                   since=0,
-                   tail=100,
-                   namespace=''):
-        """
-        kubectl logs <pod_name> <container_name>
-        No error checking, no string caching, delegates to os.system
-        """
-        cmd = self._get_logs_cmd(
-            pod_name, container_name, follow=follow,
-            since=since, tail=tail, namespace=namespace
-        )
-        self.run_raw(cmd)
+    # def print_logs(self, pod_name,
+    #                container_name='',
+    #                follow=False,
+    #                since=0,
+    #                tail=100,
+    #                namespace=''):
+    #     """
+    #     kubectl logs <pod_name> <container_name>
+    #     No error checking, no string caching, delegates to os.system
+    #     """
+    #     cmd = self._get_logs_cmd(
+    #         pod_name, container_name, follow=follow,
+    #         since=since, tail=tail, namespace=namespace
+    #     )
+    #     self.run_raw(cmd)
 
-    def logs_surreal(self, component_name, is_print=False,
-                     follow=False, since=0, tail=100, namespace=''):
-        """
-        Args:
-            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+    # def logs_surreal(self, component_name, is_print=False,
+    #                  follow=False, since=0, tail=100, namespace=''):
+    #     """
+    #     Args:
+    #         component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
 
-        Returns:
-            stdout string if is_print else None
-        """
-        if is_print:
-            log_func = functools.partial(self.print_logs, follow=follow)
-        else:
-            log_func = self.logs
-        log_func = functools.partial(
-            log_func, since=since, tail=tail, namespace=namespace
-        )
-        if component_name in self.NONAGENT_COMPONENTS:
-            return log_func('nonagent', component_name)
-        else:
-            return log_func(component_name)
+    #     Returns:
+    #         stdout string if is_print else None
+    #     """
+    #     if is_print:
+    #         log_func = functools.partial(self.print_logs, follow=follow)
+    #     else:
+    #         log_func = self.logs
+    #     log_func = functools.partial(
+    #         log_func, since=since, tail=tail, namespace=namespace
+    #     )
+    #     if component_name in self.NONAGENT_COMPONENTS:
+    #         return log_func('nonagent', component_name)
+    #     else:
+    #         return log_func(component_name)
 
-    def exec_surreal(self, component_name, cmd, namespace=''):
-        """
-        kubectl exec -ti
+    # def exec_surreal(self, component_name, cmd, namespace=''):
+    #     """
+    #     kubectl exec -ti
 
-        Args:
-            component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
-            cmd: either a string command or a list of command args
+    #     Args:
+    #         component_name: can be agent-N, learner, ps, replay, tensorplex, tensorboard
+    #         cmd: either a string command or a list of command args
 
-        Returns:
-            stdout string if is_print else None
-        """
-        if U.is_sequence(cmd):
-            cmd = ' '.join(map(shlex.quote, cmd))
-        ns_cmd = self._get_ns_cmd(namespace)
-        if component_name in self.NONAGENT_COMPONENTS:
-            return self.run_raw(
-                'exec -ti nonagent -c {}{} -- {}'.format(component_name, ns_cmd, cmd)
-            )
-        else:
-            return self.run_raw(
-                'exec -ti {}{} -- {}'.format(component_name, ns_cmd, cmd)
-            )
+    #     Returns:
+    #         stdout string if is_print else None
+    #     """
+    #     if U.is_sequence(cmd):
+    #         cmd = ' '.join(map(shlex.quote, cmd))
+    #     ns_cmd = self._get_ns_cmd(namespace)
+    #     if component_name in self.NONAGENT_COMPONENTS:
+    #         return self.run_raw(
+    #             'exec -ti nonagent -c {}{} -- {}'.format(component_name, ns_cmd, cmd)
+    #         )
+    #     else:
+    #         return self.run_raw(
+    #             'exec -ti {}{} -- {}'.format(component_name, ns_cmd, cmd)
+    #         )
 
-    def scp_surreal(self, src_file, dest_file, namespace=''):
-        """
-        https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
-        kurreal cp /my/local/file learner:/remote/file mynamespace
-        is the same as
-        kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
-        """
-        def _split(f):
-            if ':' in f:
-                pod, path = f.split(':')
-                container = None
-                if pod in self.NONAGENT_COMPONENTS:
-                    container = pod
-                    pod = 'nonagent'
-            else:
-                pod, path, container = None, f, None
-            if pod and namespace:
-                pod = namespace + '/' + pod
-            if pod:
-                path = pod + ':' + path
-            return pod, path, container
+    # def scp_surreal(self, src_file, dest_file, namespace=''):
+    #     """
+    #     https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
+    #     kurreal cp /my/local/file learner:/remote/file mynamespace
+    #     is the same as
+    #     kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
+    #     """
+    #     def _split(f):
+    #         if ':' in f:
+    #             pod, path = f.split(':')
+    #             container = None
+    #             if pod in self.NONAGENT_COMPONENTS:
+    #                 container = pod
+    #                 pod = 'nonagent'
+    #         else:
+    #             pod, path, container = None, f, None
+    #         if pod and namespace:
+    #             pod = namespace + '/' + pod
+    #         if pod:
+    #             path = pod + ':' + path
+    #         return pod, path, container
 
-        src_pod, src_path, src_container = _split(src_file)
-        dest_pod, dest_path, dest_container = _split(dest_file)
-        assert bool(src_pod) != bool(dest_pod), \
-            'one of "src_file" and "dest_file" must be remote and the other local.'
-        container = src_container or dest_container  # at least one is None
-        cmd = 'cp {} {}'.format(src_path, dest_path)
-        if container:
-            cmd += ' -c ' + container
-        self.run_raw(cmd, print_cmd=True)
+    #     src_pod, src_path, src_container = _split(src_file)
+    #     dest_pod, dest_path, dest_container = _split(dest_file)
+    #     assert bool(src_pod) != bool(dest_pod), \
+    #         'one of "src_file" and "dest_file" must be remote and the other local.'
+    #     container = src_container or dest_container  # at least one is None
+    #     cmd = 'cp {} {}'.format(src_path, dest_path)
+    #     if container:
+    #         cmd += ' -c ' + container
+    #     self.run_raw(cmd, print_cmd=True)
 
-    def gcloud_get_config(self, config_key):
-        """
-        Returns: value of the gcloud config
-        https://cloud.google.com/sdk/gcloud/reference/config/get-value
-        for more complex outputs, add --format="json" to gcloud command
-        """
-        out, _, _ = self.run_verbose(
-            'config get-value ' + config_key,
-            print_out=False,
-            raise_on_error=True,
-            program='gcloud'
-        )
-        return out.strip()
+    # def gcloud_get_config(self, config_key):
+    #     """
+    #     Returns: value of the gcloud config
+    #     https://cloud.google.com/sdk/gcloud/reference/config/get-value
+    #     for more complex outputs, add --format="json" to gcloud command
+    #     """
+    #     out, _, _ = self.run_verbose(
+    #         'config get-value ' + config_key,
+    #         print_out=False,
+    #         raise_on_error=True,
+    #         program='gcloud'
+    #     )
+    #     return out.strip()
 
-    def gcloud_zone(self):
-        """
-        Returns: current gcloud zone
-        """
-        return self.gcloud_get_config('compute/zone')
+    # def gcloud_zone(self):
+    #     """
+    #     Returns: current gcloud zone
+    #     """
+    #     return self.gcloud_get_config('compute/zone')
 
-    def gcloud_project(self):
-        """
-        Returns: current gcloud project
-        https://cloud.google.com/sdk/gcloud/reference/config/get-value
-        for more complex outputs, add --format="json" to gcloud command
-        """
-        return self.gcloud_get_config('project')
+    # def gcloud_project(self):
+    #     """
+    #     Returns: current gcloud project
+    #     https://cloud.google.com/sdk/gcloud/reference/config/get-value
+    #     for more complex outputs, add --format="json" to gcloud command
+    #     """
+    #     return self.gcloud_get_config('project')
 
-    def gcloud_configure_ssh(self):
-        """
-        Refresh the ssh settings for the current gcloud project
-        populate SSH config files with Host entries from each instance
-        https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
-        """
-        return self.run_raw('compute config-ssh', program='gcloud')
+    # def gcloud_configure_ssh(self):
+    #     """
+    #     Refresh the ssh settings for the current gcloud project
+    #     populate SSH config files with Host entries from each instance
+    #     https://cloud.google.com/sdk/gcloud/reference/compute/config-ssh
+    #     """
+    #     return self.run_raw('compute config-ssh', program='gcloud')
 
-    def gcloud_url(self, node_name):
-        """
-        Returns: current gcloud project
-        https://cloud.google.com/sdk/gcloud/reference/config/get-value
-        for more complex outputs, add --format="json" to gcloud command
-        """
-        return '{}.{}.{}'.format(
-            node_name, self.gcloud_zone(), self.gcloud_project()
-        )
+    # def gcloud_url(self, node_name):
+    #     """
+    #     Returns: current gcloud project
+    #     https://cloud.google.com/sdk/gcloud/reference/config/get-value
+    #     for more complex outputs, add --format="json" to gcloud command
+    #     """
+    #     return '{}.{}.{}'.format(
+    #         node_name, self.gcloud_zone(), self.gcloud_project()
+    #     )
 
-    def gcloud_ssh_node(self, node_name):
-        """
-        Don't forget to run gcloud_config_ssh() first
-        """
-        url = self.gcloud_url(node_name)
-        return self.run_raw(
-            'ssh -o StrictHostKeyChecking=no ' + url,
-            program='',
-            print_cmd=True
-        )
+    # def gcloud_ssh_node(self, node_name):
+    #     """
+    #     Don't forget to run gcloud_config_ssh() first
+    #     """
+    #     url = self.gcloud_url(node_name)
+    #     return self.run_raw(
+    #         'ssh -o StrictHostKeyChecking=no ' + url,
+    #         program='',
+    #         print_cmd=True
+    #     )
 
-    def gcloud_ssh_fs(self):
-        """
-        ssh into the file system server specified in ~/.surrreal.yml
-        """
-        return self.gcloud_ssh_node(self.config.fs.server)
+    # def gcloud_ssh_fs(self):
+    #     """
+    #     ssh into the file system server specified in ~/.surrreal.yml
+    #     """
+    #     return self.gcloud_ssh_node(self.config.fs.server)
 
-    def capture_tensorboard(self, namespace):
-        node_path = self.config.capture_tensorboard.node_path
-        library_path = self.config.capture_tensorboard.library_path
-        url = 'http://{}'.format(self.external_ip('tensorboard',namespace=namespace))
-        save_path = os.path.join(os.getcwd(), '{}.jpg'.format(namespace))
-        WIDTH = 5000
-        HEIGHT = 3300
-        cmd = [node_path, library_path, url, save_path, str(WIDTH), str(HEIGHT)]
-        print('>> {:s}'.format(' '.join(cmd)))
-        p = pc.Popen(cmd)
-        return p
+    # def capture_tensorboard(self, namespace):
+    #     node_path = self.config.capture_tensorboard.node_path
+    #     library_path = self.config.capture_tensorboard.library_path
+    #     url = 'http://{}'.format(self.external_ip('tensorboard',namespace=namespace))
+    #     save_path = os.path.join(os.getcwd(), '{}.jpg'.format(namespace))
+    #     WIDTH = 5000
+    #     HEIGHT = 3300
+    #     cmd = [node_path, library_path, url, save_path, str(WIDTH), str(HEIGHT)]
+    #     print('>> {:s}'.format(' '.join(cmd)))
+    #     p = pc.Popen(cmd)
+    #     return p
 
 
 if __name__ == '__main__':

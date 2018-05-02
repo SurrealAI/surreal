@@ -4,6 +4,7 @@ import surreal.utils as U
 from surreal.distributed.zmq_struct import ZmqSender, ZmqReceiver, ZmqReqClientPoolFixedRequest
 from threading import Thread, Lock
 from surreal.distributed.inmemory import inmem_serialize, inmem_deserialize, inmem_dump
+import os
 
 
 class MultiprocessTask(Process):
@@ -128,12 +129,13 @@ class LearnerDataPrefetcher(MultiprocessManagerQueue):
         Convenience class that initializes everything from session config
         + batch_size
     """
-    def __init__(self, session_config, batch_size, ab):
-        self.sampler_host, self.sampler_port = ab.request('sampler-frontend')
+    def __init__(self, session_config, batch_size):
+        self.sampler_host = os.environ['SYMPH_SAMPLER_FRONTEND_HOST']
+        self.sampler_port = os.environ['SYMPH_SAMPLER_FRONTEND_PORT']
         self.batch_size = batch_size
         self.max_queue_size = session_config.learner.max_prefetch_batch_queue
         self.prefetch_host = 'localhost'
-        self.prefetch_port = ab.reserve('prefetch-queue')
+        self.prefetch_port = os.environ['SYMPH_PREFETCH_QUEUE_PORT']
         self.prefetch_processes = session_config.learner.prefetch_processes
         self.prefetch_threads_per_process = session_config.learner.prefetch_threads_per_process
 
