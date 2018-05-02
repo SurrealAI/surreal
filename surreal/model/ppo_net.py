@@ -150,6 +150,7 @@ class PPOModel(U.Module):
         input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
+        print('actor network initialized with log_sig:', self.init_log_sig)
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
                                       self.init_log_sig,

@@ -165,8 +165,7 @@ class PPOLearner(Learner):
             self.min_lr = self.learner_config.algo.lr.min_lr
             self.lr_update_frequency = self.learner_config.algo.lr.lr_update_frequency
             self.frames_to_anneal = self.learner_config.algo.lr.frames_to_anneal
-            num_updates = int(self.frames_to_anneal / (self.learner_config.replay.param_release_min *
-                                                       self.learner_config.algo.stride))
+            num_updates = int(self.frames_to_anneal / self.learner_config.replay.param_release_min)
             scheduler = eval(self.learner_config.algo.lr.lr_scheduler) 
             self.actor_lr_scheduler  = scheduler(self.actor_optim, 
                                                  num_updates,
@@ -663,6 +662,3 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-
-# ppo_learner
-# aggregator

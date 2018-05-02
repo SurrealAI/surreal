@@ -36,9 +36,16 @@ class PPOAgent(Agent):
         )
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.input_config = self.learner_config.model.input
-        self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.init_log_sig = self.learner_config.algo.consts.init_log_sig
+        self.input_config  = self.learner_config.model.input
+        self.use_z_filter  = self.learner_config.algo.use_z_filter
+        
+        self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
+        self.log_sig_range = self.learner_config.algo.consts.log_sig_range
+        noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
+        if self.agent_mode == 'eval_deterministic':
+            noise = 0 
+        self.init_log_sig += noise
+
         self.rnn_config = self.learner_config.algo.rnn
         
         self.cells = None
