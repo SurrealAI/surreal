@@ -1,7 +1,7 @@
 import os.path as path
 from tensorplex import Loggerplex
 from surreal.kube.tar_snapshot import tar_kurreal_repo
-from symphony import AddressBook
+import os
 
 
 def loggerplex_parser_setup(parser):
@@ -13,7 +13,6 @@ def run_loggerplexserver_main(args, config):
     Loggerplex is also responsible for creating a tar.gz snapshot of
     the mounted kurreal git repos
     """
-    ab = AddressBook()
     folder = config.session_config.folder
     loggerplex_config = config.session_config.loggerplex
 
@@ -26,5 +25,5 @@ def run_loggerplexserver_main(args, config):
         show_level=loggerplex_config.show_level,
         time_format=loggerplex_config.time_format
     )
-    _, port = ab.provide('loggerplex')
+    port = os.environ['SYMPH_LOGGERPLEX_PORT']
     loggerplex.start_server(port)

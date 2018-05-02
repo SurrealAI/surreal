@@ -12,7 +12,7 @@ from surreal.distributed.proxy import ZmqLoadBalancerThread
 from surreal.distributed.module_dict import ModuleDict
 from threading import Lock
 from multiprocessing import Process
-from symphony import AddressBook
+import os
 
 
 class ParameterPublisher(object):
@@ -55,14 +55,11 @@ class ParameterPublisher(object):
 
 class ShardedParameterServer(object):
     def __init__(self, config):
-        self.ab = AddressBook()
-
         self.ps_config = config.session_config.ps
         self.shards = self.ps_config.shards
 
-        self.frontend_host, self.frontend_port = self.ab.request('parameter-publish')
-        self.backend_host = 'localhost'
-        self.backend_port = self.ab.reserve('ps-backend')
+        self.frontend_port = os.environ['SYMPH_PS_FRONTEND_PORT']
+        self.backend_port = os.environ['SYMPH_PS_BACKEND_PORT']
 
         self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
         self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
@@ -77,12 +74,13 @@ class ShardedParameterServer(object):
         
         self.workers = []
 
-        publish_host, publish_port = self.ab.request('parameter-publish')
+        publisher_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
+        publisher_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         for i in range(self.shards):
             worker = ParameterServer(
                 publish_host=publish_host,
                 publish_port=publish_port,
-                serving_host=self.backend_host,
+                serving_host='localhost',
                 serving_port=self.backend_port,
                 load_balanced=True,
             )

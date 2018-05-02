@@ -4,7 +4,8 @@ import surreal.utils as U
 from tensorplex import TensorplexClient, LoggerplexClient
 from threading import Lock
 import time
-from symphony import AddressBook
+import os
+
 
 class PeriodicTracker(object):
     def __init__(self, period, init_value=0, init_endpoint=0):
@@ -175,8 +176,8 @@ def get_loggerplex_client(name, session_config):
         session_config: see session_config.loggerplex
     """
     C = session_config.loggerplex
-    ab = AddressBook()
-    host, port = ab.request('loggerplex')
+    host = os.environ['SYMPH_LOGGERPLEX_HOST']
+    port = os.environ['SYMPH_LOGGERPLEX_PORT']
     return LoggerplexClient(
         name,
         host=host,
@@ -189,8 +190,8 @@ def get_loggerplex_client(name, session_config):
 
 
 def get_tensorplex_client(client_id, session_config):
-    ab = AddressBook()
-    host, port = ab.request('tensorplex')
+    host = os.environ['SYMPH_TENSORPLEX_HOST']
+    port = os.environ['SYMPH_TENSORPLEX_PORT']
     return TensorplexClient(
         client_id,
         host=host,

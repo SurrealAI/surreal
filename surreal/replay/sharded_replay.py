@@ -2,7 +2,7 @@ from .base import replay_factory
 from surreal.distributed import ZmqLoadBalancerThread
 from multiprocessing import Process
 from threading import Thread
-from symphony import AddressBook
+import os
 
 
 class ShardedReplay(object):
@@ -23,12 +23,10 @@ class ShardedReplay(object):
         
         self.shards = self.learner_config.replay.replay_shards
 
-        ab = AddressBook()
-
-        _, self.collector_frontend_port = ab.provide('collector-frontend')
-        self.collector_backend_port = ab.reserve('collector-backend')
-        _, self.sampler_frontend_port = ab.provide('sampler-frontend')
-        self.sampler_backend_port = ab.reserve('sampler-backend')
+        self.collector_frontend_port = os.environ['SYMPH_COLLECTOR_FRONTEND_PORT']
+        self.collector_backend_port = os.environ['SYMPH_COLLECTOR_BACKEND_PORT']
+        self.sampler_frontend_port = os.environ['SYMPH_SAMPLER_FRONTEND_PORT']
+        self.sampler_backend_port = os.environ['SYMPH_SAMPLER_BACKEND_PORT']
 
         self.collector_frontend_add = "tcp://*:{}".format(self.collector_frontend_port)
         self.collector_backend_add = "tcp://*:{}".format(self.collector_backend_port)

@@ -9,7 +9,7 @@ from surreal.session import (
     get_loggerplex_client, get_tensorplex_client
 )
 from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
-from symphony import AddressBook
+import os
 
 
 learner_registry = {}
@@ -50,7 +50,6 @@ class Learner(metaclass=LearnerMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
-        self.ab = AddressBook()
 
         self._setup_connection()
         self._setup_logging()
@@ -94,7 +93,7 @@ class Learner(metaclass=LearnerMeta):
     def _setup_connection(self):  
         # sampler_host = self.session_config.replay.sampler_frontend_host
         # sampler_port = self.session_config.replay.sampler_frontend_port
-        _, ps_publish_port = self.ab.provide('parameter-publish')
+        ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         batch_size = self.learner_config.replay.batch_size
         # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
@@ -103,7 +102,6 @@ class Learner(metaclass=LearnerMeta):
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
-            ab=self.ab,
         )
 
 
