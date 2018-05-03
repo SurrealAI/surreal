@@ -302,18 +302,34 @@ class DMControlAdapter(Wrapper):
         return im
 
 class MujocoManipulationWrapper(Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, learner_config):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
+        self._input_list = learner_config.model.input
+
+    def _add_modality(self, obs):
+        pixel_modality = collections.OrderedDict()
+        flat_modality = collections.OrderedDict()
+        for key in obs:
+            if key in self._input_list['pixel']:
+                pixel_modality[key] = obs[key]
+            elif key in self._input_list['low_dim']:
+                flat_modality[key] = obs[key]
+        obs = collections.OrderedDict()
+        if len(pixel_modality) > 0:
+            obs['pixel'] = pixel_modality
+        if len(flat_modality) > 0:
+            obs['low_dim'] = flat_modality
+        return obs
 
     def _step(self, action):
         obs, reward, done, info = self.env.step(action)
-        return obs, reward, done, info
+        return self._add_modality(obs), reward, done, info
 
     def _reset(self):
         obs = self.env.reset()
-        return obs, {}
+        return self._add_modality(obs), {}
 
     def _close(self):
         self.env.close()
@@ -323,9 +339,15 @@ class MujocoManipulationWrapper(Wrapper):
         return SpecFormat.MUJOCOMANIP
 
     def observation_spec(self):
-        return self.env.observation_spec()
+        # Mujocomanip returns an example observation as the observation spec, what we want is
+        # To return shape of each observation type as a tuple
+        spec = self.env.observation_spec()
+        for k in spec:
+            spec[k] = tuple(np.array(spec[k]).shape)
+        return self._add_modality(spec)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
+        return {'dim': (9,), 'type': 'continuous'}
         # for now I am conforming to dm_control for ease of integration
         low, high = self.env.action_spec()
         return low
@@ -335,10 +357,9 @@ class MujocoManipulationWrapper(Wrapper):
         self.env.render(camera_id)
         
 class ObservationConcatenationWrapper(Wrapper):
-    def __init__(self, env, learner_config, concatenated_obs_name='flat_inputs'):
+    def __init__(self, env, concatenated_obs_name='flat_inputs'):
         super().__init__(env)
         self._concatenated_obs_name = concatenated_obs_name
-        self._flat_inputs = learner_config.model.input.low_dim
 
     def _flatten_obs(self, obs):
         flat_observations = []
@@ -519,11 +540,7 @@ class FilterWrapper(Wrapper):
     '''
     def __init__(self, env, learner_config):
         super().__init__(env)
-        input_list = learner_config.model.input
         self._allowed_items = learner_config.model.input
-        #for key in input_list:
-        #    self._allowed_items += input_list[key]
-        #self._allowed_items = set(self._allowed_items)
 
     def _filtered_obs(self, obs, verbose=False):
         filtered = collections.OrderedDict()
