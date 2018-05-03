@@ -59,16 +59,15 @@ class PPOAgent(Agent):
                                                1, # batch_size is 1
                                                self.rnn_config.rnn_hidden)).detach())
 
-        pixel_config = self.learner_config.algo.pixel \
-                            if self.env_config.pixel_input else None
         self.model = PPOModel(
-            init_log_sig=self.init_log_sig,
             obs_spec=self.obs_spec,
             action_dim=self.action_dim,
-            use_z_filter=self.use_z_filter,
-            rnn_config=self.rnn_config,
-            pixel_config=pixel_config,
+            model_config=self.learner_config.model,
             use_cuda=False,
+            init_log_sig=self.init_log_sig,
+            use_z_filter=self.use_z_filter,
+            if_pixel_input=self.env_config.pixel_input,
+            rnn_config=self.rnn_config,
         )
 
         self.pd = DiagGauss(self.action_dim)

@@ -121,8 +121,10 @@ class PPOModel(U.Module):
         # hyperparameters
         self.obs_spec = obs_spec
         self.action_dim = action_dim
+        self.model_config = model_config
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
+        self.if_pixel_input = if_pixel_input
         self.rnn_config = rnn_config
 
         self.low_dim = 0
@@ -131,39 +133,35 @@ class PPOModel(U.Module):
                 self.low_dim += self.obs_spec['low_dim'][key][0]
 
         self.cnn_stem = None
-        self.if_pixel_input = if_pixel_input
         if self.if_pixel_input:
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['pixels'],
-                                              self.pixel_config.perception_hidden_dim,
-                                              use_layernorm=self.pixel_config.use_layernorm)
+                                              self.model_config.cnn_feature_dim,
+                                              use_layernorm=self.model_config.use_layernorm)
             if use_cuda:
                 self.cnn_stem = self.cnn_stem.cuda()
 
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
             self.rnn_stem = nn.LSTM(self.low_dim if not self.if_pixel_input else \
-                                    self.pixel_config.perception_hidden_dim,
+                                    self.model_config.cnn_feature_dim,
                                     self.rnn_config.rnn_hidden,
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
             if use_cuda:
                 self.rnn_stem = self.rnn_stem.cuda()
 
-        input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.low_dim
+        input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
-                                      self.init_log_sig,
-                                      self.cnn_stem,
-                                      self.rnn_stem)
+                                      self.model_config.actor_fc_hidden_sizes,
+                                      self.init_log_sig)
         self.critic = PPO_CriticNetwork(input_size,
-                                      self.cnn_stem,
-                                      self.rnn_stem)
+                                      self.model_config.critic_fc_hidden_sizes)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
             self.z_filter = ZFilter(self.obs_spec,
-                                    pixel_input=self.if_pixel_input,
                                     use_cuda=use_cuda)
 
     def _gather_low_dim_input(self, obs):
@@ -177,7 +175,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             params = itertools.chain(params, self.cnn_stem.parameters())
         if self.rnn_config.if_rnn_policy:
-            params = itertools.chain(param, self.rnn_stem.parameters())
+            params = itertools.chain(params, self.rnn_stem.parameters())
         return params
 
     def get_critic_params(self):
@@ -185,7 +183,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             params = itertools.chain(params, self.cnn_stem.parameters())
         if self.rnn_config.if_rnn_policy:
-            params = itertools.chain(param, self.rnn_stem.parameters())
+            params = itertools.chain(params, self.rnn_stem.parameters())
         return params
 
     def update_target_params(self, net):
@@ -197,11 +195,11 @@ class PPOModel(U.Module):
         self.actor.load_state_dict(net.actor.state_dict())
         self.critic.load_state_dict(net.critic.state_dict())
 
-        # if self.rnn_config.if_rnn_policy:
-        #     self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
 
-        # if self.if_pixel_input:
-        #     self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
+        if self.if_pixel_input:
+            self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
 
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
@@ -333,8 +331,3 @@ class PPOModel(U.Module):
         divide by 255 to scale inputs between 0.0 and 1.0
         '''
         return obs / 255.0
-
-'''
-get rid of pixel config!
-write model builder!
-'''

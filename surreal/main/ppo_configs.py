@@ -15,19 +15,11 @@ def generate(argv):
     
     learner_config = {
         'model': {
+            'convs':[], # this can wait until TorchX
+            'actor_fc_hidden_sizes': [300, 200],
+            'critic_fc_hidden_sizes': [300, 200],
+            'cnn_feature_dim': 256,
             'use_layernorm': False,
-            'convs': [],
-            'fc_hidden_sizes': [128],
-            'dueling': False,
-            'conv_spec': {
-                'out_channels': [64, 64],
-                'kernel_sizes': [3, 5],
-                'use_batch_norm': False
-            },
-            'mlp_spec': {
-                'sizes': [64],
-                'use_dropout': False,
-            },
         },
         'algo': {
             # base configs

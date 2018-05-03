@@ -80,25 +80,25 @@ class PPOLearner(Learner):
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec                                           
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
-        pixel_config = self.learner_config.algo.pixel \
-                            if self.env_config.pixel_input else None
         self.model = PPOModel(
-            init_log_sig=self.init_log_sig,
             obs_spec=self.obs_spec,
             action_dim=self.action_dim,
+            model_config=self.learner_config.model,
+            use_cuda=False,
+            init_log_sig=self.init_log_sig,
             use_z_filter=self.use_z_filter,
-            pixel_config=pixel_config,
-            rnn_config = self.learner_config.algo.rnn,
-            use_cuda = self.use_cuda, 
+            if_pixel_input=self.env_config.pixel_input,
+            rnn_config=self.learner_config.algo.rnn,
         )
         self.ref_target_model = PPOModel(
-            init_log_sig=self.init_log_sig,
-            obs_spec=self.obs_spec,,
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
+            model_config=self.learner_config.model,
+            use_cuda=False,
+            init_log_sig=self.init_log_sig,
             use_z_filter=self.use_z_filter,
-            pixel_config=pixel_config,
-            rnn_config = self.learner_config.algo.rnn,
-            use_cuda = self.use_cuda, 
+            if_pixel_input=self.env_config.pixel_input,
+            rnn_config=self.learner_config.algo.rnn,
         )
         self.ref_target_model.update_target_params(self.model)
 
@@ -158,11 +158,11 @@ class PPOLearner(Learner):
             )
 
             # learning rate scheduler
-            self.min_lr = self.learner_config.algo.network.min_lr
-            self.lr_update_frequency = self.learner_config.algo.network.lr_update_frequency
-            self.frames_to_anneal = self.learner_config.algo.network.frames_to_anneal
+            self.min_lr = self.learner_config.algo.network.anneal.min_lr
+            self.lr_update_frequency = self.learner_config.algo.network.anneal.lr_update_frequency
+            self.frames_to_anneal = self.learner_config.algo.network.anneal.frames_to_anneal
             num_updates = int(self.frames_to_anneal / self.learner_config.algo.network.target_update.interval)
-            scheduler = eval(self.learner_config.algo.network.lr_scheduler) 
+            scheduler = eval(self.learner_config.algo.network.anneal.lr_scheduler) 
             self.actor_lr_scheduler  = scheduler(self.actor_optim, 
                                                  num_updates,
                                                  update_freq=self.lr_update_frequency,
@@ -624,7 +624,7 @@ class PPOLearner(Learner):
             iteration: the current number of learning iterations
             message: optional message, must be pickleable.
         """
-        if self.exp_counter >= self.learner_config.algo.target_update.interval:
+        if self.exp_counter >= self.learner_config.algo.network.target_update.interval:
             self._ps_publisher.publish(iteration, message=message)
             self._post_publish()  
 
