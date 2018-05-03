@@ -36,7 +36,6 @@ class PPOAgent(Agent):
         )
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.input_config  = self.learner_config.model.input
         self.use_z_filter  = self.learner_config.algo.use_z_filter
         
         self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
@@ -64,7 +63,7 @@ class PPOAgent(Agent):
                             if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_config=(self.obs_spec, self.learner_config.model.input),
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             rnn_config=self.rnn_config,

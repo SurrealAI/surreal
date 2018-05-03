@@ -107,7 +107,7 @@ class PPOModel(U.Module):
     '''
     def __init__(self,
                  init_log_sig,
-                 obs_config,
+                 obs_spec,
                  action_dim,
                  use_z_filter,
                  pixel_config,
@@ -116,7 +116,7 @@ class PPOModel(U.Module):
         super(PPOModel, self).__init__()
 
         # hyperparameters
-        self.obs_spec, self.input_config = obs_config
+        self.obs_spec = obs_spec
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
@@ -150,7 +150,6 @@ class PPOModel(U.Module):
         input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
-        print('actor network initialized with log_sig:', self.init_log_sig)
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
                                       self.init_log_sig,
@@ -161,8 +160,7 @@ class PPOModel(U.Module):
                                       self.rnn_stem)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
-            self.z_filter = ZFilter(self.obs_spec, 
-                                    self.input_config, 
+            self.z_filter = ZFilter(self.obs_spec,
                                     pixel_input=self.if_pixel_input,
                                     use_cuda=use_cuda)
 
@@ -317,6 +315,6 @@ class PPOModel(U.Module):
     def _scale_image(self, obs):
         '''
         Given uint8 input from the environment, scale to float32 and
-        divide by 256 to scale inputs between 0.0 and 1.0
+        divide by 255 to scale inputs between 0.0 and 1.0
         '''
-        return obs / 256.0
+        return obs / 255.0

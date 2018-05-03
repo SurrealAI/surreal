@@ -77,7 +77,7 @@ class PPOLearner(Learner):
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.norm_adv = self.learner_config.algo.norm_adv
-        self.batch_size = self.learner_config.algo.batch_size
+        self.batch_size = self.learner_config.replay.batch_size
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec                                           
@@ -86,7 +86,7 @@ class PPOLearner(Learner):
                             if self.env_config.pixel_input else None
         self.model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_config=(self.obs_spec, self.learner_config.model.input),
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             pixel_config=pixel_config,
@@ -95,7 +95,7 @@ class PPOLearner(Learner):
         )
         self.ref_target_model = PPOModel(
             init_log_sig=self.init_log_sig,
-            obs_config=(self.obs_spec, self.learner_config.model.input),
+            obs_spec=self.obs_spec,,
             action_dim=self.action_dim,
             use_z_filter=self.use_z_filter,
             pixel_config=pixel_config,
