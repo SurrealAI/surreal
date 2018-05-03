@@ -165,12 +165,20 @@ class PPOModel(U.Module):
                                     use_cuda=use_cuda)
 
     def _gather_low_dim_input(self, obs):
+        '''
+            Concatenate (along 2nd dimension) all the low-dimensional
+            (propioceptive) features from input observation tuple
+        '''
         if 'low_dim' not in obs.keys(): return None
         list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
         obs_low_dim = torch.cat(list_obs_ld, -1)
         return obs_low_dim
 
     def get_actor_params(self):
+        '''
+            Method that returns generator that contains all the parameters from
+            actor, cnn_stem (optional), and rnn_stem (optional)
+        '''
         params = self.actor.parameters()
         if self.if_pixel_input:
             params = itertools.chain(params, self.cnn_stem.parameters())
@@ -179,6 +187,10 @@ class PPOModel(U.Module):
         return params
 
     def get_critic_params(self):
+        '''
+            Method that returns generator that contains all the parameters from
+            critic, cnn_stem (optional), and rnn_stem (optional)
+        '''
         params = self.critic.parameters()
         if self.if_pixel_input:
             params = itertools.chain(params, self.cnn_stem.parameters())
@@ -327,7 +339,7 @@ class PPOModel(U.Module):
 
     def _scale_image(self, obs):
         '''
-        Given uint8 input from the environment, scale to float32 and
-        divide by 255 to scale inputs between 0.0 and 1.0
+            Given uint8 input from the environment, scale to float32 and
+            divide by 255 to scale inputs between 0.0 and 1.0
         '''
         return obs / 255.0

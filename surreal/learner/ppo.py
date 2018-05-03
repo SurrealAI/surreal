@@ -617,8 +617,9 @@ class PPOLearner(Learner):
 
     def publish_parameter(self, iteration, message=''):
         """
-        Learner publishes latest parameters to the parameter server only when accumulated
-            enough experiences specified by learner_config.replay.param_release_min
+        Learner publishes latest parameters to the parameter server only when 
+        accumulated enough experiences specified by 
+            learner_config.algo.network.update_target.interval
         Note: this overrides the base class publish_parameter method
         Args:
             iteration: the current number of learning iterations
