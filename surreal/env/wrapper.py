@@ -302,11 +302,11 @@ class DMControlAdapter(Wrapper):
         return im
 
 class MujocoManipulationWrapper(Wrapper):
-    def __init__(self, env, learner_config):
+    def __init__(self, env, env_config):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
-        self._input_list = learner_config.model.input
+        self._input_list = env_config.observation
 
     def _add_modality(self, obs):
         pixel_modality = collections.OrderedDict()
@@ -398,9 +398,8 @@ class ObservationConcatenationWrapper(Wrapper):
         return self.env.action_spec()
 
 class TransposeWrapper(Wrapper):
-    def __init__(self, env, learner_config):
+    def __init__(self, env):
         super().__init__(env)
-        self._learner_config = learner_config
 
     def _transpose(self, obs):
         if 'pixel' in obs:
@@ -428,9 +427,8 @@ class TransposeWrapper(Wrapper):
         return spec
 
 class GrayscaleWrapper(Wrapper):
-    def __init__(self, env, learner_config):
+    def __init__(self, env):
         super().__init__(env)
-        self._learner_config = learner_config
 
     def _grayscale(self, obs):
         for key in obs['pixel']:
@@ -470,11 +468,10 @@ class GrayscaleWrapper(Wrapper):
         return self.env.action_spec()
 
 class FrameStackWrapper(Wrapper):
-    def __init__(self, env, env_config, learner_config):
+    def __init__(self, env, env_config):
         super().__init__(env)
         self.n = env_config.frame_stacks
         self._history = deque(maxlen=self.n)
-        self._learner_config = learner_config
 
     def _stacked_observation(self, obs):
         '''
@@ -535,12 +532,12 @@ class FrameStackWrapper(Wrapper):
 
 class FilterWrapper(Wrapper):
     '''
-    Given the inputs allowed in learner_config.model.input, reject any inputs
+    Given the inputs allowed in env_config.observation, reject any inputs
     not specified in the config.
     '''
-    def __init__(self, env, learner_config):
+    def __init__(self, env, env_config):
         super().__init__(env)
-        self._allowed_items = learner_config.model.input
+        self._allowed_items = env_config.observation
 
     def _filtered_obs(self, obs, verbose=False):
         filtered = collections.OrderedDict()
