@@ -8,6 +8,8 @@ import numpy as np
 from .model_builders import *
 from .z_filter import ZFilter
 
+import itertools
+
 class DiagGauss(object):
     '''
         Class that encapsulates Diagonal Gaussian Probability distribution
@@ -106,13 +108,14 @@ class PPOModel(U.Module):
             z_update: updates Z_filter running obs mean and variance
     '''
     def __init__(self,
-                 init_log_sig,
                  obs_spec,
                  action_dim,
-                 use_z_filter,
-                 pixel_config,
-                 rnn_config,
-                 use_cuda):
+                 model_config,
+                 use_cuda,
+                 init_log_sig=0,
+                 use_z_filter=False,
+                 if_pixel_input=False,
+                 rnn_config=None):
         super(PPOModel, self).__init__()
 
         # hyperparameters
@@ -120,7 +123,6 @@ class PPOModel(U.Module):
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
-        self.pixel_config = pixel_config
         self.rnn_config = rnn_config
 
         self.low_dim = 0
@@ -129,9 +131,9 @@ class PPOModel(U.Module):
                 self.low_dim += self.obs_spec['low_dim'][key][0]
 
         self.cnn_stem = None
-        self.if_pixel_input = self.pixel_config is not None
+        self.if_pixel_input = if_pixel_input
         if self.if_pixel_input:
-            self.cnn_stem = PerceptionNetwork(self.obs_spec['pixel']['pixels'],
+            self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['pixels'],
                                               self.pixel_config.perception_hidden_dim,
                                               use_layernorm=self.pixel_config.use_layernorm)
             if use_cuda:
@@ -169,6 +171,22 @@ class PPOModel(U.Module):
         list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
         obs_low_dim = torch.cat(list_obs_ld, -1)
         return obs_low_dim
+
+    def get_actor_params(self):
+        params = self.actor.parameters()
+        if self.if_pixel_input:
+            params = itertools.chain(params, self.cnn_stem.parameters())
+        if self.rnn_config.if_rnn_policy:
+            params = itertools.chain(param, self.rnn_stem.parameters())
+        return params
+
+    def get_critic_params(self):
+        params = self.critic.parameters()
+        if self.if_pixel_input:
+            params = itertools.chain(params, self.cnn_stem.parameters())
+        if self.rnn_config.if_rnn_policy:
+            params = itertools.chain(param, self.rnn_stem.parameters())
+        return params
 
     def update_target_params(self, net):
         '''
@@ -214,8 +232,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -247,8 +264,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -279,8 +295,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel) 
             obs_list.append(obs_pixel)
 
@@ -318,3 +333,8 @@ class PPOModel(U.Module):
         divide by 255 to scale inputs between 0.0 and 1.0
         '''
         return obs / 255.0
+
+'''
+get rid of pixel config!
+write model builder!
+'''

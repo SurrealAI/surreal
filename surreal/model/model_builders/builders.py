@@ -8,9 +8,9 @@ import resource
 
 from ..layer_norm import LayerNorm
 
-class PerceptionNetwork(U.Module):
+class CNNStemNetwork(U.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
-        super(PerceptionNetwork, self).__init__()
+        super(CNNStemNetwork, self).__init__()
         conv_channels=[16, 32]
         C, H, W = D_obs
         # DQN architecture

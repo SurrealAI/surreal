@@ -15,6 +15,7 @@ def generate(argv):
     
     learner_config = {
         'model': {
+            'use_layernorm': False,
             'convs': [],
             'fc_hidden_sizes': [128],
             'dueling': False,
@@ -25,7 +26,7 @@ def generate(argv):
             },
             'mlp_spec': {
                 'sizes': [64],
-                'use_dropout': False
+                'use_dropout': False,
             },
         },
         'algo': {
@@ -57,12 +58,6 @@ def generate(argv):
                     'interval':4096,
                 },
             },
-
-            'pixel': {
-                'if_uint8': True,
-                'perception_hidden_dim': 256,
-            }, 
-
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'advantage':{
