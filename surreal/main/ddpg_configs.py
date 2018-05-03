@@ -30,10 +30,6 @@ def generate(argv):
                 'sizes': [128],
                 'use_dropout': False
             },
-            'input': {
-                'pixel':['pixels', 'image'],
-                'low_dim':['flat_inputs', 'position', 'velocity', 'proprio'],
-            },
         },
         'algo': {
             'agent_class': 'DDPGAgent',
@@ -103,7 +99,11 @@ def generate(argv):
             'save_folder': None,
             'max_videos': 500,
             'record_every': 100,
-        }
+        },
+        'observation': {
+            'pixel':['pixels', 'image'],
+            'low_dim':['flat_inputs', 'position', 'velocity', 'proprio'],
+        },
     }
 
     session_config = Config({

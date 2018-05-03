@@ -6,29 +6,21 @@ from dm_control.suite.wrappers import pixels
 import os
 
 
-def make_env(env_config, session_config, learner_config, eval_mode=False):
+def make_env(env_config):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
     """
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
-    # Video recording should only be done in eval agents
-    record_video = env_config.video.record_video and eval_mode
-    if record_video and os.getenv('DISABLE_MUJOCO_RENDERING'):
-        # Record_video is set to true by default but tmux on mac won't always have rendering
-        record_video = False
-        print('Won\'t produce videos because rendering is turned off on this machine')
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
-        env, env_config = make_mujocomanip(env_name, env_config, learner_config)
+        env, env_config = make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
-        env, env_config = make_dm_control(env_name, env_config, learner_config)
+        env, env_config = make_dm_control(env_name, env_config)
     else:
         raise ValueError('Unknown environment category: {}'.format(env_category))
-    if record_video:
-        env = VideoWrapper(env, env_config, session_config)
     return env, env_config
 
 
@@ -41,7 +33,7 @@ def make_gym(env_name, env_config):
     return env, env_config
 
 
-def make_mujocomanip(env_name, env_config, learner_config):
+def make_mujocomanip(env_name, env_config):
     import MujocoManip
     env = MujocoManip.make(env_name,
                            horizon=50000,
@@ -54,8 +46,8 @@ def make_mujocomanip(env_name, env_config, learner_config):
                            use_object_obs=False,
                            reward_shaping=True
     )
-    env = MujocoManipulationWrapper(env, learner_config)
-    env = FilterWrapper(env, learner_config)
+    env = MujocoManipulationWrapper(env, env_config)
+    env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     # set to true and to receive camera input
     # Remove observation concatenation wrapper and parse observation spec properly
@@ -64,7 +56,7 @@ def make_mujocomanip(env_name, env_config, learner_config):
     return env, env_config
 
 
-def make_dm_control(env_name, env_config, learner_config):
+def make_dm_control(env_name, env_config):
     from dm_control import suite
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
@@ -85,12 +77,12 @@ def make_dm_control(env_name, env_config, learner_config):
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
 
     env = DMControlAdapter(env, pixel_input)
-    env = FilterWrapper(env, learner_config)
+    env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     if pixel_input:
-        env = TransposeWrapper(env, learner_config)
-        env = GrayscaleWrapper(env, learner_config)
-        env = FrameStackWrapper(env, env_config, learner_config)
+        env = TransposeWrapper(env)
+        env = GrayscaleWrapper(env)
+        env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
