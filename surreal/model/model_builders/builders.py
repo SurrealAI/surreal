@@ -6,10 +6,10 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import numpy as np 
 import resource
 
-from torch.nn import LayerNorm
+from ..layer_norm import LayerNorm
 
 class CNNStemNetwork(U.Module):
-    def __init__(self, D_obs, D_out):
+    def __init__(self, D_obs, D_out, use_layernorm=True):
         super(CNNStemNetwork, self).__init__()
         conv_channels=[16, 32]
         C, H, W = D_obs
@@ -129,23 +129,14 @@ class PPO_ActorNetwork(U.Module):
     '''
         PPO custom actor network structure
     '''
-    def __init__(self, D_obs, D_act, init_log_sig, cnn_stem = None, rnn_stem = None):
+    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], init_log_sig=0):
         super(PPO_ActorNetwork, self).__init__()
-
-        self.rnn_stem = rnn_stem
-        self.cnn_stem = cnn_stem
         # assumes D_obs here is the correct RNN hidden dim
 
-        self.D_obs = D_obs
-        hid_1 = D_obs * 10
-        hid_3 = D_act * 10
-        hid_2 = int(np.sqrt(hid_1 * hid_3))
-        self.fc_h1 = nn.Linear(D_obs, hid_1)
-        self.fc_h2 = nn.Linear(hid_1, hid_2)
-        self.fc_h3 = nn.Linear(hid_2, hid_3)
-        self.fc_mean = nn.Linear(hid_3, D_act)
+        self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
+        self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fc_mean = nn.Linear(hidden_sizes[1], D_act)
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
-        # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
         obs_shape = obs.size()
@@ -155,8 +146,7 @@ class PPO_ActorNetwork(U.Module):
 
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
-        h3 = F.tanh(self.fc_h3(h2))
-        mean = self.fc_mean(h3)
+        mean = self.fc_mean(h2)
         std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
 
         action = torch.cat((mean, std), dim=1)
@@ -169,21 +159,13 @@ class PPO_CriticNetwork(U.Module):
     '''
         PPO custom critic network structure
     '''
-    def __init__(self, D_obs, cnn_stem = None, rnn_stem = None):
+    def __init__(self, D_obs, hidden_sizes=[64, 64]):
         super(PPO_CriticNetwork, self).__init__()
-
-        self.rnn_stem = rnn_stem
-        self.cnn_stem = cnn_stem
-
         # assumes D_obs here is the correct RNN hidden dim if necessary
-        hid_1 = D_obs * 10
-        hid_3 = 64
-        hid_2 = int(np.sqrt(hid_1 * hid_3))
 
-        self.fc_h1 = nn.Linear(D_obs, hid_1)
-        self.fc_h2 = nn.Linear(hid_1, hid_2)
-        self.fc_h3 = nn.Linear(hid_2, hid_3)
-        self.fc_v  = nn.Linear(hid_3, 1)
+        self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
+        self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fc_v  = nn.Linear(hidden_sizes[1], 1)
 
     def forward(self, obs):
         obs_shape = obs.size()
@@ -193,8 +175,7 @@ class PPO_CriticNetwork(U.Module):
 
         h1 = F.tanh(self.fc_h1(obs))
         h2 = F.tanh(self.fc_h2(h1))
-        h3 = F.tanh(self.fc_h3(h2))
-        v  = self.fc_v(h3) 
+        v  = self.fc_v(h2) 
 
         if if_high_dim:
             v = v.view(obs_shape[0], obs_shape[1], 1)

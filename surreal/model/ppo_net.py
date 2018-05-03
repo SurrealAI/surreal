@@ -8,6 +8,8 @@ import numpy as np
 from .model_builders import *
 from .z_filter import ZFilter
 
+import itertools
+
 class DiagGauss(object):
     '''
         Class that encapsulates Diagonal Gaussian Probability distribution
@@ -106,21 +108,23 @@ class PPOModel(U.Module):
             z_update: updates Z_filter running obs mean and variance
     '''
     def __init__(self,
-                 init_log_sig,
-                 obs_config,
+                 obs_spec,
                  action_dim,
-                 use_z_filter,
-                 pixel_config,
-                 rnn_config,
-                 use_cuda):
+                 model_config,
+                 use_cuda,
+                 init_log_sig=0,
+                 use_z_filter=False,
+                 if_pixel_input=False,
+                 rnn_config=None):
         super(PPOModel, self).__init__()
 
         # hyperparameters
-        self.obs_spec, self.input_config = obs_config
+        self.obs_spec = obs_spec
         self.action_dim = action_dim
+        self.model_config = model_config
         self.use_z_filter = use_z_filter
         self.init_log_sig = init_log_sig
-        self.pixel_config = pixel_config
+        self.if_pixel_input = if_pixel_input
         self.rnn_config = rnn_config
 
         self.low_dim = 0
@@ -129,48 +133,70 @@ class PPOModel(U.Module):
                 self.low_dim += self.obs_spec['low_dim'][key][0]
 
         self.cnn_stem = None
-        self.if_pixel_input = self.pixel_config is not None
         if self.if_pixel_input:
-            self.cnn_stem = PerceptionNetwork(self.obs_spec['pixel']['pixels'],
-                                              self.pixel_config.perception_hidden_dim,
-                                              use_layernorm=self.pixel_config.use_layernorm)
+            self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['pixels'],
+                                              self.model_config.cnn_feature_dim,
+                                              use_layernorm=self.model_config.use_layernorm)
             if use_cuda:
                 self.cnn_stem = self.cnn_stem.cuda()
 
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
             self.rnn_stem = nn.LSTM(self.low_dim if not self.if_pixel_input else \
-                                    self.pixel_config.perception_hidden_dim,
+                                    self.model_config.cnn_feature_dim,
                                     self.rnn_config.rnn_hidden,
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
             if use_cuda:
                 self.rnn_stem = self.rnn_stem.cuda()
 
-        input_size = self.pixel_config.perception_hidden_dim if self.if_pixel_input else self.low_dim
+        input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
-        print('actor network initialized with log_sig:', self.init_log_sig)
         self.actor = PPO_ActorNetwork(input_size, 
                                       self.action_dim, 
-                                      self.init_log_sig,
-                                      self.cnn_stem,
-                                      self.rnn_stem)
+                                      self.model_config.actor_fc_hidden_sizes,
+                                      self.init_log_sig)
         self.critic = PPO_CriticNetwork(input_size,
-                                      self.cnn_stem,
-                                      self.rnn_stem)
+                                      self.model_config.critic_fc_hidden_sizes)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
-            self.z_filter = ZFilter(self.obs_spec, 
-                                    self.input_config, 
-                                    pixel_input=self.if_pixel_input,
+            self.z_filter = ZFilter(self.obs_spec,
                                     use_cuda=use_cuda)
 
     def _gather_low_dim_input(self, obs):
+        '''
+            Concatenate (along 2nd dimension) all the low-dimensional
+            (propioceptive) features from input observation tuple
+        '''
         if 'low_dim' not in obs.keys(): return None
         list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
         obs_low_dim = torch.cat(list_obs_ld, -1)
         return obs_low_dim
+
+    def get_actor_params(self):
+        '''
+            Method that returns generator that contains all the parameters from
+            actor, cnn_stem (optional), and rnn_stem (optional)
+        '''
+        params = self.actor.parameters()
+        if self.if_pixel_input:
+            params = itertools.chain(params, self.cnn_stem.parameters())
+        if self.rnn_config.if_rnn_policy:
+            params = itertools.chain(params, self.rnn_stem.parameters())
+        return params
+
+    def get_critic_params(self):
+        '''
+            Method that returns generator that contains all the parameters from
+            critic, cnn_stem (optional), and rnn_stem (optional)
+        '''
+        params = self.critic.parameters()
+        if self.if_pixel_input:
+            params = itertools.chain(params, self.cnn_stem.parameters())
+        if self.rnn_config.if_rnn_policy:
+            params = itertools.chain(params, self.rnn_stem.parameters())
+        return params
 
     def update_target_params(self, net):
         '''
@@ -181,11 +207,11 @@ class PPOModel(U.Module):
         self.actor.load_state_dict(net.actor.state_dict())
         self.critic.load_state_dict(net.critic.state_dict())
 
-        # if self.rnn_config.if_rnn_policy:
-        #     self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.load_state_dict(net.rnn_stem.state_dict())
 
-        # if self.if_pixel_input:
-        #     self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
+        if self.if_pixel_input:
+            self.cnn_stem.load_state_dict(net.cnn_stem.state_dict())
 
         if self.use_z_filter:
             self.z_filter.load_state_dict(net.z_filter.state_dict())
@@ -216,8 +242,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -249,8 +274,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
 
@@ -281,8 +305,7 @@ class PPOModel(U.Module):
         if self.if_pixel_input:
             # right now assumes only one camera angle.
             obs_pixel = obs['pixel']['pixels']
-            if self.pixel_config.if_uint8:
-                obs_pixel = self._scale_image(obs_pixel)
+            obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel) 
             obs_list.append(obs_pixel)
 
@@ -316,7 +339,7 @@ class PPOModel(U.Module):
 
     def _scale_image(self, obs):
         '''
-        Given uint8 input from the environment, scale to float32 and
-        divide by 256 to scale inputs between 0.0 and 1.0
+            Given uint8 input from the environment, scale to float32 and
+            divide by 255 to scale inputs between 0.0 and 1.0
         '''
-        return obs / 256.0
+        return obs / 255.0

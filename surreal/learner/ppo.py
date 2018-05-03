@@ -10,8 +10,6 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 from surreal.utils.pytorch.hyper_scheduler import *   
 
-import itertools
-
 class PPOLearner(Learner):
     '''
     PPOLearner: subclass of Learner that contains PPO algorithm logic
@@ -73,34 +71,34 @@ class PPOLearner(Learner):
 
         # RL general parameters
         self.gamma = self.learner_config.algo.gamma
-        self.lam   = self.learner_config.algo.lam
+        self.lam   = self.learner_config.algo.advantage.lam
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.norm_adv = self.learner_config.algo.norm_adv
-        self.batch_size = self.learner_config.algo.batch_size
+        self.norm_adv = self.learner_config.algo.advantage.norm_adv
+        self.batch_size = self.learner_config.replay.batch_size
 
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec                                           
         self.init_log_sig = self.learner_config.algo.consts.init_log_sig
-        pixel_config = self.learner_config.algo.pixel \
-                            if self.env_config.pixel_input else None
         self.model = PPOModel(
-            init_log_sig=self.init_log_sig,
-            obs_config=(self.obs_spec, self.learner_config.model.input),
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
+            model_config=self.learner_config.model,
+            use_cuda=self.use_cuda,
+            init_log_sig=self.init_log_sig,
             use_z_filter=self.use_z_filter,
-            pixel_config=pixel_config,
-            rnn_config = self.learner_config.algo.rnn,
-            use_cuda = self.use_cuda, 
+            if_pixel_input=self.env_config.pixel_input,
+            rnn_config=self.learner_config.algo.rnn,
         )
         self.ref_target_model = PPOModel(
-            init_log_sig=self.init_log_sig,
-            obs_config=(self.obs_spec, self.learner_config.model.input),
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
+            model_config=self.learner_config.model,
+            use_cuda=self.use_cuda,
+            init_log_sig=self.init_log_sig,
             use_z_filter=self.use_z_filter,
-            pixel_config=pixel_config,
-            rnn_config = self.learner_config.algo.rnn,
-            use_cuda = self.use_cuda, 
+            if_pixel_input=self.env_config.pixel_input,
+            rnn_config=self.learner_config.algo.rnn,
         )
         self.ref_target_model.update_target_params(self.model)
 
@@ -109,8 +107,8 @@ class PPOLearner(Learner):
         self.if_rnn_policy = self.learner_config.algo.rnn.if_rnn_policy
         self.horizon = self.learner_config.algo.rnn.horizon
         self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
-        self.lr_policy = self.learner_config.algo.lr.lr_policy
-        self.lr_baseline = self.learner_config.algo.lr.lr_baseline
+        self.lr_actor = self.learner_config.algo.network.lr_actor
+        self.lr_critic = self.learner_config.algo.network.lr_critic
         self.epoch_policy = self.learner_config.algo.consts.epoch_policy
         self.epoch_baseline = self.learner_config.algo.consts.epoch_baseline
         self.kl_target = self.learner_config.algo.consts.kl_target
@@ -143,30 +141,28 @@ class PPOLearner(Learner):
         with U.torch_gpu_scope(self.gpu_id):
 
             # Learning parameters and optimizer
-            self.clip_actor_gradient = self.learner_config.algo.network.clip_actor
-            self.actor_gradient_clip_value = self.learner_config.algo.network.clip_actor_val
-            self.clip_critic_gradient = self.learner_config.algo.network.clip_critic
-            self.critic_gradient_clip_value = self.learner_config.algo.network.clip_critic_val
+            self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
+            self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_norm_clip
+            self.clip_critic_gradient = self.learner_config.algo.network.clip_critic_gradient
+            self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_norm_clip
 
-            critic_param = self.model.critic.parameters()
-            actor_param  = self.model.actor.parameters()
             self.critic_optim = torch.optim.Adam(
-                critic_param,
-                lr=self.lr_baseline,
+                self.model.get_critic_params(),
+                lr=self.lr_critic,
                 weight_decay=self.learner_config.algo.network.critic_regularization
             )
             self.actor_optim = torch.optim.Adam(
-                actor_param,
-                lr=self.lr_policy,
+                self.model.get_actor_params(),
+                lr=self.lr_actor,
                 weight_decay=self.learner_config.algo.network.actor_regularization
             )
 
             # learning rate scheduler
-            self.min_lr = self.learner_config.algo.lr.min_lr
-            self.lr_update_frequency = self.learner_config.algo.lr.lr_update_frequency
-            self.frames_to_anneal = self.learner_config.algo.lr.frames_to_anneal
-            num_updates = int(self.frames_to_anneal / self.learner_config.replay.param_release_min)
-            scheduler = eval(self.learner_config.algo.lr.lr_scheduler) 
+            self.min_lr = self.learner_config.algo.network.anneal.min_lr
+            self.lr_update_frequency = self.learner_config.algo.network.anneal.lr_update_frequency
+            self.frames_to_anneal = self.learner_config.algo.network.anneal.frames_to_anneal
+            num_updates = int(self.frames_to_anneal / self.learner_config.algo.network.target_update.interval)
+            scheduler = eval(self.learner_config.algo.network.anneal.lr_scheduler) 
             self.actor_lr_scheduler  = scheduler(self.actor_optim, 
                                                  num_updates,
                                                  update_freq=self.lr_update_frequency,
@@ -621,14 +617,15 @@ class PPOLearner(Learner):
 
     def publish_parameter(self, iteration, message=''):
         """
-        Learner publishes latest parameters to the parameter server only when accumulated
-            enough experiences specified by learner_config.replay.param_release_min
+        Learner publishes latest parameters to the parameter server only when 
+        accumulated enough experiences specified by 
+            learner_config.algo.network.update_target.interval
         Note: this overrides the base class publish_parameter method
         Args:
             iteration: the current number of learning iterations
             message: optional message, must be pickleable.
         """
-        if self.exp_counter >= self.learner_config.replay.param_release_min:
+        if self.exp_counter >= self.learner_config.algo.network.target_update.interval:
             self._ps_publisher.publish(iteration, message=message)
             self._post_publish()  
 

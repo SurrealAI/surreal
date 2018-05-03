@@ -22,7 +22,7 @@ class ZFilter(U.Module):
             count: number of experiences accumulated
                 (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
     """
-    def __init__(self, obs_spec, input_config, pixel_input = False, eps=1e-2, use_cuda=False):
+    def __init__(self, obs_spec, eps=1e-2, use_cuda=False):
         """
         Constructor for ZFilter class
         Args:
@@ -33,7 +33,6 @@ class ZFilter(U.Module):
         super(ZFilter, self).__init__()
         self.eps = eps
         self.obs_spec = obs_spec
-        self.input_config = input_config
 
         in_size = 0
         for key in self.obs_spec['low_dim'].keys():
@@ -89,6 +88,7 @@ class ZFilter(U.Module):
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
+
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
         normed = normed.view(input_shape)
         return normed
