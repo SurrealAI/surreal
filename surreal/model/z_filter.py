@@ -35,7 +35,9 @@ class ZFilter(U.Module):
         self.obs_spec = obs_spec
         self.input_config = input_config
 
-        insize = U.observation.get_low_dim_shape(obs_spec, input_config)
+        in_size = 0
+        for key in self.obs_spec['low_dim'].keys():
+            in_size += self.obs_spec['low_dim'][key][0]
 
         # Keep some buffers for doing whitening. 
         self.register_buffer('running_sum', torch.zeros(in_size))

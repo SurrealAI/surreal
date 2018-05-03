@@ -70,12 +70,13 @@ def generate(argv):
                 'lr_scheduler': "LinearWithMinLR",
                 'lr_policy': 1e-4,
                 'lr_baseline': 1e-4,
-                'frames_to_anneal': 1e8,
+                'frames_to_anneal': 1e7,
                 'lr_update_frequency': 100, 
-                'min_lr': 1e-5,
+                'min_lr': 5e-5,
             },
             'consts': {
-                'init_log_sig': -1.,
+                'init_log_sig': -3,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
@@ -99,7 +100,7 @@ def generate(argv):
             'batch_size': 64,
             'memory_size': 96,
             'sampling_start_size': 64,
-            'param_release_min': 8192,
+            'param_release_min': 4096,
         },
         'eval': {
             'eps': 0.05  # 5% random action under eval_stochastic mode
@@ -108,7 +109,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {
@@ -140,7 +141,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 500, # 10 for without RNN
+            'fetch_parameter_interval': 10, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,
@@ -157,4 +158,6 @@ def generate(argv):
         * stride -> 20
         * fetch_parameter_mode -> 'episode'
         * fetch_parameter_interval -> 1
+    Pixel specific parameter differnce:
+        * param_release_min -> 8192 (instead of 4096)
 '''
