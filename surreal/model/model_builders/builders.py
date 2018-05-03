@@ -42,7 +42,7 @@ class ActorNetworkX(U.Module):
         self.fc_out = nn.Linear(hidden_size, D_act)
         self.use_layernorm = use_layernorm
         if self.use_layernorm:
-            self.layer_norm = LayerNorm(hidden_size)
+            self.layer_norm = LayerNorm()
 
     def forward(self, obs):
         x = F.elu(self.fc_in(obs))
@@ -58,7 +58,7 @@ class CriticNetworkX(U.Module):
         self.fc_out = nn.Linear(hidden_size, 1)
         self.use_layernorm = use_layernorm
         if self.use_layernorm:
-            self.layer_norm = LayerNorm(hidden_size)
+            self.layer_norm = LayerNorm()
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
