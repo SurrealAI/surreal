@@ -88,6 +88,7 @@ class ZFilter(U.Module):
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
         running_mean = Variable(running_mean)
         running_std = Variable(running_std)
+
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
         normed = normed.view(input_shape)
         return normed

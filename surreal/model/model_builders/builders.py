@@ -131,7 +131,6 @@ class PPO_ActorNetwork(U.Module):
         self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
         self.fc_mean = nn.Linear(hidden_sizes[1], D_act)
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
-        # self.layer_norm = LayerNorm()
 
     def forward(self, obs):
         obs_shape = obs.size()

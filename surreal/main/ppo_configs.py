@@ -26,7 +26,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'gamma': .995,
             'n_step': 10, # 10 for without RNN
             'stride': 10, # 10 for without RNN
@@ -63,8 +63,8 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -3,
-                'log_sig_range': 2,
+                'init_log_sig': -1.5,
+                'log_sig_range': 0.25,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
