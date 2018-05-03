@@ -237,7 +237,8 @@ class DMControlAdapter(Wrapper):
 
     def _add_modality(self, obs):
         if self.is_pixel_input:
-            return collections.OrderedDict([('pixel', obs)])
+            renamed_obs = collections.OrderedDict([('camera0', obs['pixels'])])
+            return collections.OrderedDict([('pixel', renamed_obs)])
         else:
             return collections.OrderedDict([('low_dim', obs)])
 

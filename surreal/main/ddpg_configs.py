@@ -20,6 +20,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
+            'use_layernorm': True,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -34,21 +35,28 @@ def generate(argv):
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
-            'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
-            'optimizer': 'Adam',
-            'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 1.,
-            'clip_critic_gradient': False,
-            'critic_gradient_clip_value': 5.,
-            'gamma': .99,
-            'target_update': {
-                'type': 'soft',
-                'tau': 1e-3,
-                # 'type': 'hard',
-                # 'interval': 100,
-            },
+            'experience': 'ExpSenderWrapperSSARNStepBootstrap',
             'use_z_filter': False,
+            'gamma': .99,
+            'n_step': 5,
+            'stride': 1,
+            'limit_training_episode_length': 0, # 0 means no limit
+            'network': {
+                'lr_actor': 1e-4,
+                'lr_critic': 1e-4,
+                'clip_actor_gradient': True,
+                'actor_gradient_norm_clip': 1.,
+                'clip_critic_gradient': False,
+                'critic_gradient_norm_clip': 5.,
+                'actor_regularization': 0.0,
+                'critic_regularization': 0.0,
+                'target_update': {
+                    'type': 'soft',
+                    'tau': 1e-3,
+                    # 'type': 'hard',
+                    # 'interval': 100,
+                },
+            },
             'exploration': {
                 'noise_type': 'normal',
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
@@ -60,33 +68,17 @@ def generate(argv):
                 # 'sigma': 0.3,
                 # 'dt': 1e-3,
             },
-            'actor_regularization': 0.0,
-            'critic_regularization': 0.0,
-            'use_batchnorm': False,
-            'use_layernorm': True,
-            # if input is uint8, algorithm will scale it down by a factor of 256.0
-            'is_uint8_pixel_input': True,
-            'limit_training_episode_length': 0, # 0 means no limit
-            # 'agent_sleep_time': 1/50.0,
-            #'agent_sleep_time': 1/10.0,
-            'n_step': 5,
-            'experience': 'ExpSenderWrapperSSARNStepBootstrap',
-            'stride': 1,
         },
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 512,
-            # 'memory_size': 1000000,
             'memory_size': int(1000000/3), # Note that actual replay size is memory_size * replay_shards
             'sampling_start_size': 3000,
             'replay_shards': 3,
         },
-        'eval': {
-            'eps': 0.05  # 5% random action under eval_stochastic mode
-        },
         'parameter_publish': {
             # Minimum amount of time (seconds) between two parameter publish
-            'min_publish_interval': 3, 
+            'min_publish_interval': 3,
         },
     }
 
@@ -94,6 +86,7 @@ def generate(argv):
         'env_name': args.env,
         'pixel_input': True,
         'frame_stacks': 3,
+        'sleep_time': 0.0,
         'video': {
             'record_video': True,
             'save_folder': None,
@@ -101,8 +94,8 @@ def generate(argv):
             'record_every': 100,
         },
         'observation': {
-            'pixel':['pixels', 'image'],
-            'low_dim':['flat_inputs', 'position', 'velocity', 'proprio'],
+            'pixel':['camera0', 'depth'],
+            'low_dim':['position', 'velocity', 'proprio'],
         },
     }
 

@@ -25,11 +25,9 @@ class DDPGLearner(Learner):
 
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
-        self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
         self.is_pixel_input = self.env_config.pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.use_batchnorm = self.learner_config.algo.use_batchnorm
-        self.use_layernorm = self.learner_config.algo.use_layernorm
+        self.use_layernorm = self.learner_config.model.use_layernorm
 
         self.log.info('Initializing DDPG learner')
         num_gpus = session_config.learner.num_gpus
@@ -45,58 +43,52 @@ class DDPGLearner(Learner):
         with U.torch_gpu_scope(self.gpu_ids):
             self.target_update_init()
 
-            self.clip_actor_gradient = self.learner_config.algo.clip_actor_gradient
+            self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
             if self.clip_actor_gradient:
-                self.actor_gradient_clip_value = self.learner_config.algo.actor_gradient_clip_value
+                self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_norm_clip
                 self.log.info('Clipping actor gradient at {}'.format(self.actor_gradient_clip_value))
 
-            self.clip_critic_gradient = self.learner_config.algo.clip_critic_gradient
+            self.clip_critic_gradient = self.learner_config.algo.network.clip_critic_gradient
             if self.clip_critic_gradient:
-                self.critic_gradient_clip_value = self.learner_config.algo.critic_gradient_clip_value
+                self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_norm_clip
                 self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
             self.model = DDPGModel(
                 obs_spec=self.env_config.obs_spec,
                 action_dim=self.action_dim,
-                is_uint8_pixel_input=self.is_uint8_pixel_input,
-                is_pixel_input = self.is_pixel_input,
-                use_z_filter=self.use_z_filter,
-                use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+                use_z_filter=self.use_z_filter,
             )
             # self.model.train()
 
             self.model_target = DDPGModel(
                 obs_spec=self.env_config.obs_spec,
                 action_dim=self.action_dim,
-                is_uint8_pixel_input=self.is_uint8_pixel_input,
-                is_pixel_input = self.is_pixel_input,
-                use_z_filter=self.use_z_filter,
-                use_batchnorm=self.use_batchnorm,
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+                use_z_filter=self.use_z_filter,
             )
             # self.model.eval()
 
             self.critic_criterion = nn.MSELoss()
 
-            self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.lr_critic))
+            self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.network.lr_critic))
             self.critic_optim = torch.optim.Adam(
                 self.model.get_critic_parameters(),
-                lr=self.learner_config.algo.lr_critic,
-                weight_decay=self.learner_config.algo.critic_regularization # Weight regularization term
+                lr=self.learner_config.algo.network.lr_critic,
+                weight_decay=self.learner_config.algo.network.critic_regularization # Weight regularization term
             )
 
 
-            self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.lr_actor))
+            self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.network.lr_actor))
             self.actor_optim = torch.optim.Adam(
-                self.model.actor.parameters(),
-                lr=self.learner_config.algo.lr_actor,
-                weight_decay=self.learner_config.algo.actor_regularization # Weight regularization term
+                self.model.get_actor_parameters(),
+                lr=self.learner_config.algo.network.lr_actor,
+                weight_decay=self.learner_config.algo.network.actor_regularization # Weight regularization term
             )
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
@@ -290,7 +282,7 @@ class DDPGLearner(Learner):
         ]
 
     def target_update_init(self):
-        target_update_config = self.learner_config.algo.target_update
+        target_update_config = self.learner_config.algo.network.target_update
         self.target_update_type = target_update_config.type
 
         if self.target_update_type == 'soft':

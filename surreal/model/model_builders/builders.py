@@ -6,11 +6,11 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import numpy as np 
 import resource
 
-from ..layer_norm import LayerNorm
+from torch.nn import LayerNorm
 
-class PerceptionNetwork(U.Module):
-    def __init__(self, D_obs, D_out, use_layernorm=True):
-        super(PerceptionNetwork, self).__init__()
+class CNNStemNetwork(U.Module):
+    def __init__(self, D_obs, D_out):
+        super(CNNStemNetwork, self).__init__()
         conv_channels=[16, 32]
         C, H, W = D_obs
         # DQN architecture
@@ -36,29 +36,35 @@ class PerceptionNetwork(U.Module):
         return obs
 
 class ActorNetworkX(U.Module):
-    def __init__(self, D_in, D_act, hidden_size=200):
+    def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
         super(ActorNetworkX, self).__init__()
         self.fc_in = nn.Linear(D_in, hidden_size)
         self.fc_out = nn.Linear(hidden_size, D_act)
-        self.layer_norm = LayerNorm()
+        self.use_layernorm = use_layernorm
+        if self.use_layernorm:
+            self.layer_norm = LayerNorm(hidden_size)
 
     def forward(self, obs):
         x = F.elu(self.fc_in(obs))
-        x = self.layer_norm(x)
+        if self.use_layernorm:
+            x = self.layer_norm(x)
         x = F.tanh(self.fc_out(x))
         return x
 
 class CriticNetworkX(U.Module):
-    def __init__(self, D_in, D_act, hidden_size=300):
+    def __init__(self, D_in, D_act, hidden_size=300, use_layernorm=True):
         super(CriticNetworkX, self).__init__()
         self.fc_in = nn.Linear(D_in + D_act, hidden_size)
         self.fc_out = nn.Linear(hidden_size, 1)
-        self.layer_norm = LayerNorm()
+        self.use_layernorm = use_layernorm
+        if self.use_layernorm:
+            self.layer_norm = LayerNorm(hidden_size)
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
         x = F.elu(self.fc_in(x))
-        x = self.layer_norm(x)
+        if self.use_layernorm:
+            x = self.layer_norm(x)
         x = self.fc_out(x)
         return x
 

@@ -10,7 +10,8 @@ from surreal.session import (
 from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
     MaxStepWrapper, TrainingTensorplexMonitor,
-    expSenderWrapperFactory, EvalTensorplexMonitor
+    expSenderWrapperFactory, EvalTensorplexMonitor,
+    VideoWrapper
 )
 agent_registry = {}
 
@@ -288,6 +289,7 @@ class Agent(object, metaclass=AgentMeta):
             fetch_parameter=self.fetch_parameter,
             session_config=self.session_config,
         )
+        env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
     def main_agent(self, env):

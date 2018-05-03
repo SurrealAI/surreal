@@ -32,11 +32,9 @@ class DDPGAgent(Agent):
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.is_uint8_pixel_input = self.learner_config.algo.is_uint8_pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.use_batchnorm = self.learner_config.algo.use_batchnorm
-        self.use_layernorm = self.learner_config.algo.use_layernorm
-        self.sleep_time = self.learner_config.algo.agent_sleep_time
+        self.use_layernorm = self.learner_config.model.use_layernorm
+        self.sleep_time = self.env_config.agent_sleep_time
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
@@ -50,13 +48,10 @@ class DDPGAgent(Agent):
         self.model = DDPGModel(
             obs_spec=self.obs_spec,
             action_dim=self.action_dim,
-            is_uint8_pixel_input=self.is_uint8_pixel_input,
-            is_pixel_input=self.env_config.pixel_input,
-            use_z_filter=self.use_z_filter,
-            use_batchnorm=self.use_batchnorm,
             use_layernorm=self.use_layernorm,
             actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
             critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+            use_z_filter=self.use_z_filter,
         )
         self.model.eval()
 

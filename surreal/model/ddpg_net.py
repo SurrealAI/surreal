@@ -14,38 +14,35 @@ class DDPGModel(U.Module):
     def __init__(self,
                  obs_spec,
                  action_dim,
-                 is_uint8_pixel_input,
-                 is_pixel_input,
-                 use_z_filter,
-                 use_batchnorm,
                  use_layernorm,
                  actor_fc_hidden_sizes,
                  critic_fc_hidden_sizes,
-                 use_cuda = False):
+                 use_z_filter=False,
+                 ):
         super(DDPGModel, self).__init__()
 
         # hyperparameters
+        self.is_pixel_input = 'pixel' in obs_spec
         self.action_dim = action_dim
-        self.is_uint8_pixel_input = is_uint8_pixel_input
-        self.is_pixel_input = is_pixel_input
         self.use_z_filter = use_z_filter
-        self.use_batchnorm = use_batchnorm
         self.use_layernorm = use_layernorm
 
         if self.is_pixel_input:
-            self.input_dim = obs_spec['pixel']['pixels']
+            self.input_dim = obs_spec['pixel']['camera0']
         else:
             self.input_dim = obs_spec['low_dim']['flat_inputs'][0]
 
         if self.is_pixel_input:
             perception_hidden_dim = 200
-            self.perception = PerceptionNetwork(self.input_dim, perception_hidden_dim,
-                                                use_layernorm=self.use_layernorm)
-            self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim)
-            self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim)
+            self.perception = CNNStemNetwork(self.input_dim, perception_hidden_dim)
+            self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
         else:
             self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes)
             self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes)
+
+    def get_actor_parameters(self):
+        return itertools.chain(self.actor.parameters())
 
     def get_critic_parameters(self):
         if self.is_pixel_input:
@@ -60,8 +57,8 @@ class DDPGModel(U.Module):
         return self.critic(obs, action)
 
     def forward_perception(self, obs):
-        if self.is_uint8_pixel_input and self.is_pixel_input:
-            obs = obs['pixel']['pixels']
+        if self.is_pixel_input:
+            obs = obs['pixel']['camera0']
             obs = self.scale_image(obs)
             return self.perception(obs)
         else:
