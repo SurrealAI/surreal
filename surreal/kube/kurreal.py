@@ -5,8 +5,9 @@ import re
 from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
-from symphony.commandline import add_symphony_parser
-from symphony.engine import SymphonyConfig
+from symphony.commandline import SymphonyParser
+from symphony.engine import SymphonyConfig, Cluster
+from symphony.kube import *
 
 
 def _process_labels(label_string):
@@ -18,70 +19,78 @@ def _process_labels(label_string):
     return [label_pair.split('=') for label_pair in label_pairs]
 
 
-class KurrealParser:
-    def __init__(self):
-        self._master_parser = argparse.ArgumentParser()
-        self._add_dry_run(self._master_parser)
+class KurrealParser(SymphonyParser):
+        # self._master_parser = argparse.ArgumentParser()
+        # self._add_dry_run(self._master_parser)
 
-        self._subparsers = self._master_parser.add_subparsers(
-            help='kurreal action commands',
-            dest='kurreal_action'  # will store to parser.subcommand_name
-        )
-        self._subparsers.required = True
+        # self._subparsers = self._master_parser.add_subparsers(
+        #     help='kurreal action commands',
+        #     dest='kurreal_action'  # will store to parser.subcommand_name
+        # )
+        # self._subparsers.required = True
 
-        # SymphonyConfig.use()
-        add_symphony_parser(self._subparsers)
+        # # SymphonyConfig.use()
+        # add_symphony_parser(self._subparsers)
 
-    def setup_master(self):
-        """
-        Main function that returns the configured parser
-        """
+    def create_cluster(self):
+        return Cluster.new('kube')
+
+    def setup(self):
+        super().setup()
+        self.kube = Kubectl()
         self._setup_create()
         self._setup_create_dev()
         self._setup_restore()
         self._setup_resume()
-        # self._setup_delete()
-        # self._setup_delete_batch()
-        # self._setup_log()
-        # self._setup_namespace()
-        # self._setup_tensorboard()
-        # self._setup_create_tensorboard()
-        # self._setup_list()
-        # self._setup_pod()
-        # self._setup_describe()
-        # self._setup_exec()
-        # self._setup_scp()
-        self._setup_download_experiment()
-        # self._setup_ssh()
-        # self._setup_ssh_node()
-        # self._setup_ssh_nfs()
-        # self._setup_configure_ssh()
-        # self._setup_capture_tensorboard()
-        return self._master_parser
+        # self._setup_download_experiment()
 
-    def _add_subparser(self, name, aliases, **kwargs):
-        method_name = 'kurreal_' + name.replace('-', '_')
-        raw_method = getattr(Kurreal, method_name)  # Kurreal.kurreal_create()
+    # def setup_master(self):
+    #     """
+    #     Main function that returns the configured parser
+    #     """
+        
+    #     # self._setup_delete()
+    #     # self._setup_delete_batch()
+    #     # self._setup_log()
+    #     # self._setup_namespace()
+    #     # self._setup_tensorboard()
+    #     # self._setup_create_tensorboard()
+    #     # self._setup_list()
+    #     # self._setup_pod()
+    #     # self._setup_describe()
+    #     # self._setup_exec()
+    #     # self._setup_scp()
+        
+    #     # self._setup_ssh()
+    #     # self._setup_ssh_node()
+    #     # self._setup_ssh_nfs()
+    #     # self._setup_configure_ssh()
+    #     # self._setup_capture_tensorboard()
+    #     return self._master_parser
 
-        def _kurreal_func(args):
-            """
-            Get function that processes parsed args and runs kurreal actions
-            """
-            kurreal_object = Kurreal(args)
-            raw_method(kurreal_object, args)
+    # def _add_subparser(self, name, aliases, **kwargs):
+    #     method_name = 'kurreal_' + name.replace('-', '_')
+    #     raw_method = getattr(Kurreal, method_name)  # Kurreal.kurreal_create()
 
-        parser = self._subparsers.add_parser(
-            name,
-            help=raw_method.__doc__,
-            aliases=aliases,
-            **kwargs
-        )
-        self._add_dry_run(parser)
-        parser.set_defaults(func=_kurreal_func)
-        return parser
+    #     def _kurreal_func(args):
+    #         """
+    #         Get function that processes parsed args and runs kurreal actions
+    #         """
+    #         kurreal_object = Kurreal(args)
+    #         raw_method(kurreal_object, args)
+
+    #     parser = self._subparsers.add_parser(
+    #         name,
+    #         help=raw_method.__doc__,
+    #         aliases=aliases,
+    #         **kwargs
+    #     )
+    #     self._add_dry_run(parser)
+    #     parser.set_defaults(func=_kurreal_func)
+    #     return parser
 
     def _setup_create(self):
-        parser = self._add_subparser('create', aliases=['c'])
+        parser = self.add_subparser('create', aliases=['c'])
         self._add_experiment_name(parser)
         parser.add_argument(
             'config_py',
@@ -98,7 +107,7 @@ class KurrealParser:
         self._add_create_args(parser)
 
     def _setup_create_dev(self):
-        parser = self._add_subparser('create-dev', aliases=['cd'])
+        parser = self.add_subparser('create-dev', aliases=['cd'])
         self._add_experiment_name(parser)
         parser.add_argument('num_agents', type=int)
         parser.add_argument('-e', '--env', default='cheetah')
@@ -141,8 +150,8 @@ class KurrealParser:
     #         help='force delete, do not show confirmation message.'
     #     )
 
-    def _setup_restore(self):
-        parser = self._add_subparser('restore', aliases=[])
+    def _setup_restore(self): # TODO: fix
+        parser = self.add_subparser('restore', aliases=[])
         parser.add_argument(
             '-new', '--new',
             dest='experiment_name',
@@ -164,130 +173,14 @@ class KurrealParser:
         self._add_restore_args(parser)
         self._add_create_args(parser)
 
-    def _setup_resume(self):
-        parser = self._add_subparser('resume', aliases=['continue'])
+    def _setup_resume(self): # TODO: fix
+        parser = self.add_subparser('resume', aliases=['continue'])
         self._add_experiment_name(parser)
         self._add_restore_args(parser)
         self._add_create_args(parser)  # --force is automatically turned on
 
-    # def _setup_log(self):
-    #     parser = self._add_subparser('log', aliases=['logs', 'l'])
-    #     self._add_component_arg(parser)
-    #     self._add_namespace(parser, positional=True)
-    #     parser.add_argument(
-    #         '-f', '--follow',
-    #         action='store_true',
-    #         help='if the logs should be streamed.'
-    #     )
-    #     parser.add_argument(
-    #         '-s', '--since',
-    #         default='0',
-    #         help='only show logs newer than a relative duration like 5s, 2m, 3h.'
-    #     )
-    #     parser.add_argument(
-    #         '-t', '--tail',
-    #         type=int,
-    #         default=100,
-    #         help='Only show the most recent lines of log. -1 to show all log lines.'
-    #     )
-
-    # def _setup_namespace(self):
-    #     parser = self._add_subparser(
-    #         'namespace',
-    #         aliases=['ns', 'exp', 'experiment']
-    #     )
-    #     # no arg to get the current namespace
-    #     self._add_experiment_name(parser, nargs='?')
-
-    # def _setup_list(self):
-    #     parser = self._add_subparser('list', aliases=['ls'])
-    #     parser.add_argument(
-    #         'resource',
-    #         choices=['ns', 'namespace', 'namespaces',
-    #                  'e', 'exp', 'experiment', 'experiments',
-    #                  'p', 'pod', 'pods',
-    #                  'no', 'node', 'nodes',
-    #                  's', 'svc', 'service', 'services'],
-    #         default='ns',
-    #         nargs='?',
-    #         help='list experiment, pod, and node'
-    #     )
-    #     self._add_namespace(parser, positional=True)
-    #     parser.add_argument(
-    #         '-a', '--all',
-    #         action='store_true',
-    #         help='show all resources from all namespace.'
-    #     )
-
-    # def _setup_pod(self):
-    #     "save as 'kurreal list pod'"
-    #     parser = self._add_subparser('pod', aliases=['p', 'pods'])
-    #     self._add_namespace(parser, positional=True)
-    #     parser.add_argument(
-    #         '-a', '--all',
-    #         action='store_true',
-    #         help='show all pods from all namespace.'
-    #     )
-
-    # def _setup_tensorboard(self):
-    #     parser = self._add_subparser('tensorboard', aliases=['tb'])
-    #     self._add_namespace(parser, positional=True)
-    #     parser.add_argument(
-    #         '-u', '--url-only',
-    #         action='store_true',
-    #         help='only show the URL without opening the browser.'
-    #     )
-
-    # def _setup_create_tensorboard(self):
-    #     parser = self._add_subparser('create-tensorboard', aliases=['ctb'])
-    #     parser.add_argument(
-    #         'remote_experiment_subfolder',
-    #         help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
-    #     )
-    #     parser.add_argument(
-    #         '-a', '--absolute-path',
-    #         action='store_true',
-    #         help='use absolute remote path instead of '
-    #              '<fs_mount_path>/<root_subfolder>/<remote_folder>'
-    #     )
-    #     parser.add_argument(
-    #         '-p', '--pod-type',
-    #         default='tensorboard',
-    #         help='pod type for the tensorboard pod (specified in ~/.surreal.yml). '
-    #              'please use the smallest compute instance possible.'
-    #     )
-
-    # def _setup_describe(self):
-    #     parser = self._add_subparser('describe', aliases=['des'])
-    #     parser.add_argument(
-    #         'pod_name',
-    #         help="should be either 'agent-<N>' or 'nonagent'"
-    #     )
-    #     self._add_namespace(parser, positional=True)
-
-    # def _setup_exec(self):
-    #     """
-    #     Actual exec commands must be added after "--"
-    #     will throw error if no "--" in command args
-    #     """
-    #     parser = self._add_subparser('exec', aliases=['x'])
-    #     self._add_component_arg(parser)
-    #     self._add_namespace(parser, positional=True)
-
-    def _setup_scp(self):
-        parser = self._add_subparser('scp', aliases=['cp'])
-        parser.add_argument(
-            'src_file',
-            help='source file or folder. "<component>:/file/path" denotes remote.'
-        )
-        parser.add_argument(
-            'dest_file',
-            help='destination file or folder. "<component>:/file/path" denotes remote.'
-        )
-        self._add_namespace(parser, positional=True)
-
     def _setup_download_experiment(self):
-        parser = self._add_subparser('download-experiment',
+        parser = self.add_subparser('download-experiment',
                                      aliases=['de', 'download'])
         parser.add_argument(
             'remote_experiment_subfolder',
@@ -310,44 +203,6 @@ class KurrealParser:
             help='enable fuzzy matching with the currently running namespaces'
         )
 
-    # def _setup_ssh(self):
-    #     parser = self._add_subparser('ssh', aliases=[])
-    #     self._add_component_arg(parser)
-    #     self._add_namespace(parser, positional=True)
-
-    # def _setup_ssh_node(self):
-    #     parser = self._add_subparser('ssh-node', aliases=['sshnode'])
-    #     parser.add_argument('node_name', help='gcloud only')
-
-    # def _setup_ssh_nfs(self):
-    #     parser = self._add_subparser('ssh-nfs', aliases=['sshnfs'])
-
-    # def _setup_configure_ssh(self):
-    #     parser = self._add_subparser('configure-ssh', aliases=['configssh'])
-
-    # def _setup_label(self):
-    #     """
-    #     Shouldn't manually label if you are using kube autoscaling
-    #     """
-    #     parser = self._add_subparser('label', aliases=[])
-    #     parser.add_argument(
-    #         'old_labels',
-    #         help='select nodes according to their old labels'
-    #     )
-    #     parser.add_argument(
-    #         'new_labels',
-    #         type=_process_labels,
-    #         help='mark the selected nodes with new labels in format '
-    #              '"mylabel1=myvalue1,mylabel2=myvalue2"'
-    #     )
-
-    # def _setup_capture_tensorboard(self):
-    #     parser = self._add_subparser('capture-tensorboard', aliases=['cptb'])
-    #     parser.add_argument(
-    #         'experiment_prefix',
-    #         help='capture tensorboard screenshot for all prefix matched experiments,\
-    #               one can also use regex'  
-    #     )
 
     # ==================== helpers ====================
     def _add_dry_run(self, parser):
@@ -367,41 +222,41 @@ class KurrealParser:
                       .format(experiment_name, new_name))
         return new_name
 
-    def _add_experiment_name(self, parser, nargs=None):
-        parser.add_argument(
-            'experiment_name',
-            type=self._process_experiment_name,
-            nargs=nargs,
-            help='experiment name will be used as namespace for DNS. '
-                 'Should only contain lower case letters, digits, and hypen. '
-                 'Underscores and dots are not allowed and will be converted to hyphen.'
-        )
+    # def _add_experiment_name(self, parser, nargs=None):
+    #     parser.add_argument(
+    #         'experiment_name',
+    #         type=self._process_experiment_name,
+    #         nargs=nargs,
+    #         help='experiment name will be used as namespace for DNS. '
+    #              'Should only contain lower case letters, digits, and hypen. '
+    #              'Underscores and dots are not allowed and will be converted to hyphen.'
+    #     )
 
-    def _add_component_arg(self, parser):
-        nonagent_str = ', '.join(map('"{}"'.format, Kubectl.NONAGENT_COMPONENTS))
-        parser.add_argument(
-            'component_name',
-            help="should be either agent-<N> or one of [{}]".format(nonagent_str)
-        )
+    # def _add_component_arg(self, parser):
+    #     nonagent_str = ', '.join(map('"{}"'.format, Kubectl.NONAGENT_COMPONENTS))
+    #     parser.add_argument(
+    #         'component_name',
+    #         help="should be either agent-<N> or one of [{}]".format(nonagent_str)
+    #     )
 
-    def _add_namespace(self, parser, positional=True):
-        help='run the command in the designated namespace'
-        if positional:
-            parser.add_argument(
-                'namespace',
-                type=self._process_experiment_name,
-                nargs='?',
-                default='',
-                help=help,
-            )
-        else:
-            parser.add_argument(
-                '-ns', '--ns', '--namespace',
-                dest='namespace',
-                type=self._process_experiment_name,
-                default='',
-                help=help,
-            )
+    # def _add_namespace(self, parser, positional=True):
+    #     help='run the command in the designated namespace'
+    #     if positional:
+    #         parser.add_argument(
+    #             'namespace',
+    #             type=self._process_experiment_name,
+    #             nargs='?',
+    #             default='',
+    #             help=help,
+    #         )
+    #     else:
+    #         parser.add_argument(
+    #             '-ns', '--ns', '--namespace',
+    #             dest='namespace',
+    #             type=self._process_experiment_name,
+    #             default='',
+    #             help=help,
+    #         )
 
     def _add_create_args(self, parser):
         """
@@ -470,11 +325,6 @@ class KurrealParser:
         #          '- global steps of the ckpt file, the suffix string right before ".ckpt"'
         # )
 
-
-class Kurreal:
-    def __init__(self, args):
-        self.kube = Kubectl(dry_run=args.dry_run)
-
     @staticmethod
     def _find_kurreal_template(template_name):
         """
@@ -533,7 +383,7 @@ class Kurreal:
             check_experiment_exists=not force,
         )
 
-    def kurreal_create(self, args):
+    def action_create(self, args):
         """
         Spin up a multi-node distributed Surreal experiment.
         Put any command line args that pass to the config script after "--"
@@ -551,7 +401,7 @@ class Kurreal:
             force=args.force,
         )
 
-    def kurreal_create_dev(self, args):
+    def action_create_dev(self, args):
         """
         << internal dev only >>
         """
@@ -611,7 +461,7 @@ class Kurreal:
             force=args.force,
         )
 
-    def kurreal_restore(self, args):
+    def action_restore(self, args):
         """
         Restore experiment with the saved CommandGenerator and checkpoint
         Put any command line args that pass to the config script after "--"
@@ -669,7 +519,7 @@ class Kurreal:
             force=args.force,
         )
 
-    def kurreal_resume(self, args): # TODO
+    def action_resume(self, args): # TODO
         args.force = True  # always override the generated kurreal.yml
         args.restore_experiment = args.experiment_name
         self.kurreal_restore(args)
@@ -868,7 +718,7 @@ class Kurreal:
     #         args.src_file, args.dest_file, self._get_namespace(args)
     #     )
 
-    def kurreal_download_experiment(self, args):
+    def action_download_experiment(self, args):
         # TODO:
         """
         Same as `kurreal scp learner:<mount_path>/<root_subfolder>/experiment-folder .`
@@ -1034,22 +884,23 @@ class Kurreal:
 
 
 def main():
-    parser = KurrealParser().setup_master()
-    assert sys.argv.count('--') <= 1, \
-        'command line can only have at most one "--"'
-    if '--' in sys.argv:
-        idx = sys.argv.index('--')
-        remainder = sys.argv[idx+1:]
-        sys.argv = sys.argv[:idx]
-        has_remainder = True  # even if remainder itself is empty
-    else:
-        remainder = []
-        has_remainder = False
+    KurrealParser().main()
+#     parser = KurrealParser().setup_master()
+#     assert sys.argv.count('--') <= 1, \
+#         'command line can only have at most one "--"'
+#     if '--' in sys.argv:
+#         idx = sys.argv.index('--')
+#         remainder = sys.argv[idx+1:]
+#         sys.argv = sys.argv[:idx]
+#         has_remainder = True  # even if remainder itself is empty
+#     else:
+#         remainder = []
+#         has_remainder = False
         
-    args = parser.parse_args()
-    args.remainder = remainder
-    args.has_remainder = has_remainder
-    args.func(args)
+#     args = parser.parse_args()
+#     args.remainder = remainder
+#     args.has_remainder = has_remainder
+#     args.func(args)
 
 
 if __name__ == '__main__':
