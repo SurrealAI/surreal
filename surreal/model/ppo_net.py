@@ -134,7 +134,7 @@ class PPOModel(U.Module):
 
         self.cnn_stem = None
         if self.if_pixel_input:
-            self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['pixels'],
+            self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
                                               self.model_config.cnn_feature_dim,
                                               use_layernorm=self.model_config.use_layernorm)
             if use_cuda:
@@ -241,7 +241,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs['pixel']['pixels']
+            obs_pixel = obs['pixel']['camera0']
             obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
@@ -273,7 +273,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs['pixel']['pixels']
+            obs_pixel = obs['pixel']['camera0']
             obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel)
             obs_list.append(obs_pixel)
@@ -304,7 +304,7 @@ class PPOModel(U.Module):
 
         if self.if_pixel_input:
             # right now assumes only one camera angle.
-            obs_pixel = obs['pixel']['pixels']
+            obs_pixel = obs['pixel']['camera0']
             obs_pixel = self._scale_image(obs_pixel)
             obs_pixel = self.cnn_stem(obs_pixel) 
             obs_list.append(obs_pixel)

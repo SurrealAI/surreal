@@ -259,8 +259,9 @@ class PPOLearner(Learner):
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
-                                            max=self.is_weight_thresh)).mean()
+        # surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
+        #                                     max=self.is_weight_thresh)).mean()
+        surr = -(advantages.view(-1, 1) * prob_learn/prob_behave).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -573,10 +574,12 @@ class PPOLearner(Learner):
                     stats[k] = baseline_stats[k]
 
                 behave_likelihood = self.pd.likelihood(actions_iter, behave_pol)
+                curr_likelihood   = self.pd.likelihood(actions_iter, curr_pol)
 
                 stats['_avg_return_targ'] = returns.mean().data[0]
                 stats['_avg_log_sig'] = self.model.actor.log_var.mean().data[0]
                 stats['_avg_behave_likelihood'] = behave_likelihood.mean().data[0]
+                stats['_avg_is_weight'] = (curr_likelihood / (behave_likelihood + 1e-4)).mean().data[0]
                 stats['_ref_behave_diff'] = self.pd.kl(ref_pol, behave_pol).mean().data[0]
                 stats['_lr'] = self.actor_lr_scheduler.get_lr()[0]
 
