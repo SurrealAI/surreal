@@ -160,7 +160,6 @@ class Learner(metaclass=LearnerMeta):
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
         # We don't do it here so that we don't require _prefetch_queue to be setup beforehands
-        # self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
         self.publish_timer = U.TimeRecorder()
 
@@ -321,37 +320,17 @@ class Learner(metaclass=LearnerMeta):
         return batch
 
     def _prefetch_thread_preprocess(self, batch):
-        with self.total_process_timer.time():
-            with self.aggregate_timer.time():
-                batch = self.aggregator.aggregate(batch)
+        batch = self.aggregator.aggregate(batch)
         return batch
 
     def _preprocess_batch(self):
-        #iterator = self.fetch_iterator().__iter__()
-        total_fetch_time = 0.0
-        start_time = time.time()
-
-        aggregated_batch = None
-        while True:
-            #for batch in self.fetch_iterator():
-            batch = self._prefetch_queue.get()
+        for batch in self.fetch_iterator():
             batch = EasyDict(batch.data)
-            end_time = time.time()
-            total_fetch_time += end_time - start_time
             # The preprocess step creates Variables which will become GpuVariables
-            with self.gpu_transfer_timer.time():
-                batch = self.preprocess(batch)
-            with self.prefetch_timer.time():
-                self._preprocess_prefetch_queue.put(batch)
-            start_time = time.time()
+            batch = self.preprocess(batch)
+            self._preprocess_prefetch_queue.put(batch)
 
     def _setup_batch_prefetch(self):
-        self.total_process_timer = U.TimeRecorder()
-        self.fetch_timer = U.TimeRecorder()
-        self.aggregate_timer = U.TimeRecorder()
-        self.gpu_transfer_timer = U.TimeRecorder()
-        self.prefetch_timer = U.TimeRecorder()
-
         self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
         self._preprocess_threads = []
         for i in range(1):
@@ -359,10 +338,8 @@ class Learner(metaclass=LearnerMeta):
             self._preprocess_threads[-1].start()
 
     def fetch_processed_batch_iterator(self):
-        timer = U.TimeRecorder()
         while True:
-            with timer.time():
-                yield self._preprocess_prefetch_queue.get()
+            yield self._preprocess_prefetch_queue.get()
 
     ######
     # Main Loop

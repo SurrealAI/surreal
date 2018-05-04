@@ -83,7 +83,6 @@ class DDPGLearner(Learner):
                 weight_decay=self.learner_config.algo.network.critic_regularization # Weight regularization term
             )
 
-
             self.log.info('Using Adam for actor with learning rate {}'.format(self.learner_config.algo.network.lr_actor))
             self.actor_optim = torch.optim.Adam(
                 self.model.get_actor_parameters(),
@@ -94,29 +93,15 @@ class DDPGLearner(Learner):
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
-            #self.aggregator = NstepReturnAggregator(self.env_config.obs_spec, self.env_config.action_spec, self.discount_factor)
-            #self.aggregator = MultistepAggregatorWithInfo(self.env_config.obs_spec, self.env_config.action_spec)
 
             U.hard_update(self.model_target.actor, self.model.actor)
             U.hard_update(self.model_target.critic, self.model.critic)
             # self.train_iteration = 0
             
-            self.aggregate_and_preprocess_time = U.TimeRecorder()
             self.total_learn_time = U.TimeRecorder()
-            self.data_prep_time = U.TimeRecorder()
             self.forward_time = U.TimeRecorder()
-
             self.critic_update_time = U.TimeRecorder()
-            self.critic_optim_time = U.TimeRecorder()
-            self.critic_forward_time = U.TimeRecorder()
-            self.critic_backward_time = U.TimeRecorder()
-            self.critic_gradient_clip_time = U.TimeRecorder()
-
             self.actor_update_time = U.TimeRecorder()
-            self.actor_optim_time = U.TimeRecorder()
-            self.actor_forward_time = U.TimeRecorder()
-            self.actor_backward_time = U.TimeRecorder()
-            self.actor_gradient_clip_time = U.TimeRecorder()
 
     def preprocess(self, batch):
         with U.torch_gpu_scope(self.gpu_ids):
@@ -227,18 +212,9 @@ class DDPGLearner(Learner):
                 'rewards': rewards.mean().data[0],
                 'Q_target': y.mean().data[0],
                 'Q_policy': y_policy.mean().data[0],
-                'performance/data_prep_time': self.data_prep_time.avg,
                 'performance/forward_time': self.forward_time.avg,
                 'performance/critic_update_time': self.critic_update_time.avg,
-                # # 'performance/critic_optim_time': self.critic_optim_time.avg,
-                # 'performance/critic_forward_time': self.critic_forward_time.avg,
-                # 'performance/critic_backward_time': self.critic_backward_time.avg,
-                # # 'performance/critic_gradient_clip_time': self.critic_gradient_clip_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
-                # # 'performance/actor_optim_time': self.actor_optim_time.avg,
-                # 'performance/actor_forward_time': self.actor_forward_time.avg,
-                # 'performance/actor_backward_time': self.actor_backward_time.avg,
-                # # 'performance/actor_gradient_clip_time': self.actor_gradient_clip_time.avg,
             }
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
@@ -253,8 +229,6 @@ class DDPGLearner(Learner):
     def learn(self, batch):
         self.current_iteration += 1
         with self.total_learn_time.time():
-            #batch = self.batch_queue.get()
-
             tensorplex_update_dict = self._optimize(
                 batch.obs,
                 batch.actions,
@@ -263,7 +237,6 @@ class DDPGLearner(Learner):
                 batch.dones
             )
             tensorplex_update_dict['performance/total_learn_time'] = self.total_learn_time.avg
-            tensorplex_update_dict['performance/aggregate_and_preprocess_time'] = self.aggregate_and_preprocess_time.avg
             self.tensorplex.add_scalars(tensorplex_update_dict, global_step=self.current_iteration)
             self.periodic_checkpoint(
                 global_steps=self.current_iteration,
