@@ -43,7 +43,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 1e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 5e-5,
+                    'min_lr': 1e-5,
                 },
                 'target_update':{
                     'type': 'hard',
@@ -63,7 +63,7 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1.5,
+                'init_log_sig': -1,
                 'log_sig_range': 0.25,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
@@ -105,7 +105,7 @@ def generate(argv):
             'record_every': 100,
         },
         'observation': {
-            'pixel':['pixels'],
+            'pixel':['camera0'],
             'low_dim':['position', 'velocity'],
         },
     }
