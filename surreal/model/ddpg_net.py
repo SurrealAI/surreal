@@ -76,7 +76,7 @@ class DDPGModel(U.Module):
     def scale_image(self, obs):
         '''
         Given uint8 input from the environment, scale to float32 and
-        divide by 256 to scale inputs between 0.0 and 1.0
+        divide by 255 to scale inputs between 0.0 and 1.0
         '''
-        return obs / 256.0
+        return obs / 255.0
         
