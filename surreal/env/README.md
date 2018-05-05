@@ -1,4 +1,4 @@
-#Environment wrappers
+# Environment wrappers
 In wrapper.py, you will find wrappers that take environments and reformat them into the format that the models expect.
 
 For example, 
@@ -11,7 +11,7 @@ will return an environment whose observation spec looks like
 
 The observation format we use is as follows:
 
-##observation (OrderedDict):
+## observation (OrderedDict):
 observation dictionaries are returned in both the `env.step()` and `env.reset()` functions
 
 `type(obs[modality][name]) == nparray`, e.g.
@@ -28,7 +28,7 @@ The 'name' key simply refers to the name of the observation, such as 'camera0', 
 Many environments use the `ObservationConcatenationWrapper`, which takes all observations under the `low_dim` modality and
 concatenates them into the new array at `obs['low_dim']['flat_inputs']`.
 
-##observation_spec (OrderedDict):
+## observation_spec (OrderedDict):
 observation_spec dictionaries are returned by the `env.observation_spec()` function
 
 `type(obs_spec[modality][name]) == tuple`, e.g.
@@ -38,7 +38,7 @@ observation_spec dictionaries are returned by the `env.observation_spec()` funct
 Note that the keys for observation and observation_spec are the same,
 so `obs_spec[modality][name] == obs[modality][name].shape` should always be true
 
-##action_spec (Dict)
+## action_spec (Dict)
 action_spec dictionaries are returned by the `env.action_spec()` function
 
 action_spec has the format of type
