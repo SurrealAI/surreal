@@ -26,10 +26,10 @@ class CNNStemNetwork(U.Module):
         if if_high_dim: 
             obs = obs.view(-1, *obs_shape[2:])
 
-        obs = F.elu(self.conv1(obs))
-        obs = F.elu(self.conv2(obs))
+        obs = F.relu(self.conv1(obs))
+        obs = F.relu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
-        obs = F.elu(self.fc_obs(obs))
+        obs = F.relu(self.fc_obs(obs))
 
         if if_high_dim:
             obs = obs.view(obs_shape[0], obs_shape[1], -1)
@@ -45,7 +45,7 @@ class ActorNetworkX(U.Module):
             self.layer_norm = LayerNorm()
 
     def forward(self, obs):
-        x = F.elu(self.fc_in(obs))
+        x = F.relu(self.fc_in(obs))
         if self.use_layernorm:
             x = self.layer_norm(x)
         x = F.tanh(self.fc_out(x))
@@ -62,7 +62,7 @@ class CriticNetworkX(U.Module):
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
-        x = F.elu(self.fc_in(x))
+        x = F.relu(self.fc_in(x))
         if self.use_layernorm:
             x = self.layer_norm(x)
         x = self.fc_out(x)
@@ -88,10 +88,10 @@ class ActorNetwork(U.Module):
     def forward(self, obs):
         if self.use_batchnorm:
             obs = self.bn_h1(obs)
-        h1 = F.elu(self.fc_h1(obs))
+        h1 = F.relu(self.fc_h1(obs))
         if self.use_batchnorm:
             h1 = self.bn_h2(h1)
-        h2 = F.elu(self.fc_h2(h1))
+        h2 = F.relu(self.fc_h2(h1))
         if self.use_batchnorm:
             h2 = self.bn_out(h2)
         action = F.tanh(self.fc_act(h2))
@@ -115,11 +115,11 @@ class CriticNetwork(U.Module):
     def forward(self, obs, act):
         if self.use_batchnorm:
             obs = self.bn_obs(obs)
-        h_obs = F.elu(self.fc_obs(obs))
+        h_obs = F.relu(self.fc_obs(obs))
         h1 = torch.cat((h_obs, act), 1)
         if self.use_batchnorm:
             h1 = self.bn_h2(h1)
-        h2 = F.elu(self.fc_h2(h1))
+        h2 = F.relu(self.fc_h2(h1))
         if self.use_batchnorm:
             h2 = self.bn_out(h2)
         value = self.fc_q(h2)
