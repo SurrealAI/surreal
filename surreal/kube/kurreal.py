@@ -2,9 +2,11 @@ import argparse
 import surreal
 import webbrowser
 import re
+import itertools
 from collections import OrderedDict
 from surreal.kube.kubectl import *
 from surreal.kube.generate_command import *
+import surreal.utils as U
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import *
@@ -20,74 +22,34 @@ def _process_labels(label_string):
 
 
 class KurrealParser(SymphonyParser):
-        # self._master_parser = argparse.ArgumentParser()
-        # self._add_dry_run(self._master_parser)
-
-        # self._subparsers = self._master_parser.add_subparsers(
-        #     help='kurreal action commands',
-        #     dest='kurreal_action'  # will store to parser.subcommand_name
-        # )
-        # self._subparsers.required = True
-
-        # # SymphonyConfig.use()
-        # add_symphony_parser(self._subparsers)
-
     def create_cluster(self):
         return Cluster.new('kube')
 
     def setup(self):
         super().setup()
-        self.kube = Kubectl()
+        self.kube = Kubectl() # TODO: remove
+        self.load_config()
         self._setup_create()
         self._setup_create_dev()
         self._setup_restore()
         self._setup_resume()
-        # self._setup_download_experiment()
+        self._setup_download_experiment()
 
-    # def setup_master(self):
-    #     """
-    #     Main function that returns the configured parser
-    #     """
-        
-    #     # self._setup_delete()
-    #     # self._setup_delete_batch()
-    #     # self._setup_log()
-    #     # self._setup_namespace()
-    #     # self._setup_tensorboard()
-    #     # self._setup_create_tensorboard()
-    #     # self._setup_list()
-    #     # self._setup_pod()
-    #     # self._setup_describe()
-    #     # self._setup_exec()
-    #     # self._setup_scp()
-        
-    #     # self._setup_ssh()
-    #     # self._setup_ssh_node()
-    #     # self._setup_ssh_nfs()
-    #     # self._setup_configure_ssh()
-    #     # self._setup_capture_tensorboard()
-    #     return self._master_parser
+    def load_config(self, surreal_yml='~/.surreal.yml'):
+        surreal_yml = U.f_expand(surreal_yml)
+        assert U.f_exists(surreal_yml)
+        self.config = YamlList.from_file(surreal_yml)[0]
+        SymphonyConfig().set_username(self.username)
+        SymphonyConfig().set_experiment_folder(self.folder)
 
-    # def _add_subparser(self, name, aliases, **kwargs):
-    #     method_name = 'kurreal_' + name.replace('-', '_')
-    #     raw_method = getattr(Kurreal, method_name)  # Kurreal.kurreal_create()
+    @property
+    def folder(self):
+        return U.f_expand(self.config.local_kurreal_folder)
 
-    #     def _kurreal_func(args):
-    #         """
-    #         Get function that processes parsed args and runs kurreal actions
-    #         """
-    #         kurreal_object = Kurreal(args)
-    #         raw_method(kurreal_object, args)
-
-    #     parser = self._subparsers.add_parser(
-    #         name,
-    #         help=raw_method.__doc__,
-    #         aliases=aliases,
-    #         **kwargs
-    #     )
-    #     self._add_dry_run(parser)
-    #     parser.set_defaults(func=_kurreal_func)
-    #     return parser
+    @property
+    def username(self):
+        assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
+        return self.config.username
 
     def _setup_create(self):
         parser = self.add_subparser('create', aliases=['c'])
@@ -104,7 +66,9 @@ class KurrealParser(SymphonyParser):
             type=int,
             help='number of agents to run in parallel.'
         )
+        self._add_dry_run(parser)
         self._add_create_args(parser)
+
 
     def _setup_create_dev(self):
         parser = self.add_subparser('create-dev', aliases=['cd'])
@@ -131,24 +95,7 @@ class KurrealParser(SymphonyParser):
             default='ddpg_configs.py',
             help='which config file in surreal/main to use'
         )
-
-    # def _setup_delete(self):
-    #     parser = self._add_subparser('delete', aliases=['d'])
-    #     self._add_experiment_name(parser, nargs='?')
-    #     parser.add_argument(
-    #         '-f', '--force',
-    #         action='store_true',
-    #         help='force delete, do not show confirmation message.'
-    #     )
-
-    # def _setup_delete_batch(self):
-    #     parser = self._add_subparser('delete-batch', aliases=['db'])
-    #     parser.add_argument('experiment_name', type=str)
-    #     parser.add_argument(
-    #         '-f', '--force',
-    #         action='store_true',
-    #         help='force delete, do not show confirmation message.'
-    #     )
+        self._add_dry_run(parser)
 
     def _setup_restore(self): # TODO: fix
         parser = self.add_subparser('restore', aliases=[])
@@ -181,7 +128,7 @@ class KurrealParser(SymphonyParser):
 
     def _setup_download_experiment(self):
         parser = self.add_subparser('download-experiment',
-                                     aliases=['de', 'download'])
+                                    aliases=['de', 'download'])
         parser.add_argument(
             'remote_experiment_subfolder',
             help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
@@ -221,42 +168,6 @@ class KurrealParser(SymphonyParser):
             print_err('experiment name string has been fixed: {} -> {}'
                       .format(experiment_name, new_name))
         return new_name
-
-    # def _add_experiment_name(self, parser, nargs=None):
-    #     parser.add_argument(
-    #         'experiment_name',
-    #         type=self._process_experiment_name,
-    #         nargs=nargs,
-    #         help='experiment name will be used as namespace for DNS. '
-    #              'Should only contain lower case letters, digits, and hypen. '
-    #              'Underscores and dots are not allowed and will be converted to hyphen.'
-    #     )
-
-    # def _add_component_arg(self, parser):
-    #     nonagent_str = ', '.join(map('"{}"'.format, Kubectl.NONAGENT_COMPONENTS))
-    #     parser.add_argument(
-    #         'component_name',
-    #         help="should be either agent-<N> or one of [{}]".format(nonagent_str)
-    #     )
-
-    # def _add_namespace(self, parser, positional=True):
-    #     help='run the command in the designated namespace'
-    #     if positional:
-    #         parser.add_argument(
-    #             'namespace',
-    #             type=self._process_experiment_name,
-    #             nargs='?',
-    #             default='',
-    #             help=help,
-    #         )
-    #     else:
-    #         parser.add_argument(
-    #             '-ns', '--ns', '--namespace',
-    #             dest='namespace',
-    #             type=self._process_experiment_name,
-    #             default='',
-    #             help=help,
-    #         )
 
     def _add_create_args(self, parser):
         """
@@ -333,56 +244,6 @@ class KurrealParser(SymphonyParser):
         """
         return U.f_join(surreal.__path__[0], 'kube', template_name)
 
-    def _create_helper(self, *,
-                       config_py,
-                       experiment_name,
-                       num_agents,
-                       config_command,
-                       agent_pod_type,
-                       nonagent_pod_type,
-                       restore,
-                       restore_folder,
-                       no_snapshot,
-                       force):
-        kube = self.kube
-        if config_py.startswith('/'):
-            config_py = config_py
-        else:
-            config_py = U.f_join('/root', config_py)
-
-        prefixed_name = kube.prefix_username(experiment_name)
-        stripped_name = kube.strip_username(experiment_name)
-        experiment_folder = kube.get_remote_experiment_folder(stripped_name)
-        rendered_path = kube.get_path(stripped_name, 'kurreal.yml')
-        U.f_mkdir_in_path(rendered_path)
-
-        cmd_gen = CommandGenerator(
-            num_agents=num_agents,
-            experiment_folder=experiment_folder,
-            config_py=config_py,
-            config_command=config_command,
-            service_url=prefixed_name + '.surreal',
-            restore=restore,
-            restore_folder=restore_folder,
-        )
-        # local subfolder of kurreal.yml will strip away "<username>-" prefix
-        cmd_dict = cmd_gen.generate(
-            kube.get_path(stripped_name, 'launch_commands.yml'))
-        # follow the printing from cmd_gen.generate()
-        print('  agent_pod_type:', agent_pod_type)
-        print('  nonagent_pod_type:', nonagent_pod_type)
-
-        kube.create_surreal(
-            prefixed_name,
-            jinja_template=self._find_kurreal_template('kurreal_template.yml'),
-            rendered_path=rendered_path,
-            snapshot=not no_snapshot,
-            agent_pod_type=agent_pod_type,
-            nonagent_pod_type=nonagent_pod_type,
-            cmd_dict=cmd_dict,
-            check_experiment_exists=not force,
-        )
-
     def action_create(self, args):
         """
         Spin up a multi-node distributed Surreal experiment.
@@ -399,6 +260,7 @@ class KurrealParser(SymphonyParser):
             restore_folder=None,
             no_snapshot=args.no_snapshot,
             force=args.force,
+            dry_run=args.dry_run
         )
 
     def action_create_dev(self, args):
@@ -459,9 +321,10 @@ class KurrealParser(SymphonyParser):
             restore_folder=None,
             no_snapshot=args.no_snapshot,
             force=args.force,
+            dry_run=args.dry_run,
         )
 
-    def action_restore(self, args):
+    def action_restore(self, args): # TODO: Jim: You may need to fix it.
         """
         Restore experiment with the saved CommandGenerator and checkpoint
         Put any command line args that pass to the config script after "--"
@@ -519,206 +382,12 @@ class KurrealParser(SymphonyParser):
             force=args.force,
         )
 
-    def action_resume(self, args): # TODO
+    def action_resume(self, args): # TODO: Jim you may need to fix this
         args.force = True  # always override the generated kurreal.yml
         args.restore_experiment = args.experiment_name
-        self.kurreal_restore(args)
+        self.action_restore(args)
 
-    # def _interactive_find_ns(self, name, max_matches=10):
-    #     """
-    #     Find partial match of namespace, ask user to verify before switching to
-    #     ns or delete experiment.
-    #     Used in:
-    #     - kurreal delete
-    #     - kurreal ns
-    #     Disabled when --force
-    #     """
-    #     matches = self.kube.fuzzy_match_namespace(name, max_matches=max_matches)
-    #     if isinstance(matches, str):
-    #         return matches  # exact match
-    #     if len(matches) == 0:
-    #         print_err('namespace `{}` not found. '
-    #                   'Please run `kurreal list ns` and check for typos.'.format(name))
-    #         return None
-    #     elif len(matches) == 1:
-    #         match = matches[0]
-    #         print_err('No exact match. Fuzzy match only finds one candidate: "{}"'
-    #                   .format(match))
-    #         return match
-    #     prompt = '\n'.join(['{}) {}'.format(i, n) for i, n in enumerate(matches)])
-    #     prompt = ('Cannot find exact match. Fuzzy matching: \n'
-    #               '{}\nEnter your selection 0-{} (enter to select 0, q to quit): '
-    #               .format(prompt, len(matches) - 1))
-    #     ans = input(prompt)
-    #     if not ans.strip():  # blank
-    #         ans = '0'
-    #     try:
-    #         ans = int(ans)
-    #     except ValueError:  # cannot convert to int, quit
-    #         print_err('aborted')
-    #         return None
-    #     if ans >= len(matches):
-    #         raise IndexError('must enter a number between 0 - {}'.format(len(matches)-1))
-    #     return matches[ans]
-
-    # def _kurreal_delete(self, experiment_name, force, dry_run):
-    #     """
-    #     Stop an experiment, delete corresponding pods, services, and namespace.
-    #     If experiment_name is omitted, default to deleting the current namespace.
-    #     """
-    #     kube = self.kube
-    #     if experiment_name:
-    #         to_delete = experiment_name
-    #         if force:
-    #             assert to_delete in kube.list_namespaces(), \
-    #                 'namespace `{}` not found. ' \
-    #                 'Run without --force to fuzzy match the name.'.format(to_delete)
-    #         else:  # fuzzy match namespace to delete
-    #             to_delete = self._interactive_find_ns(to_delete)
-    #             if to_delete is None:
-    #                 return
-    #     else:
-    #         to_delete = kube.current_namespace()
-
-    #     assert to_delete not in ['default', 'kube-public', 'kube-system'], \
-    #         'cannot delete reserved namespaces: default, kube-public, kube-system'
-    #     if not force and not dry_run:
-    #         ans = input('Confirm delete {}? <enter>=yes,<n>=no: '.format(to_delete))
-    #         if ans not in ['', 'y', 'yes', 'Y']:
-    #             print('aborted')
-    #             return
-
-    #     kube.delete(
-    #         namespace=to_delete,
-    #         # don't need to specify yaml cause deleting a namespace
-    #         # auto-deletes all resources under it
-    #         # yaml_path=kube.get_path(kube.strip_username(to_delete), 'kurreal.yml'),
-    #         yaml_path=None
-    #     )
-    #     print('deleting all resources under namespace "{}"'.format(to_delete))
-
-    # def kurreal_delete(self, args):
-    #     """
-    #     Stop an experiment, delete corresponding pods, services, and namespace.
-    #     If experiment_name is omitted, default to deleting the current namespace.
-    #     """
-    #     self._kurreal_delete(args.experiment_name, args.force, args.dry_run)
-
-    # def kurreal_delete_batch(self, args):
-    #     """
-    #     Stop an experiment, delete corresponding pods, services, and namespace.
-    #     If experiment_name is omitted, default to deleting the current namespace.
-    #     Matches all possible experiments
-    #     """
-    #     out, _, _ = self.kube.run_verbose('get namespace -o name',
-    #                     print_out=False,raise_on_error=True)
-    #     namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
-    #     cwd = os.getcwd()
-    #     processes = []
-    #     for namespace in namespaces:
-    #         if re.match(args.experiment_name, namespace):
-    #             self._kurreal_delete(namespace, args.force, args.dry_run)
-
-    # def kurreal_namespace(self, args):
-    #     """
-    #     `kurreal ns`: show the current namespace/experiment
-    #     `kurreal ns <namespace>`: switch context to another namespace/experiment
-    #     """
-    #     kube = self.kube
-    #     name = args.experiment_name
-    #     if name:
-    #         name = self._interactive_find_ns(name)
-    #         if name is None:
-    #             return
-    #         kube.set_namespace(name)
-    #     else:
-    #         print(kube.current_namespace())
-
-    # def _get_namespace(self, args):
-    #     "Returns: <fuzzy-matched-name>"
-    #     name = args.namespace
-    #     if not name:
-    #         return ''
-    #     name = self._interactive_find_ns(name)
-    #     if not name:
-    #         sys.exit(1)
-    #     return name
-
-    # def kurreal_list(self, args):
-    #     """
-    #     List resource information: namespace, pods, nodes, services
-    #     """
-    #     run = lambda cmd: \
-    #         self.kube.run_verbose(cmd, print_out=True, raise_on_error=False)
-    #     if args.all:
-    #         ns_cmd = ' --all-namespaces'
-    #     elif args.namespace:
-    #         ns_cmd = ' --namespace ' + self._get_namespace(args)
-    #     else:
-    #         ns_cmd = ''
-    #     if args.resource in ['ns', 'namespace', 'namespaces',
-    #                          'e', 'exp', 'experiment', 'experiments']:
-    #         run('get namespace')
-    #     elif args.resource in ['p', 'pod', 'pods']:
-    #         run('get pods -o wide' + ns_cmd)
-    #     elif args.resource in ['no', 'node', 'nodes']:
-    #         run('get nodes -o wide' + ns_cmd)
-    #     elif args.resource in ['s', 'svc', 'service', 'services']:
-    #         run('get services -o wide' + ns_cmd)
-    #     else:
-    #         raise ValueError('INTERNAL ERROR: invalid kurreal list choice.')
-
-    # def kurreal_pod(self, args):
-    #     "same as 'kurreal list pod'"
-    #     args.resource = 'pod'
-    #     self.kurreal_list(args)
-
-    # def kurreal_log(self, args):
-    #     """
-    #     Show logs of Surreal components: agent-<N>, learner, ps, etc.
-    #     https://kubernetes-v1-4.github.io/docs/user-guide/kubectl/kubectl_logs/
-    #     """
-    #     self.kube.logs_surreal(
-    #         args.component_name,
-    #         is_print=True,
-    #         follow=args.follow,
-    #         since=args.since,
-    #         tail=args.tail,
-    #         namespace=self._get_namespace(args)
-    #     )
-
-    # def kurreal_exec(self, args):
-    #     """
-    #     Exec command on a Surreal component: agent-<N>, learner, ps, etc.
-    #     kubectl exec -ti <component> -- <command>
-    #     """
-    #     if not args.has_remainder:
-    #         raise RuntimeError(
-    #             'please enter your command after "--". '
-    #             'One and only one "--" must be present. \n'
-    #             'Example: kurreal exec learner [optional-namespace] -- ls -alf /fs/'
-    #         )
-    #     commands = args.remainder
-    #     if len(commands) == 1:
-    #         commands = commands[0]  # don't quote the singleton string
-    #     self.kube.exec_surreal(
-    #         args.component_name,
-    #         commands,
-    #         namespace=self._get_namespace(args)
-    #     )
-
-    # def kurreal_scp(self, args):
-    #     """
-    #     https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#cp
-    #     kurreal cp /my/local/file learner:/remote/file mynamespace
-    #     is the same as
-    #     kubectl cp /my/local/file mynamespace/nonagent:/remote/file -c learner
-    #     """
-    #     self.kube.scp_surreal(
-    #         args.src_file, args.dest_file, self._get_namespace(args)
-    #     )
-
-    def action_download_experiment(self, args):
+    def action_download_experiment(self, args): # TODO: Jim you may need to fix this
         # TODO:
         """
         Same as `kurreal scp learner:<mount_path>/<root_subfolder>/experiment-folder .`
@@ -742,165 +411,231 @@ class KurrealParser(SymphonyParser):
             'learner:' + remote_path, output_path
         )
 
-    # def kurreal_ssh(self, args):
-    #     """
-    #     Interactive /bin/bash into the pod
-    #     kubectl exec -ti <component> -- /bin/bash
-    #     """
-    #     self.kube.exec_surreal(
-    #         args.component_name,
-    #         '/bin/bash',
-    #         namespace=self._get_namespace(args)
-    #     )
 
-    # def kurreal_ssh_node(self, args):
-    #     """
-    #     GCloud only, ssh into gcloud nodes.
-    #     Run `kurreal list node` to get the node name.
-    #     Run with --configure-ssh if ssh config is outdated
-    #     """
-    #     errcode = self.kube.gcloud_ssh_node(args.node_name)
-    #     if errcode != 0:
-    #         print_err('GCloud ssh aliases might be outdated. Try:\n'
-    #                   'kurreal configure-ssh && '
-    #                   'kurreal ssh-node ' + args.node_name)
+    def _create_helper(self, *,
+                       config_py,
+                       experiment_name,
+                       num_agents,
+                       config_command,
+                       agent_pod_type,
+                       nonagent_pod_type,
+                       restore,
+                       restore_folder,
+                       no_snapshot,
+                       force,
+                       dry_run):
+        if config_py.startswith('/'):
+            config_py = config_py
+        else:
+            config_py = U.f_join('/root', config_py)
 
-    # def kurreal_ssh_nfs(self, args):
-    #     """
-    #     GCloud only, ssh into gcloud NFS.
-    #     Its server address should be specified in ~/.surreal.yml
-    #     Run with --configure-ssh if ssh config is outdated
-    #     """
-    #     errcode = self.kube.gcloud_ssh_fs()
-    #     if errcode != 0:
-    #         print_err('GCloud ssh aliases might be outdated. Try:\n'
-    #                   'kurreal configure-ssh && kurreal ssh-nfs')
+        remote_experiment_folder = self.get_remote_experiment_folder(experiment_name)
 
-    # def kurreal_configure_ssh(self, args):
-    #     errcode = self.kube.gcloud_configure_ssh()
-    #     if errcode == 0:
-    #         print('GCloud ssh configured successfully')
+        cmd_gen = CommandGenerator(
+            num_agents=num_agents,
+            experiment_folder=remote_experiment_folder, # TODO: fixme
+            config_py=config_py,
+            config_command=config_command,
+            service_url=None,
+            restore=restore,
+            restore_folder=restore_folder,
+        )
+        cmd_dict = cmd_gen.generate()
+        print('  agent_pod_type:', agent_pod_type)
+        print('  nonagent_pod_type:', nonagent_pod_type)
 
-    # def kurreal_describe(self, args):
-    #     """
-    #     Same as `kubectl describe pod <pod_name>`
-    #     """
-    #     self.kube.describe(args.pod_name, namespace=self._get_namespace(args))
+        self.create_surreal(
+            experiment_name,
+            snapshot=not no_snapshot,
+            agent_pod_type=agent_pod_type,
+            nonagent_pod_type=nonagent_pod_type,
+            cmd_dict=cmd_dict,
+            force=force,
+        )
 
-    # def kurreal_tensorboard(self, args):
-    #     """
-    #     Open tensorboard in your default browser.
-    #     """
-    #     url = self.kube.external_ip(
-    #         'tensorboard',
-    #         namespace=self._get_namespace(args)
-    #     )
-    #     if url:
-    #         url = 'http://' + url
-    #         print(url)
-    #         if not args.url_only:
-    #             webbrowser.open(url)
-    #     else:
-    #         print_err('Tensorboard does not yet have an external IP.')
+    def create_surreal(self,
+                       experiment_name,
+                       agent_pod_type,
+                       nonagent_pod_type,
+                       cmd_dict,
+                       snapshot=True,
+                       mujoco=True,
+                       force=False,
+                       dry_run=False):
+        """
+        First create a snapshot of the git repos, upload to github
+        Then create Kube objects with the git info
+        Args:
+            experiment_name: will also be used as hostname for DNS
+            rendered_path: rendered yaml file path
+            agent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            nonagent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
+            cmd_dict: dict of commands to be run on each container
+            snapshot: True to take a snapshot of git repo and upload
+            mujoco: True to copy mujoco key into the generated yaml
+            prefix_user_name: True to prefix experiment name (and host name)
+                as <myusername>-<experiment_name>
+            force: check if the Kube yaml has already been generated.
+            dry_run: only print yaml, do not actually launch
+        """
+        C = self.config
+        repo_paths = C.git.get('snapshot_repos', [])
+        repo_paths = [U.f_expand(p) for p in repo_paths]
+        if snapshot and not dry_run:
+            for repo_path in repo_paths:
+                push_snapshot(
+                    snapshot_branch=C.git.snapshot_branch,
+                    repo_path=repo_path
+                )
+        repo_names = [path.basename(path.normpath(p)).lower()
+                      for p in repo_paths]
 
-    # def kurreal_create_tensorboard(self, args):
-    #     """
-    #     Create a single pod that displays tensorboard of an old experiment.
-    #     After the service is up and running, run `kurreal tb` to open the external
-    #     URL in your browser
-    #     """
-    #     kube = self.kube
-    #     remote_subfolder = args.remote_experiment_subfolder
-    #     rendered_name = (remote_subfolder.replace('/', '-')
-    #                      .replace('.', '-').replace('_', '-'))
-    #     rendered_path = kube.get_path('kurreal-tensorboard', rendered_name + '.yml')
-    #     U.f_mkdir_in_path(rendered_path)
-    #     if not args.absolute_path:
-    #         remote_path = kube.get_remote_experiment_folder(remote_subfolder)
-    #     else:
-    #         remote_path = remote_subfolder
-    #     namespace = kube.create_tensorboard(
-    #         remote_path=remote_path,
-    #         jinja_template=self._find_kurreal_template('tensorboard_template.yml'),
-    #         rendered_path=rendered_path,
-    #         tensorboard_pod_type=args.pod_type
-    #     )
-    #     print('Creating standalone tensorboard pod. ')
-    #     print('Please run `kurreal tb` to open the tensorboard URL in your browser '
-    #           'when the service is up and running. '
-    #           'You can check service by `kurreal list service`')
-    #     print('  remote_path:', remote_path)
-    #     print('  tensorboard_pod_type:', args.pod_type)
-    #     # switch to the standalone pod namespace just created
-    #     kube.set_namespace(namespace)
+        # Read pod specifications
+        assert agent_pod_type in C.pod_types, \
+            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
+        assert nonagent_pod_type in C.pod_types, \
+            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
+        agent_pod_spec = C.pod_types[agent_pod_type]
+        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
+        agent_resource_request = agent_pod_spec.get('resource_request', {})
+        nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
+        agent_resource_limit = agent_pod_spec.get('resource_limit', {})
+        nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
 
-    # def kurreal_capture_tensorboard(self, args):
-    #     print('############### \n '
-    #         'If this command fails, check that your surreal.yml contains\n'
-    #         'capture_tensorboard:'
-    #         '  node_path: ...'
-    #         '  library_path: ...'
-    #         '###############')
-    #     pattern = args.experiment_prefix
-    #     out, _, _ = self.kube.run_verbose('get namespace -o name',
-    #                             print_out=False,raise_on_error=True)
-    #     # out is in format namespaces/[namespace_name]
-    #     namespaces = [x.strip()[len('namespaces/'):] for x in out.split()]
-    #     cwd = os.getcwd()
-    #     processes = []
-    #     for namespace in namespaces:
-    #         if re.match(pattern, namespace):
-    #             job = self.kube.capture_tensorboard(namespace)
-    #             processes.append(job)
-    #             # My computer cannot do everything at the same time unfortunately
-    #             job.wait()
-    #     # for process in processes:
-    #     #     process.wait()
+        cluster = Cluster.new('kube')
 
-    # def kurreal_label(self, args):
-    #     """
-    #     Label nodes in node pools
-    #     """
-    #     for label, value in args.new_labels:
-    #         self.kube.label_nodes(args.old_labels, label, value)
+        exp = cluster.new_experiment(experiment_name)
 
-    # def kurreal_label_gcloud(self, args):
-    #     """
-    #     NOTE: you don't need this for autoscale
+        nonagent = exp.new_process_group('nonagent')
+        learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['learner']])
+        replay = nonagent.new_process('replay', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['replay']])
+        ps = nonagent.new_process('ps', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['ps']])
+        tensorboard = nonagent.new_process('tensorboard', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorboard']])
+        tensorplex = nonagent.new_process('tensorplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorplex']])
+        loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['loggerplex']])
+        learner.binds('myserver')
+        replay.connects('myserver')
 
-    #     Add default labels for GCloud cluster.
-    #     Note that you have to create the node-pools with the exact names:
-    #     "agent-pool" and "nonagent-pool-cpu"
-    #     gcloud container node-pools create agent-pool-cpu -m n1-standard-2 --num-nodes=8
+        agents = []
+        for i, arg in enumerate(cmd_dict['agent']):
+            agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=['--cmd', arg])
+            agents.append(agent_p)
 
-    #     Command to check whether the labeling is successful:
-    #     kubectl get node -o jsonpath="{range .items[*]}{.metadata.labels['surreal-node']}{'\n---\n'}{end}"
-    #     """
-    #     kube = self.kube
-    #     kube.label_nodes('cloud.google.com/gke-nodepool=agent-pool',
-    #                      'surreal-node', 'agent-pool')
-    #     kube.label_nodes('cloud.google.com/gke-nodepool=nonagent-pool',
-    #                      'surreal-node', 'nonagent-pool')
+        evals = []
+        for i, arg in enumerate(cmd_dict['eval']):
+            eval_p = exp.new_process('eval-{}'.format(i), container_image=agent_pod_spec.image, args=['--cmd', arg])
+            evals.append(eval_p)
 
+        for proc in itertools.chain(agents, evals):
+            proc.connects('ps-frontend')
+            proc.connects('collector-frontend')
+
+        ps.binds('ps-frontend')
+        ps.binds('ps-backend')
+        ps.connects('parameter-publish')
+
+        replay.binds('collector-frontend')
+        replay.binds('sampler-frontend')
+        replay.binds('collector-backend')
+        replay.binds('sampler-backend')
+
+        learner.connects('sampler-frontend')
+        learner.binds('parameter-publish')
+        learner.binds('prefetch-queue')
+
+        tensorplex.binds('tensorplex')
+        loggerplex.binds('loggerplex')
+
+        for proc in itertools.chain(agents, evals, [ps, replay, learner]):
+            proc.connects('tensorplex')
+            proc.connects('loggerplex')
+
+        tensorboard.exposes({'tensorboard': 6006})
+
+        if not C.fs.type.lower() in ['nfs']:
+            raise NotImplementedError('Unsupported file server type: "{}". '
+                                      'Supported options are [nfs]'.format(C.fs.type))
+        nfs_server = C.fs.server
+        nfs_server_path = C.fs.path_on_server
+        nfs_mount_path = C.fs.mount_path
+
+        if mujoco:
+            mjkey = file_content(C.mujoco_key_path)
+
+        for proc in exp.list_all_processes():
+            # Mount nfs
+            proc.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
+
+            # mount git
+            # This needs fixing, currently it has a lot of assumptions,
+            # including that direcotry name of the repo locally should equal to cloud
+            # which can be false
+            for git_repo in repo_names:
+                # if git_repo == 'surreal':
+                #     git_repo_name_github='Surreal'
+                # elif git_repo == 'tensorplex':
+                #     git_repo_name_github='Tensorplex'
+                # else:
+                #     git_repo_name_github=git_repo
+                repository = 'https://{}:{}@github.com/SurrealAI/{}'.format(
+                    C.git.user, C.git.token, git_repo)
+                revision = C.git.snapshot_branch
+                mount_path = '/mylibs/{}'.format(git_repo)
+                proc.mount_git_repo(repository=repository, revision=revision, mount_path=mount_path)
+                env_key = 'repo_{}'.format(git_repo.replace('-', '_'))
+                env_val = '/mylibs/{0}/{0}'.format(git_repo)
+                proc.set_env(env_key, env_val)
+
+            # Add mujoco key: TODO: handle secret properly
+            proc.set_env('mujoco_key_text', mjkey)
+            proc.image_pull_policy('Always')
+
+        agent_selector = agent_pod_spec.get('selector', {})
+        for proc in itertools.chain(agents, evals):
+            proc.resource_request(cpu=1.5)
+            proc.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            proc.restart_policy('Never')
+            # required services
+            for k, v in agent_selector.items():
+                proc.node_selector(key=k, value=v)
+            proc.resource_request(**agent_resource_request)
+            proc.resource_limit(**agent_resource_limit)
+
+        learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
+        learner.resource_request(**nonagent_resource_request)
+        if 'nvidia.com/gpu' in nonagent_resource_limit:
+        # Note/TODO: We are passing resource limits as kwargs, so '/' cannot happen here
+        # Should we change this?
+            nonagent_resource_limit['gpu'] = nonagent_resource_limit['nvidia.com/gpu']
+            del nonagent_resource_limit['nvidia.com/gpu']
+        learner.resource_limit(**nonagent_resource_limit)
+
+        non_agent_selector = nonagent_pod_spec.get('selector', {})
+        for k, v in non_agent_selector.items():
+            nonagent.node_selector(key=k, value=v)
+        nonagent.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+        nonagent.image_pull_policy('Always')
+
+        cluster.launch(exp, force=force, dry_run=dry_run)
+
+    def get_remote_experiment_folder(self, experiment_name):
+        """
+        actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
+        """
+        # DON'T use U.f_join because we don't want to expand the path locally
+        root_subfolder = self.config.fs.experiment_root_subfolder
+        assert not root_subfolder.startswith('/'), \
+            'experiment_root_subfolder should not start with "/". ' \
+            'Actual experiment folder path will be ' \
+            '<mount_path>/<root_subfolder>/<experiment_name>/'
+        return os.path.join(
+            self.config.fs.mount_path,
+            self.config.fs.experiment_root_subfolder,
+            experiment_name
+        )
 
 def main():
     KurrealParser().main()
-#     parser = KurrealParser().setup_master()
-#     assert sys.argv.count('--') <= 1, \
-#         'command line can only have at most one "--"'
-#     if '--' in sys.argv:
-#         idx = sys.argv.index('--')
-#         remainder = sys.argv[idx+1:]
-#         sys.argv = sys.argv[:idx]
-#         has_remainder = True  # even if remainder itself is empty
-#     else:
-#         remainder = []
-#         has_remainder = False
-        
-#     args = parser.parse_args()
-#     args.remainder = remainder
-#     args.has_remainder = has_remainder
-#     args.func(args)
 
 
 if __name__ == '__main__':
