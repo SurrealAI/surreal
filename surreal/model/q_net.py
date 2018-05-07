@@ -3,9 +3,10 @@ from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
 import numpy as np
+import torchx.nn as nnx
 
 
-class DuelingQbase(U.Module):
+class DuelingQbase(nnx.Module):
     def init_dueling(self, *,
                      action_dim,
                      prelinear_size,

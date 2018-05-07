@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.conv import _ConvNd
 import torch.nn.init as init
-from .gpu import GpuVariable as Variable
+#from .gpu import GpuVariable as Variable
 
 
 def zero_init(tensor):

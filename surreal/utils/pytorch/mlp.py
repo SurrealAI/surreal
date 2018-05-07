@@ -1,7 +1,9 @@
-from .module import Module
+#from .module import Module
 from .conv import conv_fc_init
 import torch.nn as nn
 import torch.nn.functional as F
+import torchx as tx
+import torchx.nn as nnx
 from surreal.utils.common import iter_last
 
 
@@ -16,7 +18,7 @@ def fc_layers(input_size, output_size, hiddens, initializer='xavier'):
     return fcs
 
 
-class MLP(Module):
+class MLP(nnx.Module):
     def __init__(self, input_size, output_size, hiddens, activation=None):
         super().__init__()
         if activation is None:

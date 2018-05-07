@@ -8,8 +8,10 @@ from .aggregator import NstepReturnAggregator, SSARAggregator
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
-from surreal.utils.pytorch import GpuVariable as Variable
+#from surreal.utils.pytorch import #GpuVariable as Variable
 import surreal.utils as U
+import torchx as tx
+import torchx.nn as nnx
 
 
 class DDPGLearner(Learner):
@@ -31,16 +33,19 @@ class DDPGLearner(Learner):
 
         self.log.info('Initializing DDPG learner')
         num_gpus = session_config.learner.num_gpus
-        self.gpu_ids = list(range(num_gpus))
+        if num_gpus == 0:
+            self.gpu_ids = 'cpu'
+        else:
+            self.gpu_ids = 'cuda:all'
 
-        if not self.gpu_ids:
+        if num_gpus == 0:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using GPU: {}'.format(self.gpu_ids))
+            self.log.info('Using {} GPUs'.format(num_gpus))
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
 
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
             self.target_update_init()
 
             self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
@@ -104,7 +109,7 @@ class DDPGLearner(Learner):
             self.actor_update_time = U.TimeRecorder()
 
     def preprocess(self, batch):
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
             obs, actions, rewards, obs_next, done = (
                 batch['obs'],
                 batch['actions'],
@@ -116,20 +121,20 @@ class DDPGLearner(Learner):
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = Variable(torch.ByteTensor(obs[modality][key])).float().detach()
+                        obs[modality][key] = (torch.ByteTensor(obs[modality][key])).float().detach()
                     else:
-                        obs[modality][key] = Variable(U.to_float_tensor(obs[modality][key])).detach()
+                        obs[modality][key] = (U.to_float_tensor(obs[modality][key])).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = Variable(torch.ByteTensor(obs_next[modality][key])).float().detach()
+                        obs_next[modality][key] = (torch.ByteTensor(obs_next[modality][key])).float().detach()
                     else:
-                        obs_next[modality][key] = Variable(U.to_float_tensor(obs_next[modality][key])).detach()
+                        obs_next[modality][key] = (U.to_float_tensor(obs_next[modality][key])).detach()
 
-            actions = Variable(U.to_float_tensor(actions))
-            rewards = Variable(U.to_float_tensor(rewards))
-            done = Variable(U.to_float_tensor(done))
+            actions = (U.to_float_tensor(actions))
+            rewards = (U.to_float_tensor(rewards))
+            done = (U.to_float_tensor(done))
 
             (
                 batch['obs'],
@@ -152,7 +157,7 @@ class DDPGLearner(Learner):
         of observations, (N, C, H, W).  Note that while the replay contains uint8, the
         aggregator returns float32 tensors
         '''
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
 

@@ -1,77 +1,90 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+#import torch.nn as nn
+#import torch.nn.functional as F
 import surreal.utils as U
-from surreal.utils.pytorch import GpuVariable as Variable
+import torchx as tx
+import torchx.nn as nnx
+import torchx.layers as L
+#from surreal.utils.pytorch import GpuVariable as Variable
 import numpy as np 
 import resource
 
 from ..layer_norm import LayerNorm
 
-class CNNStemNetwork(U.Module):
+class CNNStemNetwork(nnx.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
         super(CNNStemNetwork, self).__init__()
         conv_channels=[16, 32]
-        C, H, W = D_obs
-        # DQN architecture
-        self.conv1 = nn.Conv2d(C, conv_channels[0], [8,8], stride=4)
-        self.conv2 = nn.Conv2d(conv_channels[0], conv_channels[1], [4,4], stride=2)
-        # TODO: auto shape inference
-        conv_output_size = 2592
-        self.fc_obs = nn.Linear(conv_output_size, D_out)
+        self.model = L.Sequential(
+            L.Conv2d(conv_channels[0], kernel_size=8, stride=4),
+            L.ReLU(),
+            L.Conv2d(conv_channels[1], kernel_size=4, stride=2),
+            L.ReLU(),
+            L.Flatten(),
+            L.Linear(D_out),
+            L.ReLU(),
+        )
+        print('cnnstem', list(self.parameters()))
 
     def forward(self, obs):
+        return self.model(obs)
         obs_shape = obs.size()
         if_high_dim = (len(obs_shape) == 5)
         if if_high_dim: 
             obs = obs.view(-1, *obs_shape[2:])
 
-        obs = F.relu(self.conv1(obs))
-        obs = F.relu(self.conv2(obs))
+        obs = Fx.relu(self.conv1(obs))
+        obs = Fx.relu(self.conv2(obs))
         obs = obs.view(obs.size(0), -1)
-        obs = F.relu(self.fc_obs(obs))
+        obs = Fx.relu(self.fc_obs(obs))
 
         if if_high_dim:
             obs = obs.view(obs_shape[0], obs_shape[1], -1)
         return obs
 
-class ActorNetworkX(U.Module):
+class ActorNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
         super(ActorNetworkX, self).__init__()
-        self.fc_in = nn.Linear(D_in, hidden_size)
-        self.fc_out = nn.Linear(hidden_size, D_act)
+        self.fc_in = L.Linear(hidden_size)
+        self.fc_out = L.Linear(D_act)
+        self.relu = L.ReLU()
         self.use_layernorm = use_layernorm
         if self.use_layernorm:
             self.layer_norm = LayerNorm()
+        print('actor', list(self.parameters()))
 
     def forward(self, obs):
-        x = F.relu(self.fc_in(obs))
+        x = self.relu(self.fc_in(obs))
         if self.use_layernorm:
             x = self.layer_norm(x)
-        x = F.tanh(self.fc_out(x))
+        x = self.tanh(self.fc_out(x))
         return x
 
-class CriticNetworkX(U.Module):
+class CriticNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=300, use_layernorm=True):
         super(CriticNetworkX, self).__init__()
-        self.fc_in = nn.Linear(D_in + D_act, hidden_size)
-        self.fc_out = nn.Linear(hidden_size, 1)
+        self.fc_in = L.Linear(hidden_size)
+        self.fc_out = L.Linear(1)
+        self.relu = L.ReLU()
+        self.flatten = L.Flatten()
         self.use_layernorm = use_layernorm
         if self.use_layernorm:
             self.layer_norm = LayerNorm()
+        print('critic', list(self.parameters()))
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
-        x = F.relu(self.fc_in(x))
+        x = self.relu(self.fc_in(x))
         if self.use_layernorm:
             x = self.layer_norm(x)
         x = self.fc_out(x)
         return x
 
+'''
 class ActorNetwork(U.Module):
-    '''
+    \'''
     For use with flat observations
-    '''
+    \'''
 
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(ActorNetwork, self).__init__()
@@ -97,7 +110,7 @@ class ActorNetwork(U.Module):
         action = F.tanh(self.fc_act(h2))
         return action
 
-class CriticNetwork(U.Module):
+class CriticNetwork(nnx.Module):
 
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_batchnorm=False):
         super(CriticNetwork, self).__init__()
@@ -125,10 +138,10 @@ class CriticNetwork(U.Module):
         value = self.fc_q(h2)
         return value
 
-class PPO_ActorNetwork(U.Module):
-    '''
+class PPO_ActorNetwork(nnx.Module):
+    \'''
         PPO custom actor network structure
-    '''
+    \'''
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], init_log_sig=0):
         super(PPO_ActorNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim
@@ -155,10 +168,10 @@ class PPO_ActorNetwork(U.Module):
         return action
 
 
-class PPO_CriticNetwork(U.Module):
-    '''
+class PPO_CriticNetwork(nnx.Module):
+    \'''
         PPO custom critic network structure
-    '''
+    \'''
     def __init__(self, D_obs, hidden_sizes=[64, 64]):
         super(PPO_CriticNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim if necessary
@@ -181,3 +194,4 @@ class PPO_CriticNetwork(U.Module):
             v = v.view(obs_shape[0], obs_shape[1], 1)
         return v
 
+'''

@@ -6,7 +6,7 @@ from .base import Learner
 from .aggregator import MultistepAggregatorWithInfo 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
-from surreal.utils.pytorch import GpuVariable as Variable
+#from surreal.utils.pytorch import GpuVariable as Variable
 import surreal.utils as U
 from surreal.utils.pytorch.hyper_scheduler import *   
 
@@ -379,7 +379,7 @@ class PPOLearner(Learner):
             for mod in obs.keys():
                 obs_concat_var[mod] = {}
                 for k in obs[mod].keys():
-                    obs_concat_var[mod][k] = Variable(torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
+                    obs_concat_var[mod][k] = (torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
                     if not self.if_rnn_policy:
                         obs_shape = obs_concat_var[mod][k].size()
                         obs_concat_var[mod][k] = obs_concat_var[mod][k].view(-1, *obs_shape[2:])
@@ -449,7 +449,7 @@ class PPOLearner(Learner):
             for mod in obs.keys():
                 obs_concat_var[mod] = {}
                 for k in obs[mod].keys():
-                    obs_concat_var[mod][k] = Variable(torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
+                    obs_concat_var[mod][k] = (torch.cat([obs[mod][k], obs_next[mod][k]], dim=1))
                     if not self.if_rnn_policy:
                         obs_shape = obs_concat_var[mod][k].size()
                         obs_concat_var[mod][k] = obs_concat_var[mod][k].view(-1, *obs_shape[2:])
@@ -515,36 +515,36 @@ class PPOLearner(Learner):
                 pds = persistent_infos[-1]
 
                 if self.if_rnn_policy:
-                    h = Variable(one_time_infos[0].transpose(0, 1).contiguous())
-                    c = Variable(one_time_infos[1].transpose(0, 1).contiguous())
+                    h = (one_time_infos[0].transpose(0, 1).contiguous())
+                    c = (one_time_infos[1].transpose(0, 1).contiguous())
                     self.cells = (h, c)
 
                 advantages, returns = self._gae_and_return(obs, 
                                                            obs_next,  
                                                            rewards, 
                                                            dones)
-                advantages = Variable(advantages)
-                returns    = Variable(returns)
+                advantages = (advantages)
+                returns    = (returns)
 
                 if self.if_rnn_policy:
-                    h = Variable(self.cells[0].data)
-                    c = Variable(self.cells[1].data)
+                    h = (self.cells[0].data)
+                    c = (self.cells[1].data)
                     self.cells = (h, c)
                     eff_len = self.n_step - self.horizon + 1
-                    behave_pol = Variable(pds[:, :eff_len, :].contiguous())
-                    actions_iter = Variable(actions[:, :eff_len, :].contiguous())
+                    behave_pol = (pds[:, :eff_len, :].contiguous())
+                    actions_iter = (actions[:, :eff_len, :].contiguous())
                 else:
-                    behave_pol = Variable(pds[:, 0, :].contiguous())
-                    actions_iter = Variable(actions[:, 0, :].contiguous())
+                    behave_pol = (pds[:, 0, :].contiguous())
+                    actions_iter = (actions[:, 0, :].contiguous())
 
                 obs_iter = {}
                 for mod in obs.keys():
                     obs_iter[mod] = {}
                     for k in obs[mod].keys():
                         if self.if_rnn_policy:
-                            obs_iter[mod][k] = Variable(obs[mod][k][:, :self.n_step - self.horizon + 1, :].contiguous())
+                            obs_iter[mod][k] = (obs[mod][k][:, :self.n_step - self.horizon + 1, :].contiguous())
                         else: 
-                            obs_iter[mod][k] = Variable(obs[mod][k][:, 0, :].contiguous())
+                            obs_iter[mod][k] = (obs[mod][k][:, 0, :].contiguous())
 
                 ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 

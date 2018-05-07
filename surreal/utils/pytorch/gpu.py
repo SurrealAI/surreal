@@ -1,3 +1,4 @@
+'''
 import contextlib
 import time
 import torch
@@ -96,4 +97,4 @@ def torch_gpu_scope(gpu, override_parent=True):
     yield
     # restore
     _PYTORCH_GPU_.pop()
-
+'''

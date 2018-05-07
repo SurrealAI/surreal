@@ -1,8 +1,9 @@
-import torch
-import torch.nn as nn
+#import torch
+#import torch.nn as nn
+import torchx.nn as nnx
 
 # Inspired by https://github.com/pytorch/pytorch/issues/1959
-class LayerNorm(nn.Module):
+class LayerNorm(nnx.Module):
 
     def __init__(self):
         super().__init__()

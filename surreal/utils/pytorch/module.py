@@ -5,7 +5,7 @@ from surreal.utils.pytorch import GpuVariable as Variable
 import os
 import torch
 import torch.nn as nn
-from .gpu import get_scope_gpu
+#from .gpu import get_scope_gpu
 from .compute import torch_clip_norm
 from surreal.utils.common import SaveInitArgs
 from collections import OrderedDict
@@ -110,6 +110,7 @@ def hard_update(target, source):
             target_param.data.copy_(param.data)
 
 
+'''
 class Module(nn.Module, SaveInitArgs):
     """
     All models in Surreal should extend this module, not pytorch one
@@ -218,3 +219,4 @@ class Module(nn.Module, SaveInitArgs):
     @property
     def is_cuda(self):
         return self._gpu_ids[0] >= 0
+    '''

@@ -3,8 +3,9 @@ import torch.nn as nn
 from torch.autograd import Variable
 import surreal.utils as U
 import numpy as np
+import torchx.nn as nnx
 
-class ZFilter(U.Module):
+class ZFilter(nnx.Module):
     """
         Keeps historical average and std of inputs
         Whitens data and clamps to +/- 5 std

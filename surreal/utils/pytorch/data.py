@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
-from .gpu import GpuVariable
+#from .gpu import GpuVariable
 from surreal.utils.numpy_util import is_np_array, is_np_scalar, np_cast
 
 

@@ -1,6 +1,6 @@
 import torch
 import surreal.utils as U
-from surreal.utils.pytorch import GpuVariable as Variable
+#from surreal.utils.pytorch import GpuVariable as Variable
 from surreal.session import PeriodicTracker
 from surreal.model.q_net import build_ffqfunc
 from .base import Learner
@@ -73,7 +73,7 @@ class DQNLearner(Learner):
         return td_error
 
     def learn(self, batch_exp):
-        weights = Variable(U.torch_ones_like(batch_exp.rewards))
+        weights = (U.torch_ones_like(batch_exp.rewards))
         td_errors = self._optimize(
             batch_exp.obs,
             batch_exp.actions,

@@ -4,6 +4,7 @@ from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
 import numpy as np
+import torchx.nn as nnx
 
 from .model_builders import *
 from .z_filter import ZFilter
@@ -91,7 +92,7 @@ class DiagGauss(object):
         return prob[:, :self.d]
 
 
-class PPOModel(U.Module):
+class PPOModel(nnx.Module):
     '''
         PPO Model class that wraps aroud the actor and critic networks
         Attributes:

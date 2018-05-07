@@ -4,7 +4,7 @@ Template class for all learners
 import threading
 import queue
 import time
-from easydict import EasyDict
+from benedict import BeneDict
 import numpy as np
 import surreal.utils as U
 from surreal.session import (
@@ -325,7 +325,7 @@ class Learner(metaclass=LearnerMeta):
 
     def _preprocess_batch(self):
         for batch in self.fetch_iterator():
-            batch = EasyDict(batch.data)
+            batch = BeneDict(batch.data)
             # The preprocess step creates Variables which will become GpuVariables
             batch = self.preprocess(batch)
             self._preprocess_prefetch_queue.put(batch)
