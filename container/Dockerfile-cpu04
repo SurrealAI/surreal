@@ -1,5 +1,14 @@
 FROM us.gcr.io/surreal-dev-188523/surreal-base-cpu:latest
 
+# fake display to work around the GLFW problem
+RUN mkdir /etc/fakeX \
+	&& touch /etc/fakeX/10.log
+COPY xorg.conf /etc/fakeX/
+COPY xorg.service /etc/systemd/system/
+RUN systemctl enable xorg
+
+ENV DISPLAY=:10
+
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
 RUN apt-get update && apt-get install -y patchelf
 
