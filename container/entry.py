@@ -67,6 +67,16 @@ def init():
         os.system('pip install -e ' + tensorplex_path)
     else:
         print('WARNING: `tensorplex` lib not installed')
+    mujocomanip_path = os.environ.get('repo_mujocomanip', '')
+    if tensorplex_path and os.path.exists(mujocomanip_path):
+        os.system('pip install -e ' + mujocomanip_path)
+    else:
+        print('WARNING: `MujocoManipulation` lib not installed')
+    torchx_path = os.environ.get('repo_torchx', '')
+    if torchx_path and os.path.exists(torchx_path):
+        os.system('pip install -e ' + torchx_path)
+    else:
+        print('WARNING: `torchx` lib not installed')
 
     # convenient symlinks for GitVolumes to be accessible in the home dir
     for env_var in os.environ:
