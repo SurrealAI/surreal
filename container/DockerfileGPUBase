@@ -1,0 +1,36 @@
+from nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04
+
+LABEL author="Stanford Surreal team"
+
+RUN mkdir /mylibs
+WORKDIR /mylibs
+
+RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0 libsm6 xorg-dev libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
+
+# mujoco
+RUN mkdir /root/.mujoco
+WORKDIR /root/.mujoco
+RUN wget https://www.roboti.us/download/mjpro150_linux.zip \
+    && unzip mjpro150_linux.zip \
+    && rm mjpro150_linux.zip
+RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
+    && unzip mjpro131_linux.zip \
+    && rm mjpro131_linux.zip
+COPY mjkey.txt /root/.mujoco/mjkey.txt
+
+# python deps
+WORKDIR /mylibs
+RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+	&& bash Miniconda3-latest-Linux-x86_64.sh -p /mylibs/miniconda -b
+RUN rm /mylibs/Miniconda3-latest-Linux-x86_64.sh
+ENV PATH=/mylibs/miniconda/bin:${PATH}
+
+# pytorch
+RUN conda install --yes pytorch torchvision -c pytorch
+COPY requirements.txt /mylibs/
+RUN pip install -r /mylibs/requirements.txt
+
+# DM control suite
+RUN pip install git+git://github.com/deepmind/dm_control.git
+
+ENV DISABLE_MUJOCO_RENDERING=1

@@ -1,0 +1,7 @@
+
+gitpython
+seaborn
+pygame
+redis
+libtmux
+kubernetes

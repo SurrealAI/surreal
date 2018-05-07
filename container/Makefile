@@ -29,3 +29,23 @@ pull-gpu:
 build-gpu:
 	docker build -t $(GPU_URL):`cat VERSION` -f Dockerfile-gpu .
 	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
+
+CPU_BASE_URL = 'us.gcr.io/surreal-dev-188523/surreal-base-cpu'
+build-cpubase:
+	docker build -t $(CPU_BASE_URL):latest -f DockerfileCPUBase .
+
+push-cpubase:
+	gcloud docker -- push $(CPU_BASE_URL):latest
+
+pull-cpubase:
+	gcloud docker -- pull $(CPU_BASE_URL):latest
+
+GPU_BASE_URL = 'us.gcr.io/surreal-dev-188523/surreal-base-gpu'
+build-gpubase:
+	docker build -t $(GPU_BASE_URL):latest -f DockerfileGPUBase .
+
+push-gpubase:
+	gcloud docker -- push $(GPU_BASE_URL):latest
+
+pull-gpubase:
+	gcloud docker -- pull $(GPU_BASE_URL):latest

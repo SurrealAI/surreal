@@ -1,19 +1,11 @@
-easydict
+benedict>=0.3
 gym
-libtmux
-mujoco_py==0.5.7
-redis
-seaborn
+mujoco_py>=1.50
 tabulate
 tqdm
-pyyaml
-pygame
 pyzmq
-gitpython
-tensorflow
-tensorboardX
-kubernetes
+tensorflow # TODO: remove
+tensorboardX # TODO: remove
 imageio
-msgpack
-msgpack-numpy
 pyarrow
+pyyaml # TODO: remove this as we have benedict
