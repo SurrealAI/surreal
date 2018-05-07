@@ -1,7 +1,9 @@
 from .base import replay_factory
 from surreal.distributed import ZmqLoadBalancerThread
+import surreal.utils as U
 from multiprocessing import Process
 from threading import Thread
+
 
 class ShardedReplay(object):
     def __init__(self,
@@ -58,6 +60,9 @@ class ShardedReplay(object):
         replay.join()
 
     def join(self):
+        for i, p in enumerate(self.processes):
+            p.join()
+            U.report_exitcode(p.exitcode, 'replay-{}'.format(i))
         self.collector_proxy.join()
         self.sampler_proxy.join()
         
