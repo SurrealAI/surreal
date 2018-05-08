@@ -315,9 +315,7 @@ class Agent(object, metaclass=AgentMeta):
         """
         params, info = self._ps_client.fetch_parameter_with_info()
         if params:
-            print('ready to pull parameters')
             self.on_parameter_fetched(params, info)
-            print('pulled parameters')
 
     def fetch_parameter_info(self):
         """

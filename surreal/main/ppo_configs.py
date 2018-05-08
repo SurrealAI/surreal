@@ -26,7 +26,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'gamma': .995,
             'n_step': 10, # 10 for without RNN
             'stride': 10, # 10 for without RNN
@@ -43,7 +43,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
+                    'min_lr': 1e-5,
                 },
                 'target_update':{
                     'type': 'hard',
