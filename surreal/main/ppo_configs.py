@@ -26,7 +26,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'gamma': .995,
             'n_step': 10, # 10 for without RNN
             'stride': 10, # 10 for without RNN
@@ -41,13 +41,13 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 1e7,
+                    'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval':4096,
+                    'interval': 4096,
                 },
             },
             # ppo specific parameters:
@@ -64,7 +64,7 @@ def generate(argv):
             },
             'consts': {
                 'init_log_sig': -1,
-                'log_sig_range': 0.25,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,

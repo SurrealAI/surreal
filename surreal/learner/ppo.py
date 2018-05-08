@@ -259,9 +259,7 @@ class PPOLearner(Learner):
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        # surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, 
-        #                                     max=self.is_weight_thresh)).mean()
-        surr = -(advantages.view(-1, 1) * prob_learn/prob_behave).mean()
+        surr = -(advantages.view(-1, 1) * prob_learn/torch.clamp(prob_behave, min=1e-3)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -404,7 +402,7 @@ class PPOLearner(Learner):
                 if self.norm_adv:
                     std = advs.std()
                     mean = advs.mean()
-                    advs = (advs - mean) / std
+                    advs = (advs - mean) / max(std, 1e-4)
                 return advs, returns
 
             else:
@@ -415,7 +413,7 @@ class PPOLearner(Learner):
                 if self.norm_adv:
                     std = gae.std()
                     mean = gae.mean()
-                    gae = (gae - mean) / std
+                    gae = (gae - mean) / max(std, 1e-4)
 
                 return gae.view(-1, 1), returns.view(-1, 1)
 
