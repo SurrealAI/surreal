@@ -73,10 +73,10 @@ class DDPGModel(U.Module):
             value = self.forward_critic(obs_in, action)
         return action, value
 
-    def scale_image(self, obs):
+    def scale_image(self, obs, scaling_factor=255.0):
         '''
         Given uint8 input from the environment, scale to float32 and
         divide by 255 to scale inputs between 0.0 and 1.0
         '''
-        return obs / 255.0
+        return obs / scaling_factor
         
