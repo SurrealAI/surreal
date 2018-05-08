@@ -65,9 +65,9 @@ class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
     def send(self, data):
         obs_array, action, reward, done, info = data
         hash_dict = {
+            'obs': obs_array,
         }
         nonhash_dict = {
-            'obs': obs_array,
             'action': action,
             'reward': reward,
             'done': done,
@@ -228,10 +228,10 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             if onetime_infos == None: onetime_infos = onetime_info
 
         hash_dict = {
+            'obs': obs,
+            'obs_next': obs_next
         }
         nonhash_dict = {
-            'obs': obs,
-            'obs_next': obs_next,
             'actions': actions,
             'onetime_infos' : onetime_infos,
             'persistent_infos': persistent_infos,
@@ -239,7 +239,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'dones': dones,
             'infos': infos,
             'n_step': len(data),
-        }
+        }            
         self.sender.send(hash_dict, nonhash_dict)
 
 

@@ -26,10 +26,10 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'gamma': .995,
-            'n_step': 10, # 10 for without RNN
-            'stride': 10, # 10 for without RNN
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -41,13 +41,13 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 1e7,
+                    'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
                     'min_lr': 1e-5,
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval':4096,
+                    'interval': 8192,
                 },
             },
             # ppo specific parameters:
@@ -57,14 +57,14 @@ def generate(argv):
                 'lam': 0.97,
             },
             'rnn': {
-                'if_rnn_policy': False, 
+                'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
             },
             'consts': {
                 'init_log_sig': -1,
-                'log_sig_range': 0.25,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
@@ -95,7 +95,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {
@@ -124,8 +124,8 @@ def generate(argv):
             },
         },
         'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10, # 10 for without RNN
+            'fetch_parameter_mode': 'episode',
+            'fetch_parameter_interval': 1, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
@@ -143,11 +143,11 @@ def generate(argv):
     return learner_config, env_config, session_config
 
 '''
-    RNN specific parameter difference:
-        * n_step -> 30
-        * stride -> 20
-        * fetch_parameter_mode -> 'episode'
-        * fetch_parameter_interval -> 1
+    Specific parameter without RNN difference:
+        * n_step -> 10
+        * stride -> 10
+        * fetch_parameter_mode -> 'step'
+        * fetch_parameter_interval -> 10
     Pixel specific parameter differnce:
         * param_release_min -> 8192 (instead of 4096)
 '''

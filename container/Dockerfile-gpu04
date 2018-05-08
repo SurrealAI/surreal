@@ -1,0 +1,9 @@
+from us.gcr.io/surreal-dev-188523/surreal-base-gpu:latest
+
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
+RUN apt-get update && apt-get install -y patchelf
+
+WORKDIR /root
+COPY entry.py /mylibs
+RUN chmod +x /mylibs/entry.py
+ENTRYPOINT ["/mylibs/entry.py"]

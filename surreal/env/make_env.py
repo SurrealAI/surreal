@@ -35,16 +35,17 @@ def make_gym(env_name, env_config):
 
 def make_mujocomanip(env_name, env_config):
     import MujocoManip
-    env = MujocoManip.make(env_name,
-                           horizon=50000,
-                           has_renderer=False,
-                           ignore_done=True,
-                           use_camera_obs=False,
-                           camera_height=84,
-                           camera_width=84,
-                           camera_name='tabletop',
-                           use_object_obs=False,
-                           reward_shaping=True
+    env = MujocoManip.make(
+        env_name,
+        horizon=50000,
+        has_renderer=False,
+        ignore_done=True,
+        use_camera_obs=False,
+        camera_height=84,
+        camera_width=84,
+        camera_name='tabletop',
+        use_object_obs=False,
+        reward_shaping=True
     )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)

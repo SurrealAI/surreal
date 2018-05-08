@@ -11,6 +11,19 @@ import time
 from contextlib import contextmanager
 from threading import Thread, Lock
 
+
+def report_exitcode(code, name='process'):
+    """
+    Given exit code of a process, throw error / print result as desired
+    """
+    if code == 0:
+        print('[Warning] {} exited with exit code 0'.format(name))
+    elif code > 0:
+        raise ValueError('[Warning] {} exited with exit code {}'.format(name, code))
+    else:
+        raise ValueError('[Warning] {} terminated by signal {}'.format(name, code))
+
+
 def _get_qualified_type_name(type_):
     name = str(type_)
     r = re.compile("<class '(.*)'>")
