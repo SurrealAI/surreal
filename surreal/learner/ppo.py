@@ -663,4 +663,8 @@ class PPOLearner(Learner):
 
 '''
     Convertion to PyTorch v0.4 WIP
+    TorchX  
+    Variable Scope
+    BeneDict 
+    utils?
 '''
