@@ -14,9 +14,32 @@ build:
 	docker build -t $(URL):`cat VERSION` -f Dockerfile-cpu .
 	docker tag $(URL):`cat VERSION` $(URL):latest
 
+
 rebuild:
 	docker build --no-cache -t $(GPU_URL):`cat VERSION` -f Dockerfile-gpu .
 	docker tag $(GPU_URL):`cat VERSION` $(GPU_URL):latest
+
+# TODO: add version
+CPU_04_URL = 'us.gcr.io/surreal-dev-188523/surreal-cpu-th04'
+push-c04:
+	gcloud docker -- push $(CPU_04_URL):latest
+
+pull-c04:
+	docker pull $(CPU_04_URL):latest
+
+build-c04:
+	docker build -t $(CPU_04_URL):latest -f Dockerfile-cpu04 .
+
+# TODO: add version
+GPU_04_URL = 'us.gcr.io/surreal-dev-188523/surreal-gpu-th04'
+push-g04:
+	gcloud docker -- push $(GPU_04_URL):latest
+
+pull-g04:
+	docker pull $(GPU_04_URL):latest
+
+build-g04:
+	docker build -t $(GPU_04_URL):latest -f Dockerfile-gpu04 .
 
 # Can't do as container requires gpu hosts
 # test-gpu:
