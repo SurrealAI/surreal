@@ -24,6 +24,9 @@ class CNNStemNetwork(nnx.Module):
             L.Linear(D_out),
             L.ReLU(),
         )
+
+        # instantiate parameters
+        self.model.build(input_shape)
         print('cnnstem', list(self.parameters()))
 
     def forward(self, obs):
@@ -71,6 +74,8 @@ class CriticNetworkX(nnx.Module):
         if self.use_layernorm:
             self.layer_norm = LayerNorm()
         print('critic', list(self.parameters()))
+
+        #model.build() # model is after the concat
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
