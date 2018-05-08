@@ -1,8 +1,11 @@
 """
 Template class for all learners
 """
+import threading
 import queue
 import time
+from easydict import EasyDict
+import numpy as np
 import surreal.utils as U
 from surreal.session import (
     TimeThrottledTensorplex,
@@ -53,6 +56,7 @@ class Learner(metaclass=LearnerMeta):
         self._setup_connection()
         self._setup_logging()
         self._setup_checkpoint()
+        self._setup_batch_prefetch()
 
     def learn(self, batch_exp):
         """
@@ -101,6 +105,7 @@ class Learner(metaclass=LearnerMeta):
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
+            preprocess_task = self._prefetch_thread_preprocess,
         )
 
 
@@ -155,7 +160,6 @@ class Learner(metaclass=LearnerMeta):
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
         # We don't do it here so that we don't require _prefetch_queue to be setup beforehands
-        # self.fetch_timer = self._prefetch_queue.timer
         self.iter_timer = U.TimeRecorder()
         self.publish_timer = U.TimeRecorder()
 
@@ -303,6 +307,41 @@ class Learner(metaclass=LearnerMeta):
             self.log.info('successfully restored from checkpoint', restored)
 
     ######
+    # Batch Prefetch
+    ######
+    def preprocess(self, batch):
+        '''
+        Perform algorithm-specific preprocessing tasks, overridden in subclasses
+        For example, ddpg converts relevant variables onto gpu
+        '''
+        for key in batch:
+            if type(batch[key]) == np.ndarray:
+                batch[key] = U.to_float_tensor(batch[key])
+        return batch
+
+    def _prefetch_thread_preprocess(self, batch):
+        batch = self.aggregator.aggregate(batch)
+        return batch
+
+    def _preprocess_batch(self):
+        for batch in self.fetch_iterator():
+            batch = EasyDict(batch.data)
+            # The preprocess step creates Variables which will become GpuVariables
+            batch = self.preprocess(batch)
+            self._preprocess_prefetch_queue.put(batch)
+
+    def _setup_batch_prefetch(self):
+        self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
+        self._preprocess_threads = []
+        for i in range(1):
+            self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
+            self._preprocess_threads[-1].start()
+
+    def fetch_processed_batch_iterator(self):
+        while True:
+            yield self._preprocess_prefetch_queue.get()
+
+    ######
     # Main Loop
     # Override to completely change learner behavior
     ######
@@ -312,9 +351,9 @@ class Learner(metaclass=LearnerMeta):
         """
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
-        for i, batch in enumerate(self.fetch_iterator()):
+
+        for i, data in enumerate(self.fetch_processed_batch_iterator()):
             self.current_iter = i
-            data = batch.data
             with self.learn_timer.time():
                 self.learn(data)
             if self.should_publish_parameter():

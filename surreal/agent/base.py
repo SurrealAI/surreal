@@ -10,7 +10,8 @@ from surreal.session import (
 from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
     MaxStepWrapper, TrainingTensorplexMonitor,
-    expSenderWrapperFactory, EvalTensorplexMonitor
+    expSenderWrapperFactory, EvalTensorplexMonitor,
+    VideoWrapper
 )
 agent_registry = {}
 
@@ -230,17 +231,21 @@ class Agent(object, metaclass=AgentMeta):
         while True:
             self.pre_episode()
             obs, info = env.reset()
+            total_reward = 0.0
             while True:
                 if render:
                     env.render()
                 self.pre_action(obs)
                 action = self.act(obs)
                 obs_next, reward, done, info = env.step(action)
+                total_reward += reward
                 self.post_action(obs, action, obs_next, reward, done, info)
                 obs = obs_next
                 if done:
                     break
             self.post_episode()
+            if self.current_episode % 20 == 0:
+                print('episode', self.current_episode, 'reward', total_reward)
 
     def prepare_env(self, env):
         """
@@ -284,6 +289,7 @@ class Agent(object, metaclass=AgentMeta):
             fetch_parameter=self.fetch_parameter,
             session_config=self.session_config,
         )
+        env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
     def main_agent(self, env):

@@ -1,8 +1,10 @@
+from queue import Queue
 import torch.nn as nn
 from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
 import numpy as np
+import itertools
 
 from .model_builders import *
 from .z_filter import ZFilter
@@ -10,49 +12,71 @@ from .z_filter import ZFilter
 class DDPGModel(U.Module):
 
     def __init__(self,
-                 obs_dim,
+                 obs_spec,
                  action_dim,
-                 use_z_filter,
-                 use_batchnorm,
+                 use_layernorm,
                  actor_fc_hidden_sizes,
                  critic_fc_hidden_sizes,
-                 use_cuda = False):
+                 use_z_filter=False,
+                 ):
         super(DDPGModel, self).__init__()
 
         # hyperparameters
-        self.obs_dim = obs_dim
+        self.is_pixel_input = 'pixel' in obs_spec
         self.action_dim = action_dim
         self.use_z_filter = use_z_filter
-        self.use_batchnorm = use_batchnorm
+        self.use_layernorm = use_layernorm
 
-        self.actor = ActorNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=actor_fc_hidden_sizes)
-        self.critic = CriticNetwork(self.obs_dim, self.action_dim, use_batchnorm=use_batchnorm, hidden_sizes=critic_fc_hidden_sizes)
-        if self.use_z_filter:
-            self.z_filter = ZFilter(obs_dim, use_cuda=use_cuda)
+        if self.is_pixel_input:
+            self.input_dim = obs_spec['pixel']['camera0']
+        else:
+            self.input_dim = obs_spec['low_dim']['flat_inputs'][0]
+
+        if self.is_pixel_input:
+            perception_hidden_dim = 200
+            self.perception = CNNStemNetwork(self.input_dim, perception_hidden_dim)
+            self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
+        else:
+            self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes)
+            self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes)
+
+    def get_actor_parameters(self):
+        return itertools.chain(self.actor.parameters())
+
+    def get_critic_parameters(self):
+        if self.is_pixel_input:
+            return itertools.chain(self.critic.parameters(), self.perception.parameters())
+        else:
+            return itertools.chain(self.critic.parameters())
 
     def forward_actor(self, obs):
-        shape = obs.size()
-        assert len(shape) == 2 and shape[1] == self.obs_dim
-        if self.use_z_filter:
-            obs = self.z_filter.forward(obs)
         return self.actor(obs)
 
     def forward_critic(self, obs, action):
-        obs_shape = obs.size()
-        assert len(obs_shape) == 2 and obs_shape[1] == self.obs_dim
-        action_shape = action.size()
-        assert len(action_shape) == 2 and action_shape[1] == self.action_dim
-        if self.use_z_filter:
-            obs = self.z_filter.forward(obs)
         return self.critic(obs, action)
 
-    def forward(self, obs):
-        action = self.forward_actor(obs)
-        value = self.forward_critic(obs, action)
-        return (action, value)
-
-    def z_update(self, obs):
-        if self.use_z_filter:
-            self.z_filter.z_update(obs)
+    def forward_perception(self, obs):
+        if self.is_pixel_input:
+            obs = obs['pixel']['camera0']
+            obs = self.scale_image(obs)
+            return self.perception(obs)
         else:
-            raise ValueError('Z_update called when network is set to not use z_filter')
+            obs = obs['low_dim']['flat_inputs']
+            return obs
+
+    def forward(self, obs_in, calculate_value=True):
+        obs_in = self.forward_perception(obs_in)
+        action = self.forward_actor(obs_in)
+        value = None
+        if calculate_value:
+            value = self.forward_critic(obs_in, action)
+        return action, value
+
+    def scale_image(self, obs, scaling_factor=255.0):
+        '''
+        Given uint8 input from the environment, scale to float32 and
+        divide by 255 to scale inputs between 0.0 and 1.0
+        '''
+        return obs / scaling_factor
+        

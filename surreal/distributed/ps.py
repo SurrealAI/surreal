@@ -87,9 +87,9 @@ class ShardedParameterServer(object):
 
     def join(self):
         self.proxy.join()
-        for worker in self.workers():
+        for i, worker in enumerate(self.workers):
             worker.join()
-
+            U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
         # print(self.workers[0].join())
         # print(self.workers[0].exitcode)
         # print('joined')

@@ -15,55 +15,56 @@ def generate(argv):
     
     learner_config = {
         'model': {
-            'convs': [],
-            'fc_hidden_sizes': [128],
-            'dueling': False,
-            'conv_spec': {
-                'out_channels': [64, 64],
-                'kernel_sizes': [3, 5],
-                'use_batch_norm': False
-            },
-            'mlp_spec': {
-                'sizes': [64],
-                'use_dropout': False
-            }
+            'convs':[], # this can wait until TorchX
+            'actor_fc_hidden_sizes': [300, 200],
+            'critic_fc_hidden_sizes': [300, 200],
+            'cnn_feature_dim': 256,
+            'use_layernorm': False,
         },
         'algo': {
             # base configs
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
-            'norm_adv': True,
+            'use_z_filter': False,
             'gamma': .995,
-            'lam': 0.97,
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'batch_size': 64, 
+            'network': {
+                'lr_actor': 1e-4,
+                'lr_critic': 1e-4,
+                'clip_actor_gradient': True,
+                'actor_gradient_norm_clip': 1.,
+                'clip_critic_gradient': True,
+                'critic_gradient_norm_clip': 5.,
+                'actor_regularization': 0.0,
+                'critic_regularization': 0.0,
+                'anneal':{  
+                    'lr_scheduler': "LinearWithMinLR",
+                    'frames_to_anneal': 5e7,
+                    'lr_update_frequency': 100, 
+                    'min_lr': 1e-5,
+                },
+                'target_update':{
+                    'type': 'hard',
+                    'interval': 8192,
+                },
+            },
             # ppo specific parameters:
             'ppo_mode': 'adapt',
+            'advantage':{
+                'norm_adv': True,
+                'lam': 0.97,
+            },
             'rnn': {
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
             },
-            'gradient': {
-                'clip_actor': True,
-                'clip_critic': True,
-                'clip_actor_val': 1.,
-                'clip_critic_val': 5.,
-            },
-            'lr': {
-                'lr_scheduler': "LinearWithMinLR",
-                'lr_policy': 1e-4,
-                'lr_baseline': 1e-4,
-                'frames_to_anneal': 1e8,
-                'lr_update_frequency': 100, 
-                'min_lr': 1e-5,
-            },
             'consts': {
-                'init_log_sig': -1.,
+                'init_log_sig': -1,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
@@ -81,31 +82,33 @@ def generate(argv):
                 'clip_range': (0.05, 0.3), # range of the adapted penalty factor
                 'scale_constant': 1.2,
             },
+
         },
         'replay': {
             'replay_class': 'FIFOReplay',
             'batch_size': 64,
             'memory_size': 96,
             'sampling_start_size': 64,
-            'param_release_min': 4096,
+            'replay_shards': 1,
         },
-        'eval': {
-            'eps': 0.05  # 5% random action under eval_stochastic mode
-        }
     }
 
-
     env_config = {
-        'env_name': args.env,  
+        'env_name': args.env, 
+        'pixel_input': True,
+        'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 100,
-        }
+        },
+        'observation': {
+            'pixel':['camera0'],
+            'low_dim':['position', 'velocity'],
+        },
     }
-
 
     session_config = Config({
         'folder': '_str_',
@@ -120,15 +123,15 @@ def generate(argv):
                 'learner': 20,  # learner.update_tensorplex()
             },
         },
+        'agent' : {
+            'fetch_parameter_mode': 'episode',
+            'fetch_parameter_interval': 1, # 10 for without RNN
+        },
         'sender': {
             'flush_iteration': 3,
         },
         'learner': {
             'num_gpus': args.num_gpus,
-        },
-        'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 20, # 10 for without RNN
         },
         'replay' : {
             'max_puller_queue': 3,
@@ -138,3 +141,13 @@ def generate(argv):
 
     session_config.extend(LOCAL_SESSION_CONFIG)
     return learner_config, env_config, session_config
+
+'''
+    Specific parameter without RNN difference:
+        * n_step -> 10
+        * stride -> 10
+        * fetch_parameter_mode -> 'step'
+        * fetch_parameter_interval -> 10
+    Pixel specific parameter differnce:
+        * param_release_min -> 8192 (instead of 4096)
+'''

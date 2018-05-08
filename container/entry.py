@@ -67,11 +67,16 @@ def init():
         os.system('pip install -e ' + tensorplex_path)
     else:
         print('WARNING: `tensorplex` lib not installed')
-    mujocomanip_path = os.environ.get('repo_mujocomanip', '')
-    if tensorplex_path and os.path.exists(mujocomanip_path):
+    mujocomanip_path = os.environ.get('repo_mujocomanipulation', '')
+    if mujocomanip_path and os.path.exists(mujocomanip_path):
         os.system('pip install -e ' + mujocomanip_path)
     else:
         print('WARNING: `MujocoManipulation` lib not installed')
+    symphony_path = os.environ.get('repo_symphony', '')
+    if symphony_path and os.path.exists(symphony_path):
+        os.system('pip install -e ' + symphony_path)
+    else:
+        print('WARNING: `symphony` lib not installed')
     torchx_path = os.environ.get('repo_torchx', '')
     if torchx_path and os.path.exists(torchx_path):
         os.system('pip install -e ' + torchx_path)
