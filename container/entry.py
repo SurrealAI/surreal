@@ -77,6 +77,11 @@ def init():
         os.system('pip install -e ' + symphony_path)
     else:
         print('WARNING: `symphony` lib not installed')
+    torchx_path = os.environ.get('repo_torchx', '')
+    if torchx_path and os.path.exists(torchx_path):
+        os.system('pip install -e ' + torchx_path)
+    else:
+        print('WARNING: `torchx` lib not installed')
 
     # convenient symlinks for GitVolumes to be accessible in the home dir
     for env_var in os.environ:
