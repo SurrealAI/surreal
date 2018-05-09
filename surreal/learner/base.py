@@ -314,9 +314,6 @@ class Learner(metaclass=LearnerMeta):
         Perform algorithm-specific preprocessing tasks, overridden in subclasses
         For example, ddpg converts relevant variables onto gpu
         '''
-        for key in batch:
-            if type(batch[key]) == np.ndarray:
-                batch[key] = U.to_float_tensor(batch[key])
         return batch
 
     def _prefetch_thread_preprocess(self, batch):

@@ -1,5 +1,6 @@
 import pickle
 import surreal.utils as U
+import torchx.nn as nnx
 
 
 class ModuleDict(object):
@@ -12,8 +13,8 @@ class ModuleDict(object):
         U.assert_type(module_dict, dict)
         for k, m in module_dict.items():
             U.assert_type(k, str), 'Key "{}" must be string.'.format(k)
-            U.assert_type(m, U.Module), \
-            '"{}" must be surreal.utils.pytorch.Module.'.format(m)
+            U.assert_type(m, nnx.Module), \
+            '"{}" must be torchx.nn.Module.'.format(m)
         self._module_dict = module_dict
 
     def dumps(self):

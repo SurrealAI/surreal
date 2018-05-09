@@ -117,24 +117,30 @@ class DDPGLearner(Learner):
                 batch['obs_next'],
                 batch['dones']
             )
+            #print('before', type(obs['pixel']['camera0']))
+            #print('before', done.dtype)
 
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = (torch.ByteTensor(obs[modality][key])).float().detach()
+                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
                     else:
-                        obs[modality][key] = (U.to_float_tensor(obs[modality][key])).detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = (torch.ByteTensor(obs_next[modality][key])).float().detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
                     else:
-                        obs_next[modality][key] = (U.to_float_tensor(obs_next[modality][key])).detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
 
-            actions = (U.to_float_tensor(actions))
-            rewards = (U.to_float_tensor(rewards))
-            done = (U.to_float_tensor(done))
+            actions = torch.tensor(actions, dtype=torch.float32)
+            rewards = torch.tensor(rewards, dtype=torch.float32)
+            done = torch.tensor(done, dtype=torch.float32)
+            #print('donetype', done.dtype)
+            #print('donetype', type(done))
+            #print('converted', (obs['pixel']['camera0'].dtype))
+            #print('converted', type(obs['pixel']['camera0']))
 
             (
                 batch['obs'],
@@ -174,8 +180,17 @@ class DDPGLearner(Learner):
                 next_Q_target = self.model_target.forward_critic(perception_next_target,
                                                                  next_actions_target)
                 '''
+                #print('optim', type(obs_next['pixel']['camera0']))
                 _, next_Q_target = self.model_target.forward(obs_next)
                 # next_Q_target.volatile = False
+                '''
+                print('nextq', next_Q_target.dtype, type(next_Q_target))
+                print('reward', rewards.dtype, type(rewards))
+                print('done', done.dtype)
+                print('done', type(done))
+                '''
+                #next_Q_target * (1.0 - done)
+                #rewards + next_Q_target * (1.0 - done)
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
