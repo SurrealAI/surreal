@@ -63,6 +63,9 @@ class ShardedParameterServer(object):
 
         self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
         self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
+
+        self.proxy = None
+        self.workers = []
         
     def launch(self):
         self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
@@ -74,8 +77,8 @@ class ShardedParameterServer(object):
         
         self.workers = []
 
-        publisher_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
-        publisher_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
+        publish_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
+        publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         for i in range(self.shards):
             worker = ParameterServer(
                 publish_host=publish_host,
@@ -89,9 +92,10 @@ class ShardedParameterServer(object):
             # break
 
     def join(self):
-        self.proxy.join()
-        for worker in self.workers():
+        for worker in self.workers:
             worker.join()
+        self.proxy.join()
+        
 
         # print(self.workers[0].join())
         # print(self.workers[0].exitcode)

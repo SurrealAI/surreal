@@ -513,8 +513,6 @@ class KurrealParser(SymphonyParser):
         tensorboard = nonagent.new_process('tensorboard', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorboard']])
         tensorplex = nonagent.new_process('tensorplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['tensorplex']])
         loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=['--cmd', cmd_dict['loggerplex']])
-        learner.binds('myserver')
-        replay.connects('myserver')
 
         agents = []
         for i, arg in enumerate(cmd_dict['agent']):
