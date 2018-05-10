@@ -1,5 +1,4 @@
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
@@ -138,8 +137,6 @@ class PPOModel(nnx.Module):
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
                                               self.model_config.cnn_feature_dim,
                                               use_layernorm=self.model_config.use_layernorm)
-            if use_cuda:
-                self.cnn_stem = self.cnn_stem.cuda()
 
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
@@ -149,7 +146,8 @@ class PPOModel(nnx.Module):
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
             if use_cuda:
-                self.rnn_stem = self.rnn_stem.cuda()
+                device = torch.device("cuda")
+                self.rnn_stem = self.rnn_stem.to(device)
 
         input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
@@ -162,8 +160,7 @@ class PPOModel(nnx.Module):
                                       self.model_config.critic_fc_hidden_sizes)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
-            self.z_filter = ZFilter(self.obs_spec,
-                                    use_cuda=use_cuda)
+            self.z_filter = ZFilter(self.obs_spec)
 
     def _gather_low_dim_input(self, obs):
         '''
@@ -316,11 +313,10 @@ class PPOModel(nnx.Module):
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)
             obs, cells = self.rnn_stem(obs, cells)
             
-            # Note that this is effectively the same of a .detach() call.
             # .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            cells = (Variable(cells[0].data),Variable(cells[1].data))
+            cells = (cells[0].detach(),cells[1].detach())
             obs = obs.contiguous()  
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 
@@ -343,4 +339,6 @@ class PPOModel(nnx.Module):
             Given uint8 input from the environment, scale to float32 and
             divide by 255 to scale inputs between 0.0 and 1.0
         '''
+        if obs.type() == 'torch.ByteTensor':
+            obs = obs.float()
         return obs / 255.0

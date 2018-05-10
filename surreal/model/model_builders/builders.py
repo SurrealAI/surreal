@@ -1,9 +1,9 @@
 import torch
 import torchx as tx
 import torchx.nn as nnx
+import torch.nn as nn
 import torchx.layers as L
 import numpy as np
-import resource
 
 class CNNStemNetwork(nnx.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
@@ -20,11 +20,11 @@ class CNNStemNetwork(nnx.Module):
         )
 
         # instantiate parameters
-        C, H, W = D_obs
-        self.model.build((None, C, H, W))
+        self.model.build((None, *D_obs))
 
     def forward(self, obs):
         return self.model(obs)
+
 
 class ActorNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
@@ -110,18 +110,24 @@ class CriticNetwork(nnx.Module):
         value = self.model_concat(h1)
         return value
 
-'''
+
 class PPO_ActorNetwork(nnx.Module):
-    \'''
+    '''
         PPO custom actor network structure
-    \'''
+    '''
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], init_log_sig=0):
         super(PPO_ActorNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim
+        xp_input = L.Placeholder((None, D_obs))
+        xp = L.Linear(hidden_sizes[0])(xp_input)
+        xp = L.Tanh()(xp)
+        xp = L.Linear(hidden_sizes[1])(xp)
+        xp = L.Tanh()(xp)
+        xp = L.Linear(D_act)(xp)
 
-        self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
-        self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-        self.fc_mean = nn.Linear(hidden_sizes[1], D_act)
+        self.model = L.Functional(inputs=xp_input, outputs=xp)
+        self.model.build((None, D_obs))
+
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
 
     def forward(self, obs):
@@ -130,10 +136,8 @@ class PPO_ActorNetwork(nnx.Module):
         if if_high_dim: 
             obs = obs.view(-1, obs_shape[2])
 
-        h1 = F.tanh(self.fc_h1(obs))
-        h2 = F.tanh(self.fc_h2(h1))
-        mean = self.fc_mean(h2)
-        std  = torch.exp(self.log_var) * Variable(torch.ones(mean.size()))
+        mean = self.model(obs)
+        std  = torch.exp(self.log_var) * torch.ones(mean.size())
 
         action = torch.cat((mean, std), dim=1)
         if if_high_dim:
@@ -142,16 +146,22 @@ class PPO_ActorNetwork(nnx.Module):
 
 
 class PPO_CriticNetwork(nnx.Module):
-    \'''
+    '''
         PPO custom critic network structure
-    \'''
+    '''
     def __init__(self, D_obs, hidden_sizes=[64, 64]):
         super(PPO_CriticNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim if necessary
 
-        self.fc_h1 = nn.Linear(D_obs, hidden_sizes[0])
-        self.fc_h2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-        self.fc_v  = nn.Linear(hidden_sizes[1], 1)
+        xp_input = L.Placeholder((None, D_obs))
+        xp = L.Linear(hidden_sizes[0])(xp_input)
+        xp = L.Tanh()(xp)
+        xp = L.Linear(hidden_sizes[1])(xp)
+        xp = L.Tanh()(xp)
+        xp = L.Linear(1)(xp)
+
+        self.model = L.Functional(inputs=xp_input, outputs=xp)
+        self.model.build((None, D_obs))
 
     def forward(self, obs):
         obs_shape = obs.size()
@@ -159,12 +169,9 @@ class PPO_CriticNetwork(nnx.Module):
         if if_high_dim: 
             obs = obs.view(-1, obs_shape[2])
 
-        h1 = F.tanh(self.fc_h1(obs))
-        h2 = F.tanh(self.fc_h2(h1))
-        v  = self.fc_v(h2) 
+        v = self.model(obs)
 
         if if_high_dim:
             v = v.view(obs_shape[0], obs_shape[1], 1)
         return v
 
-'''
