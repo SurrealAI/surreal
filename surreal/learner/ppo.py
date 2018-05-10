@@ -238,9 +238,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
                                             self.model.get_actor_params(), 
-                                            self.actor_gradient_clip_value)
+                                            self.actor_gradient_clip_value).item()
         self.actor_optim.step()
         return stats
 
@@ -265,7 +265,7 @@ class PPOLearner(Learner):
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages.view(-1, 1) * prob_learn/torch.clamp(prob_behave, min=1e-3)).mean()
+        surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, max=self.is_weight_thresh)).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -299,9 +299,9 @@ class PPOLearner(Learner):
         self.model.actor.zero_grad()
         loss.backward()
         if self.clip_actor_gradient:
-            stats['grad_norm_actor'] = nn.utils.clip_grad_norm(
+            stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
                                             self.model.get_actor_params(), 
-                                            self.actor_gradient_clip_value)
+                                            self.actor_gradient_clip_value).item()
         self.actor_optim.step()
         return stats
 
@@ -343,9 +343,9 @@ class PPOLearner(Learner):
         self.model.critic.zero_grad()
         loss.backward()
         if self.clip_critic_gradient:
-            stats['grad_norm_critic'] = nn.utils.clip_grad_norm(
+            stats['grad_norm_critic'] = nn.utils.clip_grad_norm_(
                                                 self.model.get_critic_params(), 
-                                                self.critic_gradient_clip_value)
+                                                self.critic_gradient_clip_value).item()
         self.critic_optim.step()
         return stats
 
@@ -587,6 +587,7 @@ class PPOLearner(Learner):
             batch.onetime_infos,
             batch.dones,
         )
+
         self.tensorplex.add_scalars(tensorplex_update_dict, self.global_step)
         self.exp_counter += self.batch_size
         self.global_step += 1

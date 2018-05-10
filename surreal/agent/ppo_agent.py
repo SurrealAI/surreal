@@ -113,7 +113,7 @@ class PPOAgent(Agent):
         action_choice = action_choice.reshape((-1,))
         action_pd     = action_pd.reshape((-1,))
         action_info[1].append(action_pd)
-        
+
         if self.agent_mode != 'training':
             return action_choice
         else: 

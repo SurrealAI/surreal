@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import surreal.utils as U
 import numpy as np
 import torchx.nn as nnx
@@ -39,7 +38,7 @@ class ZFilter(nnx.Module):
         # Keep some buffers for doing whitening. 
         self.register_buffer('running_sum', torch.zeros(in_size))
         self.register_buffer('running_sumsq', eps * torch.ones(in_size))
-        self.register_buffer('count', torch.Tensor([eps]))
+        self.register_buffer('count', torch.tensor([eps], dtype=torch.float32))
 
     def z_update(self, x):
         """
@@ -54,8 +53,7 @@ class ZFilter(nnx.Module):
         if len(x.size()) == 3: x = x.view(-1, self.in_size)
         self.running_sum += torch.sum(x, dim=0)
         self.running_sumsq += torch.sum(x * x, dim=0)
-        added_count = U.to_float_tensor(np.array([len(x)]))
-        self.count += added_count 
+        self.count += float(len(x))
 
     def forward(self, inputs):
         '''
@@ -75,9 +73,6 @@ class ZFilter(nnx.Module):
         running_mean = (self.running_sum / self.count)
         running_std = torch.clamp((self.running_sumsq / self.count \
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
-        running_mean = Variable(running_mean)
-        running_std = Variable(running_std)
-
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
         normed = normed.view(input_shape)
         return normed
@@ -89,7 +84,7 @@ class ZFilter(nnx.Module):
                 numpy array of current running observation mean
         '''
         running_mean = self.running_sum / self.count
-        return running_mean.numpy()
+        return running_mean.cpu().numpy()
 
     def running_std(self):
         '''
@@ -99,7 +94,7 @@ class ZFilter(nnx.Module):
         '''
         running_std = ((self.running_sumsq / self.count) 
                      - (self.running_sum / self.count).pow(2)).pow(0.5)
-        return running_std.numpy()
+        return running_std.cpu().numpy()
         
     def running_square(self):
         '''
@@ -108,4 +103,4 @@ class ZFilter(nnx.Module):
                 running square mean
         '''
         running_square = self.running_sumsq / self.count
-        return running_square.numpy()
+        return running_square.cpu().numpy()
