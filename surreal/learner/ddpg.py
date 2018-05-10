@@ -161,13 +161,12 @@ class DDPGLearner(Learner):
 
             with self.forward_time.time():
 
-                assert actions.max().data[0] <= 1.0
-                assert actions.min().data[0] >= -1.0
+                assert actions.max().item() <= 1.0
+                assert actions.min().item() >= -1.0
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
                 _, next_Q_target = self.model_target.forward(obs_next)
-                #rewards
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
