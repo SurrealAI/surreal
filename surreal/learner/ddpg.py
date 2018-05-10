@@ -191,6 +191,12 @@ class DDPGLearner(Learner):
                 '''
                 #next_Q_target * (1.0 - done)
                 #rewards + next_Q_target * (1.0 - done)
+                '''
+                pow(self.discount_factor, self.n_step) * next_Q_target
+                pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
+                next_Q_target * (1.0 - done)
+                '''
+                #rewards
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
@@ -226,12 +232,12 @@ class DDPGLearner(Learner):
                 self.actor_optim.step()
 
             tensorplex_update_dict = {
-                'actor_loss': actor_loss.data[0],
-                'critic_loss': critic_loss.data[0],
-                'action_norm': actions.norm(2, 1).mean().data[0],
-                'rewards': rewards.mean().data[0],
-                'Q_target': y.mean().data[0],
-                'Q_policy': y_policy.mean().data[0],
+                'actor_loss': actor_loss.item(),
+                'critic_loss': critic_loss.item(),
+                'action_norm': actions.norm(2, 1).mean().item(),
+                'rewards': rewards.mean().item(),
+                'Q_target': y.mean().item(),
+                'Q_policy': y_policy.mean().item(),
                 'performance/forward_time': self.forward_time.avg,
                 'performance/critic_update_time': self.critic_update_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
