@@ -146,7 +146,8 @@ class PPOModel(nnx.Module):
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
             if use_cuda:
-                self.rnn_stem = self.rnn_stem.to(torch.device('cuda:all'))
+                device = torch.device("cuda")
+                self.rnn_stem = self.rnn_stem.to(device)
 
         input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size

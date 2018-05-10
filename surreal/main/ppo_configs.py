@@ -26,10 +26,10 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'gamma': .995,
-            'n_step': 10, # 10 for without RNN
-            'stride': 10, # 10 for without RNN
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -57,7 +57,7 @@ def generate(argv):
                 'lam': 0.97,
             },
             'rnn': {
-                'if_rnn_policy': False, 
+                'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
@@ -95,7 +95,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0.0,
         'video': {

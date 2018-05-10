@@ -26,6 +26,7 @@ class CNNStemNetwork(nnx.Module):
     def forward(self, obs):
         return self.model(obs)
 
+
 class ActorNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
         super(ActorNetworkX, self).__init__()
