@@ -117,8 +117,6 @@ class DDPGLearner(Learner):
                 batch['obs_next'],
                 batch['dones']
             )
-            #print('before', type(obs['pixel']['camera0']))
-            #print('before', done.dtype)
 
             for modality in obs:
                 for key in obs[modality]:
@@ -137,10 +135,6 @@ class DDPGLearner(Learner):
             actions = torch.tensor(actions, dtype=torch.float32)
             rewards = torch.tensor(rewards, dtype=torch.float32)
             done = torch.tensor(done, dtype=torch.float32)
-            #print('donetype', done.dtype)
-            #print('donetype', type(done))
-            #print('converted', (obs['pixel']['camera0'].dtype))
-            #print('converted', type(obs['pixel']['camera0']))
 
             (
                 batch['obs'],
@@ -172,30 +166,7 @@ class DDPGLearner(Learner):
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
-                '''
-                perception_next_target = self.model_target.forward_perception(obs_next)
-                next_actions_target = self.model_target.forward_actor(perception_next_target)
-
-                # obs_next.volatile = False
-                next_Q_target = self.model_target.forward_critic(perception_next_target,
-                                                                 next_actions_target)
-                '''
-                #print('optim', type(obs_next['pixel']['camera0']))
                 _, next_Q_target = self.model_target.forward(obs_next)
-                # next_Q_target.volatile = False
-                '''
-                print('nextq', next_Q_target.dtype, type(next_Q_target))
-                print('reward', rewards.dtype, type(rewards))
-                print('done', done.dtype)
-                print('done', type(done))
-                '''
-                #next_Q_target * (1.0 - done)
-                #rewards + next_Q_target * (1.0 - done)
-                '''
-                pow(self.discount_factor, self.n_step) * next_Q_target
-                pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
-                next_Q_target * (1.0 - done)
-                '''
                 #rewards
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()

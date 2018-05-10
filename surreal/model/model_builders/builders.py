@@ -1,15 +1,9 @@
 import torch
-#import torch.nn as nn
-#import torch.nn.functional as F
-import surreal.utils as U
 import torchx as tx
 import torchx.nn as nnx
 import torchx.layers as L
-#from surreal.utils.pytorch import GpuVariable as Variable
-import numpy as np 
+import numpy as np
 import resource
-
-#from ..layer_norm import LayerNorm
 
 class CNNStemNetwork(nnx.Module):
     def __init__(self, D_obs, D_out, use_layernorm=True):
@@ -64,16 +58,6 @@ class CriticNetworkX(nnx.Module):
 
         self.model = L.Functional(inputs=xp_input, outputs=xp)
         self.model.build((None, D_in + D_act))
-
-        '''
-        self.fc_in = L.Linear(hidden_size)
-        self.fc_out = L.Linear(1)
-        self.relu = L.ReLU()
-        self.flatten = L.Flatten()
-        self.use_layernorm = use_layernorm
-        if self.use_layernorm:
-            self.layer_norm = LayerNorm()
-        '''
 
     def forward(self, obs, action):
         x = torch.cat((obs, action), dim=1)
