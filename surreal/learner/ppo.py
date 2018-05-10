@@ -366,7 +366,7 @@ class PPOLearner(Learner):
             returns: batch of returns (batch_size, 1)
         '''
         with tx.device_scope(self.gpu_option):
-            index_set = torch.tensor(range(self.n_step), dype=torch.float32)
+            index_set = torch.tensor(range(self.n_step), dtype=torch.float32)
             gamma = torch.pow(self.gamma, index_set)
             lam = torch.pow(self.lam, index_set)
 

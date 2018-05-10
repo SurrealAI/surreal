@@ -158,7 +158,7 @@ class MultistepAggregatorWithInfo():
                 'rewards': np.stack(rewards),
                 'persistent_infos': persistent_infos,
                 'onetime_infos': onetime_infos,
-                'dones': np.stack(dones)}
+                'dones': np.stack(dones).astype('float32')}
 
     def _batch_obs(self, traj_list):
         batched_obs = {}
