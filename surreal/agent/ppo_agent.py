@@ -2,7 +2,6 @@
 Actor function
 """
 import torch
-from torch.autograd import Variable
 from .base import Agent
 from surreal.model.ppo_net import PPOModel, DiagGauss
 import surreal.utils as U
@@ -52,12 +51,12 @@ class PPOAgent(Agent):
             # Note that .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
+            self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)).detach(),
-                          Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               self.rnn_config.rnn_hidden).detach(),
+                          torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)).detach())
+                                               self.rnn_config.rnn_hidden).detach())
 
         self.model = PPOModel(
             obs_spec=self.obs_spec,
@@ -96,15 +95,14 @@ class PPOAgent(Agent):
         for mod in obs.keys():
             obs_tensor[mod] = {}
             for k in obs[mod].keys():
-                tmp_tensor = U.to_float_tensor(obs[mod][k])
-                obs_tensor[mod][k] = Variable(tmp_tensor.unsqueeze(0))
+                obs_tensor[mod][k] = torch.tensor(obs[mod][k]).unsqueeze(0)
 
         if self.rnn_config.if_rnn_policy:
-            action_info[0].append(self.cells[0].squeeze(1).data.numpy())
-            action_info[0].append(self.cells[1].squeeze(1).data.numpy())
+            action_info[0].append(self.cells[0].squeeze(1).numpy())
+            action_info[0].append(self.cells[1].squeeze(1).numpy())
 
         action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
-        action_pd = action_pd.data.numpy()
+        action_pd = action_pd.numpy()
 
         if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)
@@ -143,10 +141,10 @@ class PPOAgent(Agent):
             # Note that .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            self.cells = (Variable(torch.zeros(self.rnn_config.rnn_layer, 
+            self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)).detach(),
-                          Variable(torch.zeros(self.rnn_config.rnn_layer, 
+                                               self.rnn_config.rnn_hidden).detach(),
+                          torch.zeros(self.rnn_config.rnn_layer, 
                                                1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden)).detach())
+                                               self.rnn_config.rnn_hidden).detach())
 
