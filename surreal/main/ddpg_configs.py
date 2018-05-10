@@ -20,6 +20,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
+            'use_layernorm': True,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -29,26 +30,33 @@ def generate(argv):
             'mlp_spec': {
                 'sizes': [128],
                 'use_dropout': False
-            }
+            },
         },
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
-            'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
-            'optimizer': 'Adam',
-            'clip_actor_gradient': True,
-            'actor_gradient_clip_value': 1.,
-            'clip_critic_gradient': False,
-            'critic_gradient_clip_value': 5.,
-            'gamma': .99,
-            'target_update': {
-                'type': 'soft',
-                'tau': 1e-3,
-                # 'type': 'hard',
-                # 'interval': 100,
-            },
+            'experience': 'ExpSenderWrapperSSARNStepBootstrap',
             'use_z_filter': False,
+            'gamma': .99,
+            'n_step': 5,
+            'stride': 1,
+            'limit_training_episode_length': 0, # 0 means no limit
+            'network': {
+                'lr_actor': 1e-4,
+                'lr_critic': 1e-4,
+                'clip_actor_gradient': True,
+                'actor_gradient_norm_clip': 1.,
+                'clip_critic_gradient': False,
+                'critic_gradient_norm_clip': 5.,
+                'actor_regularization': 0.0,
+                'critic_regularization': 0.0,
+                'target_update': {
+                    'type': 'soft',
+                    'tau': 1e-3,
+                    # 'type': 'hard',
+                    # 'interval': 100,
+                },
+            },
             'exploration': {
                 'noise_type': 'normal',
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
@@ -60,38 +68,35 @@ def generate(argv):
                 # 'sigma': 0.3,
                 # 'dt': 1e-3,
             },
-            'actor_regularization': 0.0,
-            'critic_regularization': 0.0,
-            'use_batchnorm': False,
-            'limit_training_episode_length': 0, # 0 means no limit
-            # 'agent_sleep_time': 1/50.0,
-            'agent_sleep_time': 0,
-            'n_step': 5,
-            # 'experience': 'ExpSenderWrapperMultiStepMovingWindow',
-            'experience': 'ExpSenderWrapperSSARNStepBootstrap',
-            'stride': 1,
         },
         'replay': {
             'replay_class': 'UniformReplay',
             'batch_size': 512,
-            # 'memory_size': 1000000,
-            'memory_size': 330000, # Note that actual replay size is memory_size * replay_shards
-            'sampling_start_size': 1000,
+            'memory_size': int(1000000/3), # Note that actual replay size is memory_size * replay_shards
+            'sampling_start_size': 3000,
             'replay_shards': 3,
         },
-        'eval': {
-            'eps': 0.05  # 5% random action under eval_stochastic mode
-        }
+        'parameter_publish': {
+            # Minimum amount of time (seconds) between two parameter publish
+            'min_publish_interval': 3,
+        },
     }
 
     env_config = {
         'env_name': args.env,
+        'pixel_input': True,
+        'frame_stacks': 3,
+        'sleep_time': 0.0,
         'video': {
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 100,
-        }
+        },
+        'observation': {
+            'pixel':['camera0', 'depth'],
+            'low_dim':['position', 'velocity', 'proprio'],
+        },
     }
 
     session_config = Config({
@@ -107,10 +112,17 @@ def generate(argv):
                 'learner': 20,  # learner.tensorplex.add_scalars()
             }
         },
+        'agent': {
+            # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
+            # every episode, every n episodes, every step, every n steps
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 200,
+        },
         'sender': {
             'flush_iteration': 100,
         },
         'learner': {
+            'prefetch_processes': 3,
             'num_gpus': args.num_gpus,
         },
     })

@@ -92,15 +92,10 @@ class ShardedParameterServer(object):
             # break
 
     def join(self):
-        for worker in self.workers:
+        for i, worker in enumerate(self.workers):
             worker.join()
+            U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
         self.proxy.join()
-        
-
-        # print(self.workers[0].join())
-        # print(self.workers[0].exitcode)
-        # print('joined')
-        # 
         
 class ParameterServer(Process):
     # TODO support multiple PS

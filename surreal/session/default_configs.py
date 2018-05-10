@@ -11,11 +11,12 @@ BASE_LEARNER_CONFIG = {
         'experience': '_str_',
         'n_step': 1,
         'gamma': '_float_',
-        'actor_regularization': 0.0,
-        'critic_regularization': 0.0,
         'use_batchnorm': False,
         'limit_training_episode_length': 0,
-        'agent_sleep_time': 0.0,
+        'network': {
+            'actor_regularization': 0.0,
+            'critic_regularization': 0.0,
+        },
     },
     'replay': {
         # The replay class to instantiate
@@ -33,6 +34,7 @@ BASE_LEARNER_CONFIG = {
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
     'env_name' : '_str_',
+    'agent_sleep_time': 0.0,
     'video' : {
         'record_video' : False,
         'max_videos': 10,

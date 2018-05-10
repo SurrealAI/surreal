@@ -4,7 +4,7 @@ Send experience chunks (buffered) to Replay node.
 """
 import surreal.utils as U
 from surreal.session import PeriodicTracker
-from surreal.distributed.zmq_struct import ZmqPusher
+from surreal.distributed.zmq_struct import ZmqPusher, ZmqSender
 
 
 class ExpBuffer(object):
@@ -37,8 +37,12 @@ class ExpBuffer(object):
     def _hash_nested(self, values):
         if isinstance(values, list):
             return [self._hash_nested(v) for v in values]
+        if isinstance(values, tuple):
+            return tuple([self._hash_nested(v) for v in values])
         elif isinstance(values, dict):
             return {k: self._hash_nested(v) for k, v in values.items()}
+        elif values is None:
+            return None
         else:  # values is a single object
             obj = values
             hsh = U.pyobj_hash(obj)
@@ -62,7 +66,8 @@ class ExpSender(object):
             flush_iteration: how many send() calls before we flush the buffer
         """
         U.assert_type(flush_iteration, int)
-        self._client = ZmqPusher(host=host,port=port,preprocess=None)
+        # self._client = ZmqPusher(host=host,port=port,preprocess=None)
+        self._client = ZmqSender(host=host,port=port,preprocess=None)
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 
@@ -78,7 +83,7 @@ class ExpSender(object):
         )
         if self._flush_tracker.track_increment():
             exp_binary = self._exp_buffer.flush()
-            self._client.push(exp_binary)
+            self._client.send(exp_binary)
             return U.binary_hash(exp_binary)
         else:
             return None

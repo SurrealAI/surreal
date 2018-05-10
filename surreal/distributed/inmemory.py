@@ -65,7 +65,7 @@ def inmem_serialize(data, name=None):
 
 def inmem_deserialize(name_bin):
     """
-        Deserailize data sent by inmem_serialize by
+        Deserialize data sent by inmem_serialize by
         putting it inside a SharedMemoryObject.data
     """
     return SharedMemoryObject(name_bin.decode())

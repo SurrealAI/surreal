@@ -19,7 +19,7 @@ def run_agent_main(args, config):
     agent_id = args.id
     agent_mode = 'training'
 
-    env, env_config = make_env(env_config, session_config)
+    env, env_config = make_env(env_config)
 
     agent_class = agent_factory(learner_config.algo.agent_class)
     agent = agent_class(

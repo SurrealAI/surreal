@@ -1,4 +1,4 @@
-from nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04
+from nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 LABEL author="Stanford Surreal team"
 
@@ -27,12 +27,25 @@ RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
     && rm mjpro131_linux.zip
 
 # pytorch
-RUN conda install --yes pytorch torchvision -c pytorch
+# [anaconda root directory]
+WORKDIR /mylibs
+RUN conda install numpy pyyaml mkl mkl-include setuptools cmake cffi typing
+RUN conda install -c pytorch magma-cuda90
+RUN git clone --recursive https://github.com/pytorch/pytorch
+ENV CMAKE_PREFIX_PATH=/mylibs/miniconda/bin/
+WORKDIR /mylibs/pytorch
+RUN git submodule update --init
+RUN TORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0+PTX" TORCH_NVCC_FLAGS="-Xfatbin -compress-all" \
+    CMAKE_PREFIX_PATH="$(dirname $(which conda))/../" \
+    pip install -v .
+WORKDIR /mylibs
+RUN git clone https://github.com/pytorch/vision.git && cd vision && pip install -v .
+
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
 # required for imageio
-# RUN conda install -y ffmpeg -c conda-forge
+# RUN conda install --yes ffmpeg -c conda-forge
 
 # DM control suite
 RUN pip install git+git://github.com/deepmind/dm_control.git
@@ -44,7 +57,3 @@ COPY entry.py /mylibs
 RUN chmod +x /mylibs/entry.py
 ENTRYPOINT ["/mylibs/entry.py"]
 
-RUN apt-get update && apt-get install -y libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
-RUN pip install -U mujoco_py~=1.50
-ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
-RUN apt-get update && apt-get install -y patchelf

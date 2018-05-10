@@ -2,6 +2,7 @@
 Aggregate experience tuple into pytorch-ready tensors
 """
 import numpy as np
+import collections
 from easydict import EasyDict
 import torch
 import surreal.utils as U
@@ -10,9 +11,8 @@ from surreal.env import ActionType
 class SSARAggregator():
     """
         Accepts experience sent by SSAR experience senders
-        aggregate() returns float tensors:
-        TODO: make them Tensors 
-        EasyDict{
+        aggregate() returns float arrays:
+        {
             obs = batch_size * observation
             obs_next = batch_size * next_observation
             actions = batch_size * actions,
@@ -37,89 +37,55 @@ class SSARAggregator():
         Returns:
             aggregated experience
         """
-        
-        obs0, actions, rewards, obs1, dones = [], [], [], [], []
+
+        obs0, actions, rewards, obs1, dones = (
+            collections.OrderedDict(), [], [], collections.OrderedDict(), [])
+        i = 0
         for exp in exp_list:  # dict
-            obs0.append(np.array(exp['obs'][0], copy=False))
+            i += 1
+            for modality in exp['obs'][0]:
+                if modality not in obs0:
+                    obs0[modality] = collections.OrderedDict()
+                for key in exp['obs'][0][modality]:
+                    if key not in obs0[modality]:
+                        obs0[modality][key] = []
+                    obs0[modality][key].append(np.array(exp['obs'][0][modality][key], copy=False))
             actions.append(exp['action'])
             rewards.append(exp['reward'])
-            obs1.append(np.array(exp['obs'][1], copy=False))
+            for modality in exp['obs'][1]:
+                if modality not in obs1:
+                    obs1[modality] = collections.OrderedDict()
+                for key in exp['obs'][1][modality]:
+                    if key not in obs1[modality]:
+                        obs1[modality][key] = []
+                    obs1[modality][key].append(np.array(exp['obs'][1][modality][key], copy=False))
             dones.append(float(exp['done']))
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = np.array(actions, dtype=np.float32)
         elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(1)
+            actions = np.array(actions, dtype=np.int32)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        return EasyDict(
-            obs=U.to_float_tensor(obs0),
-            obs_next=U.to_float_tensor(obs1),
-            actions=actions,
-            rewards=U.to_float_tensor(rewards).unsqueeze(1),
-            dones=U.to_float_tensor(dones).unsqueeze(1),
-        )
 
-class MultistepAggregator():
-    """
-        Accepts input by ExpSenderWrapperMultiStep
-        aggregate() returns float Tensors
-        TODO: make them Tensors
-        EasyDict{
-            obs = batch_size * n_step * observation
-            next_obs = batch_size * 1 * next_observation
-            actions = batch_size * n_step * actions,
-            rewards = batch_size * n_step,
-            dones = batch_size * n_step,
+        for obs in obs0, obs1:
+            for modality in obs:
+                for key in obs[modality]:
+                    obs[modality][key] = np.array(obs[modality][key])
+
+        return {
+            'obs': obs0,
+            'obs_next': obs1,
+            'actions': np.array(actions),
+            'rewards': np.expand_dims(rewards, axis=1),
+            'dones': np.expand_dims(dones, axis=1),
         }
-    """
-    def __init__(self, obs_spec, action_spec):
-        U.assert_type(obs_spec, dict)
-        U.assert_type(action_spec, dict)
-        self.action_type = ActionType[action_spec['type']]
-        self.action_spec = action_spec
-        self.obs_spec = obs_spec
-
-    def aggregate(self, exp_list):
-        observations, next_obs, actions, rewards, dones = [], [], [], [], []
-        for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
-            observations.append(observation_n_step)
-            actions.append(action_n_step)
-            rewards.append(reward_n_step)
-            dones.append(done_n_step)
-            next_obs.append(exp['obs_next'])
-        observations = U.to_float_tensor(np.stack(observations))
-        next_obs     = U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
-        if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
-        elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(2)
-        else:
-            raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        rewards = U.to_float_tensor(rewards)
-        dones = U.to_float_tensor(dones)
-        return EasyDict(obs=observations,
-                    next_obs = next_obs,
-                    actions=actions, 
-                    rewards=rewards, 
-                    dones=dones,)
-
-    def stack_n_step_experience(self, experience):
-        """
-            Stacks n steps into single numpy arrays
-        """
-        observation_arr = np.stack(experience['obs_arr'])
-        action_arr = np.stack(experience['action_arr'])
-        reward_arr = np.array(experience['reward_arr'])
-        done_arr = np.array(experience['done_arr'])
-        return observation_arr, action_arr, reward_arr, done_arr
 
 
 class MultistepAggregatorWithInfo():
     """
         Accepts input by ExpSenderWrapperMultiStepMovingWindowWithInfo
         aggregate() returns float Tensors
-        EasyDict{
+        {
             obs = batch_size * n_step * observation
             next_obs = batch_size * 1 * next_observation
             actions = batch_size * n_step * actions,
@@ -171,35 +137,46 @@ class MultistepAggregatorWithInfo():
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
-            observation_n_step, action_n_step, reward_n_step, done_n_step = self.stack_n_step_experience(exp)
-            observations.append(observation_n_step)
+            action_n_step, reward_n_step, done_n_step = self._stack_n_step_experience(exp)
             actions.append(action_n_step)
             rewards.append(reward_n_step)
             dones.append(done_n_step)
-            next_obs.append(exp['obs_next'])
+            observations.append(exp['obs'])
+            next_obs.append([exp['obs_next']])
 
-        observations =  U.to_float_tensor(np.stack(observations))
-        next_obs     =  U.to_float_tensor(np.stack(next_obs)).unsqueeze(1)
-        if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
-        elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(2)
-        else:
+        observations = self._batch_obs(observations)
+        next_obs = self._batch_obs(next_obs)
+
+        if self.action_type == ActionType.discrete:
+            actions = np.expand_dims(2).astype('int64')
+        elif self.action_type is not ActionType.continuous:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        rewards = U.to_float_tensor(rewards)
-        dones = U.to_float_tensor(dones)
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
+        return {'obs': observations,
+                'next_obs': next_obs,
+                'actions': np.stack(actions),
+                'rewards': np.stack(rewards),
+                'persistent_infos': persistent_infos,
+                'onetime_infos': onetime_infos,
+                'dones': np.stack(dones)}
 
-        return EasyDict(obs=observations,
-                    next_obs = next_obs,
-                    actions=actions, 
-                    rewards=rewards, 
-                    persistent_infos=persistent_infos,
-                    onetime_infos=onetime_infos,
-                    dones=dones,)
-
-    def stack_n_step_experience(self, experience):
+    def _batch_obs(self, traj_list):
+        batched_obs = {}
+        for modality in self.obs_spec.keys():
+            batched_obs[modality] = {}
+            for key in self.obs_spec[modality].keys():
+                batched_obs[modality][key] = []
+                for exp in traj_list: # exp ~= ex['obs']
+                    n_step_obs = []
+                    for obs in exp: 
+                        n_step_obs.append(obs[modality][key])
+                    n_step_obs = np.stack(n_step_obs)
+                    batched_obs[modality][key].append(n_step_obs)
+                batched_obs[modality][key] = np.stack(batched_obs[modality][key])
+        return batched_obs
+        
+    def _stack_n_step_experience(self, experience):
         """
             Stacks n steps into single numpy arrays
             Args:
@@ -210,11 +187,10 @@ class MultistepAggregatorWithInfo():
                 rewards: stacked numpy array for rewards in dim 0
                 dones: stacked numpy array for termination flag in dim 0
         """
-        observations = np.stack(experience['obs'])
         actions = np.stack(experience['actions'])
         rewards = np.array(experience['rewards'])
         dones = np.array(experience['dones'])
-        return observations, actions, rewards, dones
+        return actions, rewards, dones
 
     def _gather_action_infos(self, exp_list):
         """
@@ -251,11 +227,9 @@ class MultistepAggregatorWithInfo():
                     persistent_infos[i].append(np.stack(one_exp_info))
 
         if exists_ones:
-            onetime_infos = [U.to_float_tensor(np.stack(info)) 
-                                for info in onetime_infos]
+            onetime_infos = [np.stack(info) for info in onetime_infos]
         if exists_pers:
-            persistent_infos = [U.to_float_tensor(np.asarray(infos)) 
-                                    for infos in persistent_infos]
+            persistent_infos = [np.asarray(infos) for infos in persistent_infos]
 
         return onetime_infos, persistent_infos
 
@@ -264,9 +238,7 @@ class NstepReturnAggregator():
         Accepts input by ExpSenderWrapperMultiStepMovingWindow
         Sums over the moving window for bootstrap n_step return
 
-        aggregate() returns float tensors:
-        TODO: make them Tensors 
-        EasyDict{
+        {
             obs = batch_size * observation
             obs_next = batch_size * next_observation
             actions = batch_size * actions,
@@ -293,29 +265,38 @@ class NstepReturnAggregator():
             aggregated experience
         """
         
-        obs0, actions, rewards, obs1, dones, num_steps = [], [], [], [], [], []
+        obs0, actions, rewards, obs1, dones, num_steps = (
+            collections.defaultdict(list), [], [], collections.defaultdict(list), [], [])
         for exp in exp_list:  # dict
             n_step = exp['n_step']
             num_steps.append(n_step)
-            obs0.append(np.array(exp['obs_arr'][0], copy=False))
+            for key in exp['obs_arr'][0]:
+                obs0[key].append(np.array(exp['obs_arr'][0][key], copy=False))
             actions.append(exp['action_arr'][0])
             cum_reward = 0
             for i, r in enumerate(exp['reward_arr']):
                 cum_reward += pow(self.gamma, i) * r
             rewards.append(cum_reward)
-            obs1.append(np.array(exp['obs_next'], copy=False))
+            for key in exp['obs_next']:
+                obs1[key].append(np.array(exp['obs_next'][key], copy=False))
             dones.append(float(exp['done_arr'][n_step - 1]))
+        for obs in [obs0, obs1]:
+            for key in obs:
+                obs[key] = np.array(obs[key])
+
+        # TODO: convert action to appropriate numpy array
         if self.action_type == ActionType.continuous:
-            actions = U.to_float_tensor(actions)
+            actions = np.array(actions, dtype=np.float32)
         elif self.action_type == ActionType.discrete:
-            actions = torch.LongTensor(actions).unsqueeze(1)
+            actions = np.array(actions, dtype=np.int32)
         else:
             raise NotImplementedError('action_spec unsupported '+str(self.action_spec))
-        return EasyDict(
-            obs=U.to_float_tensor(obs0),
-            obs_next=U.to_float_tensor(obs1),
-            actions=actions,
-            rewards=U.to_float_tensor(rewards).unsqueeze(1),
-            dones=U.to_float_tensor(dones).unsqueeze(1),
-            num_steps=U.to_float_tensor(num_steps).unsqueeze(1),
-        )
+
+        return {
+            'obs': dict(obs0),
+            'obs_next': dict(obs1),
+            'actions': np.array(actions),
+            'rewards': np.expand_dims(np.array(rewards), axis=1),
+            'dones': np.expand_dims(np.array(dones), axis=1),
+            'num_steps': np.expand_dims(np.array(num_steps), axis=1),
+        }

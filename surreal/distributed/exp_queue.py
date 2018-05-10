@@ -3,7 +3,7 @@ import weakref
 import surreal.utils as U
 import threading
 # from .zmq_struct import ZmqQueue
-from surreal.distributed.zmq_struct import ZmqPuller
+from surreal.distributed.zmq_struct import ZmqPuller, ZmqReceiver
 from threading import Thread
 
 
@@ -17,12 +17,12 @@ class ExperienceCollectorServer(Thread):
 
     def run(self):
         self._weakref_map = weakref.WeakValueDictionary()
-        self.puller = ZmqPuller(host=self.host, 
+        self.puller = ZmqReceiver(host=self.host, 
                                 port=self.port, 
                                 bind=self.bind, 
                                 preprocess=U.deserialize)
         while True:
-            exp, storage = self.puller.pull()
+            exp, storage = self.puller.recv()
             experience_list = self._retrieve_storage(exp, storage)
             for exp in experience_list:
                 self._exp_handler(exp)
@@ -44,6 +44,9 @@ class ExperienceCollectorServer(Thread):
                     new_key = key[:-len('_hash')]  # delete suffix
                     exp[new_key] = self._retrieve_storage(exp[key], storage)
                     del exp[key]
+                else:
+                    exp[key] = self._retrieve_storage(exp[key], storage)
+
         elif isinstance(exp, str):
             exphash = exp
             if exphash in self._weakref_map:

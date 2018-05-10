@@ -2,8 +2,8 @@ from .wrapper import Wrapper
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 from surreal.distributed.exp_sender import ExpSender
 from collections import deque
-import resource
 import os
+import copy
 
 
 exp_sender_wrapper_registry = {}
@@ -70,7 +70,7 @@ class ExpSenderWrapperSSAR(ExpSenderWrapperBase):
     def send(self, data):
         obs_array, action, reward, done, info = data
         hash_dict = {
-            'obs': obs_array
+            'obs': obs_array,
         }
         nonhash_dict = {
             'action': action,
@@ -151,10 +151,10 @@ class ExpSenderWrapperMultiStep(ExpSenderWrapperBase):
             info_arr.append(info)
 
         hash_dict = {
-            'obs_arr': obs_arr,
-            'obs_next': obs_next,
         }
         nonhash_dict = {
+            'obs_arr': obs_arr,
+            'obs_next': obs_next,
             'action_arr': action_arr,
             'reward_arr': reward_arr,
             'done_arr': done_arr,
@@ -199,7 +199,8 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
         self.last_n = deque()
 
     def _reset(self):
-        self._ob, info = self.env.reset()
+        obs, info = self.env.reset()
+        self._ob = copy.deepcopy(obs)
         self.last_n.clear()
         return self._ob, info
 
@@ -213,7 +214,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
-        self._ob = obs_next
+        self._ob = copy.deepcopy(obs_next)
         return obs_next, reward, done, info
 
     def send(self, data, obs_next):
@@ -233,7 +234,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
 
         hash_dict = {
             'obs': obs,
-            'obs_next': obs_next,
+            'obs_next': obs_next
         }
         nonhash_dict = {
             'actions': actions,
@@ -243,7 +244,7 @@ class ExpSenderWrapperMultiStepMovingWindowWithInfo(ExpSenderWrapperBase):
             'dones': dones,
             'infos': infos,
             'n_step': len(data),
-        }
+        }            
         self.sender.send(hash_dict, nonhash_dict)
 
 
@@ -287,40 +288,5 @@ class ExpSenderWrapperMultiStepMovingWindow(ExpSenderWrapperMultiStep):
             for i in range(self.stride):
                 if len(self.last_n) > 0:
                     self.last_n.popleft()
-        self._obs = obs_next
-        return obs_next, reward, done, info
-
-
-class ExpSenderWrapperMultiStepEpisode(ExpSenderWrapperMultiStep):
-    """
-        Base class for all classes that send experience in format
-        {   
-            'obs_arr': [state_1, ..., state_T]
-            'obs_next': [None]
-            'action_arr': [action_1, ...],
-            'reward_arr': [reward_1, ...],
-            'done_arr': [done_1, ...],
-            'info_arr': [info_1, ...],
-            'n_step': T
-        }
-
-        T is episode length
-    """
-    def __init__(self, env, learner_config, session_config):
-        super().__init__(env, learner_config, session_config)
-        self._obs = None  # obs of the current time step
-        self.trajectory = deque()
-
-    def _reset(self):
-        self._obs, info = self.env.reset()
-        self.trajectory.clear()
-        return self._obs, info
-
-    def _step(self, action):
-        obs_next, reward, done, info = self.env.step(action)
-        self.trajectory.append([self._obs, action, reward, done, info])
-        if done:
-            self.send(self.trajectory, None)
-            self.trajectory.clear()
         self._obs = obs_next
         return obs_next, reward, done, info

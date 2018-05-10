@@ -3,6 +3,7 @@ Actor function
 """
 import torch
 from torch.autograd import Variable
+import collections
 from .base import Agent
 import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
@@ -30,10 +31,10 @@ class DDPGAgent(Agent):
 
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
-        self.obs_dim = self.env_config.obs_spec.dim[0]
+        self.obs_spec = self.env_config.obs_spec
         self.use_z_filter = self.learner_config.algo.use_z_filter
-        self.use_batchnorm = self.learner_config.algo.use_batchnorm
-        self.sleep_time = self.learner_config.algo.agent_sleep_time
+        self.use_layernorm = self.learner_config.model.use_layernorm
+        self.sleep_time = self.env_config.agent_sleep_time
         
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
@@ -45,12 +46,12 @@ class DDPGAgent(Agent):
             raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
 
         self.model = DDPGModel(
-            obs_dim=self.obs_dim,
+            obs_spec=self.obs_spec,
             action_dim=self.action_dim,
-            use_z_filter=self.use_z_filter,
-            use_batchnorm=self.use_batchnorm,
+            use_layernorm=self.use_layernorm,
             actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
             critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+            use_z_filter=self.use_z_filter,
         )
         self.model.eval()
 
@@ -79,12 +80,18 @@ class DDPGAgent(Agent):
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
 
     def act(self, obs):
-        obs = U.to_float_tensor(obs)
-        assert torch.is_tensor(obs)
         if self.sleep_time > 0.0:
             time.sleep(self.sleep_time)
-        obs = Variable(obs.unsqueeze(0))
-        action = self.model.forward_actor(obs).data.numpy()[0]
+        obs_variable = collections.OrderedDict()
+        for modality in obs:
+            modality_dict = collections.OrderedDict()
+            for key in obs[modality]:
+                modality_dict[key] = Variable(U.to_float_tensor(obs[modality][key]).unsqueeze(0))
+            obs_variable[modality] = modality_dict
+        action, _ = self.model.forward(obs_variable, calculate_value=False)
+        action = action.data.numpy()[0]
+        #perception = self.model.forward_perception(obs_variable)
+        #action = self.model.forward_actor(perception).data.numpy()[0]
         action = action.clip(-1, 1)
 
         if self.agent_mode != 'eval_deterministic':

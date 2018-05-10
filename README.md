@@ -1,4 +1,8 @@
-# Surreal initiative
+# [Surreal Community Guide](https://github.com/SurrealAI/surreal-community-guide)
+
+Please read the [guide](https://github.com/SurrealAI/surreal-community-guide) very carefully. It contains new recruit onboarding checklist, membership policy, and coding principles.
+
+# Overview
 
 - **SURREAL** stands for "**S**tanford **U**niversity **R**epository for **Re**inforcement-learning **Al**gorithms". Note that this is just a temporary acronym. Surreal will become something much more impactful in the years to come. Stay tuned. 
 
@@ -24,18 +28,13 @@
     - Maintain readable code for all future publications.
 
 
-# [Community guidelines](https://github.com/SurrealAI/surreal-community-guide)
-
-Please read the entire [guideline document](https://github.com/SurrealAI/surreal-community-guide) very carefully. It contains extremely important membership policies, to-do list for new students, and coding principles.
-
-
 # Infrastructure design
 
 ## Fully-integrated cloud solution for RL
 
-**Cloud** is first-class citizen. Infrastructure should be **codified**. 
+**Cloud** is a first-class citizen. Infrastructure should be **codified**. 
 
-- Most other competitor platforms (e.g. [Ray](https://rise.cs.berkeley.edu/projects/ray/) and [TF-agent](https://github.com/tensorflow/agents)) only provide a distributed runtime, but do not offer an easy way to *orchestrate the distributed runtime on the cloud*. For example, it is highly non-trivial to configure a Google Cloud account to scale resources, specify node pools, set up networking, and manage experiments from multiple team members sharing the account. It typically takes huge amount of manual effort, and once the team migrates to a different account or service provider, they have to start all over again. For admins who have lived through this, they know first-hand that it is tedious, annoying, and error-prone.
+- Most other competitor platforms (e.g. [Ray](https://rise.cs.berkeley.edu/projects/ray/) and [TF-agent](https://github.com/tensorflow/agents)) only provide a distributed runtime, but do not offer an easy way to *orchestrate the distributed runtime on the cloud*. For example, it is highly non-trivial to configure a Google Cloud account to scale resources, specify node pools, set up networking, and manage experiments from multiple team members sharing the account. It typically takes a huge amount of manual effort, and once the team migrates to a different account or service provider, they have to start all over again. For admins who have lived through this, they know first-hand that it is tedious, annoying, and error-prone.
     
 - _Surreal_'s philosophy is different: machine learning infrastructure should be codified, version-controlled, and easily replicated with minimal manual effort or ungodly shell scripts. _Surreal_ shields the users from the messy cloud and bare-metal configurations that are otherwise unavoidable for scaling up. _Surreal_ is designed for the dirty world.
 
@@ -48,15 +47,19 @@ Please read the entire [guideline document](https://github.com/SurrealAI/surreal
 
 ### Kubernetes: logical grouping
 
+Powered by [symphony repo](https://github.com/SurrealAI/symphony).
+
 Each distributed RL experiment is a logical set of processes. 
 
-For example, an [Ape-X](https://arxiv.org/abs/1803.00933) experiment with 8 actors would require 8 processes plus learner, parameter server, replay server, tensorboard, and logging server. They should be scheduled on the cloud as a logical set that can communicate internally. Different sets of processes denote different experiments that should not interfere with each other. 
+For example, an [Ape-X](https://arxiv.org/abs/1803.00933) experiment with 8 actors would require 8 processes plus a learner, parameter server, replay server, tensorboard, and logging server. They should be scheduled on the cloud as a logical set that can communicate internally. Different sets of processes denote different experiments that should not interfere with each other. 
 
 To achieve this, _Surreal_ has tight integrations with [Kubernetes](https://kubernetes.io/), an open-source system for automating deployment, scaling, and management of containerized applications. Kubernetes can auto-scale the number of VMs as experiments are launched or terminated, which is economically essential to low-budget teams (like ours).
 
 ### Terraform: automate cloud setup
 
-**TODO**: Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
+Powered by [overture repo](https://github.com/SurrealAI/overture).
+
+Kubernetes still requires some amount of manual administration, such as creating cluster pools of different CPU and GPU types, spinning up the network file server, and adding [node taints](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/). The procedure needs to be repeated when we migrate to a different Google Cloud account or switch to a new cloud provider altogether. 
 
 Fortunately, [Terraform](https://www.terraform.io/intro/index.html) comes to our rescue. Configuration files describe to Terraform the components needed to run a single application or an entire datacenter. Terraform generates an execution plan describing what it will do to reach the desired state, and then executes it to build the described infrastructure. 
 
@@ -159,11 +162,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 
 **TODO**
 
-Copy the system config file from `surreal/kube/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). 
-
-git generate access token
-
-decide which branch is the temp branch to snapshot your code
+Copy the system config file from `surreal/kube/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). You will need to [generate a git access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) if you don't have one already. You also need to decide which branch is the temp branch to snapshot your code.
 
 
 ## Miscellaneous
