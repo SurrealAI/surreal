@@ -95,14 +95,14 @@ class PPOAgent(Agent):
         for mod in obs.keys():
             obs_tensor[mod] = {}
             for k in obs[mod].keys():
-                obs_tensor[mod][k] = torch.tensor(obs[mod][k]).unsqueeze(0)
+                obs_tensor[mod][k] = torch.tensor(obs[mod][k], dtype=torch.float32).unsqueeze(0)
 
         if self.rnn_config.if_rnn_policy:
             action_info[0].append(self.cells[0].squeeze(1).numpy())
             action_info[0].append(self.cells[1].squeeze(1).numpy())
 
         action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
-        action_pd = action_pd.numpy()
+        action_pd = action_pd.detach().numpy()
 
         if self.agent_mode != 'eval_deterministic':
             action_choice = self.pd.sample(action_pd)

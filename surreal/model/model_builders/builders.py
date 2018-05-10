@@ -2,6 +2,7 @@ import torch
 import surreal.utils as U
 import torchx as tx
 import torchx.nn as nnx
+import torch.nn as nn
 import torchx.layers as L
 import numpy as np 
 

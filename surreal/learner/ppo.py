@@ -582,7 +582,7 @@ class PPOLearner(Learner):
             batch.obs,
             batch.actions,
             batch.rewards,
-            batch.next_obs,
+            batch.obs_next,
             batch.persistent_infos,
             batch.onetime_infos,
             batch.dones,
