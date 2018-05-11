@@ -43,7 +43,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
