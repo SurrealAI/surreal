@@ -27,7 +27,7 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
-            'gamma': .995,
+            'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
