@@ -124,8 +124,8 @@ def generate(argv):
             },
         },
         'agent' : {
-            'fetch_parameter_mode': 'episode',
-            'fetch_parameter_interval': 1, # 10 for without RNN
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 500, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,

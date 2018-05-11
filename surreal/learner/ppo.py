@@ -512,20 +512,20 @@ class PPOLearner(Learner):
                 c = self.cells[1].detach()
                 self.cells = (h, c)
                 eff_len = self.n_step - self.horizon + 1
-                behave_pol = (pds[:, :eff_len, :].contiguous())
-                actions_iter = (actions[:, :eff_len, :].contiguous())
+                behave_pol = pds[:, :eff_len, :].contiguous().detach()
+                actions_iter = actions[:, :eff_len, :].contiguous().detach()
             else:
-                behave_pol = (pds[:, 0, :].contiguous())
-                actions_iter = (actions[:, 0, :].contiguous())
+                behave_pol = pds[:, 0, :].contiguous().detach()
+                actions_iter = actions[:, 0, :].contiguous().detach()
 
             obs_iter = {}
             for mod in obs.keys():
                 obs_iter[mod] = {}
                 for k in obs[mod].keys():
                     if self.if_rnn_policy:
-                        obs_iter[mod][k] = (obs[mod][k][:, :self.n_step - self.horizon + 1, :].contiguous())
+                        obs_iter[mod][k] = obs[mod][k][:, :self.n_step - self.horizon + 1, :].contiguous().detach()
                     else: 
-                        obs_iter[mod][k] = (obs[mod][k][:, 0, :].contiguous())
+                        obs_iter[mod][k] = obs[mod][k][:, 0, :].contiguous().detach()
 
             ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
@@ -569,7 +569,7 @@ class PPOLearner(Learner):
                 stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
                 stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                 stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
-        return stats
+            return stats
 
     def learn(self, batch):
         '''
