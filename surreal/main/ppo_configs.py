@@ -27,7 +27,7 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
-            'gamma': .995,
+            'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
@@ -43,7 +43,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',

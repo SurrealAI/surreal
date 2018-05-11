@@ -23,8 +23,15 @@ class CNNStemNetwork(nnx.Module):
         self.model.build((None, *D_obs))
 
     def forward(self, obs):
-        return self.model(obs)
+        obs_shape = obs.size()
+        if len(obs_shape) > 4: # case of RNN input
+            obs = obs.view(-1, *obs_shape[-3:])
 
+        output = self.model(obs)
+
+        if len(obs_shape) > 4:
+            output = output.view(*obs_shape[:-3] ,-1)
+        return output
 
 class ActorNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
