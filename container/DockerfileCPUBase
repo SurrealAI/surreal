@@ -5,7 +5,7 @@ LABEL author="Stanford Surreal team"
 # Base dependency
 RUN mkdir /mylibs
 WORKDIR /mylibs
-RUN apt-get update && apt-get install -y cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev xserver-xorg-video-dummy xorg-dev 
+RUN apt-get update && apt-get install -y cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev xserver-xorg-video-dummy xorg-dev patchelf
 
 RUN apt-get -y remove libglfw3 \
 	&& git clone https://github.com/glfw/glfw.git
@@ -23,6 +23,7 @@ RUN wget https://www.roboti.us/download/mjpro150_linux.zip \
     && unzip mjpro150_linux.zip \
     && rm mjpro150_linux.zip
 COPY mjkey.txt /root/.mujoco/mjkey.txt
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
 
 # python deps
 WORKDIR /mylibs
@@ -41,3 +42,12 @@ RUN pip install git+git://github.com/deepmind/dm_control.git
 
 # required for imageio
 RUN conda install -y ffmpeg -c conda-forge
+
+# fake display to work around the GLFW problem
+RUN mkdir /etc/fakeX \
+	&& touch /etc/fakeX/10.log
+COPY xorg.conf /etc/fakeX/
+COPY xorg.service /etc/systemd/system/
+RUN systemctl enable xorg
+ENV DISPLAY=:10
+

@@ -5,7 +5,7 @@ LABEL author="Stanford Surreal team"
 RUN mkdir /mylibs
 WORKDIR /mylibs
 
-RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0 libsm6 xorg-dev libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
+RUN apt-get update && apt-get -y install cmake unzip bzip2 curl git wget libglfw3 libglew1.13 libglib2.0-0 libsm6 xorg-dev libglu1-mesa-dev libglew-dev libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev patchelf
 
 # mujoco
 RUN mkdir /root/.mujoco
@@ -13,10 +13,8 @@ WORKDIR /root/.mujoco
 RUN wget https://www.roboti.us/download/mjpro150_linux.zip \
     && unzip mjpro150_linux.zip \
     && rm mjpro150_linux.zip
-RUN wget https://www.roboti.us/download/mjpro131_linux.zip \
-    && unzip mjpro131_linux.zip \
-    && rm mjpro131_linux.zip
 COPY mjkey.txt /root/.mujoco/mjkey.txt
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
 
 # python deps
 WORKDIR /mylibs

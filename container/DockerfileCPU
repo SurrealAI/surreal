@@ -1,0 +1,15 @@
+FROM us.gcr.io/surreal-dev-188523/surreal-base-cpu-new:latest
+
+# Arrange these dependencies to heuristically minimize number of layers to build
+
+COPY tensorplex /mylibs/tensorplex
+RUN pip install -e /mylibs/tensorplex
+
+COPY torchx /mylibs/torchx
+RUN pip install -e /mylibs/torchx
+
+COPY mujoco /mylibs/mujoco
+RUN pip install -e /mylibs/mujoco
+
+COPY surreal /mylibs/surreal
+RUN pip install -e /mylibs/surreal

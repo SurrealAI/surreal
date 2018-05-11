@@ -1,5 +1,5 @@
 benedict>=0.3
-gym
+gym[atari]
 mujoco_py>=1.50
 tabulate
 tqdm
@@ -8,4 +8,4 @@ tensorflow # TODO: remove
 tensorboardX # TODO: remove
 imageio
 pyarrow
-pyyaml # TODO: remove this as we have benedict
+pygame

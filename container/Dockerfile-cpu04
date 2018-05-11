@@ -17,3 +17,4 @@ COPY entry.py /mylibs
 RUN chmod +x /mylibs/entry.py
 ENTRYPOINT ["/mylibs/entry.py"]
 
+RUN pip install pygame gym[atari]
