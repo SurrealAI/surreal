@@ -7,7 +7,7 @@ from .base import Learner
 from .aggregator import MultistepAggregatorWithInfo 
 from surreal.model.ppo_net import PPOModel, DiagGauss
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
-from surreal.utils.pytorch.hyper_scheduler import *   
+#from surreal.utils.pytorch.hyper_scheduler import *
 
 class PPOLearner(Learner):
     '''

@@ -5,7 +5,6 @@ import torch
 from torch.autograd import Variable
 import collections
 from .base import Agent
-import surreal.utils as U
 from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
@@ -86,7 +85,7 @@ class DDPGAgent(Agent):
         for modality in obs:
             modality_dict = collections.OrderedDict()
             for key in obs[modality]:
-                modality_dict[key] = Variable(U.to_float_tensor(obs[modality][key]).unsqueeze(0))
+                modality_dict[key] = Variable(torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0))
             obs_variable[modality] = modality_dict
         action, _ = self.model.forward(obs_variable, calculate_value=False)
         action = action.data.numpy()[0]
