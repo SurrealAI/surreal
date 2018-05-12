@@ -97,7 +97,7 @@ def generate(argv):
         'env_name': args.env, 
         'pixel_input': False,
         'frame_stacks': 3, 
-        'sleep_time': 0.0,
+        'sleep_time': 1/250,
         'video': {
             'record_video': True,
             'save_folder': None,
