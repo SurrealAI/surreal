@@ -28,8 +28,8 @@ def generate(argv):
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
             'gamma': .995, 
-            'n_step': 10, # 10 for without RNN
-            'stride': 1, # 10 for without RNN
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -57,7 +57,7 @@ def generate(argv):
                 'lam': 0.97,
             },
             'rnn': {
-                'if_rnn_policy': False, 
+                'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 2,
                 'horizon': 10,
@@ -95,9 +95,9 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
-        'sleep_time': 1/250,
+        'sleep_time': 0,
         'video': {
             'record_video': True,
             'save_folder': None,
@@ -125,7 +125,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10, # 10 for without RNN
+            'fetch_parameter_interval': 500, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
