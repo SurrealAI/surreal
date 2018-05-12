@@ -1,4 +1,7 @@
 import pickle
+import numpy as np
+import torch
+from surreal.utils.numpy_util import np_cast
 import surreal.utils as U
 import torchx.nn as nnx
 
@@ -30,7 +33,7 @@ class ModuleDict(object):
         bin_dict = U.deserialize(binary)
         for key in bin_dict:
             for k in bin_dict[key]:
-                bin_dict[key][k] = U.to_float_tensor(bin_dict[key][k], copy=False)
+                bin_dict[key][k] = torch.from_numpy(np_cast(bin_dict[key][k], np.float32))
         for k, m in self._module_dict.items():
             m.load_state_dict(bin_dict[k])
 

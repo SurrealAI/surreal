@@ -99,8 +99,8 @@ class DDPGLearner(Learner):
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
-            U.hard_update(self.model_target.actor, self.model.actor)
-            U.hard_update(self.model_target.critic, self.model.critic)
+            self.model_target.actor.hard_update(self.model.actor)
+            self.model_target.critic.hard_update(self.model.critic)
             # self.train_iteration = 0
             
             self.total_learn_time = U.TimeRecorder()
@@ -266,14 +266,14 @@ class DDPGLearner(Learner):
 
     def target_update(self):
         if self.target_update_type == 'soft':
-            U.soft_update(self.model_target.actor, self.model.actor, self.target_update_tau)
-            U.soft_update(self.model_target.critic, self.model.critic, self.target_update_tau)
+            self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
+            self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
             if self.is_pixel_input:
-                U.soft_update(self.model_target.perception, self.model.perception, self.target_update_tau)
+                self.model_target.perception.soft_update(self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
             self.target_update_counter += 1
             if self.target_update_counter % self.target_update_interval == 0:
-                U.hard_update(self.model_target.actor, self.model.actor)
-                U.hard_update(self.model_target.critic, self.model.critic)
+                self.model_target.actor.hard_update(self.model.actor)
+                self.model_target.critic.hard_update(self.model.critic)
                 if self.is_pixel_input:
-                    U.hard_update(self.model_target.perception, self.model.perception)
+                    self.model_target.perception.hard_update(self.model.perception)
