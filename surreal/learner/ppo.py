@@ -265,7 +265,7 @@ class PPOLearner(Learner):
         prob_learn  = self.pd.likelihood(actions, learn_pol)
         
         kl = self.pd.kl(ref_pol, learn_pol).mean()
-        surr = -(advantages.view(-1, 1) * torch.clamp(prob_learn/prob_behave, max=self.is_weight_thresh)).mean()
+        surr = -(advantages.view(-1, 1) * (prob_learn/ torch.clamp(prob_behave, min=1e-2))).mean()
         loss = surr + self.beta * kl
         entropy = self.pd.entropy(learn_pol).mean()
 
@@ -416,7 +416,7 @@ class PPOLearner(Learner):
 
                 return gae.view(-1, 1), returns.view(-1, 1)
 
-    def preprocess(self, batch):
+    def _preprocess_batch_ppo(self, batch):
         # overriding base.preprocess:
         with tx.device_scope(self.gpu_option):
 
@@ -432,17 +432,8 @@ class PPOLearner(Learner):
 
             for modality in obs:
                 for key in obs[modality]:
-                    if modality == 'pixel':
-                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
-                    else:
-                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
-
-            for modality in obs_next:
-                for key in obs_next[modality]:
-                    if modality == 'pixel':
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
-                    else:
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
+                    obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
+                    obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
 
             actions = torch.tensor(actions, dtype=torch.float32)
             rewards = torch.tensor(rewards, dtype=torch.float32)
@@ -578,6 +569,7 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
+        batch = self._preprocess_batch_ppo(batch)
         tensorplex_update_dict = self._optimize(
             batch.obs,
             batch.actions,

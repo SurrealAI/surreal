@@ -24,14 +24,15 @@ class CNNStemNetwork(nnx.Module):
 
     def forward(self, obs):
         obs_shape = obs.size()
-        if len(obs_shape) > 4: # case of RNN input
-            obs = obs.view(-1, *obs_shape[-3:])
+        if_high_dim = (len(obs_shape) == 5)
+        if if_high_dim: # case of RNN input
+            obs = obs.view(-1, *obs_shape[2:])  
 
-        output = self.model(obs)
+        obs = self.model(obs)
 
-        if len(obs_shape) > 4:
-            output = output.view(*obs_shape[:-3] ,-1)
-        return output
+        if if_high_dim:
+            obs = obs.view(obs_shape[0], obs_shape[1], -1)
+        return obs
 
 class ActorNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):

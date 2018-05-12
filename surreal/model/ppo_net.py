@@ -339,6 +339,4 @@ class PPOModel(nnx.Module):
             Given uint8 input from the environment, scale to float32 and
             divide by 255 to scale inputs between 0.0 and 1.0
         '''
-        if obs.type() == 'torch.ByteTensor':
-            obs = obs.float()
         return obs / 255.0

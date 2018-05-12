@@ -9,7 +9,7 @@ class ZFilter(nnx.Module):
         Keeps historical average and std of inputs
         Whitens data and clamps to +/- 5 std
         Attributes:
-            insize: state dimension
+            in_size: state dimension
                 required from input
             eps: tolerance value for computing Z-filter (whitening)
                 default to 10
@@ -24,7 +24,7 @@ class ZFilter(nnx.Module):
         """
         Constructor for ZFilter class
         Args:
-            in_size: state dimension
+            obs_spec: nested dictionary of observation space spec. see doc
             eps: tolerance value for computing Z-filter (whitening)
         """
         super(ZFilter, self).__init__()
@@ -34,6 +34,7 @@ class ZFilter(nnx.Module):
         in_size = 0
         for key in self.obs_spec['low_dim'].keys():
             in_size += self.obs_spec['low_dim'][key][0]
+        self.in_size = in_size
 
         # Keep some buffers for doing whitening. 
         self.register_buffer('running_sum', torch.zeros(in_size))
