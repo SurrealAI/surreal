@@ -137,6 +137,7 @@ class PPOAgent(Agent):
         '''
             reset of LSTM hidden and cell states
         '''
+        self.tensorplex.add_scalars({'.core/init_log_sig': self.init_log_sig})
         if self.rnn_config.if_rnn_policy:
             # Note that .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
