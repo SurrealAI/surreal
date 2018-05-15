@@ -74,7 +74,7 @@ class TmuxCluster(object):
         exp = self.cluster.new_experiment(self.experiment_name,
                                           preamble_cmds=self.preamble_cmds,
                                           start_dir=self.start_dir,
-                                          portrange=list(range(9000,10000)))
+                                          port_range=list(range(9000,10000)))
         self.exp = exp
         learner = exp.new_process('learner', cmds=[cmd_dict['learner']])
         replay = exp.new_process('replay', cmds=[cmd_dict['replay']])
