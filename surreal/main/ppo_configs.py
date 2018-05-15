@@ -35,7 +35,7 @@ def generate(argv):
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 1.,
+                'actor_gradient_norm_clip': 1., 
                 'clip_critic_gradient': True,
                 'critic_gradient_norm_clip': 5.,
                 'actor_regularization': 0.0,
