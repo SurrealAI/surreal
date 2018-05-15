@@ -2,7 +2,6 @@
 Actor function
 """
 import torch
-import torchx as tx
 import collections
 from .base import Agent
 from surreal.model.ddpg_net import DDPGModel
@@ -85,7 +84,7 @@ class DDPGAgent(Agent):
         for modality in obs:
             modality_dict = collections.OrderedDict()
             for key in obs[modality]:
-                modality_dict[key] = tx.new_tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
+                modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
             obs_variable[modality] = modality_dict
         action, _ = self.model.forward(obs_variable, calculate_value=False)
         action = action.data.numpy()[0]
