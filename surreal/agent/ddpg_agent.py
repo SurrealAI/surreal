@@ -2,7 +2,7 @@
 Actor function
 """
 import torch
-import torchx ax tx
+import torchx as tx
 import collections
 from .base import Agent
 from surreal.model.ddpg_net import DDPGModel
