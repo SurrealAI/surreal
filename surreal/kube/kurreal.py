@@ -1,6 +1,7 @@
 import os
 import argparse
 import itertools
+from pkg_resources import parse_version
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import KubeCluster
@@ -10,6 +11,8 @@ import surreal
 from surreal.kube.generate_command import CommandGenerator
 import surreal.utils as U
 
+
+SURREAL_YML_VERSION = '0.0.3'  # force version check
 
 
 def _process_labels(label_string):
@@ -32,15 +35,23 @@ class KurrealParser(SymphonyParser):
         self.load_config()
         self._setup_create()
         self._setup_create_dev()
-        # self._setup_restore()
-        # self._setup_resume()
-        # self._setup_download_experiment()
+
+    def _check_version(self):
+        """
+        Check ~/.surreal.yml `version` key
+        """
+        assert 'version' in self.config, 'surreal yml version not specified.'
+        if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
+            raise ValueError('version incompatible, please check the latest '
+                             'sample.surreal.yml and make sure ~/.surreal.yml is '
+                             + SURREAL_YML_VERSION)
 
     def load_config(self, surreal_yml='~/.surreal.yml'):
         surreal_yml = U.f_expand(surreal_yml)
         if not U.f_exists(surreal_yml):
             raise ValueError('Cannot find surreal config file at {}'.format(surreal_yml))
         self.config = BeneDict.load_yaml_file(surreal_yml)
+        self._check_version()
         SymphonyConfig().set_username(self.username)
         SymphonyConfig().set_experiment_folder(self.folder)
 
@@ -101,60 +112,6 @@ class KurrealParser(SymphonyParser):
         )
         self._add_dry_run(parser)
 
-    # def _setup_restore(self): # TODO: fix
-    #     parser = self.add_subparser('restore', aliases=[])
-    #     parser.add_argument(
-    #         '-new', '--new',
-    #         dest='experiment_name',
-    #         type=self._process_experiment_name,
-    #         required=True,
-    #         help='Start a new experiment from the old checkpoint. '
-    #              'experiment name will be used as namespace for DNS. '
-    #              'Should only contain lower case letters, digits, and hypen. '
-    #              'Underscores and dots are not allowed and will be converted to hyphen.'
-    #     )
-    #     parser.add_argument(
-    #         '-old', '--old',
-    #         dest='restore_experiment',
-    #         required=True,
-    #         help="old experiment name to restore from. "
-    #              "you can also give full path to the folder on the shared FS: "
-    #              "'/fs/experiments/myfriend/.../'"
-    #     )
-    #     self._add_restore_args(parser)
-    #     self._add_create_args(parser)
-
-    # def _setup_resume(self): # TODO: fix
-    #     parser = self.add_subparser('resume', aliases=['continue'])
-    #     self._add_experiment_name(parser)
-    #     self._add_restore_args(parser)
-    #     self._add_create_args(parser)  # --force is automatically turned on
-
-    # def _setup_download_experiment(self):
-    #     parser = self.add_subparser('download-experiment',
-    #                                 aliases=['de', 'download'])
-    #     parser.add_argument(
-    #         'remote_experiment_subfolder',
-    #         help='remote subfolder under <fs_mount_path>/<root_subfolder>.'
-    #     )
-    #     parser.add_argument(
-    #         '-a', '--absolute-path',
-    #         action='store_true',
-    #         help='use absolute remote path instead of '
-    #              '<fs_mount_path>/<root_subfolder>/<remote_folder>'
-    #     )
-    #     parser.add_argument(
-    #         '-o', '--output-path',
-    #         default='.',
-    #         help='local folder path to download to'
-    #     )
-    #     parser.add_argument(
-    #         '-m', '--match-fuzzy',
-    #         action='store_true',
-    #         help='enable fuzzy matching with the currently running namespaces'
-    #     )
-
-
     # ==================== helpers ====================
     def _add_dry_run(self, parser):
         parser.add_argument(
@@ -196,51 +153,6 @@ class KurrealParser(SymphonyParser):
             help='force overwrite an existing kurreal.yml file '
                  'if its experiment folder already exists.'
         )
-
-    # def _add_restore_args(self, parser):
-    #     """
-    #     Used in restore(), resume()
-    #     If remainders (cmd line args after "--") are specified,
-    #     override the saved launch cmd args
-    #     """
-    #     parser.add_argument(
-    #         '--config-py',
-    #         default=None,
-    #         help='If unspecified, defaults to the saved launch command. '
-    #              'location of python script **in the Kube pod** that contains the '
-    #              'runnable config. If the path does not start with /, defaults to '
-    #              'home dir, i.e. /root/ on the pod'
-    #     )
-    #     parser.add_argument(
-    #         '-n', '--num-agents',
-    #         type=int,
-    #         default=None,
-    #         help='If unspecified, defaults to the saved launch command. '
-    #              'number of agents to run in parallel.'
-    #     )
-        # the following should not be managed by Kurreal, should be set in config.py
-        # session_config.checkpoint.learner.restore_target
-        # parser.add_argument(
-        #     '--best',
-        #     action='store_true',
-        #     help='restore from the best checkpoint, otherwise from history'
-        # )
-        # parser.add_argument(
-        #     '-t', '--target',
-        #     default='0',
-        #     help='see "Checkpoint" class. Restore target can be one of '
-        #          'the following semantics:\n'
-        #          '- int: 0 for the last (or best), 1 for the second last (or best), etc.'
-        #          '- global steps of the ckpt file, the suffix string right before ".ckpt"'
-        # )
-
-    @staticmethod
-    def _find_kurreal_template(template_name):
-        """
-        https://stackoverflow.com/questions/20298729/pip-installing-data-files-to-the-wrong-place
-        make sure the path is consistent with MANIFEST.in
-        """
-        return U.f_join(surreal.__path__[0], 'kube', template_name)
 
     def action_create(self, args):
         """
@@ -321,94 +233,6 @@ class KurrealParser(SymphonyParser):
             dry_run=args.dry_run,
         )
 
-    # def action_restore(self, args): # TODO: Jim: You may need to fix it.
-    #     """
-    #     Restore experiment with the saved CommandGenerator and checkpoint
-    #     Put any command line args that pass to the config script after "--"
-    #     """
-    #     # kube = self.kube
-    #     if '/' in args.restore_experiment:  # full path on remote shared FS
-    #         saved = None
-    #         restore_folder = args.restore_experiment
-    #     else:
-    #         # yaml save of "kurreal create" command line args
-    #         saved = CommandGenerator.get_yaml(
-    #             kube.get_path(kube.strip_username(args.restore_experiment),
-    #                           'launch_commands.yml')
-    #         )
-    #         restore_folder = kube.get_remote_experiment_folder(
-    #             kube.strip_username(args.restore_experiment)
-    #         )
-
-    #     # "kurreal restore" args take precedence unless unspecified
-    #     if args.config_py:
-    #         config_py = args.config_py
-    #     else:
-    #         assert saved, 'No saved launch, must specify --config-py'
-    #         config_py = saved.config_py
-    #     if args.num_agents:
-    #         num_agents = args.num_agents
-    #     else:
-    #         assert saved, 'No saved launch, must specify --num-agents'
-    #         num_agents = saved.num_agents
-    #     if args.has_remainder:
-    #         config_command = args.remainder
-    #     else:
-    #         assert saved, 'No saved launch, must specify -- <config commands>'
-    #         config_command = saved.config_command
-
-    #     prefix_restored = kube.prefix_username(args.restore_experiment)
-    #     prefix_current = kube.prefix_username(args.experiment_name)
-    #     if prefix_restored == prefix_current:
-    #         print('Resume at experiment folder "{}"'.format(restore_folder))
-    #     else:
-    #         print('Restore from remote experiment folder "{}"\n'
-    #               'and create new experiment "{}"'
-    #               .format(restore_folder, prefix_current))
-
-    #     self._create_helper(
-    #         config_py=config_py,
-    #         experiment_name=args.experiment_name,
-    #         num_agents=num_agents,
-    #         config_command=config_command,
-    #         agent_pod_type=args.agent_pod_type,
-    #         nonagent_pod_type=args.nonagent_pod_type,
-    #         restore=True,
-    #         restore_folder=restore_folder,
-    #         no_snapshot=args.no_snapshot,
-    #         force=args.force,
-    #     )
-
-    # def action_resume(self, args): # TODO: Jim you may need to fix this
-    #     args.force = True  # always override the generated kurreal.yml
-    #     args.restore_experiment = args.experiment_name
-    #     self.action_restore(args)
-
-    # def action_download_experiment(self, args): # TODO: Jim you may need to fix this
-    #     # TODO:
-    #     """
-    #     Same as `kurreal scp learner:<mount_path>/<root_subfolder>/experiment-folder .`
-    #     """
-    #     kube = self.kube
-    #     remote_subfolder = args.remote_experiment_subfolder
-    #     if not args.absolute_path:
-    #         if args.match_fuzzy:
-    #             assert '/' not in remote_subfolder, \
-    #                 "fuzzy match does not allow '/' in experiment name"
-    #             remote_subfolder = self._interactive_find_ns(remote_subfolder)
-    #             remote_subfolder = kube.strip_username(remote_subfolder)
-    #         remote_path = kube.get_remote_experiment_folder(remote_subfolder)
-    #     else:
-    #         assert not args.match_fuzzy, \
-    #             'cannot fuzzy match when --absolute-path is turned on.'
-    #         remote_path = remote_subfolder
-    #     # the experiment folder will be unpacked if directly scp to "."
-    #     output_path = U.f_join(args.output_path, U.f_last_part_in_path(remote_path))
-    #     kube.scp_surreal(
-    #         'learner:' + remote_path, output_path
-    #     )
-
-
     def _create_helper(self, *,
                        config_py,
                        experiment_name,
@@ -423,7 +247,7 @@ class KurrealParser(SymphonyParser):
         if config_py.startswith('/'):
             config_py = config_py
         else:
-            config_py = U.f_join('/root', config_py)
+            config_py = U.f_join('/mylibs', config_py)
 
         remote_experiment_folder = self.get_remote_experiment_folder(experiment_name)
 
@@ -495,21 +319,21 @@ class KurrealParser(SymphonyParser):
             nonagent_pod_spec['image'] = '{}:{}'.format(nonagent_pod_spec['image'], exp.name)
 
         nonagent = exp.new_process_group('nonagent')
-        learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, command=['/bin/sh'], args=['-c', cmd_dict['learner']])
-        replay = nonagent.new_process('replay', container_image=nonagent_pod_spec.image, command=['/bin/sh'], args=['-c', cmd_dict['replay']])
-        ps = nonagent.new_process('ps', container_image=nonagent_pod_spec.image, command=['/bin/sh'], args=['-c', cmd_dict['ps']])
-        tensorboard = nonagent.new_process('tensorboard', container_image=nonagent_pod_spec.image, command=['/bin/sh'],  args=['-c', cmd_dict['tensorboard']])
-        tensorplex = nonagent.new_process('tensorplex', container_image=nonagent_pod_spec.image, command=['/bin/sh'], args=['-c', cmd_dict['tensorplex']])
-        loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, command=['/bin/sh'], args=['-c', cmd_dict['loggerplex']])
+        learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, args=[cmd_dict['learner']])
+        replay = nonagent.new_process('replay', container_image=nonagent_pod_spec.image, args=[cmd_dict['replay']])
+        ps = nonagent.new_process('ps', container_image=nonagent_pod_spec.image, args=[cmd_dict['ps']])
+        tensorboard = nonagent.new_process('tensorboard', container_image=nonagent_pod_spec.image, args=[cmd_dict['tensorboard']])
+        tensorplex = nonagent.new_process('tensorplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['tensorplex']])
+        loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['loggerplex']])
 
         agents = []
         for i, arg in enumerate(cmd_dict['agent']):
-            agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, command=['/bin/sh'], args=['-c', arg])
+            agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
             agents.append(agent_p)
         # TODO: make command generator return list
         evals = []
         for i, arg in enumerate(cmd_dict['eval']):
-            eval_p = exp.new_process('eval-{}'.format(i), container_image=agent_pod_spec.image, command=['/bin/sh'], args=['-c', arg])
+            eval_p = exp.new_process('eval-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
             evals.append(eval_p)
 
         for proc in itertools.chain(agents, evals):

@@ -13,3 +13,6 @@ RUN pip install -e /mylibs/mujoco
 
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
+
+RUN pip install easydict
+ENTRYPOINT ["/mylibs/surreal/container/entry.py"]

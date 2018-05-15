@@ -1,0 +1,101 @@
+# this file should be saved at ~/.surreal.yml
+# You need to update all fields enclosed with <>
+version: 0.0.3
+local_kurreal_folder: ~/Temp/kurreal
+# When you create an experiment, we prefix your name before it to avoid conflict. 
+# Put your name here. We usually use SUNET ID: jimfan, jirenz, etc.
+username: <user_name_for_experiments_and_fs>
+prefix_experiment_with_username: True
+fs:
+  type: nfs
+  server: surreal-shared-fs-vm
+  path_on_server: /data
+  mount_path: /fs
+  # actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
+  # see kubectl.get_remote_experiment_folder()
+  experiment_root_subfolder: experiments/<username>
+
+pod_types:
+  agent:
+    image: us.gcr.io/surreal-dev-188523/surreal-cpu-new # kurreal handles tag now
+    selector:
+      surreal-node: agent
+    resource_request:
+      cpu: 1.5
+    build_image: cpu-image # kurreal specific, builds the corresponding image and push to repo specified by image
+
+  nonagent-cpu:
+    image: us.gcr.io/surreal-dev-188523/surreal-cpu-new
+    # image: us.gcr.io/surreal-dev-188523/surreal-cpu-new-th04:latest
+    selector:
+      surreal-node: nonagent-cpu
+    resource_request:
+      cpu: 7
+    build_image: cpu-image # kurreal specific, builds the corresponding image and push to image
+
+  nonagent-gpu:
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu-new
+    selector:
+      surreal-node: nonagent-gpu
+      cloud.google.com/gke-accelerator: nvidia-tesla-k80 # This k80 can be changed to p100
+    resource_request:
+      cpu: 7
+    resource_limit:
+      nvidia.com/gpu: 1
+    build_image: gpu-image # kurreal specific, builds the corresponding image and push to image
+
+  nonagent-gpu-p100:
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu-new
+    selector:
+      surreal-node: nonagent-gpu
+      cloud.google.com/gke-accelerator: nvidia-tesla-p100 # This k80 can be changed to p100
+    resource_request:
+      cpu: 14
+    resource_limit:
+      nvidia.com/gpu: 1
+    build_image: gpu-image # kurreal specific, builds the corresponding image and push to image
+
+  # tensorboard:
+  #   image: us.gcr.io/surreal-dev-188523/surreal-cpu-new
+  #   selector:
+  #     node-pool: agent
+  #   resource_request:
+  #     cpu: 0.05
+  # TODO: fix tensorboard
+
+docker_build_settings:
+  - name: cpu-image # kurreal refers to this name when launching
+    # set it to your favorite, a subdirectory will hold all build files
+    temp_directory: ~/symph_temp/cpu
+    # verbose: true (default: prints docker cmdline output)
+    dockerfile: ~/surreal/Surreal/container/DockerfileCPU
+    context_directories: # These paths will be copied to temp_directory before build
+      - name: surreal # Directory will be under folder @name in the build context
+        path: ~/surreal/Surreal
+        force_update: true # Copy a new version every time
+      - name: tensorplex
+        path: ~/surreal/Tensorplex
+        force_update: false # Only copy when not found in build_directory
+      - name: mujoco
+        path: ~/surreal/MujocoManipulation
+        force_update: false 
+      - name: torchx
+        path: ~/surreal/TorchX
+        force_update: false
+  - name: gpu-image
+    # set it to your favorite, a subdirectory will hold all build files
+    temp_directory: ~/symph_temp/gpu
+    dockerfile: ~/surreal/Surreal/container/DockerfileGPU
+    context_directories: # These paths will be copied to temp_directory before build
+      - name: surreal # Directory will be under folder @name in the build context
+        path: ~/surreal/Surreal
+        force_update: true # Copy a new version every time
+      - name: tensorplex
+        path: ~/surreal/Tensorplex
+        force_update: false # Only copy when not found in build_directory
+      - name: mujoco
+        path: ~/surreal/MujocoManipulation
+        force_update: false 
+      - name: torchx
+        path: ~/surreal/TorchX
+        force_update: false
