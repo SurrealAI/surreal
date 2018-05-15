@@ -556,6 +556,7 @@ class Kurreal:
             'create_dev cannot have "--". Use --env and --gpu'
         ENV_ALIAS = {
             # dm_control:cartpole-swingup
+            'humanoid': 'dm_control:humanoid-walk',
             'ca': 'dm_control:cartpole-balance',
             'cartpole': 'dm_control:cartpole-balance',
             'ch': 'dm_control:cheetah-run',
