@@ -5,7 +5,7 @@ from pkg_resources import parse_version
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import KubeCluster
-from symphony.addons import DockerRecordMaster
+from symphony.addons import DockerBuilder
 from benedict import BeneDict
 import surreal
 from surreal.kube.generate_command import CommandGenerator
@@ -30,7 +30,7 @@ class KurrealParser(SymphonyParser):
 
     def setup(self):
         super().setup()
-        self.docker_build_settings = DockerRecordMaster()
+        self.docker_build_settings = {}
         self.config = BeneDict()
         self.load_config()
         self._setup_create()
@@ -56,7 +56,8 @@ class KurrealParser(SymphonyParser):
         SymphonyConfig().set_experiment_folder(self.folder)
 
         if 'docker_build_settings' in self.config:
-            self.docker_build_settings.load_all(self.config['docker_build_settings'])
+            for setting in self.config['docker_build_settings']:
+                self.docker_build_settings[setting['name']] = setting
 
     @property
     def folder(self):
@@ -398,7 +399,7 @@ class KurrealParser(SymphonyParser):
         nonagent.image_pull_policy('Always')
 
         for name, repo in images_to_build.items():
-            builder = self.docker_build_settings.get(name)
+            builder = DockerBuilder.from_dict(self.docker_build_settings[name])
             builder.build()
             builder.tag(repo, exp.name)
             builder.push(repo, exp.name)
