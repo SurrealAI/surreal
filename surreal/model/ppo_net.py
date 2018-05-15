@@ -173,6 +173,10 @@ class PPOModel(nnx.Module):
         return obs_low_dim
 
     def clear_actor_grad(self):
+        '''
+            Method that clears all gradients from all the parameters from
+            actor, cnn_stem (optional), and rnn_stem (optional)
+        '''
         self.actor.zero_grad()
         if self.if_pixel_input:
             self.cnn_stem.zero_grad()
@@ -180,6 +184,10 @@ class PPOModel(nnx.Module):
             self.rnn_stem.zero_grad()
 
     def clear_critic_grad(self):
+        '''
+            Method that clears all gradients from all the parameters from
+            critic, cnn_stem (optional), and rnn_stem (optional)
+        '''
         self.critic.zero_grad()
         if self.if_pixel_input:
             self.cnn_stem.zero_grad()

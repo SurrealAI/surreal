@@ -414,7 +414,19 @@ class PPOLearner(Learner):
                 return gae.view(-1, 1), returns.view(-1, 1)
 
     def _preprocess_batch_ppo(self, batch):
-        # overriding base.preprocess:
+        '''
+            Loading experiences from numpy to torch.FloatTensor type
+            Args: 
+                batch: BeneDict of experiences containing following attributes
+                        'obs' - observation
+                        'actions' - actions
+                        'rewards' - rewards
+                        'obs_next' - next observation
+                        'persistent_infos' - action policy
+                        'onetime_infos' - RNN hidden cells or None
+            Return:
+                Benedict of torch.FloatTensors
+        '''
         with tx.device_scope(self.gpu_option):
 
             obs, actions, rewards, obs_next, done, persistent_infos, onetime_infos = (
