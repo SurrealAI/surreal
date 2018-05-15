@@ -28,9 +28,9 @@ def generate(argv):
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
             'gamma': .995, 
-            'n_step': 20, # 10 for without RNN
-            'stride': 10, # 10 for without RNN
-            'limit_training_episode_length': 200
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
+            'limit_training_episode_length': 1000
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -96,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
