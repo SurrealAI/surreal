@@ -5,11 +5,12 @@ import surreal.utils as U
 import torch.nn.functional as F
 import numpy as np
 import itertools
+import torchx.nn as nnx
 
 from .model_builders import *
 from .z_filter import ZFilter
 
-class DDPGModel(U.Module):
+class DDPGModel(nnx.Module):
 
     def __init__(self,
                  obs_spec,

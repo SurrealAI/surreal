@@ -27,14 +27,15 @@ def generate(argv):
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
-            'gamma': .995,
+            'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
+            'limit_training_episode_length': 1000
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 1.,
+                'actor_gradient_norm_clip': 1., 
                 'clip_critic_gradient': True,
                 'critic_gradient_norm_clip': 5.,
                 'actor_regularization': 0.0,
@@ -43,7 +44,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
@@ -97,7 +98,7 @@ def generate(argv):
         'env_name': args.env, 
         'pixel_input': True,
         'frame_stacks': 3, 
-        'sleep_time': 0.0,
+        'sleep_time': 0,
         'video': {
             'record_video': True,
             'save_folder': None,
@@ -106,7 +107,7 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cub_quat', 'gripper_to_cube'],
         },
     }
 
@@ -124,8 +125,8 @@ def generate(argv):
             },
         },
         'agent' : {
-            'fetch_parameter_mode': 'episode',
-            'fetch_parameter_interval': 1, # 10 for without RNN
+            'fetch_parameter_mode': 'step',
+            'fetch_parameter_interval': 500, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,

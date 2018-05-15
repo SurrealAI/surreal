@@ -1,9 +1,9 @@
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.nn.init import xavier_uniform
 import surreal.utils as U
 import torch.nn.functional as F
 import numpy as np
+import torchx.nn as nnx
 
 from .model_builders import *
 from .z_filter import ZFilter
@@ -91,7 +91,7 @@ class DiagGauss(object):
         return prob[:, :self.d]
 
 
-class PPOModel(U.Module):
+class PPOModel(nnx.Module):
     '''
         PPO Model class that wraps aroud the actor and critic networks
         Attributes:
@@ -137,8 +137,6 @@ class PPOModel(U.Module):
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
                                               self.model_config.cnn_feature_dim,
                                               use_layernorm=self.model_config.use_layernorm)
-            if use_cuda:
-                self.cnn_stem = self.cnn_stem.cuda()
 
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
@@ -148,7 +146,8 @@ class PPOModel(U.Module):
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
             if use_cuda:
-                self.rnn_stem = self.rnn_stem.cuda()
+                device = torch.device("cuda")
+                self.rnn_stem = self.rnn_stem.to(device)
 
         input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
@@ -161,8 +160,7 @@ class PPOModel(U.Module):
                                       self.model_config.critic_fc_hidden_sizes)
         if self.use_z_filter:
             assert self.low_dim > 0, "No low dimensional input, please turn off z-filter"
-            self.z_filter = ZFilter(self.obs_spec,
-                                    use_cuda=use_cuda)
+            self.z_filter = ZFilter(self.obs_spec)
 
     def _gather_low_dim_input(self, obs):
         '''
@@ -173,6 +171,28 @@ class PPOModel(U.Module):
         list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
         obs_low_dim = torch.cat(list_obs_ld, -1)
         return obs_low_dim
+
+    def clear_actor_grad(self):
+        '''
+            Method that clears all gradients from all the parameters from
+            actor, cnn_stem (optional), and rnn_stem (optional)
+        '''
+        self.actor.zero_grad()
+        if self.if_pixel_input:
+            self.cnn_stem.zero_grad()
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.zero_grad()
+
+    def clear_critic_grad(self):
+        '''
+            Method that clears all gradients from all the parameters from
+            critic, cnn_stem (optional), and rnn_stem (optional)
+        '''
+        self.critic.zero_grad()
+        if self.if_pixel_input:
+            self.cnn_stem.zero_grad()
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.zero_grad()
 
     def get_actor_params(self):
         '''
@@ -315,11 +335,10 @@ class PPOModel(U.Module):
             obs = obs.view(1, 1, -1) # assume input is shape (1, obs_dim)
             obs, cells = self.rnn_stem(obs, cells)
             
-            # Note that this is effectively the same of a .detach() call.
             # .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            cells = (Variable(cells[0].data),Variable(cells[1].data))
+            cells = (cells[0].detach(),cells[1].detach())
             obs = obs.contiguous()  
             obs = obs.view(-1, self.rnn_config.rnn_hidden)
 

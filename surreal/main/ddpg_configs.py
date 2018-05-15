@@ -40,7 +40,8 @@ def generate(argv):
             'gamma': .99,
             'n_step': 5,
             'stride': 1,
-            'limit_training_episode_length': 0, # 0 means no limit
+            # 'limit_training_episode_length': 200, # 0 means no limit
+            'limit_training_episode_length': 1000, # 0 means no limit
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -95,6 +96,8 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0', 'depth'],
+            # if using ObservationConcatWrapper, low_dim inputs will be concatenated into 'flat_inputs'
+            # 'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
             'low_dim':['position', 'velocity', 'proprio'],
         },
     }

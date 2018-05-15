@@ -44,7 +44,7 @@ def make_mujocomanip(env_name, env_config):
         camera_height=84,
         camera_width=84,
         camera_name='tabletop',
-        use_object_obs=False,
+        use_object_obs=True,
         reward_shaping=True
     )
     env = MujocoManipulationWrapper(env, env_config)

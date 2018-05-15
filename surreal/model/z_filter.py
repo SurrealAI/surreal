@@ -1,20 +1,18 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import surreal.utils as U
 import numpy as np
+import torchx.nn as nnx
 
-class ZFilter(U.Module):
+class ZFilter(nnx.Module):
     """
         Keeps historical average and std of inputs
         Whitens data and clamps to +/- 5 std
         Attributes:
-            insize: state dimension
+            in_size: state dimension
                 required from input
             eps: tolerance value for computing Z-filter (whitening)
                 default to 10
-            use_cuda: whether GPU is used
-                default to false
             running_sum: running sum of all previous states
                 (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
             running_sumsq: sum of square of all previous states
@@ -22,13 +20,12 @@ class ZFilter(U.Module):
             count: number of experiences accumulated
                 (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
     """
-    def __init__(self, obs_spec, eps=1e-2, use_cuda=False):
+    def __init__(self, obs_spec, eps=1e-2):
         """
         Constructor for ZFilter class
         Args:
-            in_size: state dimension
+            obs_spec: nested dictionary of observation space spec. see doc
             eps: tolerance value for computing Z-filter (whitening)
-            use_cuda: whether GPU is used
         """
         super(ZFilter, self).__init__()
         self.eps = eps
@@ -37,18 +34,12 @@ class ZFilter(U.Module):
         in_size = 0
         for key in self.obs_spec['low_dim'].keys():
             in_size += self.obs_spec['low_dim'][key][0]
+        self.in_size = in_size
 
         # Keep some buffers for doing whitening. 
         self.register_buffer('running_sum', torch.zeros(in_size))
         self.register_buffer('running_sumsq', eps * torch.ones(in_size))
-        self.register_buffer('count', torch.Tensor([eps]))
-
-        # GPU option. Only used in learner. Pass in use_cuda flag from learner
-        self.use_cuda = use_cuda
-        if self.use_cuda:  
-            self.running_sum   = self.running_sum.cuda()
-            self.running_sumsq = self.running_sumsq.cuda()
-            self.count         = self.count.cuda() 
+        self.register_buffer('count', torch.tensor([eps], dtype=torch.float32))
 
     def z_update(self, x):
         """
@@ -61,12 +52,9 @@ class ZFilter(U.Module):
 
         # only called in learner, so we can assume it has the correct type
         if len(x.size()) == 3: x = x.view(-1, self.in_size)
-        self.running_sum += torch.sum(x.data, dim=0)
-        self.running_sumsq += torch.sum(x.data * x.data, dim=0)
-        added_count = U.to_float_tensor(np.array([len(x)]))
-        if self.use_cuda:
-            added_count = added_count.cuda()
-        self.count += added_count 
+        self.running_sum += torch.sum(x, dim=0)
+        self.running_sumsq += torch.sum(x * x, dim=0)
+        self.count += float(len(x))
 
     def forward(self, inputs):
         '''
@@ -86,31 +74,9 @@ class ZFilter(U.Module):
         running_mean = (self.running_sum / self.count)
         running_std = torch.clamp((self.running_sumsq / self.count \
                                   - running_mean.pow(2)).pow(0.5), min=self.eps)
-        running_mean = Variable(running_mean)
-        running_std = Variable(running_std)
-
         normed = torch.clamp((inputs - running_mean) / running_std, -5.0, 5.0)
         normed = normed.view(input_shape)
         return normed
-
-    def cuda(self):
-        '''
-            Converting all Tensor properties to be on GPU
-        '''
-        if self.use_cuda:  
-            self.running_sum   = self.running_sum.cuda()
-            self.running_sumsq = self.running_sumsq.cuda()
-            self.count         = self.count.cuda() 
-        else:
-            print('.cuda() has no effect. Config set not to use GPU')
-
-    def cpu(self):
-        '''
-            Converting all Tensor properties to be on CPU
-        '''
-        self.running_sum   = self.running_sum.cpu()
-        self.running_sumsq = self.running_sumsq.cpu()
-        self.count         = self.count.cpu() 
 
     def running_mean(self):
         '''
@@ -119,9 +85,7 @@ class ZFilter(U.Module):
                 numpy array of current running observation mean
         '''
         running_mean = self.running_sum / self.count
-        if self.use_cuda: 
-            running_mean = running_mean.cpu()
-        return running_mean.numpy()
+        return running_mean.cpu().numpy()
 
     def running_std(self):
         '''
@@ -131,9 +95,7 @@ class ZFilter(U.Module):
         '''
         running_std = ((self.running_sumsq / self.count) 
                      - (self.running_sum / self.count).pow(2)).pow(0.5)
-        if self.use_cuda:
-            running_std = running_std.cpu() 
-        return running_std.numpy()
+        return running_std.cpu().numpy()
         
     def running_square(self):
         '''
@@ -142,6 +104,4 @@ class ZFilter(U.Module):
                 running square mean
         '''
         running_square = self.running_sumsq / self.count
-        if self.use_cuda:
-            running_square = running_square.cpu()
-        return running_square.numpy()
+        return running_square.cpu().numpy()
