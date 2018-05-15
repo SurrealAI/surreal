@@ -121,20 +121,20 @@ class DDPGLearner(Learner):
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = tx.new_tensor(obs[modality][key], dtype=torch.uint8).float().detach()
+                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
                     else:
-                        obs[modality][key] = (tx.new_tensor(obs[modality][key], dtype=torch.float32)).detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = (tx.new_tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
                     else:
-                        obs_next[modality][key] = (tx.new_tensor(obs_next[modality][key], dtype=torch.float32)).detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
 
-            actions = tx.new_tensor(actions, dtype=torch.float32)
-            rewards = tx.new_tensor(rewards, dtype=torch.float32)
-            done = tx.new_tensor(done, dtype=torch.float32)
+            actions = torch.tensor(actions, dtype=torch.float32)
+            rewards = torch.tensor(rewards, dtype=torch.float32)
+            done = torch.tensor(done, dtype=torch.float32)
 
             (
                 batch['obs'],
