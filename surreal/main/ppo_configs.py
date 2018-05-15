@@ -28,13 +28,14 @@ def generate(argv):
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': False,
             'gamma': .995, 
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 20, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
+            'limit_training_episode_length': 200
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 5.,
+                'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': True,
                 'critic_gradient_norm_clip': 5.,
                 'actor_regularization': 0.0,
@@ -95,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
@@ -106,7 +107,7 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cub_quat', 'gripper_to_cube'],
         },
     }
 
