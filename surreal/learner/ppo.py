@@ -234,7 +234,7 @@ class PPOLearner(Learner):
             stats: dictionary of recorded statistics
         """
         loss, stats = self._clip_loss(obs, actions, advantages, behave_pol)
-        self.model.actor.zero_grad()
+        self.model.clear_actor_grad()
         loss.backward()
         if self.clip_actor_gradient:
             stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
@@ -295,7 +295,7 @@ class PPOLearner(Learner):
             stats: dictionary of recorded statistics
         """
         loss, stats = self._adapt_loss(obs, actions, advantages, behave_pol, ref_pol)
-        self.model.actor.zero_grad()
+        self.model.clear_actor_grad()
         loss.backward()
         if self.clip_actor_gradient:
             stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
@@ -339,7 +339,7 @@ class PPOLearner(Learner):
             stats: dictionary of recorded statistics
         """
         loss, stats = self._value_loss(obs, returns)
-        self.model.critic.zero_grad()
+        self.model.clear_critic_grad()
         loss.backward()
         if self.clip_critic_gradient:
             stats['grad_norm_critic'] = nn.utils.clip_grad_norm_(
@@ -383,15 +383,13 @@ class PPOLearner(Learner):
             values[:, 1:] *= 1 - dones
 
             if self.if_rnn_policy:
-                returns = torch.zeros(self.batch_size, self.n_step)
-                advs = torch.zeros(self.batch_size, self.n_step)
                 tds = rewards + self.gamma * values[:, 1:] - values[:, :-1]
                 eff_len = self.n_step - self.horizon + 1
                 gamma = gamma[:self.horizon]
                 lam = lam[:self.horizon]
-                returns = returns[:, :eff_len]
-                advs = advs[:, :eff_len]
 
+                returns = torch.zeros(self.batch_size, eff_len)
+                advs = torch.zeros(self.batch_size, eff_len)
                 for step in range(eff_len):
                     returns[:, step] = torch.sum(gamma * rewards[:, step:step + self.horizon], 1) + \
                                        values[:, step + self.horizon] * (self.gamma ** self.horizon)
@@ -486,8 +484,8 @@ class PPOLearner(Learner):
             pds = persistent_infos[-1]
 
             if self.if_rnn_policy:
-                h = (onetime_infos[0].transpose(0, 1).contiguous())
-                c = (onetime_infos[1].transpose(0, 1).contiguous())
+                h = (onetime_infos[0].transpose(0, 1).contiguous()).detach()
+                c = (onetime_infos[1].transpose(0, 1).contiguous()).detach()
                 self.cells = (h, c)
 
             advantages, returns = self._gae_and_return(obs, 

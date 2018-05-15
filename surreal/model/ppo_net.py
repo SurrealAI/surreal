@@ -172,6 +172,20 @@ class PPOModel(nnx.Module):
         obs_low_dim = torch.cat(list_obs_ld, -1)
         return obs_low_dim
 
+    def clear_actor_grad(self):
+        self.actor.zero_grad()
+        if self.if_pixel_input:
+            self.cnn_stem.zero_grad()
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.zero_grad()
+
+    def clear_critic_grad(self):
+        self.critic.zero_grad()
+        if self.if_pixel_input:
+            self.cnn_stem.zero_grad()
+        if self.rnn_config.if_rnn_policy:
+            self.rnn_stem.zero_grad()
+
     def get_actor_params(self):
         '''
             Method that returns generator that contains all the parameters from
