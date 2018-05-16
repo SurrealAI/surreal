@@ -3,7 +3,6 @@ Aggregate experience tuple into pytorch-ready tensors
 """
 import numpy as np
 import collections
-from easydict import EasyDict
 import torch
 import surreal.utils as U
 from surreal.env import ActionType
@@ -133,7 +132,7 @@ class MultistepAggregatorWithInfo():
             Args:
                 exp_list: list of dictionaries that are sub-trajectory attribute
             Returns:
-                EasyDict of tensorized subtrajectory information
+                dict of tensorized subtrajectory information
         '''
         observations, next_obs, actions, rewards, dones, persistent_infos, onetime_infos = [], [], [], [], [], [], []
         for exp in exp_list:
@@ -154,12 +153,12 @@ class MultistepAggregatorWithInfo():
 
         onetime_infos, persistent_infos = self._gather_action_infos(exp_list)
         return {'obs': observations,
-                'next_obs': next_obs,
+                'obs_next': next_obs,
                 'actions': np.stack(actions),
                 'rewards': np.stack(rewards),
                 'persistent_infos': persistent_infos,
                 'onetime_infos': onetime_infos,
-                'dones': np.stack(dones)}
+                'dones': np.stack(dones).astype('float32')}
 
     def _batch_obs(self, traj_list):
         batched_obs = {}

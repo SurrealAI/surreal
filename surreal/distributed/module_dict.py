@@ -1,5 +1,9 @@
 import pickle
+import numpy as np
+import torch
+from surreal.utils.numpy_util import np_cast
 import surreal.utils as U
+import torchx.nn as nnx
 
 
 class ModuleDict(object):
@@ -12,8 +16,8 @@ class ModuleDict(object):
         U.assert_type(module_dict, dict)
         for k, m in module_dict.items():
             U.assert_type(k, str), 'Key "{}" must be string.'.format(k)
-            U.assert_type(m, U.Module), \
-            '"{}" must be surreal.utils.pytorch.Module.'.format(m)
+            U.assert_type(m, nnx.Module), \
+            '"{}" must be torchx.nn.Module.'.format(m)
         self._module_dict = module_dict
 
     def dumps(self):
@@ -29,7 +33,7 @@ class ModuleDict(object):
         bin_dict = U.deserialize(binary)
         for key in bin_dict:
             for k in bin_dict[key]:
-                bin_dict[key][k] = U.to_float_tensor(bin_dict[key][k], copy=False)
+                bin_dict[key][k] = torch.from_numpy(np_cast(bin_dict[key][k], np.float32))
         for k, m in self._module_dict.items():
             m.load_state_dict(bin_dict[k])
 

@@ -214,15 +214,9 @@ class DMControlDummyWrapper(Wrapper):
     def observation_spec(self):
         modality = collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('float32')))])
         return modality
-        #return collections.OrderedDict([('pixel', modality)])
 
     def action_spec(self):
         return self.env.action_spec()
-        # return dm_control.rl.specs.BoundedArraySpec(shape=(6,),
-        #     dtype=np.dtype('float64'),
-        #     name=None,
-        #     minimum=[-1., -1., -1., -1., -1., -1.],
-        #     maximum=[1., 1., 1., 1., 1., 1.])
 
 class DMControlAdapter(Wrapper):
     def __init__(self, env, is_pixel_input):
@@ -244,11 +238,6 @@ class DMControlAdapter(Wrapper):
 
     def _step(self, action):
         ts = self.env.step(action)
-        '''
-        for key in ts.observation:
-            # DM_control gives arrayspec, we just need tuple as shape
-            ts.observation[key] = ts.observation[key]
-            '''
         reward = ts.reward
         if reward is None:
             # TODO: note that reward is none
@@ -309,7 +298,7 @@ class MujocoManipulationWrapper(Wrapper):
         super().__init__(env)
         self._input_list = env_config.observation
 
-    def _add_modality(self, obs):
+    def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
         flat_modality = collections.OrderedDict()
         for key in obs:
@@ -317,6 +306,8 @@ class MujocoManipulationWrapper(Wrapper):
                 pixel_modality[key] = obs[key]
             elif key in self._input_list['low_dim']:
                 flat_modality[key] = obs[key]
+            elif verbose:
+                print('Mujoco: skipping observation key:', key)
         obs = collections.OrderedDict()
         if len(pixel_modality) > 0:
             obs['pixel'] = pixel_modality
@@ -345,7 +336,7 @@ class MujocoManipulationWrapper(Wrapper):
         spec = self.env.observation_spec()
         for k in spec:
             spec[k] = tuple(np.array(spec[k]).shape)
-        return self._add_modality(spec)
+        return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
         return {'dim': (9,), 'type': 'continuous'}

@@ -8,8 +8,10 @@ from .aggregator import NstepReturnAggregator, SSARAggregator
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
-from surreal.utils.pytorch import GpuVariable as Variable
+#from surreal.utils.pytorch import #GpuVariable as Variable
 import surreal.utils as U
+import torchx as tx
+import torchx.nn as nnx
 
 
 class DDPGLearner(Learner):
@@ -31,16 +33,19 @@ class DDPGLearner(Learner):
 
         self.log.info('Initializing DDPG learner')
         num_gpus = session_config.learner.num_gpus
-        self.gpu_ids = list(range(num_gpus))
+        if num_gpus == 0:
+            self.gpu_ids = 'cpu'
+        else:
+            self.gpu_ids = 'cuda:all'
 
-        if not self.gpu_ids:
+        if num_gpus == 0:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using GPU: {}'.format(self.gpu_ids))
+            self.log.info('Using {} GPUs'.format(num_gpus))
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
 
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
             self.target_update_init()
 
             self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
@@ -94,8 +99,8 @@ class DDPGLearner(Learner):
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
-            U.hard_update(self.model_target.actor, self.model.actor)
-            U.hard_update(self.model_target.critic, self.model.critic)
+            self.model_target.actor.hard_update(self.model.actor)
+            self.model_target.critic.hard_update(self.model.critic)
             # self.train_iteration = 0
             
             self.total_learn_time = U.TimeRecorder()
@@ -104,7 +109,7 @@ class DDPGLearner(Learner):
             self.actor_update_time = U.TimeRecorder()
 
     def preprocess(self, batch):
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
             obs, actions, rewards, obs_next, done = (
                 batch['obs'],
                 batch['actions'],
@@ -116,20 +121,20 @@ class DDPGLearner(Learner):
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = Variable(torch.ByteTensor(obs[modality][key])).float().detach()
+                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
                     else:
-                        obs[modality][key] = Variable(U.to_float_tensor(obs[modality][key])).detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = Variable(torch.ByteTensor(obs_next[modality][key])).float().detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
                     else:
-                        obs_next[modality][key] = Variable(U.to_float_tensor(obs_next[modality][key])).detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
 
-            actions = Variable(U.to_float_tensor(actions))
-            rewards = Variable(U.to_float_tensor(rewards))
-            done = Variable(U.to_float_tensor(done))
+            actions = torch.tensor(actions, dtype=torch.float32)
+            rewards = torch.tensor(rewards, dtype=torch.float32)
+            done = torch.tensor(done, dtype=torch.float32)
 
             (
                 batch['obs'],
@@ -152,25 +157,16 @@ class DDPGLearner(Learner):
         of observations, (N, C, H, W).  Note that while the replay contains uint8, the
         aggregator returns float32 tensors
         '''
-        with U.torch_gpu_scope(self.gpu_ids):
+        with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
 
-                assert actions.max().data[0] <= 1.0
-                assert actions.min().data[0] >= -1.0
+                assert actions.max().item() <= 1.0
+                assert actions.min().item() >= -1.0
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
-                '''
-                perception_next_target = self.model_target.forward_perception(obs_next)
-                next_actions_target = self.model_target.forward_actor(perception_next_target)
-
-                # obs_next.volatile = False
-                next_Q_target = self.model_target.forward_critic(perception_next_target,
-                                                                 next_actions_target)
-                '''
                 _, next_Q_target = self.model_target.forward(obs_next)
-                # next_Q_target.volatile = False
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 y = y.detach()
 
@@ -206,12 +202,12 @@ class DDPGLearner(Learner):
                 self.actor_optim.step()
 
             tensorplex_update_dict = {
-                'actor_loss': actor_loss.data[0],
-                'critic_loss': critic_loss.data[0],
-                'action_norm': actions.norm(2, 1).mean().data[0],
-                'rewards': rewards.mean().data[0],
-                'Q_target': y.mean().data[0],
-                'Q_policy': y_policy.mean().data[0],
+                'actor_loss': actor_loss.item(),
+                'critic_loss': critic_loss.item(),
+                'action_norm': actions.norm(2, 1).mean().item(),
+                'rewards': rewards.mean().item(),
+                'Q_target': y.mean().item(),
+                'Q_policy': y_policy.mean().item(),
                 'performance/forward_time': self.forward_time.avg,
                 'performance/critic_update_time': self.critic_update_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
@@ -270,14 +266,14 @@ class DDPGLearner(Learner):
 
     def target_update(self):
         if self.target_update_type == 'soft':
-            U.soft_update(self.model_target.actor, self.model.actor, self.target_update_tau)
-            U.soft_update(self.model_target.critic, self.model.critic, self.target_update_tau)
+            self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
+            self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
             if self.is_pixel_input:
-                U.soft_update(self.model_target.perception, self.model.perception, self.target_update_tau)
+                self.model_target.perception.soft_update(self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
             self.target_update_counter += 1
             if self.target_update_counter % self.target_update_interval == 0:
-                U.hard_update(self.model_target.actor, self.model.actor)
-                U.hard_update(self.model_target.critic, self.model.critic)
+                self.model_target.actor.hard_update(self.model.actor)
+                self.model_target.critic.hard_update(self.model.critic)
                 if self.is_pixel_input:
-                    U.hard_update(self.model_target.perception, self.model.perception)
+                    self.model_target.perception.hard_update(self.model.perception)
