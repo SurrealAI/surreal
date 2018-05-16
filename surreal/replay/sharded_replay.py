@@ -1,4 +1,5 @@
 from multiprocessing import Process
+import os
 from surreal.distributed import ZmqLoadBalancerThread
 import surreal.utils as U
 from .base import replay_factory
@@ -25,10 +26,10 @@ class ShardedReplay(object):
 
         self.shards = self.learner_config.replay.replay_shards
 
-        self.collector_frontend_port = self.session_config.replay.collector_frontend_port
-        self.collector_backend_port = self.session_config.replay.collector_backend_port
-        self.sampler_frontend_port = self.session_config.replay.sampler_frontend_port
-        self.sampler_backend_port = self.session_config.replay.sampler_backend_port
+        self.collector_frontend_port = os.environ['SYMPH_COLLECTOR_FRONTEND_PORT']
+        self.collector_backend_port = os.environ['SYMPH_COLLECTOR_BACKEND_PORT']
+        self.sampler_frontend_port = os.environ['SYMPH_SAMPLER_FRONTEND_PORT']
+        self.sampler_backend_port = os.environ['SYMPH_SAMPLER_BACKEND_PORT']
 
         self.collector_frontend_add = "tcp://*:{}".format(self.collector_frontend_port)
         self.collector_backend_add = "tcp://*:{}".format(self.collector_backend_port)

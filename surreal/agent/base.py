@@ -13,6 +13,8 @@ from surreal.env import (
     expSenderWrapperFactory, EvalTensorplexMonitor,
     VideoWrapper
 )
+import os
+
 agent_registry = {}
 
 
@@ -74,9 +76,10 @@ class Agent(object, metaclass=AgentMeta):
             implements AutoInitializeMeta meta class.
             self.module_dict can only happen after the module is constructed by subclasses.
         """
+        host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
         self._ps_client = ParameterClient(
-            host=self.session_config.ps.parameter_serving_frontend_host,
-            port=self.session_config.ps.parameter_serving_frontend_port,
+            host=host,
+            port=port,
             module_dict=self.module_dict(),
         )
     

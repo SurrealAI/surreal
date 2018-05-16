@@ -28,6 +28,7 @@ def run_tensorplexserver_main(args, config):
         .register_indexed_group('replay', 10)
     )
 
+    port = os.environ['SYMPH_TENSORPLEX_PORT']
     tensorplex.start_server(
-        port=tensorplex_config.port,
+        port=port,
     )
