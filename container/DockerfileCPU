@@ -4,9 +4,9 @@ FROM us.gcr.io/surreal-dev-188523/surreal-base-cpu-new:latest
 
 RUN echo cache bust 231
 RUN pip install \
-	git+https://f446c0601e01c03d6b85891051b67e9007258af4@github.com/SurrealAI/Tensorplex.git \ 
-	git+https://f446c0601e01c03d6b85891051b67e9007258af4@github.com/SurrealAI/BeneDict.git \
-	git+https://f446c0601e01c03d6b85891051b67e9007258af4@github.com/SurrealAI/nanolog.git
+	git+git://github.com/SurrealAI/Tensorplex.git \ 
+	git+git://github.com/SurrealAI/BeneDict.git \
+	git+git://github.com/SurrealAI/nanolog.git
 
 COPY torchx /mylibs/torchx
 RUN pip install -e /mylibs/torchx
