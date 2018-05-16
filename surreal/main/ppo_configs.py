@@ -30,7 +30,7 @@ def generate(argv):
             'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'limit_training_episode_length': 1000
+            'limit_training_episode_length': 1000,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
