@@ -1,4 +1,4 @@
-from us.gcr.io/surreal-dev-188523/surreal-base-gpu-new:latest
+FROM us.gcr.io/surreal-dev-188523/surreal-base-gpu-new:latest
 
 # Arrange these dependencies to heuristically minimize number of layers to build
 
