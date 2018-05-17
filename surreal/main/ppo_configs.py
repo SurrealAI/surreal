@@ -26,8 +26,9 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
-            'gamma': .995, 
+            'use_z_filter': True,
+            'use_r_filter': False,
+            'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             # 'limit_training_episode_length': 300,
@@ -44,36 +45,36 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval': 8192,
+                    'interval': 4096,
                 },
             },
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'advantage':{
                 'norm_adv': True,
-                'lam': 0.97,
+                'lam': 1.0,
             },
             'rnn': {
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
-                'rnn_layer': 2,
+                'rnn_layer': 1,
                 'horizon': 10,
             },
             'consts': {
                 'init_log_sig': -1.5,
-                'log_sig_range': 1,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.01, # target KL divergence between before and after
+                'kl_target': 0.02, # target KL divergence between before and after
             },
             'adapt_consts': {
-                'kl_cutoff_coeff': 50, # penalty coeff when kl large
+                'kl_cutoff_coeff': 500, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
                 'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
@@ -96,7 +97,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
@@ -126,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 500, # 10 for without RNN
+            'fetch_parameter_interval': 20, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
