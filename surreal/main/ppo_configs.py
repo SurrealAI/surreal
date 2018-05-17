@@ -30,7 +30,7 @@ def generate(argv):
             'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'limit_training_episode_length': 1000,
+            # 'limit_training_episode_length': 300,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -44,7 +44,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
+                    'min_lr': 1e-5,
                 },
                 'target_update':{
                     'type': 'hard',
@@ -64,8 +64,8 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1,
-                'log_sig_range': 0.5,
+                'init_log_sig': -1.5,
+                'log_sig_range': 1,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,

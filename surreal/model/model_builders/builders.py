@@ -132,6 +132,7 @@ class PPO_ActorNetwork(nnx.Module):
         xp = L.Linear(hidden_sizes[1])(xp)
         xp = L.Tanh()(xp)
         xp = L.Linear(D_act)(xp)
+        xp = L.Tanh()(xp)
 
         self.model = L.Functional(inputs=xp_input, outputs=xp)
         self.model.build((None, D_obs))
