@@ -1,8 +1,7 @@
 from surreal.env.video_env import VideoWrapper
-from .wrapper import GymAdapter, DMControlAdapter, DMControlDummyWrapper
+from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
 from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
-from dm_control.suite.wrappers import pixels
 import os
 
 
@@ -40,7 +39,7 @@ def make_mujocomanip(env_name, env_config):
         horizon=50000,
         has_renderer=False,
         ignore_done=True,
-        use_camera_obs=False,
+        use_camera_obs=True,
         camera_height=84,
         camera_width=84,
         camera_name='tabletop',
@@ -59,6 +58,8 @@ def make_mujocomanip(env_name, env_config):
 
 def make_dm_control(env_name, env_config):
     from dm_control import suite
+    from dm_control.suite.wrappers import pixels
+    from .dm_wrapper import DMControlAdapter, DMControlDummyWrapper
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
     env = suite.load(domain_name=domain_name, task_name=task_name)
