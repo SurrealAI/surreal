@@ -131,7 +131,7 @@ class VideoWrapper(Wrapper):
         if self.is_recording and self.num_eps % self.frame_interval == 0:
             # For dm_control videos, the video will be transposed when we save to disk
             # We correct for that here
-            ob = self.render(mode = 'rgb_array').transpose(1, 0, 2)
+            ob = self.render().transpose(1, 0, 2)
             self.video_queue.put(ob)
 
         if terminal and self.is_recording:
