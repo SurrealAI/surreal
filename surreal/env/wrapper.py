@@ -247,8 +247,11 @@ class MujocoManipulationWrapper(Wrapper):
         return low
 
     def _render(self, camera_id=0, *args, **kwargs):
-        # return
-        return self.env.render(camera_id)
+        return self.env.sim.render(camera_name='birdview',
+                                   height=256,
+                                   width=256,
+                                   depth=False)
+
         
 class ObservationConcatenationWrapper(Wrapper):
     def __init__(self, env, concatenated_obs_name='flat_inputs'):

@@ -6,6 +6,7 @@ import numpy as np
 from .base import Learner
 from .aggregator import MultistepAggregatorWithInfo 
 from surreal.model.ppo_net import PPOModel, DiagGauss
+from surreal.model.reward_filter import RewardFilter
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG, BASE_LEARNER_CONFIG, ConfigError
 
 class PPOLearner(Learner):
@@ -75,6 +76,7 @@ class PPOLearner(Learner):
         self.lam   = self.learner_config.algo.advantage.lam
         self.n_step = self.learner_config.algo.n_step
         self.use_z_filter = self.learner_config.algo.use_z_filter
+        self.use_r_filter = self.learner_config.algo.use_r_filter
         self.norm_adv = self.learner_config.algo.advantage.norm_adv
         self.batch_size = self.learner_config.replay.batch_size
 
@@ -184,6 +186,9 @@ class PPOLearner(Learner):
 
             # placeholder for RNN hidden cells
             self.cells = None
+
+            if self.use_r_filter: 
+                self.RewardFilter= RewardFilter()
 
     def _clip_loss(self, obs, actions, advantages, behave_pol): 
         """
@@ -446,6 +451,12 @@ class PPOLearner(Learner):
 
             actions = torch.tensor(actions, dtype=torch.float32)
             rewards = torch.tensor(rewards, dtype=torch.float32)
+
+            if self.use_r_filter:
+                normed_reward = self.RewardFilter(rewards)
+                self.RewardFilter.update(rewards)
+                rewards = normed_reward
+
             done = torch.tensor(done, dtype=torch.float32)
 
             if persistent_infos is not None:
@@ -569,6 +580,9 @@ class PPOLearner(Learner):
                 stats['obs_running_mean'] = np.mean(self.model.z_filter.running_mean())
                 stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                 stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
+            if self.use_r_filter:
+                stats['reward_mean'] = self.RewardFilter.reward_mean()
+
             return stats
 
     def learn(self, batch):
