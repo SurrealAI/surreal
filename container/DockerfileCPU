@@ -1,0 +1,21 @@
+FROM us.gcr.io/surreal-dev-188523/surreal-base-cpu-new:latest
+
+# Arrange these dependencies to heuristically minimize number of layers to build
+
+RUN echo cache bust 231
+RUN pip install \
+	git+git://github.com/SurrealAI/Tensorplex.git \ 
+	git+git://github.com/SurrealAI/BeneDict.git \
+	git+git://github.com/SurrealAI/nanolog.git
+
+COPY torchx /mylibs/torchx
+RUN pip install -e /mylibs/torchx
+
+COPY mujoco /mylibs/mujoco
+RUN pip install -e /mylibs/mujoco
+
+COPY surreal /mylibs/surreal
+RUN pip install -e /mylibs/surreal
+
+RUN pip install easydict
+ENTRYPOINT ["/mylibs/surreal/container/entry.py"]

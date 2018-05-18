@@ -1,19 +1,10 @@
-easydict
-gym
-libtmux
-mujoco_py==0.5.7
-redis
-seaborn
+gym[atari]
+mujoco_py>=1.50
 tabulate
 tqdm
-pyyaml
-pygame
 pyzmq
-gitpython
-tensorflow
-tensorboardX
-kubernetes
+tensorflow # TODO: remove
+tensorboardX # TODO: remove
 imageio
-msgpack
-msgpack-numpy
 pyarrow
+pygame
