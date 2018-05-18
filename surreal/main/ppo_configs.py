@@ -26,12 +26,12 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'use_r_filter': False,
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            # 'limit_training_episode_length': 300,
+            'limit_training_episode_length': 300,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -65,7 +65,7 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1.5,
+                'init_log_sig': -1.0,
                 'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
@@ -104,11 +104,11 @@ def generate(argv):
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 10,
+            'record_every': 100,
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cub_quat', 'gripper_to_cube'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
     }
 
@@ -127,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 20, # 10 for without RNN
+            'fetch_parameter_interval': 10, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
