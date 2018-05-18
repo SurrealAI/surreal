@@ -182,6 +182,7 @@ class KurrealParser(SymphonyParser):
         ENV_ALIAS = {
             # dm_control:cartpole-swingup
             'humanoid': 'dm_control:humanoid-walk',
+            'ball': 'dm_control:manipulator-bring_ball',
             'ca': 'dm_control:cartpole-balance',
             'cartpole': 'dm_control:cartpole-balance',
             'ch': 'dm_control:cheetah-run',
