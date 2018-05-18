@@ -26,12 +26,12 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'use_r_filter': False,
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'limit_training_episode_length': 300,
+            'limit_training_episode_length': 1000,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -43,7 +43,7 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e7,
+                    'frames_to_anneal': 1e7,
                     'lr_update_frequency': 100, 
                     'min_lr': 1e-4,
                 },
@@ -97,7 +97,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
@@ -127,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 10, # 10 for without RNN
+            'fetch_parameter_interval': 250, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
