@@ -108,7 +108,7 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cub_quat', 'gripper_to_cube'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
     }
 
