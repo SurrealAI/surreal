@@ -20,7 +20,7 @@ class ZFilter(nnx.Module):
             count: number of experiences accumulated
                 (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
     """
-    def __init__(self, obs_spec, eps=1e-2):
+    def __init__(self, obs_spec, eps=1e-5):
         """
         Constructor for ZFilter class
         Args:

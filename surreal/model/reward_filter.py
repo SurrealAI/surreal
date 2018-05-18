@@ -4,7 +4,7 @@ import torchx.nn as nnx
 
 class RewardFilter(nnx.Module):
 
-    def __init__(self, eps=1e-2):
+    def __init__(self, eps=1e-5):
         """
         Constructor for RewardFilter class
         Args:
