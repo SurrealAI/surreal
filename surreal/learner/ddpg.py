@@ -32,16 +32,16 @@ class DDPGLearner(Learner):
         self.use_layernorm = self.learner_config.model.use_layernorm
 
         self.log.info('Initializing DDPG learner')
-        num_gpus = session_config.learner.num_gpus
-        if num_gpus == 0:
+        self._num_gpus = session_config.learner.num_gpus
+        if self._num_gpus == 0:
             self.gpu_ids = 'cpu'
         else:
             self.gpu_ids = 'cuda:all'
 
-        if num_gpus == 0:
+        if self._num_gpus == 0:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using {} GPUs'.format(num_gpus))
+            self.log.info('Using {} GPUs'.format(self._num_gpus))
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
 
@@ -151,6 +151,20 @@ class DDPGLearner(Learner):
             )
             return batch
 
+    def _assert_gpu(self, tensor, name):
+        # Sometimes automatic conversion to cuda tensor in tx.device_scope
+        # doesn't work, correct for that here
+        if self._num_gpus == 0:
+            return tensor
+        if not tensor.is_cuda:
+            print('----Expected cuda tensor, received cpu tensor------')
+            print('name', name)
+            print('is_cuda', tensor.is_cuda)
+            print('tensor_type', type(tensor))
+            print('dimensions', tensor.dim())
+            return tensor.to(torch.device('cuda'))
+        return tensor
+
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
         obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
@@ -160,6 +174,13 @@ class DDPGLearner(Learner):
         with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
+                for o in [obs, obs_next]:
+                    for modality in o:
+                        for k in o[modality]:
+                            o[modality][k] = self._assert_gpu(o[modality][k], k)
+                actions = self._assert_gpu(actions, 'actions')
+                rewards = self._assert_gpu(rewards, 'rewards')
+                done = self._assert_gpu(done, 'done')
 
                 assert actions.max().item() <= 1.0
                 assert actions.min().item() >= -1.0
