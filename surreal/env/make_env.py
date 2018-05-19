@@ -54,19 +54,6 @@ def make_mujocomanip(env_name, env_config):
             use_object_obs=False,
             reward_shaping=True
         )
-
-        env_compare = MujocoManipulationDummyWrapper(
-            use_camera_obs=env_config.pixel_input,
-            camera_height=84,
-            camera_width=84,
-            use_object_obs=False,
-        )
-
-        spec1 = env.observation_spec()
-        spec2 = env_compare.observation_spec()
-        assert spec1.keys() == spec2.keys()
-        for k in spec1:
-            assert spec1[k].shape == spec2[k].shape
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
