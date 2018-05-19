@@ -31,7 +31,6 @@ def generate(argv):
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'limit_training_episode_length': 1000,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -65,8 +64,8 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1.0,
-                'log_sig_range': 0.5,
+                'init_log_sig': -1.5,
+                'log_sig_range': 1,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
@@ -110,6 +109,7 @@ def generate(argv):
             'pixel':['camera0'],
             'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
+        'limit_episode_length': 1000,
     }
 
     session_config = Config({
