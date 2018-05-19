@@ -247,7 +247,7 @@ class MujocoManipulationWrapper(Wrapper):
         return low
 
     def _render(self, camera_id=0, *args, **kwargs):
-        return self.env.sim.render(camera_name='birdview',
+        return self.env.sim.render(camera_name='frontview',
                                    height=512,
                                    width=512,
                                    depth=False)
