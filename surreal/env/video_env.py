@@ -99,6 +99,10 @@ class VideoWrapper(Wrapper):
         or gif to file
         '''
         self.num_steps = 0
+
+        if self.is_recording:
+            self.stop_record()
+
         if self.num_eps % self.capture_interval == 0:
             self.video_queue = Queue()
             self.is_recording = True
@@ -116,6 +120,7 @@ class VideoWrapper(Wrapper):
             self.num_paths += 1
 
         state = self.env.reset(**kwargs)
+        self.num_eps += 1
         return state
 
     def _step(self, action):
@@ -127,18 +132,11 @@ class VideoWrapper(Wrapper):
         '''
         state, step_reward, terminal, info = self.env.step(action)
         self.num_steps += 1
-
-        if self.is_recording and self.num_eps % self.frame_interval == 0:
+        if self.is_recording:
             # For dm_control videos, the video will be transposed when we save to disk
             # We correct for that here
-            ob = self.render(mode = 'rgb_array').transpose(1, 0, 2)
+            ob = self.env.render().transpose(1, 0, 2)
             self.video_queue.put(ob)
-
-        if terminal and self.is_recording:
-            self.stop_record()
-
-        if terminal:
-            self.num_eps += 1
 
         return state, step_reward, terminal, info
 
