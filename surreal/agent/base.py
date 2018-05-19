@@ -13,6 +13,8 @@ from surreal.env import (
     expSenderWrapperFactory, EvalTensorplexMonitor,
     VideoWrapper
 )
+import os
+
 agent_registry = {}
 
 
@@ -74,9 +76,10 @@ class Agent(object, metaclass=AgentMeta):
             implements AutoInitializeMeta meta class.
             self.module_dict can only happen after the module is constructed by subclasses.
         """
+        host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
         self._ps_client = ParameterClient(
-            host=self.session_config.ps.parameter_serving_frontend_host,
-            port=self.session_config.ps.parameter_serving_frontend_port,
+            host=host,
+            port=port,
             module_dict=self.module_dict(),
         )
     
@@ -264,9 +267,9 @@ class Agent(object, metaclass=AgentMeta):
             Only changes agent behavior
         """
         # This has to go first as it alters step() return value
-        limit_training_episode_length = self.learner_config.algo.limit_training_episode_length
-        if limit_training_episode_length > 0:
-            env = MaxStepWrapper(env, limit_training_episode_length)
+        limit_episode_length = self.env_config.limit_episode_length
+        if limit_episode_length > 0:
+            env = MaxStepWrapper(env, limit_episode_length)
 
         expSenderWrapper = expSenderWrapperFactory(self.learner_config.algo.experience)
         env = expSenderWrapper(env, self.learner_config, self.session_config)
@@ -283,6 +286,10 @@ class Agent(object, metaclass=AgentMeta):
             Applies custom wrapper to the environment as necessary
             Only changes eval behavior
         """
+        limit_episode_length = self.env_config.limit_episode_length
+        if limit_episode_length > 0:
+            env = MaxStepWrapper(env, limit_episode_length)
+
         env = EvalTensorplexMonitor(
             env,
             eval_id=self.agent_id,

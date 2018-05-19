@@ -12,6 +12,7 @@ from surreal.distributed.proxy import ZmqLoadBalancerThread
 from surreal.distributed.module_dict import ModuleDict
 from threading import Lock
 from multiprocessing import Process
+import os
 
 
 class ParameterPublisher(object):
@@ -56,13 +57,15 @@ class ShardedParameterServer(object):
     def __init__(self, config):
         self.ps_config = config.session_config.ps
         self.shards = self.ps_config.shards
-        self.frontend_host=self.ps_config.parameter_serving_frontend_host
-        self.frontend_port=self.ps_config.parameter_serving_frontend_port
-        self.backend_host=self.ps_config.parameter_serving_backend_host
-        self.backend_port=self.ps_config.parameter_serving_backend_port
+
+        self.frontend_port = os.environ['SYMPH_PS_FRONTEND_PORT']
+        self.backend_port = os.environ['SYMPH_PS_BACKEND_PORT']
 
         self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
         self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
+
+        self.proxy = None
+        self.workers = []
         
     def launch(self):
         self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
@@ -73,11 +76,14 @@ class ShardedParameterServer(object):
 
         
         self.workers = []
+
+        publish_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
+        publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         for i in range(self.shards):
             worker = ParameterServer(
-                publish_host=self.ps_config.publish_host,
-                publish_port=self.ps_config.publish_port,
-                serving_host=self.backend_host,
+                publish_host=publish_host,
+                publish_port=publish_port,
+                serving_host='localhost',
                 serving_port=self.backend_port,
                 load_balanced=True,
             )
@@ -86,14 +92,10 @@ class ShardedParameterServer(object):
             # break
 
     def join(self):
-        self.proxy.join()
         for i, worker in enumerate(self.workers):
             worker.join()
             U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
-        # print(self.workers[0].join())
-        # print(self.workers[0].exitcode)
-        # print('joined')
-        # 
+        self.proxy.join()
         
 class ParameterServer(Process):
     # TODO support multiple PS

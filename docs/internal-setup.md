@@ -157,7 +157,27 @@ spec:
     cloud.google.com/gke-accelerator: nvidia-tesla-k80 # or nvidia-tesla-k80
 ```
 where [foo-bar] is an image built from nvidia provided base images, like nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04
- 
+
+
+## Query node-pool status
+
+[gcloud node-pool](https://cloud.google.com/sdk/gcloud/reference/container/node-pools) command.
+
+Access the [node pool dashboard](https://console.cloud.google.com/kubernetes/clusters/details/us-west1-b/kurreal-1?project=surreal-dev-188523&tab=details&persistent_volumes_tablesize=50&storage_class_tablesize=50&nodes_tablesize=50) on GCloud web console.
+
+```bash
+# First, set the cluster to the one you created:
+gcloud config set container/cluster kurreal-1
+
+# list 
+gcloud container node-pools list
+
+# As of May 2018, you need to disable the non-beta config to see node taints showing in nodepool describe
+
+gcloud config set container/use_v1_api false
+gcloud beta container node-pools describe "my-pool-name" # will show taints
+```
+
  
 # `dm_control` on Ubuntu
 

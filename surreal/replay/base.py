@@ -3,6 +3,7 @@ import time
 import surreal.utils as U
 from surreal.session import get_tensorplex_client, get_loggerplex_client
 from surreal.distributed import ZmqSimpleServer, ExperienceCollectorServer
+import os
 
 
 replay_registry = {}
@@ -39,16 +40,18 @@ class Replay(object, metaclass=ReplayMeta):
         self.session_config = session_config
         self.index = index
 
+        collector_port = os.environ['SYMPH_COLLECTOR_BACKEND_PORT']
+        sampler_port = os.environ['SYMPH_SAMPLER_BACKEND_PORT']
         self._collector_server = ExperienceCollectorServer(
-            host=self.session_config.replay.collector_backend_host,
-            port=self.session_config.replay.collector_backend_port,
+            host='localhost',
+            port=collector_port,
             # port=7001,
             exp_handler=self._insert_wrapper,
             load_balanced=True,
         )
         self._sampler_server = ZmqSimpleServer(
-            host=self.session_config.replay.sampler_backend_host,
-            port=self.session_config.replay.sampler_backend_port,
+            host='localhost',
+            port=sampler_port,
             handler=self._sample_request_handler,
             load_balanced=True,
         )

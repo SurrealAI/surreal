@@ -12,6 +12,7 @@ from surreal.session import (
     get_loggerplex_client, get_tensorplex_client
 )
 from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
+import os
 
 
 learner_registry = {}
@@ -96,7 +97,7 @@ class Learner(metaclass=LearnerMeta):
     def _setup_connection(self):  
         # sampler_host = self.session_config.replay.sampler_frontend_host
         # sampler_port = self.session_config.replay.sampler_frontend_port
-        ps_publish_port = self.session_config.ps.publish_port
+        ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         batch_size = self.learner_config.replay.batch_size
         # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 

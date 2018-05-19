@@ -1,6 +1,7 @@
 import os.path as path
 from tensorplex import Loggerplex
 from surreal.kube.tar_snapshot import tar_kurreal_repo
+import os
 
 
 def loggerplex_parser_setup(parser):
@@ -24,4 +25,5 @@ def run_loggerplexserver_main(args, config):
         show_level=loggerplex_config.show_level,
         time_format=loggerplex_config.time_format
     )
-    loggerplex.start_server(loggerplex_config.port)
+    port = os.environ['SYMPH_LOGGERPLEX_PORT']
+    loggerplex.start_server(port)

@@ -128,9 +128,9 @@ class PPO_ActorNetwork(nnx.Module):
         # assumes D_obs here is the correct RNN hidden dim
         xp_input = L.Placeholder((None, D_obs))
         xp = L.Linear(hidden_sizes[0])(xp_input)
-        xp = L.Tanh()(xp)
+        xp = L.ReLU()(xp)
         xp = L.Linear(hidden_sizes[1])(xp)
-        xp = L.Tanh()(xp)
+        xp = L.ReLU()(xp)
         xp = L.Linear(D_act)(xp)
         xp = L.Tanh()(xp)
 
@@ -164,9 +164,9 @@ class PPO_CriticNetwork(nnx.Module):
 
         xp_input = L.Placeholder((None, D_obs))
         xp = L.Linear(hidden_sizes[0])(xp_input)
-        xp = L.Tanh()(xp)
+        xp = L.ReLU()(xp)
         xp = L.Linear(hidden_sizes[1])(xp)
-        xp = L.Tanh()(xp)
+        xp = L.ReLU()(xp)
         xp = L.Linear(1)(xp)
 
         self.model = L.Functional(inputs=xp_input, outputs=xp)

@@ -31,7 +31,6 @@ def generate(argv):
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
-            'limit_training_episode_length': 200,
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -43,7 +42,7 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e7,
+                    'frames_to_anneal': 1e7,
                     'lr_update_frequency': 100, 
                     'min_lr': 1e-4,
                 },
@@ -97,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': False,
+        'pixel_input': True,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
@@ -110,6 +109,7 @@ def generate(argv):
             'pixel':['camera0'],
             'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
+        'limit_episode_length': 100,
     }
 
     session_config = Config({
@@ -127,7 +127,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 20, # 10 for without RNN
+            'fetch_parameter_interval': 250, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
