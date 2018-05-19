@@ -40,8 +40,6 @@ def generate(argv):
             'gamma': .99,
             'n_step': 5,
             'stride': 1,
-            'limit_training_episode_length': 200, # 0 means no limit
-            # 'limit_training_episode_length': 1000, # 0 means no limit
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -88,6 +86,8 @@ def generate(argv):
         'pixel_input': True,
         'frame_stacks': 3,
         'sleep_time': 0.0,
+        # 'limit_episode_length': 200, # 0 means no limit
+        'limit_episode_length': 1000, # 0 means no limit
         'video': {
             'record_video': True,
             'save_folder': None,
