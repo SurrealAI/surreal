@@ -59,6 +59,7 @@ def make_mujocomanip(env_name, env_config):
     env = ObservationConcatenationWrapper(env)
     if env_config.pixel_input:
         env = TransposeWrapper(env)
+        env = GrayscaleWrapper(env)
         env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
