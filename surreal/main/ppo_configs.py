@@ -64,8 +64,8 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1.5,
-                'log_sig_range': 1,
+                'init_log_sig': -1.0,
+                'log_sig_range': 0.5,
                 'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
