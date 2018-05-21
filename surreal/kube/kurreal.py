@@ -196,6 +196,11 @@ class KurrealParser(SymphonyParser):
             env = 'cheetah'
         config_command = ['--env', ENV_ALIAS[env]]
 
+        if 'mujoco' in args.experiment_name:
+            if args.env and 'mujocomanip' not in env:
+                raise ValueError('Mujoco is in environment name but the environment'
+                                'selected is not a mujocomanip env')
+
         if args.num_gpus is None:  # nargs=?, num gpu should be 1 when omitted
             num_gpus = 1
         else:
