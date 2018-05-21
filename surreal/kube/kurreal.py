@@ -391,6 +391,7 @@ class KurrealParser(SymphonyParser):
                 proc.node_selector(key=k, value=v)
             proc.resource_request(**agent_resource_request)
             proc.resource_limit(**agent_resource_limit)
+            proc.image_pull_policy('Always')
 
         learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
         learner.resource_request(**nonagent_resource_request)
