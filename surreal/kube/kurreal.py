@@ -35,6 +35,7 @@ class KurrealParser(SymphonyParser):
         self.load_config()
         self._setup_create()
         self._setup_create_dev()
+        self._setup_tensorboard()
 
     def _check_version(self):
         """
@@ -67,6 +68,16 @@ class KurrealParser(SymphonyParser):
     def username(self):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
+
+    def _setup_tensorboard(self):
+        parser = self.add_subparser('tensorboard', aliases=['tb'])
+        self._add_experiment_name(parser, required=False, positional=True)
+        parser.set_defaults(service_name='tensorboard')
+        parser.add_argument(
+            '-u', '--url-only',
+            action='store_true',
+            help='only show the URL without opening the browser.'
+        )
 
     def _setup_create(self):
         parser = self.add_subparser('create', aliases=['c'])
@@ -154,6 +165,9 @@ class KurrealParser(SymphonyParser):
             help='force overwrite an existing kurreal.yml file '
                  'if its experiment folder already exists.'
         )
+
+    def action_tensorboard(self, args):
+        self.action_visit(args)
 
     def action_create(self, args):
         """
