@@ -259,7 +259,7 @@ class MujocoManipulationWrapper(Wrapper):
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        return {'dim': (9,), 'type': 'continuous'}
+        return {'dim': (self.env.dof,), 'type': 'continuous'}
 
     def _render(self, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',

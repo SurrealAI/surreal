@@ -88,7 +88,6 @@ class PPOLearner(Learner):
         self.ppo_mode = self.learner_config.algo.ppo_mode
         self.if_rnn_policy = self.learner_config.algo.rnn.if_rnn_policy
         self.horizon = self.learner_config.algo.rnn.horizon
-        self.is_weight_thresh = self.learner_config.algo.consts.is_weight_thresh
         self.lr_actor = self.learner_config.algo.network.lr_actor
         self.lr_critic = self.learner_config.algo.network.lr_critic
         self.epoch_policy = self.learner_config.algo.consts.epoch_policy
@@ -212,7 +211,7 @@ class PPOLearner(Learner):
         cliped_ratio = torch.clamp(prob_ratio, 1 - self.clip_epsilon, 
                                                1 + self.clip_epsilon)
         surr = -prob_ratio * advantages.view(-1, 1)
-        cliped_surr = -cliped_ratio * advantages
+        cliped_surr = -cliped_ratio * advantages.view(-1, 1)
 
         # a fishy line here, particularly max(1)[0]. need to look into this
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean() 

@@ -26,7 +26,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'use_r_filter': False,
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
@@ -44,15 +44,15 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval': 4096,
+                    'interval': 8192,
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'adapt',
+            'ppo_mode': 'clip',
             'advantage':{
                 'norm_adv': True,
                 'lam': 1.0,
@@ -66,11 +66,10 @@ def generate(argv):
             'consts': {
                 'init_log_sig': -1.0,
                 'log_sig_range': 0.5,
-                'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.02, # target KL divergence between before and after
+                'kl_target': 0.01, # target KL divergence between before and after
             },
             'adapt_consts': {
                 'kl_cutoff_coeff': 500, # penalty coeff when kl large
@@ -100,7 +99,7 @@ def generate(argv):
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
-            'record_video': True,
+            'record_video': False,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 100,
