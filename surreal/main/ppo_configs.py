@@ -42,9 +42,9 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 1e7,
+                    'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
+                    'min_lr': 1e-5,
                 },
                 'target_update':{
                     'type': 'hard',
@@ -96,7 +96,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env, 
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3, 
         'sleep_time': 0,
         'video': {
@@ -109,7 +109,7 @@ def generate(argv):
             'pixel':['camera0'],
             'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
-        'limit_episode_length': 100,
+        'limit_episode_length': 0,
     }
 
     session_config = Config({
