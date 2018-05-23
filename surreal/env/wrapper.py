@@ -204,9 +204,7 @@ class GymAdapter(Wrapper):
         self.env.close()
 
     def _render(self):
-        ob = self.env.render(mode='rgb_array')
-        print(ob)
-        return ob
+        return self.env.render(mode='rgb_array')
 
     @property
     def spec_format(self):
