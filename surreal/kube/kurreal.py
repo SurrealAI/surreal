@@ -122,6 +122,12 @@ class KurrealParser(SymphonyParser):
             default='ddpg_configs.py',
             help='which config file in surreal/main to use'
         )
+        parser.add_argument(
+            '--colocate-agent',
+            dest='colocate_agent',
+            type=int,
+            default=1
+        )
         self._add_dry_run(parser)
 
     # ==================== helpers ====================
@@ -255,6 +261,7 @@ class KurrealParser(SymphonyParser):
             restore_folder=None,
             force=args.force,
             dry_run=args.dry_run,
+            colocate_agent=args.colocate_agent,
         )
 
     def _create_helper(self, *,
@@ -267,6 +274,7 @@ class KurrealParser(SymphonyParser):
                        restore,
                        restore_folder,
                        force,
+                       colocate_agent=1,
                        dry_run=False):
         if config_py.startswith('/'):
             config_py = config_py
@@ -295,6 +303,7 @@ class KurrealParser(SymphonyParser):
             cmd_dict=cmd_dict,
             force=force,
             dry_run=dry_run,
+            colocate_agent=colocate_agent,
         )
 
     def create_surreal(self,
@@ -302,6 +311,7 @@ class KurrealParser(SymphonyParser):
                        agent_pod_type,
                        nonagent_pod_type,
                        cmd_dict,
+                       colocate_agent=1,
                        force=False,
                        dry_run=False):
         """
@@ -351,8 +361,13 @@ class KurrealParser(SymphonyParser):
         loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['loggerplex']])
 
         agents = []
+        agent_pgs = []
+        assert len(cmd_dict['agent']) % colocate_agent == 0
+        for i in range(int(len(cmd_dict['agent']) / colocate_agent)):
+            agent_pgs.append(exp.new_process_group('agent-pg-{}'.format(i)))
         for i, arg in enumerate(cmd_dict['agent']):
-            agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
+            pg_index = int(i / colocate_agent)
+            agent_p = agent_pgs[pg_index].new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
             agents.append(agent_p)
         # TODO: make command generator return list
         evals = []
@@ -399,15 +414,16 @@ class KurrealParser(SymphonyParser):
 
         agent_selector = agent_pod_spec.get('selector', {})
         for proc in itertools.chain(agents, evals):
-            proc.resource_request(cpu=1.5)
-            proc.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
-            proc.restart_policy('Never')
             # required services
-            for k, v in agent_selector.items():
-                proc.node_selector(key=k, value=v)
             proc.resource_request(**agent_resource_request)
             proc.resource_limit(**agent_resource_limit)
             proc.image_pull_policy('Always')
+
+        for proc_g in agent_pgs:
+            proc.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            proc.restart_policy('Never')
+            for k, v in agent_selector.items():
+                proc.node_selector(key=k, value=v)
 
         learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
         learner.resource_request(**nonagent_resource_request)
