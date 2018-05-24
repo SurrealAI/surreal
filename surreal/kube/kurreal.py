@@ -420,10 +420,10 @@ class KurrealParser(SymphonyParser):
             proc.image_pull_policy('Always')
 
         for proc_g in agent_pgs:
-            proc.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
-            proc.restart_policy('Never')
+            proc_g.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            proc_g.restart_policy('Never')
             for k, v in agent_selector.items():
-                proc.node_selector(key=k, value=v)
+                proc_g.node_selector(key=k, value=v)
 
         learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
         learner.resource_request(**nonagent_resource_request)
