@@ -31,7 +31,6 @@ class Wrapper(Env):
         self._obsspec = None
         # self.obs_spec = env.obs_spec
         # self.action_spec = env.action_spec
-        print(type(env))
 
     @classmethod
     def class_name(cls):

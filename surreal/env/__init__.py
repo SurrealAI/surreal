@@ -5,4 +5,4 @@ from .exp_sender_wrapper import *
 from .monitor import *
 from .wrapper import *
 from .make_env import make_env
-from .video_env import VideoWrapper
+from .video_env import VideoWrapper, GymMonitorWrapper
