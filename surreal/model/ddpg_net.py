@@ -36,8 +36,11 @@ class DDPGModel(nnx.Module):
         if self.is_pixel_input:
             perception_hidden_dim = 200
             self.perception = CNNStemNetwork(self.input_dim, perception_hidden_dim)
-            self.actor = ActorNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
-            self.critic = CriticNetworkX(perception_hidden_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            concatenated_perception_dim = perception_hidden_dim
+            if 'low_dim' in obs_spec:
+                concatenated_perception_dim += obs_spec['low_dim']['flat_inputs'][0]
+            self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
         else:
             self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes)
             self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes)
@@ -59,9 +62,12 @@ class DDPGModel(nnx.Module):
 
     def forward_perception(self, obs):
         if self.is_pixel_input:
-            obs = obs['pixel']['camera0']
-            obs = self.scale_image(obs)
-            return self.perception(obs)
+            obs_pixel = obs['pixel']['camera0']
+            obs_pixel = self.scale_image(obs_pixel)
+            cnn_updated = self.perception(obs_pixel)
+            if 'low_dim' in obs:
+                cnn_updated = torch.cat((cnn_updated, obs['low_dim']['flat_inputs']), dim=1)
+            return cnn_updated
         else:
             obs = obs['low_dim']['flat_inputs']
             return obs

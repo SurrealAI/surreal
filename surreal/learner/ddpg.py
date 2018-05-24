@@ -32,16 +32,16 @@ class DDPGLearner(Learner):
         self.use_layernorm = self.learner_config.model.use_layernorm
 
         self.log.info('Initializing DDPG learner')
-        num_gpus = session_config.learner.num_gpus
-        if num_gpus == 0:
+        self._num_gpus = session_config.learner.num_gpus
+        if self._num_gpus == 0:
             self.gpu_ids = 'cpu'
         else:
             self.gpu_ids = 'cuda:all'
 
-        if num_gpus == 0:
+        if self._num_gpus == 0:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using {} GPUs'.format(num_gpus))
+            self.log.info('Using {} GPUs'.format(self._num_gpus))
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
 
@@ -117,24 +117,31 @@ class DDPGLearner(Learner):
                 batch['obs_next'],
                 batch['dones']
             )
+            device_name = 'cpu'
+            if self._num_gpus > 0:
+                device_name = 'cuda'
 
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.uint8)
+                            .to(torch.device(device_name))).float().detach()
                     else:
-                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)
+                            .to(torch.device(device_name))).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)
+                            .to(torch.device(device_name))).float().detach()
                     else:
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)
+                            .to(torch.device(device_name))).detach()
 
-            actions = torch.tensor(actions, dtype=torch.float32)
-            rewards = torch.tensor(rewards, dtype=torch.float32)
-            done = torch.tensor(done, dtype=torch.float32)
+            actions = torch.tensor(actions, dtype=torch.float32).to(torch.device(device_name))
+            rewards = torch.tensor(rewards, dtype=torch.float32).to(torch.device(device_name))
+            done = torch.tensor(done, dtype=torch.float32).to(torch.device(device_name))
 
             (
                 batch['obs'],
@@ -151,6 +158,21 @@ class DDPGLearner(Learner):
             )
             return batch
 
+    def _assert_gpu(self, tensor, name):
+        # Sometimes automatic conversion to cuda tensor in tx.device_scope
+        # doesn't work, correct for that here
+        if self._num_gpus == 0:
+            return tensor
+        if not tensor.is_cuda:
+            print('----Expected cuda tensor, received cpu tensor------')
+            print('name', name)
+            print('is_cuda', tensor.is_cuda)
+            print('tensor_type', type(tensor))
+            print('dimensions', tensor.dim())
+            print('iter', self.current_iteration)
+            return tensor.to(torch.device('cuda'))
+        return tensor
+
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
         obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
@@ -160,6 +182,13 @@ class DDPGLearner(Learner):
         with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
+                for o in [obs, obs_next]:
+                    for modality in o:
+                        for k in o[modality]:
+                            o[modality][k] = self._assert_gpu(o[modality][k], k)
+                actions = self._assert_gpu(actions, 'actions')
+                rewards = self._assert_gpu(rewards, 'rewards')
+                done = self._assert_gpu(done, 'done')
 
                 assert actions.max().item() <= 1.0
                 assert actions.min().item() >= -1.0

@@ -1,7 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
-from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
+from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper, MujocoManipulationDummyWrapper
 import os
 
 
@@ -26,31 +26,41 @@ def make_env(env_config):
 def make_gym(env_name, env_config):
     import gym
     env = gym.make(env_name)
-    env = GymAdapter(env)
+    env = GymAdapter(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
 
 
 def make_mujocomanip(env_name, env_config):
-    import MujocoManip
-    env = MujocoManip.make(
-        env_name,
-        horizon=50000,
-        has_renderer=False,
-        ignore_done=True,
-        use_camera_obs=True,
-        camera_height=84,
-        camera_width=84,
-        camera_name='tabletop',
-        use_object_obs=True,
-        reward_shaping=True
-    )
+    if os.getenv('SYMPHONY_ROLE') == 'learner':
+        env = MujocoManipulationDummyWrapper(
+            use_camera_obs=env_config.pixel_input,
+            camera_height=84,
+            camera_width=84,
+            use_object_obs=(not env_config.pixel_input),
+        )
+    else:
+        import MujocoManip
+        env = MujocoManip.make(
+            env_name,
+            horizon=50000,
+            has_renderer=False,
+            ignore_done=True,
+            use_camera_obs=env_config.pixel_input,
+            camera_height=84,
+            camera_width=84,
+            camera_name='tabletop',
+            use_object_obs=(not env_config.pixel_input),
+            reward_shaping=True
+        )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
-    # set to true and to receive camera input
-    # Remove observation concatenation wrapper and parse observation spec properly
+    if env_config.pixel_input:
+        env = TransposeWrapper(env)
+        env = GrayscaleWrapper(env)
+        env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config

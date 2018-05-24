@@ -28,8 +28,10 @@ class Wrapper(Env):
         self.metadata = self.env.metadata.copy()
         self.metadata.update(metadata)
         self._ensure_no_double_wrap()
+        self._obsspec = None
         # self.obs_spec = env.obs_spec
         # self.action_spec = env.action_spec
+        print(type(env))
 
     @classmethod
     def class_name(cls):
@@ -57,8 +59,8 @@ class Wrapper(Env):
 
     def _reset(self):
         obs, info = self.env.reset()
+        self._assert_conforms_to_spec(obs)
         return obs
-
 
     def _render(self, *args, **kwargs):
         return self.env.render(*args, **kwargs)
@@ -67,10 +69,11 @@ class Wrapper(Env):
         return self.env.close()
 
     def _assert_conforms_to_spec(self, obs):
-        spec = self.observation_spec()
-        for modality in spec:
-            for key in spec[modality]:
-                assert spec[modality][key] == obs[modality][key].shape
+        if not self._obsspec:
+            self._obsspec = self.observation_spec()
+        for modality in self._obsspec:
+            for key in self._obsspec[modality]:
+                assert self._obsspec[modality][key] == obs[modality][key].shape
 
     def __str__(self):
         return '<{}{}>'.format(type(self).__name__, self.env)
@@ -158,21 +161,31 @@ class MaxStepWrapper(Wrapper):
 
 # putting import inside to allow difference in dependency
 class GymAdapter(Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, env_config):
         super().__init__(env)
+        assert not env_config.pixel_input, "Pixel input training not supported with OpenAI Gym"
         assert isinstance(env, gym.Env)
+        self.env = env
+
+    def _add_modality(self, obs):
+        obs = {
+            'flat_inputs': obs
+        }
+        return collections.OrderedDict([('low_dim', obs)])
 
     def _reset(self):
         obs = self.env.reset()
-        return obs, {}
+        return self._add_modality(obs), {}
+
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        obs = self._add_modality(obs)
+        return obs, reward, done, info
 
     def observation_spec(self):
         gym_spec = self.env.observation_space
         if isinstance(gym_spec, gym.spaces.Box):
-            return {
-                'type': 'continuous',
-                'dim': gym_spec.shape
-            }
+            return self._add_modality(gym_spec.shape)
         else:
             raise ValueError('Discrete observation currently not supported')
         # TODO: migrate everything to dm_format
@@ -186,7 +199,12 @@ class GymAdapter(Wrapper):
             }
         else:
             raise ValueError('Discrete observation currently not supported')
-        # TODO: migrate everything to dm_format
+
+    def _close(self):
+        self.env.close()
+
+    def _render(self):
+        return self.env.render(mode='rgb_array')
 
     @property
     def spec_format(self):
@@ -204,7 +222,9 @@ class MujocoManipulationWrapper(Wrapper):
         pixel_modality = collections.OrderedDict()
         flat_modality = collections.OrderedDict()
         for key in obs:
-            if key in self._input_list['pixel']:
+            if key == 'image' and 'camera0' in self._input_list['pixel']:
+                pixel_modality['camera0'] = obs[key]
+            elif key in self._input_list['pixel']:
                 pixel_modality[key] = obs[key]
             elif key in self._input_list['low_dim']:
                 flat_modality[key] = obs[key]
@@ -233,26 +253,57 @@ class MujocoManipulationWrapper(Wrapper):
         return SpecFormat.MUJOCOMANIP
 
     def observation_spec(self):
-        # Mujocomanip returns an example observation as the observation spec, what we want is
-        # To return shape of each observation type as a tuple
         spec = self.env.observation_spec()
         for k in spec:
             spec[k] = tuple(np.array(spec[k]).shape)
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        return {'dim': (9,), 'type': 'continuous'}
-        # for now I am conforming to dm_control for ease of integration
-        low, high = self.env.action_spec()
-        return low
+        return {'dim': (self.env.dof,), 'type': 'continuous'}
 
-    def _render(self, camera_id=0, *args, **kwargs):
+    def _render(self, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',
                                    height=512,
                                    width=512,
                                    depth=False)
 
-        
+
+class MujocoManipulationDummyWrapper(Env):
+    def __init__(
+            self,
+            use_camera_obs,
+            camera_height,
+            camera_width,
+            use_object_obs,
+    ):
+        super().__init__()
+        self._use_camera_obs = use_camera_obs
+        self._use_object_obs = use_object_obs
+        self._camera_height = camera_height
+        self._camera_width = camera_width
+
+    @property
+    def spec_format(self):
+        return SpecFormat.MUJOCOMANIP
+
+    def observation_spec(self):
+        spec = collections.OrderedDict([('joint_pos', (7,)), ('joint_vel', (7,)), ('gripper_pos', (2,)), ('gripper_vel', (2,))])
+        if self._use_camera_obs:
+            spec['image'] = (self._camera_height, self._camera_width, 3)
+        if self._use_object_obs:
+            spec['cube_pos'] = (3,)
+            spec['cube_quat'] = (4,)
+            spec['gripper_to_cube'] = (3,)
+        spec['proprio'] = (23,)
+        for k in spec:
+            # MujocoManipulationWrapper only looks at the shape of the observation spec array
+            spec[k] = np.zeros((spec[k]))
+        return spec
+
+    def action_spec(self):
+        # This is what MujocoManip environments will return.  The mujocomanip wrapper will completely ignore it
+        return (np.array([-1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., 1., 1., 1., 1., 1., 1., 1.]))
+
 class ObservationConcatenationWrapper(Wrapper):
     def __init__(self, env, concatenated_obs_name='flat_inputs'):
         super().__init__(env)

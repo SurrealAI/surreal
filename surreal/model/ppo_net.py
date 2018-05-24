@@ -135,13 +135,13 @@ class PPOModel(nnx.Module):
         self.cnn_stem = None
         if self.if_pixel_input:
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
-                                              self.model_config.cnn_feature_dim,
-                                              use_layernorm=self.model_config.use_layernorm)
+                                           self.model_config.cnn_feature_dim,
+                                           use_layernorm=self.model_config.use_layernorm)
 
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
-            self.rnn_stem = nn.LSTM(self.low_dim if not self.if_pixel_input else \
-                                    self.model_config.cnn_feature_dim,
+            rnn_insize = self.low_dim + (self.model_config.cnn_feature_dim if self.if_pixel_input else 0)
+            self.rnn_stem = nn.LSTM(rnn_insize,
                                     self.rnn_config.rnn_hidden,
                                     self.rnn_config.rnn_layer,
                                     batch_first=True)
@@ -149,7 +149,7 @@ class PPOModel(nnx.Module):
                 device = torch.device("cuda")
                 self.rnn_stem = self.rnn_stem.to(device)
 
-        input_size = self.model_config.cnn_feature_dim if self.if_pixel_input else self.low_dim
+        input_size = self.low_dim + (self.model_config.cnn_feature_dim if self.if_pixel_input else 0)
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
         self.actor = PPO_ActorNetwork(input_size, 
