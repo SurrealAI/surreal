@@ -297,11 +297,12 @@ class Agent(object, metaclass=AgentMeta):
             session_config=self.session_config,
         )
 
-        env_category = self.env_config.env_name.split(':')[0]
-        if env_category == 'gym':
-            env = GymMonitorWrapper(env, self.env_config, self.session_config)
-        else: 
-            env = VideoWrapper(env, self.env_config, self.session_config)
+        if self.env_config.video.record_video:
+            env_category = self.env_config.env_name.split(':')[0]
+            if env_category == 'gym':
+                env = GymMonitorWrapper(env, self.env_config, self.session_config)
+            else: 
+                env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
     def main_agent(self, env):
