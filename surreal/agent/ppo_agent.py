@@ -116,11 +116,11 @@ class PPOAgent(Agent):
                     obs_tensor[mod][k] = torch.tensor(obs[mod][k], dtype=torch.float32).unsqueeze(0)
 
             if self.rnn_config.if_rnn_policy:
-                action_info[0].append(self.cells[0].squeeze(1).numpy())
-                action_info[0].append(self.cells[1].squeeze(1).numpy())
+                action_info[0].append(self.cells[0].squeeze(1).cpu().numpy())
+                action_info[0].append(self.cells[1].squeeze(1).cpu().numpy())
 
             action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
-            action_pd = action_pd.detach().numpy()
+            action_pd = action_pd.detach().cpu().numpy()
 
             if self.agent_mode != 'eval_deterministic':
                 action_choice = self.pd.sample(action_pd)
@@ -154,15 +154,15 @@ class PPOAgent(Agent):
         '''
             reset of LSTM hidden and cell states
         '''
-        self.tensorplex.add_scalars({'.core/init_log_sig': self.init_log_sig})
         if self.rnn_config.if_rnn_policy:
             # Note that .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach(),
-                          torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach())
+            with tx.device_scope(self.gpu_ids):
+                self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach(),
+                              torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach())
 
