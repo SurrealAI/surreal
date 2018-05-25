@@ -10,6 +10,9 @@ def generate(argv):
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
     parser.add_argument('--num-gpus', type=int, default=0,
                         help='number of GPUs to use, 0 for CPU only.')
+    parser.add_argument('--agent-num-gpus', type=int, default=0,
+                        help='number of GPUs to use for agent, 0 for CPU only.')
+
 
     args = parser.parse_args(args=argv)
     
@@ -127,6 +130,7 @@ def generate(argv):
         'agent' : {
             'fetch_parameter_mode': 'step',
             'fetch_parameter_interval': 250, # 10 for without RNN
+            'num_gpus': args.agent_num_gpus,
         },
         'sender': {
             'flush_iteration': 3,
