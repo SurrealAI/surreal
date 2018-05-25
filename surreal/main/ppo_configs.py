@@ -29,11 +29,11 @@ def generate(argv):
             'use_z_filter': True,
             'use_r_filter': False,
             'gamma': .995, 
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 20, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
             'network': {
-                'lr_actor': 1e-4,
-                'lr_critic': 1e-4,
+                'lr_actor': 2e-4,
+                'lr_critic': 2e-4,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1., 
                 'clip_critic_gradient': True,
@@ -44,7 +44,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
+                    'min_lr': 2e-4,
                 },
                 'target_update':{
                     'type': 'hard',
@@ -52,7 +52,7 @@ def generate(argv):
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'adapt',
+            'ppo_mode': 'clip',
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
@@ -64,10 +64,10 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -1.5,
-                'log_sig_range': 0.5,
-                'epoch_policy': 5,
-                'epoch_baseline': 5,
+                'init_log_sig': -1,
+                'log_sig_range': 0,
+                'epoch_policy': 10,
+                'epoch_baseline': 10,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.01, # target KL divergence between before and after
             },
