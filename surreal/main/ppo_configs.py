@@ -35,9 +35,9 @@ def generate(argv):
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 1., 
+                'actor_gradient_norm_clip': 10.,
                 'clip_critic_gradient': True,
-                'critic_gradient_norm_clip': 5.,
+                'critic_gradient_norm_clip': 10.,
                 'actor_regularization': 0.0,
                 'critic_regularization': 0.0,
                 'anneal':{  
@@ -75,7 +75,7 @@ def generate(argv):
             'adapt_consts': {
                 'kl_cutoff_coeff': 500, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
-                'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
+                'beta_range': (1/35.0, 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
             },
             'clip_consts': {
@@ -95,9 +95,9 @@ def generate(argv):
     }
 
     env_config = {
-        'env_name': args.env, 
+        'env_name': args.env,
         'pixel_input': True,
-        'frame_stacks': 3, 
+        'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
             'record_video': True,
@@ -107,10 +107,9 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
+            'low_dim':['proprio'],
         },
-        'limit_episode_length': 100,
-        'stochastic_eval': True,
+        'limit_episode_length': 1000,
     }
 
     session_config = Config({

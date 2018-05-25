@@ -222,6 +222,13 @@ class MujocoManipulationWrapper(Wrapper):
         return obs
 
     def _step(self, action):
+        # print('action before:\t', action)
+        # action[-1] = 0
+        # if action[-2] >= 0:
+        #     action[-2] = 1
+        # else:
+        #     action[-2] = -1
+        # print('action after:\t', action)
         obs, reward, done, info = self.env.step(action)
         return self._add_modality(obs), reward, done, info
 
@@ -243,7 +250,7 @@ class MujocoManipulationWrapper(Wrapper):
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        return {'dim': (9,), 'type': 'continuous'}
+        return {'dim': (14,), 'type': 'continuous'}
 
     def _render(self, camera_id=0, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',
@@ -278,7 +285,7 @@ class MujocoManipulationDummyWrapper(Env):
             spec['cube_pos'] = (3,)
             spec['cube_quat'] = (4,)
             spec['gripper_to_cube'] = (3,)
-        spec['proprio'] = (23,)
+        spec['proprio'] = (42,)
         for k in spec:
             # MujocoManipulationWrapper only looks at the shape of the observation spec array
             spec[k] = np.zeros((spec[k]))

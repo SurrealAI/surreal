@@ -188,7 +188,8 @@ class KurrealParser(SymphonyParser):
             'ch': 'dm_control:cheetah-run',
             'cheetah': 'dm_control:cheetah-run',
             'hopper': 'dm_control:hopper-hop',
-            'mj': 'mujocomanip:SawyerLiftEnv'
+            'mj': 'mujocomanip:SawyerLiftEnv',
+            'mjbaxter': 'mujocomanip:BaxterHoleEnv'
         }
         if args.env:
             env = args.env

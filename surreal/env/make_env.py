@@ -44,7 +44,6 @@ def make_mujocomanip(env_name, env_config):
         import MujocoManip
         env = MujocoManip.make(
             env_name,
-            horizon=50000,
             has_renderer=False,
             ignore_done=True,
             use_camera_obs=env_config.pixel_input,
@@ -59,8 +58,8 @@ def make_mujocomanip(env_name, env_config):
     env = ObservationConcatenationWrapper(env)
     if env_config.pixel_input:
         env = TransposeWrapper(env)
-        env = GrayscaleWrapper(env)
-        env = FrameStackWrapper(env, env_config)
+        # env = GrayscaleWrapper(env)
+        # env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
