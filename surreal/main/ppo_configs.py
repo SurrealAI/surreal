@@ -110,6 +110,7 @@ def generate(argv):
             'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
         'limit_episode_length': 100,
+        'stochastic_eval': True,
     }
 
     session_config = Config({
