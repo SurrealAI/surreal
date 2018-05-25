@@ -56,6 +56,7 @@ ENV PATH=/mylibs/miniconda/bin:${PATH}
 
 # pytorch
 RUN conda install --yes pytorch torchvision -c pytorch
+RUN conda install --yes ffmpeg -c conda-forge
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
