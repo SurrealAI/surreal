@@ -81,15 +81,18 @@ class DDPGAgent(Agent):
         if self.sleep_time > 0.0:
             time.sleep(self.sleep_time)
         obs_variable = collections.OrderedDict()
-        for modality in obs:
-            modality_dict = collections.OrderedDict()
-            for key in obs[modality]:
-                modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
-            obs_variable[modality] = modality_dict
-        action, _ = self.model.forward(obs_variable, calculate_value=False)
-        action = action.data.numpy()[0]
+        # for modality in obs:
+        #     modality_dict = collections.OrderedDict()
+        #     for key in obs[modality]:
+        #         modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
+        #     obs_variable[modality] = modality_dict
+        # action, _ = self.model.forward(obs_variable, calculate_value=False)
+        # action = action.data.numpy()[0]
         #perception = self.model.forward_perception(obs_variable)
         #action = self.model.forward_actor(perception).data.numpy()[0]
+        
+        # TODO: remove me
+        action = np.zeros(8)
         action = action.clip(-1, 1)
 
         if self.agent_mode != 'eval_deterministic':

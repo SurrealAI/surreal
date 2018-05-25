@@ -58,5 +58,6 @@ ENV PATH=/mylibs/miniconda/bin:${PATH}
 RUN conda install --yes pytorch torchvision -c pytorch
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
-# Make compilations for mujocopy
-RUN python -c "import mujoco_py"
+
+RUN git clone https://github.com/openai/mujoco-py.git \
+    && pip mujoco-py/setup.py install

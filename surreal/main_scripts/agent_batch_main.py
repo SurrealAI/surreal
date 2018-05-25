@@ -10,11 +10,12 @@ import argparse
 
 
 def agent_batch_parser_setup(parser):
-    parser.add_argument('ids', type=int, nargs='*', help='agent ids')
+    parser.add_argument('ids', type=str, help='agent ids: e.g. 1,2,3,4')
 
 def run_agent_batch_main(args, config):
     agents = []
-    for agent_id in args.ids:
+    agent_ids = [int(x) for x in args.ids.split(',')]
+    for agent_id in agent_ids:
         agent = Process(target=_run_agent_main, args=[config, agent_id])
         agent.start()
         agents.append(agent)

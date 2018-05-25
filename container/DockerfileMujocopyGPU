@@ -17,4 +17,4 @@ RUN pip install -e /mylibs/mujoco
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 
-ENTRYPOINT ["/mylibs/surreal/container/entry.py"]
+ENTRYPOINT ["/mylibs/surreal/container/entry_mujocopy.py"]

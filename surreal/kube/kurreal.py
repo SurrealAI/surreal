@@ -24,6 +24,12 @@ def _process_labels(label_string):
     return [label_pair.split('=') for label_pair in label_pairs]
 
 
+def resource_limit_gpu(di):
+    if 'nvidia.com/gpu' in di:
+        di['gpu'] = di['nvidia.com/gpu']
+        del di['nvidia.com/gpu']
+
+
 class KurrealParser(SymphonyParser):
     def create_cluster(self):
         return Cluster.new('kube')
@@ -128,6 +134,12 @@ class KurrealParser(SymphonyParser):
             type=int,
             default=1
         )
+        parser.add_argument(
+            '-b, --batch-agent',
+            dest='batch_agent',
+            type=int,
+            default=1
+        )
         self._add_dry_run(parser)
 
     # ==================== helpers ====================
@@ -166,6 +178,12 @@ class KurrealParser(SymphonyParser):
                  'Default: "nonagent-cpu"'
         )
         parser.add_argument(
+            '-et', '--eval-pod-type',
+            default=None,
+            help='key in ~/.surreal.yml `pod_types` section that describes spec for '
+                 'eval pod Default: use agent pod type'
+        )
+        parser.add_argument(
             '-f', '--force',
             action='store_true',
             help='force overwrite an existing kurreal.yml file '
@@ -187,6 +205,7 @@ class KurrealParser(SymphonyParser):
             config_command=args.remainder,  # cmd line remainder after "--"
             agent_pod_type=args.agent_pod_type,
             nonagent_pod_type=args.nonagent_pod_type,
+            eval_pod_type=args.eval_pod_type,
             restore=False,
             restore_folder=None,
             force=args.force,
@@ -250,18 +269,26 @@ class KurrealParser(SymphonyParser):
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
+        if args.batch_agent:
+            agent_pod_type = 'agent-mj-batch'
+            nonagent_pod_type = 'nonagent-mj-batch'
+            eval_pod_type = 'eval-mj-batch'
+
+
         self._create_helper(
             config_py=config_py,
             experiment_name=args.experiment_name,
             num_agents=args.num_agents,
             config_command=config_command,
-            agent_pod_type='agent',
+            agent_pod_type=agent_pod_type,
             nonagent_pod_type=nonagent_pod_type,
+            eval_pod_type=eval_pod_type,
             restore=False,
             restore_folder=None,
             force=args.force,
             dry_run=args.dry_run,
             colocate_agent=args.colocate_agent,
+            batch_agent=args.batch_agent,
         )
 
     def _create_helper(self, *,
@@ -271,11 +298,15 @@ class KurrealParser(SymphonyParser):
                        config_command,
                        agent_pod_type,
                        nonagent_pod_type,
+                       eval_pod_type,
                        restore,
                        restore_folder,
                        force,
                        colocate_agent=1,
+                       batch_agent=1,
                        dry_run=False):
+        if colocate_agent > 1 and batch_agent > 1:
+            raise ValueError('Cannot colocate and batch at the same time')
         if config_py.startswith('/'):
             config_py = config_py
         else:
@@ -291,19 +322,23 @@ class KurrealParser(SymphonyParser):
             service_url=None,
             restore=restore,
             restore_folder=restore_folder,
+            batch_agent=batch_agent,
         )
         cmd_dict = cmd_gen.generate()
         print('  agent_pod_type:', agent_pod_type)
         print('  nonagent_pod_type:', nonagent_pod_type)
+        print('  eval_pod_type:', eval_pod_type)
 
         self.create_surreal(
             experiment_name,
             agent_pod_type=agent_pod_type,
             nonagent_pod_type=nonagent_pod_type,
+            eval_pod_type=eval_pod_type,
             cmd_dict=cmd_dict,
             force=force,
             dry_run=dry_run,
             colocate_agent=colocate_agent,
+            batch_agent=batch_agent,
         )
 
     def create_surreal(self,
@@ -311,7 +346,9 @@ class KurrealParser(SymphonyParser):
                        agent_pod_type,
                        nonagent_pod_type,
                        cmd_dict,
+                       eval_pod_type,
                        colocate_agent=1,
+                       batch_agent=1,
                        force=False,
                        dry_run=False):
         """
@@ -333,12 +370,21 @@ class KurrealParser(SymphonyParser):
             'agent pod type not found in `pod_types` section in ~/.surreal.yml'
         assert nonagent_pod_type in C.pod_types, \
             'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
+        if eval_pod_type is None: eval_pod_type = agent_pod_type
+        assert eval_pod_type in C.pod_types, \
+            'eval pod type not found in `pod_types` section in ~/.surreal.yml'
+        
         agent_pod_spec = C.pod_types[agent_pod_type]
         nonagent_pod_spec = C.pod_types[nonagent_pod_type]
+        eval_pod_spec = C.pod_types[eval_pod_type]
+        
         agent_resource_request = agent_pod_spec.get('resource_request', {})
         nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
+        eval_resource_request = eval_pod_spec.get('resource_request', {})
+        
         agent_resource_limit = agent_pod_spec.get('resource_limit', {})
         nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
+        eval_resource_limit = eval_pod_spec.get('resource_limit', {})
 
         images_to_build = {}
         # defer to build last, so we don't build unless everythingpasses
@@ -351,6 +397,10 @@ class KurrealParser(SymphonyParser):
             image_name = nonagent_pod_spec['build_image']
             images_to_build[image_name] = nonagent_pod_spec['image']
             nonagent_pod_spec['image'] = '{}:{}'.format(nonagent_pod_spec['image'], exp.name)
+        if 'build_image' in eval_pod_spec:
+            image_name = eval_pod_spec['build_image']
+            images_to_build[image_name] = eval_pod_spec['image']
+            eval_pod_spec['image'] = '{}:{}'.format(eval_pod_spec['image'], exp.name)
 
         nonagent = exp.new_process_group('nonagent')
         learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, args=[cmd_dict['learner']])
@@ -361,18 +411,30 @@ class KurrealParser(SymphonyParser):
         loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['loggerplex']])
 
         agents = []
-        agent_pgs = []
-        assert len(cmd_dict['agent']) % colocate_agent == 0
-        for i in range(int(len(cmd_dict['agent']) / colocate_agent)):
-            agent_pgs.append(exp.new_process_group('agent-pg-{}'.format(i)))
-        for i, arg in enumerate(cmd_dict['agent']):
-            pg_index = int(i / colocate_agent)
-            agent_p = agent_pgs[pg_index].new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
-            agents.append(agent_p)
+        agent_pods = []
+        if colocate_agent > 1:
+            assert len(cmd_dict['agent']) % colocate_agent == 0
+            for i in range(int(len(cmd_dict['agent']) / colocate_agent)):
+                agent_pods.append(exp.new_process_group('agent-pg-{}'.format(i)))
+            for i, arg in enumerate(cmd_dict['agent']):
+                pg_index = int(i / colocate_agent)
+                agent_p = agent_pods[pg_index].new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
+                agents.append(agent_p)
+        elif batch_agent > 1:
+            for i, arg in enumerate(cmd_dict['agent-batch']):
+                agent_p = exp.new_process('agents-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
+                agent_pods.append(agent_p)
+                agents.append(agent_p)
+        else:
+            for i, arg in enumerate(cmd_dict['agent']):
+                agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
+                agent_pods.append(agent_p)
+                agents.append(agent_p)
+
         # TODO: make command generator return list
         evals = []
         for i, arg in enumerate(cmd_dict['eval']):
-            eval_p = exp.new_process('eval-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
+            eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
             evals.append(eval_p)
 
         for proc in itertools.chain(agents, evals):
@@ -412,24 +474,35 @@ class KurrealParser(SymphonyParser):
             # Mount nfs
             proc.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
 
+        resource_limit_gpu(agent_resource_limit)
         agent_selector = agent_pod_spec.get('selector', {})
-        for proc in itertools.chain(agents, evals):
+        for proc in agents:
             # required services
             proc.resource_request(**agent_resource_request)
             proc.resource_limit(**agent_resource_limit)
             proc.image_pull_policy('Always')
 
-        for proc_g in agent_pgs:
+        for proc_g in agent_pods:
             proc_g.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
             proc_g.restart_policy('Never')
             for k, v in agent_selector.items():
                 proc_g.node_selector(key=k, value=v)
 
+        resource_limit_gpu(eval_resource_limit)
+        eval_selector = eval_pod_spec.get('selector', {})
+        for eval_p in evals:
+            eval_p.resource_request(**eval_resource_request)
+            eval_p.resource_limit(**eval_resource_limit)
+            eval_p.image_pull_policy('Always')
+            eval_p.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            eval_p.restart_policy('Never')
+            for k, v in eval_selector.items():
+                eval_p.node_selector(key=k, value=v)
+
         learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
         learner.resource_request(**nonagent_resource_request)
-        if 'nvidia.com/gpu' in nonagent_resource_limit:
-            nonagent_resource_limit['gpu'] = nonagent_resource_limit['nvidia.com/gpu']
-            del nonagent_resource_limit['nvidia.com/gpu']
+
+        resource_limit_gpu(nonagent_resource_limit)
         learner.resource_limit(**nonagent_resource_limit)
 
         non_agent_selector = nonagent_pod_spec.get('selector', {})
