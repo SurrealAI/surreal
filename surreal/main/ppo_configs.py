@@ -28,7 +28,7 @@ def generate(argv):
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': True,
             'use_r_filter': False,
-            'gamma': .995, 
+            'gamma': .99, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
@@ -48,14 +48,14 @@ def generate(argv):
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval': 8192,
+                    'interval': 4096,
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'clip',
+            'ppo_mode': 'adapt',
             'advantage':{
                 'norm_adv': True,
-                'lam': 0.97,
+                'lam': 1,
             },
             'rnn': {
                 'if_rnn_policy': True, 
@@ -72,7 +72,7 @@ def generate(argv):
                 'kl_target': 0.01, # target KL divergence between before and after
             },
             'adapt_consts': {
-                'kl_cutoff_coeff': 50, # penalty coeff when kl large
+                'kl_cutoff_coeff': 500, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
                 'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
