@@ -10,6 +10,9 @@ def generate(argv):
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
     parser.add_argument('--num-gpus', type=int, default=0,
                         help='number of GPUs to use, 0 for CPU only.')
+    parser.add_argument('--agent-num-gpus', type=int, default=0,
+                        help='number of GPUs to use for agent, 0 for CPU only.')
+
 
     args = parser.parse_args(args=argv)
     
@@ -26,7 +29,7 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'use_r_filter': False,
             'gamma': .99, 
             'n_step': 30, # 10 for without RNN
@@ -42,17 +45,17 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 1e7,
+                    'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
                     'min_lr': 1e-4,
                 },
                 'target_update':{
                     'type': 'hard',
-                    'interval': 4096,
+                    'interval': 8192,
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'adapt',
+            'ppo_mode': 'clip',
             'advantage':{
                 'norm_adv': True,
                 'lam': 1.0,
@@ -66,11 +69,10 @@ def generate(argv):
             'consts': {
                 'init_log_sig': -1.0,
                 'log_sig_range': 0.5,
-                'is_weight_thresh': 2.5,
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.02, # target KL divergence between before and after
+                'kl_target': 0.01, # target KL divergence between before and after
             },
             'adapt_consts': {
                 'kl_cutoff_coeff': 500, # penalty coeff when kl large
@@ -100,10 +102,10 @@ def generate(argv):
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
-            'record_video': True,
+            'record_video': False,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 100,
+            'record_every': 20,
         },
         'observation': {
             'pixel':['camera0'],
@@ -128,6 +130,7 @@ def generate(argv):
         'agent' : {
             'fetch_parameter_mode': 'step',
             'fetch_parameter_interval': 250, # 10 for without RNN
+            'num_gpus': args.agent_num_gpus,
         },
         'sender': {
             'flush_iteration': 3,

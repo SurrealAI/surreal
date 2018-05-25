@@ -160,21 +160,31 @@ class MaxStepWrapper(Wrapper):
 
 # putting import inside to allow difference in dependency
 class GymAdapter(Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, env_config):
         super().__init__(env)
+        assert not env_config.pixel_input, "Pixel input training not supported with OpenAI Gym"
         assert isinstance(env, gym.Env)
+        self.env = env
+
+    def _add_modality(self, obs):
+        obs = {
+            'flat_inputs': obs
+        }
+        return collections.OrderedDict([('low_dim', obs)])
 
     def _reset(self):
         obs = self.env.reset()
-        return obs, {}
+        return self._add_modality(obs), {}
+
+    def _step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        obs = self._add_modality(obs)
+        return obs, reward, done, info
 
     def observation_spec(self):
         gym_spec = self.env.observation_space
         if isinstance(gym_spec, gym.spaces.Box):
-            return {
-                'type': 'continuous',
-                'dim': gym_spec.shape
-            }
+            return self._add_modality(gym_spec.shape)
         else:
             raise ValueError('Discrete observation currently not supported')
         # TODO: migrate everything to dm_format
@@ -188,7 +198,12 @@ class GymAdapter(Wrapper):
             }
         else:
             raise ValueError('Discrete observation currently not supported')
-        # TODO: migrate everything to dm_format
+
+    def _close(self):
+        self.env.close()
+
+    def _render(self):
+        return self.env.render(mode='rgb_array')
 
     @property
     def spec_format(self):
@@ -252,7 +267,7 @@ class MujocoManipulationWrapper(Wrapper):
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
         return {'dim': (14,), 'type': 'continuous'}
 
-    def _render(self, camera_id=0, *args, **kwargs):
+    def _render(self, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',
                                    height=512,
                                    width=512,

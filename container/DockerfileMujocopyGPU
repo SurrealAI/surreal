@@ -1,4 +1,4 @@
-FROM us.gcr.io/surreal-dev-188523/surreal-base-gpu-new:latest
+FROM us.gcr.io/surreal-dev-188523/surreal-base-gpu-mujoco:latest
 
 # Arrange these dependencies to heuristically minimize number of layers to build
 
@@ -17,4 +17,4 @@ RUN pip install -e /mylibs/mujoco
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 
-ENTRYPOINT ["/mylibs/surreal/container/entry.py"]
+ENTRYPOINT ["/mylibs/surreal/container/entry_mujocopy.py"]

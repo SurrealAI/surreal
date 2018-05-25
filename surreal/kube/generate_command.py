@@ -10,6 +10,7 @@ class CommandGenerator:
                  num_agents,
                  config_py,
                  experiment_folder,
+                 batch_agent=1,
                  config_command=None,
                  service_url=None,
                  restore=False,
@@ -34,14 +35,16 @@ class CommandGenerator:
         self.service_url = service_url
         self.restore = restore
         self.restore_folder = restore_folder
+        self.batch_agent = batch_agent
 
     def get_command(self, role, args=None):
         if args is None:
             args = []
-        command = ['python -u -m', 'surreal.main_scripts.runner', self.config_py]
+        command = ['python -u -m', 'surreal.main_scripts.runner']
         command += ['--experiment-folder', shlex.quote(self.experiment_folder)]
         if self.service_url is not None:
             command += ['--service-url', shlex.quote(self.service_url)]
+        command += [self.config_py]
         command += [role]
         command += args
         if self.config_command is not None:
@@ -61,9 +64,17 @@ class CommandGenerator:
         else:
             restore_cmd = []
         cmd_dict['learner'] = self.get_command('learner', restore_cmd)
-
-        cmd_dict['agent'] = [self.get_command('agent', [str(i)])
-                             for i in range(self.num_agents)]
+        if self.batch_agent == 1:
+            cmd_dict['agent'] = [self.get_command('agent', [str(i)])
+                                 for i in range(self.num_agents)]
+        else:
+            batch = []
+            cmd_dict['agent-batch'] = []
+            for i in range(self.num_agents):
+                batch.append(str(i))
+                if len(batch) == self.batch_agent:
+                    cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
+                    batch = []
         cmd_dict['eval'] = [self.get_command('eval', ['0', '--mode', 'eval_deterministic'])]
 
         for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:

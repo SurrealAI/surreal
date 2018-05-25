@@ -27,4 +27,28 @@ push-gpubase:
 pull-gpubase:
 	docker pull $(GPU_BASE_URL):latest
 
-publish-cpubase: build-gpubase push-gpubase
+publish-gpubase: build-gpubase push-gpubase
+
+CU90_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-cuda9
+build-gpu90:
+	docker build -t $(CU90_URL):latest -f DockerfileGPUBaseCuda90 .
+
+push-gpu90:
+	docker push $(CU90_URL):latest
+
+pull-gpu90:
+	docker pull $(CU90_URL):latest
+
+publish-gpu90: build-gpu90 push-gpu90
+
+GPUMJ_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-mujoco
+build-gpumj:
+	docker build -t $(GPUMJ_URL):latest -f DockerfileMujocopyGPUBase .
+
+push-gpumj:
+	docker push $(GPUMJ_URL):latest
+
+pull-gpumj:
+	docker pull $(GPUMJ_URL):latest
+
+publish-gpumj: build-gpumj push-gpumj

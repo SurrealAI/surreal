@@ -117,24 +117,31 @@ class DDPGLearner(Learner):
                 batch['obs_next'],
                 batch['dones']
             )
+            device_name = 'cpu'
+            if self._num_gpus > 0:
+                device_name = 'cuda'
 
             for modality in obs:
                 for key in obs[modality]:
                     if modality == 'pixel':
-                        obs[modality][key] = torch.tensor(obs[modality][key], dtype=torch.uint8).float().detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.uint8)
+                            .to(torch.device(device_name))).float().detach()
                     else:
-                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)).detach()
+                        obs[modality][key] = (torch.tensor(obs[modality][key], dtype=torch.float32)
+                            .to(torch.device(device_name))).detach()
 
             for modality in obs_next:
                 for key in obs_next[modality]:
                     if modality == 'pixel':
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)).float().detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.uint8)
+                            .to(torch.device(device_name))).float().detach()
                     else:
-                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
+                        obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)
+                            .to(torch.device(device_name))).detach()
 
-            actions = torch.tensor(actions, dtype=torch.float32)
-            rewards = torch.tensor(rewards, dtype=torch.float32)
-            done = torch.tensor(done, dtype=torch.float32)
+            actions = torch.tensor(actions, dtype=torch.float32).to(torch.device(device_name))
+            rewards = torch.tensor(rewards, dtype=torch.float32).to(torch.device(device_name))
+            done = torch.tensor(done, dtype=torch.float32).to(torch.device(device_name))
 
             (
                 batch['obs'],
@@ -162,6 +169,7 @@ class DDPGLearner(Learner):
             print('is_cuda', tensor.is_cuda)
             print('tensor_type', type(tensor))
             print('dimensions', tensor.dim())
+            print('iter', self.current_iteration)
             return tensor.to(torch.device('cuda'))
         return tensor
 

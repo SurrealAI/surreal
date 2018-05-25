@@ -1,5 +1,5 @@
 gym[atari]
-mujoco_py>=1.50
+mujoco-py<1.50.2,>=1.50.1
 tabulate
 tqdm
 pyzmq

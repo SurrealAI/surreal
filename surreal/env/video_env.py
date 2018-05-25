@@ -5,6 +5,7 @@ from .wrapper import Wrapper
 import imageio
 
 from multiprocessing import Process, Queue
+import numpy as np
 
 # File taken from 5d4757b9d2789c34a1120f4c6e4452e4cb7a11fc by Zihua
 
@@ -71,6 +72,7 @@ class VideoWrapper(Wrapper):
 
         super().__init__(env)
         self.env = env
+        self.env_category = env_config.env_name.split(':')[0]
 
         self.max_videos = env_config.video.max_videos
         self.capture_interval = env_config.video.record_every
@@ -135,7 +137,11 @@ class VideoWrapper(Wrapper):
         if self.is_recording:
             # For dm_control videos, the video will be transposed when we save to disk
             # We correct for that here
-            ob = self.env.render().transpose(1, 0, 2)
+            ob = self.env.render()
+            if self.env_category == 'dm_control':
+                ob = ob.transpose(1, 0, 2)
+            else: # mujocomanip
+                ob = np.rot90(ob, 2)
             self.video_queue.put(ob)
 
         return state, step_reward, terminal, info
@@ -150,3 +156,43 @@ class VideoWrapper(Wrapper):
         self.video_process.join()
         self.is_recording = False
         print('finished recording video {}'.format(self.num_eps))
+
+
+class GymMonitorWrapper(Wrapper):
+    def __init__(self, env, env_config, session_config):
+        import gym
+        from gym.wrappers import Monitor
+        self.env = env # surreal env
+
+        gym_env_name = env_config.env_name.split(':')[-1]
+
+        self.save_folder = env_config.video.save_folder
+        if not self.save_folder:
+            self.save_folder = os.path.join(session_config.folder, 'videos')
+        self.save_folder = os.path.expanduser(self.save_folder)
+
+        if not os.path.exists(self.save_folder):
+            os.makedirs(self.save_folder)
+
+        self.gym_env = Monitor(gym.make(gym_env_name), self.save_folder)
+        self.gym_env.reset()
+
+        self.capture_interval = env_config.video.record_every
+        self.eps = 0
+        self.record_video = False
+
+    def _reset(self, **kwargs): 
+        self.gym_env.reset()
+        self.record_video = (self.eps % self.capture_interval == 0)
+        self.eps += 0 
+
+        return self.env.reset()
+
+    def _step(self, action):
+        if self.record_video:
+            self.gym_env.render()
+            self.gym_env.step(action)
+
+        return self.env.step(action)
+
+
