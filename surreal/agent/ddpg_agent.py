@@ -9,6 +9,8 @@ import numpy as np
 from .action_noise import *
 from surreal.session import ConfigError
 import time
+import torchx as tx
+import torchx.nn as nnx
 
 class DDPGAgent(Agent):
 
@@ -43,17 +45,31 @@ class DDPGAgent(Agent):
         else:
             raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
 
-        self.model = DDPGModel(
-            obs_spec=self.obs_spec,
-            action_dim=self.action_dim,
-            use_layernorm=self.use_layernorm,
-            actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
-            critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-            use_z_filter=self.use_z_filter,
-        )
-        self.model.eval()
+        self._num_gpus = session_config.agent.num_gpus
+        if self._num_gpus == 0:
+            self.gpu_ids = 'cpu'
+        else:
+            self.gpu_ids = 'cuda:all'
 
-        self.init_noise()
+        if self._num_gpus == 0:
+            self.log.info('Using CPU')
+        else:
+            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
+            torch.backends.cudnn.benchmark = True
+
+        with tx.device_scope(self.gpu_ids):
+            self.model = DDPGModel(
+                obs_spec=self.obs_spec,
+                action_dim=self.action_dim,
+                use_layernorm=self.use_layernorm,
+                actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+                use_z_filter=self.use_z_filter,
+            )
+            self.model.eval()
+
+            self.init_noise()
 
     def init_noise(self):
         """
@@ -78,26 +94,27 @@ class DDPGAgent(Agent):
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
 
     def act(self, obs):
-        if self.sleep_time > 0.0:
-            time.sleep(self.sleep_time)
-        obs_variable = collections.OrderedDict()
-        for modality in obs:
-            modality_dict = collections.OrderedDict()
-            for key in obs[modality]:
-                modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
-            obs_variable[modality] = modality_dict
-        action, _ = self.model.forward(obs_variable, calculate_value=False)
-        action = action.data.numpy()[0]
-        perception = self.model.forward_perception(obs_variable)
-        action = self.model.forward_actor(perception).data.numpy()[0]
+        with tx.device_scope(self.gpu_ids):
+            if self.sleep_time > 0.0:
+                time.sleep(self.sleep_time)
+            obs_variable = collections.OrderedDict()
+            for modality in obs:
+                modality_dict = collections.OrderedDict()
+                for key in obs[modality]:
+                    modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
+                obs_variable[modality] = modality_dict
+            action, _ = self.model.forward(obs_variable, calculate_value=False)
+            action = action.data.cpu().numpy()[0]
+            perception = self.model.forward_perception(obs_variable)
+            action = self.model.forward_actor(perception).data.cpu().numpy()[0]
 
-        action = action.clip(-1, 1)
+            action = action.clip(-1, 1)
 
-        if self.agent_mode != 'eval_deterministic':
-            action += self.noise()
+            if self.agent_mode != 'eval_deterministic':
+                action += self.noise()
 
-        action = action.clip(-1, 1)
-        return action
+            action = action.clip(-1, 1)
+            return action
 
     def module_dict(self):
         return {

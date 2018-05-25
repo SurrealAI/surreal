@@ -135,7 +135,7 @@ class KurrealParser(SymphonyParser):
             default=1
         )
         parser.add_argument(
-            '-b, --batch-agent',
+            '-b', '--batch-agent',
             dest='batch_agent',
             type=int,
             default=1
@@ -273,6 +273,7 @@ class KurrealParser(SymphonyParser):
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
             eval_pod_type = 'eval-mj-batch'
+            config_command += ["--agent-num-gpus", '1']
 
 
         self._create_helper(
