@@ -41,10 +41,11 @@ class PPOAgent(Agent):
         self.log_sig_range = self.learner_config.algo.consts.log_sig_range
         noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
 
-        if self.env_config.stochastic_eval:
-            self.agent_mode = 'eval_stochastic'
-        else: 
-            self.agent_mode = 'eval_deterministic'
+        if self.agent_mode != 'training':
+            if self.env_config.stochastic_eval:
+                self.agent_mode = 'eval_stochastic'
+            else: 
+                self.agent_mode = 'eval_deterministic'
 
         if self.agent_mode != 'training':
             noise = 0 
