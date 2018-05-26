@@ -42,9 +42,9 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e7,
+                    'frames_to_anneal': 5e6,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
+                    'min_lr': 1e-5,
                 },
             },
             # ppo specific parameters:
@@ -52,7 +52,7 @@ def generate(argv):
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
-                'reward_scale': 0.1,
+                'reward_scale': 1.0,
             },
             'rnn': {
                 'if_rnn_policy': True, 
@@ -90,7 +90,7 @@ def generate(argv):
         },
         'parameter_publish': {
             # Minimum amount of time (seconds) between two parameter publish
-            'min_publish_interval': 0.1, 
+            'min_publish_interval': 0.2, 
             'exp_interval': 4096,  
         },
     }

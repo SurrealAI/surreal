@@ -189,7 +189,7 @@ class PPOLearner(Learner):
             self.cells = None
 
             if self.use_r_filter: 
-                self.RewardFilter= RewardFilter()
+                self.reward_filter= RewardFilter()
 
     def _clip_loss(self, obs, actions, advantages, behave_pol): 
         """
@@ -453,8 +453,8 @@ class PPOLearner(Learner):
             actions = torch.tensor(actions, dtype=torch.float32)
             rewards = torch.tensor(rewards, dtype=torch.float32) * self.reward_scale
             if self.use_r_filter:
-                normed_reward = self.RewardFilter(rewards)
-                self.RewardFilter.update(rewards)
+                normed_reward = self.reward_filter.forward(rewards)
+                self.reward_filter.update(rewards)
                 rewards = normed_reward
 
             done = torch.tensor(done, dtype=torch.float32)
@@ -540,10 +540,7 @@ class PPOLearner(Learner):
 
             ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
-            stats = {}
             for ep in range(self.epoch_policy):
-                if self.force_publish: break
-
                 if self.ppo_mode == 'clip':
                     stats =  self._clip_update(obs_iter, 
                                                actions_iter, 
@@ -559,10 +556,10 @@ class PPOLearner(Learner):
                 kl = self.pd.kl(ref_pol, curr_pol).mean()
                 stats['_pol_kl'] = kl.item()
                 if kl.item() > self.kl_target * 4: 
-                    self.force_publish = True
+                    # self.force_publish = True
+                    break
 
-            if ep > 0:
-                self.kl_record.append(stats['_pol_kl'])
+            self.kl_record.append(stats['_pol_kl'])
 
             for _ in range(self.epoch_baseline):
                 baseline_stats = self._value_update(obs_iter, returns)
@@ -587,7 +584,7 @@ class PPOLearner(Learner):
                 stats['obs_running_square'] =  np.mean(self.model.z_filter.running_square())
                 stats['obs_running_std'] = np.mean(self.model.z_filter.running_std())
             if self.use_r_filter:
-                stats['reward_mean'] = self.RewardFilter.reward_mean()
+                stats['reward_mean'] = self.reward_filter.reward_mean()
 
             return stats
 
@@ -612,6 +609,10 @@ class PPOLearner(Learner):
         self.tensorplex.add_scalars(tensorplex_update_dict, self.global_step)
         self.exp_counter += self.batch_size
         self.global_step += 1
+
+        # if self.force_publish:
+        #     with self.publish_timer.time():
+        #         self.publish_parameter(self.current_iter, message='batch '+str(self.current_iter))
 
     def module_dict(self):
         '''
