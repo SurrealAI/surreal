@@ -1,6 +1,7 @@
 import os
 import argparse
 import itertools
+from copy import copy
 from pkg_resources import parse_version
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
@@ -378,9 +379,9 @@ class KurrealParser(SymphonyParser):
         assert eval_pod_type in C.pod_types, \
             'eval pod type not found in `pod_types` section in ~/.surreal.yml'
         
-        agent_pod_spec = C.pod_types[agent_pod_type]
-        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
-        eval_pod_spec = C.pod_types[eval_pod_type]
+        agent_pod_spec = copy(C.pod_types[agent_pod_type])
+        nonagent_pod_spec = copy(C.pod_types[nonagent_pod_type])
+        eval_pod_spec = copy(C.pod_types[eval_pod_type])
         
         agent_resource_request = agent_pod_spec.get('resource_request', {})
         nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
