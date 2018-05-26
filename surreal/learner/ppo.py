@@ -94,6 +94,7 @@ class PPOLearner(Learner):
         self.epoch_baseline = self.learner_config.algo.consts.epoch_baseline
         self.kl_target = self.learner_config.algo.consts.kl_target
         self.adjust_threshold = self.learner_config.algo.consts.adjust_threshold
+        self.reward_scale = self.learner_config.algo.advantage.reward_scale
 
         # PPO mode 'adjust'
         self.kl_cutoff_coeff = self.learner_config.algo.adapt_consts.kl_cutoff_coeff
@@ -120,9 +121,10 @@ class PPOLearner(Learner):
         self.min_lr = self.learner_config.algo.network.anneal.min_lr
         self.lr_update_frequency = self.learner_config.algo.network.anneal.lr_update_frequency
         self.frames_to_anneal = self.learner_config.algo.network.anneal.frames_to_anneal
-        num_updates = int(self.frames_to_anneal / self.learner_config.algo.network.target_update.interval)
+        num_updates = int(self.frames_to_anneal / self.learner_config.parameter_publish.exp_interval)
         lr_scheduler = eval(self.learner_config.algo.network.anneal.lr_scheduler) 
 
+        self.force_publish = False
         self.exp_counter = 0
         self.kl_record = []
 
@@ -449,8 +451,7 @@ class PPOLearner(Learner):
                     obs_next[modality][key] = (torch.tensor(obs_next[modality][key], dtype=torch.float32)).detach()
 
             actions = torch.tensor(actions, dtype=torch.float32)
-            rewards = torch.tensor(rewards, dtype=torch.float32)
-
+            rewards = torch.tensor(rewards, dtype=torch.float32) * self.reward_scale
             if self.use_r_filter:
                 normed_reward = self.RewardFilter(rewards)
                 self.RewardFilter.update(rewards)
@@ -539,7 +540,10 @@ class PPOLearner(Learner):
 
             ref_pol = self.ref_target_model.forward_actor(obs_iter, self.cells).detach()
 
-            for _ in range(self.epoch_policy):
+            stats = {}
+            for ep in range(self.epoch_policy):
+                if self.force_publish: break
+
                 if self.ppo_mode == 'clip':
                     stats =  self._clip_update(obs_iter, 
                                                actions_iter, 
@@ -554,8 +558,11 @@ class PPOLearner(Learner):
                 curr_pol = self.model.forward_actor(obs_iter, self.cells).detach()
                 kl = self.pd.kl(ref_pol, curr_pol).mean()
                 stats['_pol_kl'] = kl.item()
-                if kl.item() > self.kl_target * 4: break
-            self.kl_record.append(stats['_pol_kl'])
+                if kl.item() > self.kl_target * 4: 
+                    self.force_publish = True
+
+            if ep > 0:
+                self.kl_record.append(stats['_pol_kl'])
 
             for _ in range(self.epoch_baseline):
                 baseline_stats = self._value_update(obs_iter, returns)
@@ -624,7 +631,8 @@ class PPOLearner(Learner):
             iteration: the current number of learning iterations
             message: optional message, must be pickleable.
         """
-        if self.exp_counter >= self.learner_config.algo.network.target_update.interval:
+        if  self.exp_counter >= self.learner_config.parameter_publish.exp_interval or \
+            self.force_publish:
             self._ps_publisher.publish(iteration, message=message)
             self._post_publish()  
 
@@ -658,4 +666,5 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
+        self.force_publish = False
 

@@ -28,7 +28,7 @@ def generate(argv):
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
             'use_z_filter': True,
             'use_r_filter': False,
-            'gamma': .99, 
+            'gamma': .995, 
             'n_step': 30, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
@@ -46,16 +46,13 @@ def generate(argv):
                     'lr_update_frequency': 100, 
                     'min_lr': 1e-4,
                 },
-                'target_update':{
-                    'type': 'hard',
-                    'interval': 4096,
-                },
             },
             # ppo specific parameters:
             'ppo_mode': 'adapt',
             'advantage':{
                 'norm_adv': True,
-                'lam': 1,
+                'lam': 0.97,
+                'reward_scale': 0.1,
             },
             'rnn': {
                 'if_rnn_policy': True, 
@@ -90,6 +87,11 @@ def generate(argv):
             'memory_size': 96,
             'sampling_start_size': 64,
             'replay_shards': 1,
+        },
+        'parameter_publish': {
+            # Minimum amount of time (seconds) between two parameter publish
+            'min_publish_interval': 0.1, 
+            'exp_interval': 4096,  
         },
     }
 
