@@ -105,7 +105,7 @@ def generate(argv):
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 5,
+            'record_every': 3,
         },
         'observation': {
             'pixel':['camera0'],
