@@ -40,11 +40,11 @@ def generate(argv):
             'experience': 'ExpSenderWrapperSSARNStepBootstrap',
             'use_z_filter': False,
             'gamma': .99,
-            'n_step': 5,
+            'n_step': 3,
             'stride': 1,
             'network': {
                 'lr_actor': 1e-4,
-                'lr_critic': 1e-4,
+                'lr_critic': 1e-3,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': False,
@@ -63,7 +63,7 @@ def generate(argv):
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
                 # 5 agents works well. If you use more than 5 agents, the sigma values will wrap around.
                 # For example, the sixth agent (with agent_id 5) will have sigma 0.3
-                'sigma': [0.3, 0.0, 0.1, 0.2, 0.4],
+                'sigma': [0.3, 0.0, 0.1, 0.2, 0.4, 0.5, 0.6, 0.05],
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
                 # 'sigma': 0.3,
@@ -85,7 +85,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': True,
+        'pixel_input': False,
         'frame_stacks': 3,
         'sleep_time': 0.0,
         # 'limit_episode_length': 200, # 0 means no limit

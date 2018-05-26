@@ -270,7 +270,7 @@ class KurrealParser(SymphonyParser):
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
-        if args.batch_agent:
+        if args.batch_agent > 1:
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
             eval_pod_type = 'eval-mj-batch'
