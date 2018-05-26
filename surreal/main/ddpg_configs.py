@@ -59,6 +59,8 @@ def generate(argv):
                 },
             },
             'exploration': {
+                'param_noise_type': 'normal',
+                'param_noise_sigma': 0.3,
                 'noise_type': 'normal',
                 # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
                 # 5 agents works well. If you use more than 5 agents, the sigma values will wrap around.
@@ -89,7 +91,7 @@ def generate(argv):
         'frame_stacks': 3,
         'sleep_time': 0.0,
         # 'limit_episode_length': 200, # 0 means no limit
-        'limit_episode_length': 1000, # 0 means no limit
+        'limit_episode_length': 0, # 0 means no limit
         'video': {
             'record_video': True,
             'save_folder': None,

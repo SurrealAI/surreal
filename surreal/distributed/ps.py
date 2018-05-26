@@ -235,7 +235,7 @@ class ParameterClient(object):
         self._last_hash = cur_hash
         if param:
             self._module_dict.loads(param)
-            return True
+            return param
         else:
             return False
 

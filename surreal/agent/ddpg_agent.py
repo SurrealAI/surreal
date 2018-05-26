@@ -11,6 +11,7 @@ from surreal.session import ConfigError
 import time
 import torchx as tx
 import torchx.nn as nnx
+from .param_noise import NormalParameterNoise
 
 class DDPGAgent(Agent):
 
@@ -35,7 +36,10 @@ class DDPGAgent(Agent):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.sleep_time = self.env_config.agent_sleep_time
-        
+
+        self.param_noise_type = self.learner_config.algo.exploration.param_noise_type
+        self.param_noise_sigma = self.learner_config.algo.exploration.param_noise_sigma
+
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if type(self.learner_config.algo.exploration.sigma) == list:
             # Use mod to wrap around the list of sigmas if the number of agents is greater than the length of the array
@@ -92,6 +96,13 @@ class DDPGAgent(Agent):
             )
         else:
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
+        self.param_noise = None
+        if self.param_noise_type == 'normal':
+            self.param_noise = NormalParameterNoise(self.param_noise_sigma)
+
+    def on_parameter_fetched(self, params, info):
+        super().on_parameter_fetched(params, info)
+        self.param_noise.apply(params)
 
     def act(self, obs):
         with tx.device_scope(self.gpu_ids):
@@ -103,10 +114,8 @@ class DDPGAgent(Agent):
                 for key in obs[modality]:
                     modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
                 obs_variable[modality] = modality_dict
-            action, _ = self.model.forward(obs_variable, calculate_value=False)
+            action, _ = self.model(obs_variable, calculate_value=False)
             action = action.data.cpu().numpy()[0]
-            perception = self.model.forward_perception(obs_variable)
-            action = self.model.forward_actor(perception).data.cpu().numpy()[0]
 
             action = action.clip(-1, 1)
 
