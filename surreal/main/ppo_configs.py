@@ -102,16 +102,17 @@ def generate(argv):
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
-            'record_video': False,
+            'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 20,
+            'record_every': 5,
         },
         'observation': {
             'pixel':['camera0'],
             'low_dim':['proprio'],
         },
-        'limit_episode_length': 1000,
+        'limit_episode_length': 500,
+        'stochastic_eval': True,
     }
 
     session_config = Config({
