@@ -194,7 +194,7 @@ class ParameterClient(object):
     """
     Agent side
     """
-    def __init__(self, host, port, module_dict, timeout=2):
+    def __init__(self, host, port, timeout=2):
         """
         Args:
             host: parameter server host
@@ -203,9 +203,6 @@ class ParameterClient(object):
         """
         self.host = host
         self.port = port
-        if not isinstance(module_dict, ModuleDict):
-            module_dict = ModuleDict(module_dict)
-        self._module_dict = module_dict
         self._last_hash = ''
         self.alive = False
         self.timeout = timeout
@@ -234,7 +231,6 @@ class ParameterClient(object):
         param, cur_hash = response
         self._last_hash = cur_hash
         if param:
-            self._module_dict.loads(param)
             return param
         else:
             return False
@@ -263,8 +259,7 @@ class ParameterClient(object):
         param, info = response
         self._last_hash = info['hash'] if info else ''
         if param:
-            self._module_dict.loads(param)
-            return True, info
+            return param, info
         else:
             return False, info
 

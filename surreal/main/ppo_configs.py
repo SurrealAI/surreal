@@ -8,6 +8,7 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
+    parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
     parser.add_argument('--num-gpus', type=int, default=0,
                         help='number of GPUs to use, 0 for CPU only.')
     parser.add_argument('--agent-num-gpus', type=int, default=0,

@@ -41,13 +41,8 @@ class DDPGAgent(Agent):
         self.param_noise_sigma = self.learner_config.algo.exploration.param_noise_sigma
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
-        if type(self.learner_config.algo.exploration.sigma) == list:
-            # Use mod to wrap around the list of sigmas if the number of agents is greater than the length of the array
-            self.sigma = self.learner_config.algo.exploration.sigma[agent_id % len(self.learner_config.algo.exploration.sigma)]
-        elif type(self.learner_config.algo.exploration.sigma) in [int, float]:
-            self.sigma = self.learner_config.algo.exploration.sigma
-        else:
-            raise ConfigError('Sigma {} undefined.'.format(self.learner_config.algo.exploration.sigma))
+        self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
+        print('Using exploration sigma', self.sigma)
 
         self._num_gpus = session_config.agent.num_gpus
         if self._num_gpus == 0:
@@ -80,6 +75,7 @@ class DDPGAgent(Agent):
             initializes exploration noise
             and populates self.noise, a callable that returns noise of dimension same as action
         """
+        self.param_noise = None
         if self.agent_mode == 'eval_deterministic':
             return
         if self.noise_type == 'normal':
@@ -96,13 +92,14 @@ class DDPGAgent(Agent):
             )
         else:
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
-        self.param_noise = None
         if self.param_noise_type == 'normal':
             self.param_noise = NormalParameterNoise(self.param_noise_sigma)
 
     def on_parameter_fetched(self, params, info):
-        super().on_parameter_fetched(params, info)
-        self.param_noise.apply(params)
+        params = super().on_parameter_fetched(params, info)
+        if self.param_noise:
+            params = self.param_noise.apply(params)
+        return params
 
     def act(self, obs):
         with tx.device_scope(self.gpu_ids):

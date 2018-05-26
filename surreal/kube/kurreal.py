@@ -267,6 +267,7 @@ class KurrealParser(SymphonyParser):
                              .format(list(POD_TYPES.keys())))
         nonagent_pod_type = POD_TYPES[num_gpus]
         config_command += ["--num-gpus", str(num_gpus)]
+        config_command += ["--num-agents", str(args.num_agents)]
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
