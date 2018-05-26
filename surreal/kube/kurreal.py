@@ -274,6 +274,9 @@ class KurrealParser(SymphonyParser):
             nonagent_pod_type = 'nonagent-mj-batch'
             eval_pod_type = 'eval-mj-batch'
             config_command += ["--agent-num-gpus", '1']
+        else:
+            agent_pod_type = 'agent'
+            eval_pod_type = 'agent'
 
 
         self._create_helper(
