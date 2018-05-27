@@ -61,7 +61,7 @@ def generate(argv):
                 'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -2,
+                'init_log_sig': -1,
                 'log_sig_range': 0.5,
                 'epoch_policy': 10,
                 'epoch_baseline': 10,
@@ -69,7 +69,7 @@ def generate(argv):
                 'kl_target': 0.01, # target KL divergence between before and after
             },
             'adapt_consts': {
-                'kl_cutoff_coeff': 500, # penalty coeff when kl large
+                'kl_cutoff_coeff': 50, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
                 'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
@@ -128,7 +128,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 250, # 10 for without RNN
+            'fetch_parameter_interval': 100, # 10 for without RNN
         },
         'sender': {
             'flush_iteration': 3,
