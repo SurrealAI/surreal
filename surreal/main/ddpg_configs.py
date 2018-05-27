@@ -23,7 +23,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
-            'use_layernorm': True,
+            'use_layernorm': False,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -60,8 +60,8 @@ def generate(argv):
                 },
             },
             'exploration': {
-                'param_noise_type': 'adaptive_normal',
-                'param_noise_sigma': 0.1,
+                'param_noise_type': None,
+                'param_noise_sigma': 0.05,
                 'param_noise_alpha': 1.15,
                 'param_noise_target_stddev': 0.005,
                 'noise_type': 'normal',
