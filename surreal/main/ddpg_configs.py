@@ -60,8 +60,10 @@ def generate(argv):
                 },
             },
             'exploration': {
-                'param_noise_type': 'normal',
-                'param_noise_sigma': 0.0,
+                'param_noise_type': 'adaptive_normal',
+                'param_noise_sigma': 0.0001,
+                'param_noise_alpha': 1.04,
+                'param_noise_target_stddev': 0.1,
                 'noise_type': 'normal',
                 # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
                 # The sigma values will be 0.0, 0.33, 0.66
@@ -97,7 +99,7 @@ def generate(argv):
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 100,
+            'record_every': 20,
         },
         'observation': {
             'pixel':['camera0', 'depth'],

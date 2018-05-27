@@ -11,7 +11,7 @@ from surreal.session import ConfigError
 import time
 import torchx as tx
 import torchx.nn as nnx
-from .param_noise import NormalParameterNoise
+from .param_noise import NormalParameterNoise, AdaptiveNormalParameterNoise
 
 class DDPGAgent(Agent):
 
@@ -37,8 +37,11 @@ class DDPGAgent(Agent):
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.sleep_time = self.env_config.agent_sleep_time
 
+        self.param_noise = None
         self.param_noise_type = self.learner_config.algo.exploration.param_noise_type
         self.param_noise_sigma = self.learner_config.algo.exploration.param_noise_sigma
+        self.param_noise_alpha = self.learner_config.algo.exploration.param_noise_alpha
+        self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
         self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
@@ -75,7 +78,6 @@ class DDPGAgent(Agent):
             initializes exploration noise
             and populates self.noise, a callable that returns noise of dimension same as action
         """
-        self.param_noise = None
         if self.agent_mode == 'eval_deterministic':
             return
         if self.noise_type == 'normal':
@@ -94,6 +96,13 @@ class DDPGAgent(Agent):
             raise ConfigError('Noise type {} undefined.'.format(self.noise_type))
         if self.param_noise_type == 'normal':
             self.param_noise = NormalParameterNoise(self.param_noise_sigma)
+        elif self.param_noise_type == 'adaptive_normal':
+            self.param_noise = AdaptiveNormalParameterNoise(
+                self.model,
+                self.param_noise_target_stddev,
+                alpha=self.param_noise_alpha,
+                sigma=self.param_noise_sigma
+            )
 
     def on_parameter_fetched(self, params, info):
         params = super().on_parameter_fetched(params, info)
@@ -112,6 +121,8 @@ class DDPGAgent(Agent):
                     modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
                 obs_variable[modality] = modality_dict
             action, _ = self.model(obs_variable, calculate_value=False)
+            if self.param_noise and self.param_noise_type == 'adaptive_normal':
+                self.param_noise.compute_action_distance(obs_variable, action)
             action = action.data.cpu().numpy()[0]
 
             action = action.clip(-1, 1)
