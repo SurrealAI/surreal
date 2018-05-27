@@ -1,5 +1,7 @@
 # OpenAI Gym Mujoco
 
+Troubleshoots Gym 0.10.5 and `mujoco-py` 1.50.1.56
+
 The first time you import mujoco on Ubuntu, it will trigger a Cython build. Make sure you have:
 
 ```bash
