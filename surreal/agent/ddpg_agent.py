@@ -1,9 +1,11 @@
 """
 Actor function
 """
+import copy
 import torch
 import collections
 from .base import Agent
+from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
 import numpy as np
 from .action_noise import *
@@ -97,8 +99,11 @@ class DDPGAgent(Agent):
         if self.param_noise_type == 'normal':
             self.param_noise = NormalParameterNoise(self.param_noise_sigma)
         elif self.param_noise_type == 'adaptive_normal':
+            model_copy = copy.deepcopy(self.model)
+            module_dict_copy = ModuleDict(self.module_dict(model_copy))
             self.param_noise = AdaptiveNormalParameterNoise(
-                self.model,
+                model_copy,
+                module_dict_copy,
                 self.param_noise_target_stddev,
                 alpha=self.param_noise_alpha,
                 sigma=self.param_noise_sigma
@@ -133,9 +138,14 @@ class DDPGAgent(Agent):
             action = action.clip(-1, 1)
             return action
 
-    def module_dict(self):
+    def module_dict(self, model=None):
+        # My default, module_dict refers to the module_dict for the current model.  But, you can
+        # generate a module_dict for other models as well -- e.g. param_noise uses a separate module_dict
+        # to calculate action difference
+        if model == None:
+            model = self.model
         return {
-            'ddpg': self.model,
+            'ddpg': model,
         }
 
     def default_config(self):
