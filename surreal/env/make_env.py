@@ -49,6 +49,8 @@ def make_mujocomanip(env_name, env_config):
             use_camera_obs=env_config.pixel_input,
             camera_height=84,
             camera_width=84,
+            render_collision_mesh=False,
+            render_visual_mesh=True,
             camera_name='tabletop',
             use_object_obs=(not env_config.pixel_input),
             reward_shaping=True
