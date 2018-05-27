@@ -228,7 +228,8 @@ class KurrealParser(SymphonyParser):
             'cheetah': 'dm_control:cheetah-run',
             'hopper': 'dm_control:hopper-hop',
             'mj': 'mujocomanip:SawyerLiftEnv',
-            'mjbaxter': 'mujocomanip:BaxterHoleEnv',
+            'mjbaxterhole': 'mujocomanip:BaxterHoleEnv',
+            'mjbaxterlift': 'mujocomanip:BaxterLiftEnv',
             'gym-ch':'gym:HalfCheetah-v2',
             'gym-hopper':'gym:Hopper-v2',
         }

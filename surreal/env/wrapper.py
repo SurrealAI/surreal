@@ -216,6 +216,17 @@ class MujocoManipulationWrapper(Wrapper):
         env.metadata = {}
         super().__init__(env)
         self._input_list = env_config.observation
+        
+        env_name = env_config.env_name
+        env_category, env_name = env_name.split(':')
+        if env_name == 'BaxterLiftEnv':
+            self.dof = 16
+        elif env_name == 'BaxterHoleEnv':
+            self.dof = 14
+        else:
+            # TODO: put sawyer envs in, not doing it yet as it is temporary
+            raise ValueError('Unknown MujocoManip env {}'.format(env_name)) 
+
 
     def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
@@ -265,7 +276,7 @@ class MujocoManipulationWrapper(Wrapper):
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        return {'dim': (14,), 'type': 'continuous'}
+        return {'dim': (self.dof,), 'type': 'continuous'}
 
     def _render(self, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',
