@@ -96,7 +96,7 @@ def generate(argv):
         # 'limit_episode_length': 200, # 0 means no limit
         'limit_episode_length': 0, # 0 means no limit
         'video': {
-            'record_video': True,
+            'record_video': False,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 20,
