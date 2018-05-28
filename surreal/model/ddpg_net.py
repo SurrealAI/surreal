@@ -42,8 +42,8 @@ class DDPGModel(nnx.Module):
             self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
             self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
         else:
-            self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes)
-            self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes)
+            self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes, use_layernorm=self.use_layernorm)
+            self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes, use_layernorm=self.use_layernorm)
 
     def get_actor_parameters(self):
         return itertools.chain(self.actor.parameters())

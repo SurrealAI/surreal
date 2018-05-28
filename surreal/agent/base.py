@@ -77,10 +77,12 @@ class Agent(object, metaclass=AgentMeta):
             self.module_dict can only happen after the module is constructed by subclasses.
         """
         host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
+        self._module_dict = self.module_dict()
+        if not isinstance(self._module_dict, ModuleDict):
+            self._module_dict = ModuleDict(self._module_dict)
         self._ps_client = ParameterClient(
             host=host,
             port=port,
-            module_dict=self.module_dict(),
         )
     
     def _setup_parameter_pull(self):
@@ -177,6 +179,7 @@ class Agent(object, metaclass=AgentMeta):
                         })
             self.actions_since_param_update = 0
             self.episodes_since_param_update = 0
+        return params
 
 
     def pre_action(self, obs):
@@ -297,11 +300,11 @@ class Agent(object, metaclass=AgentMeta):
             session_config=self.session_config,
         )
 
+        env_category = self.env_config.env_name.split(':')[0]
         if self.env_config.video.record_video:
-            env_category = self.env_config.env_name.split(':')[0]
             if env_category == 'gym':
                 env = GymMonitorWrapper(env, self.env_config, self.session_config)
-            else: 
+            else:
                 env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
@@ -328,7 +331,9 @@ class Agent(object, metaclass=AgentMeta):
         """
         params, info = self._ps_client.fetch_parameter_with_info()
         if params:
-            self.on_parameter_fetched(params, info)
+            params = U.deserialize(params)
+            params = self.on_parameter_fetched(params, info)
+            self._module_dict.load(params)
 
     def fetch_parameter_info(self):
         """
