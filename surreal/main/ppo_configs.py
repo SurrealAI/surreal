@@ -55,7 +55,7 @@ def generate(argv):
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'clip',
+            'ppo_mode': 'adapt',
             'advantage':{
                 'norm_adv': True,
                 'lam': 1.0,
@@ -64,7 +64,7 @@ def generate(argv):
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 1,
-                'horizon': 10,
+                'horizon': 5,
             },
             'consts': {
                 'init_log_sig': -1.0,
@@ -72,7 +72,7 @@ def generate(argv):
                 'epoch_policy': 5,
                 'epoch_baseline': 5,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.01, # target KL divergence between before and after
+                'kl_target': 0.02, # target KL divergence between before and after
             },
             'adapt_consts': {
                 'kl_cutoff_coeff': 500, # penalty coeff when kl large

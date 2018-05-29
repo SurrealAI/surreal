@@ -255,7 +255,9 @@ class MujocoManipulationWrapper(Wrapper):
         # else:
         #     action[-2] = -1
         # print('action after:\t', action)
-        obs, reward, done, info = self.env.step(action)
+        action_repeat = 10
+        for repeat in range(action_repeat):
+            obs, reward, done, info = self.env.step(action)
         return self._add_modality(obs), reward, done, info
 
     def _reset(self):
