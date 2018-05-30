@@ -26,25 +26,25 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'use_r_filter': False,
             'gamma': .995, 
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 15, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1., 
                 'clip_critic_gradient': True,
-                'critic_gradient_norm_clip': 5.,
+                'critic_gradient_norm_clip': 1.,
                 'actor_regularization': 0.0,
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e6,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-5,
+                    'min_lr': 5e-5,
                 },
             },
             # ppo specific parameters:
@@ -52,16 +52,16 @@ def generate(argv):
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
-                'reward_scale': 1.0,
+                'reward_scale': 0.01,
             },
             'rnn': {
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 1,
-                'horizon': 10,
+                'horizon': 5,
             },
             'consts': {
-                'init_log_sig': -1,
+                'init_log_sig': -2,
                 'log_sig_range': 0.5,
                 'epoch_policy': 10,
                 'epoch_baseline': 10,
@@ -120,7 +120,7 @@ def generate(argv):
                 # for TensorplexWrapper:
                 'training_env': 20,  # env record every N episodes
                 'eval_env': 5,
-                'eval_env_sleep': 30,  # throttle eval by sleep n seconds
+                'eval_env_sleep': 2,  # throttle eval by sleep n seconds
                 # for manual updates:
                 'agent': 50,  # agent.update_tensorplex()
                 'learner': 20,  # learner.update_tensorplex()
