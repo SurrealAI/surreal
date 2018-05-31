@@ -218,7 +218,6 @@ class MujocoManipulationWrapper(Wrapper):
         self._input_list = env_config.observation
         self._action_repeat = env_config.action_repeat or 1
 
-
     def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
         flat_modality = collections.OrderedDict()
