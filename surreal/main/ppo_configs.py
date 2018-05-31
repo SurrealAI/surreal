@@ -56,7 +56,7 @@ def generate(argv):
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
-                'reward_scale': 0.01,
+                'reward_scale': 1.0,
             },
             'rnn': {
                 'if_rnn_policy': True, 
