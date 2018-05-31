@@ -107,7 +107,7 @@ pod_types:
     build_image: mujoco-gpu-image
 
 
-2 CommentsCollapse 
+# 2 CommentsCollapse 
   # tensorboard:
   #   image: us.gcr.io/surreal-dev-188523/surreal-cpu-new
   #   selector:
