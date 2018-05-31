@@ -127,7 +127,6 @@ class PPOAgent(Agent):
 
             action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
             action_pd = action_pd.detach().cpu().numpy()
-            action_pd[:, self.action_dim:] *= np.exp(self.noise)
 
             if self.agent_mode != 'eval_deterministic':
                 action_choice = self.pd.sample(action_pd)
