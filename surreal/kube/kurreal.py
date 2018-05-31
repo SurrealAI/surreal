@@ -245,7 +245,7 @@ class KurrealParser(SymphonyParser):
         config_command = ['--env', ENV_ALIAS[env]]
 
         if 'mujoco' in args.experiment_name:
-            if args.env and 'mujocomanip' not in env:
+            if args.env and 'mj' not in env:
                 raise ValueError('Mujoco is in environment name but the environment'
                                 'selected is not a mujocomanip env')
 
