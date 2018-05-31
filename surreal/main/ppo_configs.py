@@ -98,7 +98,7 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': True,
+        'pixel_input': False,
         # 'pixel_input': True,
         'frame_stacks': 1,
         'sleep_time': 0,
@@ -110,7 +110,7 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['proprio'],
+            'low_dim':['proprio', 'low-level'],
         },
         'limit_episode_length': 500,
         'stochastic_eval': True,
