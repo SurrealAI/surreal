@@ -1,7 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
-from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper, MujocoManipulationDummyWrapper
+from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 import os
 
 
@@ -33,14 +33,6 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    # if os.getenv('SYMPHONY_ROLE') == 'learner':
-    #     env = MujocoManipulationDummyWrapper(
-    #         use_camera_obs=env_config.pixel_input,
-    #         camera_height=84,
-    #         camera_width=84,
-    #         use_object_obs=(not env_config.pixel_input),
-    #     )
-    # else:
     import MujocoManip
     env = MujocoManip.make(
         env_name,
