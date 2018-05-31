@@ -39,9 +39,9 @@ def generate(argv):
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 1., 
+                'actor_gradient_norm_clip': 10.,
                 'clip_critic_gradient': True,
-                'critic_gradient_norm_clip': 1.,
+                'critic_gradient_norm_clip': 10.,
                 'actor_regularization': 0.0,
                 'critic_regularization': 0.0,
                 'anneal':{  
@@ -56,7 +56,7 @@ def generate(argv):
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
-                'reward_scale': 0.01,
+                'reward_scale': 1.0,
             },
             'rnn': {
                 'if_rnn_policy': True, 
@@ -70,12 +70,12 @@ def generate(argv):
                 'epoch_policy': 10,
                 'epoch_baseline': 10,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.01, # target KL divergence between before and after
+                'kl_target': 0.02, # target KL divergence between before and after
             },
             'adapt_consts': {
                 'kl_cutoff_coeff': 50, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
-                'beta_range': (1/35.0 , 35.0), # range of the adapted penalty factor
+                'beta_range': (1/35.0, 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
             },
             'clip_consts': {
@@ -100,21 +100,26 @@ def generate(argv):
     }
 
     env_config = {
-        'env_name': args.env, 
+        'env_name': args.env,
+        'action_repeat': 1,
         'pixel_input': False,
-        'frame_stacks': 3, 
+        'use_grayscale': False,
+        'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
-            'record_video': False,
+            'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 20,
+            'record_every': 5,
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
+            'low_dim':['proprio', 'low-level'],
+            # 'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
-        'limit_episode_length': 0,
+        'limit_episode_length': 500,
+        # 'stochastic_eval': True,
+        'stochastic_eval': False,
     }
 
     session_config = Config({

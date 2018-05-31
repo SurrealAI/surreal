@@ -1,7 +1,7 @@
 from surreal.env.video_env import VideoWrapper
 from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
-from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper, MujocoManipulationDummyWrapper
+from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 import os
 
 
@@ -33,34 +33,29 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    if os.getenv('SYMPHONY_ROLE') == 'learner':
-        env = MujocoManipulationDummyWrapper(
-            use_camera_obs=env_config.pixel_input,
-            camera_height=84,
-            camera_width=84,
-            use_object_obs=(not env_config.pixel_input),
-        )
-    else:
-        import MujocoManip
-        env = MujocoManip.make(
-            env_name,
-            horizon=50000,
-            has_renderer=False,
-            ignore_done=True,
-            use_camera_obs=env_config.pixel_input,
-            camera_height=84,
-            camera_width=84,
-            camera_name='tabletop',
-            use_object_obs=(not env_config.pixel_input),
-            reward_shaping=True
-        )
+    import MujocoManip
+    env = MujocoManip.make(
+        env_name,
+        has_renderer=False,
+        ignore_done=True,
+        use_camera_obs=env_config.pixel_input,
+        camera_height=84,
+        camera_width=84,
+        render_collision_mesh=False,
+        render_visual_mesh=True,
+        camera_name='tabletop',
+        use_object_obs=(not env_config.pixel_input),
+        reward_shaping=True
+    )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     if env_config.pixel_input:
         env = TransposeWrapper(env)
-        env = GrayscaleWrapper(env)
-        env = FrameStackWrapper(env, env_config)
+        if env_config.use_grayscale:
+            env = GrayscaleWrapper(env)
+        if env_config.frame_stacks:
+            env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config

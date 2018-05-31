@@ -216,6 +216,7 @@ class MujocoManipulationWrapper(Wrapper):
         env.metadata = {}
         super().__init__(env)
         self._input_list = env_config.observation
+        self._action_repeat = env_config.action_repeat or 1
 
     def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
@@ -237,7 +238,12 @@ class MujocoManipulationWrapper(Wrapper):
         return obs
 
     def _step(self, action):
-        obs, reward, done, info = self.env.step(action)
+        rewards = []
+        for repeat in range(self._action_repeat):
+            obs, reward, done, info = self.env.step(action)
+            rewards.append(reward)
+            if done: break
+        reward = np.mean(rewards)
         return self._add_modality(obs), reward, done, info
 
     def _reset(self):
@@ -258,50 +264,13 @@ class MujocoManipulationWrapper(Wrapper):
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
-        return {'dim': (8,), 'type': 'continuous'}
+        return {'dim': (self.env.dof,), 'type': 'continuous'}
 
     def _render(self, *args, **kwargs):
         return self.env.sim.render(camera_name='frontview',
                                    height=512,
                                    width=512,
                                    depth=False)
-
-
-class MujocoManipulationDummyWrapper(Env):
-    def __init__(
-            self,
-            use_camera_obs,
-            camera_height,
-            camera_width,
-            use_object_obs,
-    ):
-        super().__init__()
-        self._use_camera_obs = use_camera_obs
-        self._use_object_obs = use_object_obs
-        self._camera_height = camera_height
-        self._camera_width = camera_width
-
-    @property
-    def spec_format(self):
-        return SpecFormat.MUJOCOMANIP
-
-    def observation_spec(self):
-        spec = collections.OrderedDict([('joint_pos', (7,)), ('joint_vel', (7,)), ('gripper_pos', (2,)), ('gripper_vel', (2,))])
-        if self._use_camera_obs:
-            spec['image'] = (self._camera_height, self._camera_width, 3)
-        if self._use_object_obs:
-            spec['cube_pos'] = (3,)
-            spec['cube_quat'] = (4,)
-            spec['gripper_to_cube'] = (3,)
-        spec['proprio'] = (23,)
-        for k in spec:
-            # MujocoManipulationWrapper only looks at the shape of the observation spec array
-            spec[k] = np.zeros((spec[k]))
-        return spec
-
-    def action_spec(self):
-        # This is what MujocoManip environments will return.  The mujocomanip wrapper will completely ignore it
-        return (np.array([-1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., 1., 1., 1., 1., 1., 1., 1.]))
 
 class ObservationConcatenationWrapper(Wrapper):
     def __init__(self, env, concatenated_obs_name='flat_inputs'):
