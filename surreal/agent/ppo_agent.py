@@ -42,10 +42,12 @@ class PPOAgent(Agent):
         
         self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
         self.log_sig_range = self.learner_config.algo.consts.log_sig_range
-        noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
+
         if self.agent_mode == 'eval_deterministic':
-            noise = 0 
-        self.init_log_sig += noise
+            self.noise = 0 
+        else: 
+            self.noise = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
+
 
         self.rnn_config = self.learner_config.algo.rnn
         
@@ -121,6 +123,7 @@ class PPOAgent(Agent):
 
             action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
             action_pd = action_pd.detach().cpu().numpy()
+            action_pd[:, self.action_dim:] *= np.exp(self.noise)
 
             if self.agent_mode != 'eval_deterministic':
                 action_choice = self.pd.sample(action_pd)

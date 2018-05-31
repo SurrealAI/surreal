@@ -30,29 +30,25 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': True,
+            'use_z_filter': False,
             'use_r_filter': False,
             'gamma': .995, 
-            'n_step': 30, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
+            'n_step': 15, # 10 for without RNN
+            'stride': 10, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1., 
                 'clip_critic_gradient': True,
-                'critic_gradient_norm_clip': 5.,
+                'critic_gradient_norm_clip': 1.,
                 'actor_regularization': 0.0,
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e7,
+                    'frames_to_anneal': 5e6,
                     'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
-                },
-                'target_update':{
-                    'type': 'hard',
-                    'interval': 4096,
+                    'min_lr': 5e-5,
                 },
             },
             # ppo specific parameters:
@@ -60,18 +56,19 @@ def generate(argv):
             'advantage':{
                 'norm_adv': True,
                 'lam': 0.97,
+                'reward_scale': 0.01,
             },
             'rnn': {
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 1,
-                'horizon': 10,
+                'horizon': 5,
             },
             'consts': {
-                'init_log_sig': -1.5,
+                'init_log_sig': -2,
                 'log_sig_range': 0.5,
-                'epoch_policy': 5,
-                'epoch_baseline': 5,
+                'epoch_policy': 10,
+                'epoch_baseline': 10,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.01, # target KL divergence between before and after
             },
@@ -94,6 +91,11 @@ def generate(argv):
             'memory_size': 96,
             'sampling_start_size': 64,
             'replay_shards': 1,
+        },
+        'parameter_publish': {
+            # Minimum amount of time (seconds) between two parameter publish
+            'min_publish_interval': 0.2, 
+            'exp_interval': 4096,  
         },
     }
 
@@ -122,7 +124,7 @@ def generate(argv):
                 # for TensorplexWrapper:
                 'training_env': 20,  # env record every N episodes
                 'eval_env': 5,
-                'eval_env_sleep': 30,  # throttle eval by sleep n seconds
+                'eval_env_sleep': 2,  # throttle eval by sleep n seconds
                 # for manual updates:
                 'agent': 50,  # agent.update_tensorplex()
                 'learner': 20,  # learner.update_tensorplex()
@@ -130,7 +132,7 @@ def generate(argv):
         },
         'agent' : {
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 250, # 10 for without RNN
+            'fetch_parameter_interval': 100, # 10 for without RNN
             'num_gpus': args.agent_num_gpus,
         },
         'sender': {
@@ -149,11 +151,23 @@ def generate(argv):
     return learner_config, env_config, session_config
 
 '''
-    Specific parameter without RNN difference:
-        * n_step -> 10
-        * stride -> 10
-        * fetch_parameter_mode -> 'step'
-        * fetch_parameter_interval -> 10
-    Pixel specific parameter differnce:
-        * param_release_min -> 8192 (instead of 4096)
+    Specific hyperparameters For Cheetah v. Hopper:
+        * ADAPT
+        * gamma: 0.995
+        * lam: 0.97
+        * kltarget: .01
+        * update count: 10
+        * kl_cutoff_coeff: 50
+        * fetch_parameter_interval: 100
+        * release_interval: 4096
+        * zfilter: True/False
+        * n_step: 30/15
+        * stride: 20/10
+        * initial learning rate: 3e-4/1e-4
+        * annealed final learning rate: 5e-5
+        * actor_gradient_norm_clip: 1./1.
+        * critic_gradient_norm_clip: 5./1.
+        * reward_scale: 1.0/0.01
+        * init_log_sig: -1 / -2
+        * log_sig_range: 0 / 0.5
 '''
