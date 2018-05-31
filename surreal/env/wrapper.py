@@ -216,6 +216,8 @@ class MujocoManipulationWrapper(Wrapper):
         env.metadata = {}
         super().__init__(env)
         self._input_list = env_config.observation
+        self._action_repeat = env_config.action_repeat or 1
+
 
     def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
@@ -237,9 +239,12 @@ class MujocoManipulationWrapper(Wrapper):
         return obs
 
     def _step(self, action):
-        action_repeat = 1
-        for repeat in range(action_repeat):
+        rewards = []
+        for repeat in range(self._action_repeat):
             obs, reward, done, info = self.env.step(action)
+            rewards.append(reward)
+            if done: break
+        reward = np.mean(rewards)
         return self._add_modality(obs), reward, done, info
 
     def _reset(self):
