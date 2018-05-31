@@ -9,6 +9,9 @@ import numpy as np
 from surreal.session import ConfigError
 import time
 
+import torchx as tx
+import torchx.nn as nnx
+
 class PPOAgent(Agent):
     '''
         Class that specifies PPO agent logic
@@ -48,30 +51,44 @@ class PPOAgent(Agent):
 
         self.rnn_config = self.learner_config.algo.rnn
         
-        self.cells = None
-        if self.rnn_config.if_rnn_policy:
-            # Note that .detach() is necessary here to prevent overflow of memory
-            # otherwise rollout in length of thousands will prevent previously
-            # accumulated hidden/cell states from being freed.
-            self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach(),
-                          torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach())
+        self._num_gpus = session_config.agent.num_gpus
+        if self._num_gpus == 0:
+            self.gpu_ids = 'cpu'
+        else:
+            self.gpu_ids = 'cuda:all'
 
-        self.model = PPOModel(
-            obs_spec=self.obs_spec,
-            action_dim=self.action_dim,
-            model_config=self.learner_config.model,
-            use_cuda=False,
-            init_log_sig=self.init_log_sig,
-            use_z_filter=self.use_z_filter,
-            if_pixel_input=self.env_config.pixel_input,
-            rnn_config=self.rnn_config,
-        )
+        if self._num_gpus == 0:
+            self.log.info('Using CPU')
+        else:
+            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
+            torch.backends.cudnn.benchmark = True
 
         self.pd = DiagGauss(self.action_dim)
+        self.cells = None
+
+        with tx.device_scope(self.gpu_ids):
+            if self.rnn_config.if_rnn_policy:
+                # Note that .detach() is necessary here to prevent overflow of memory
+                # otherwise rollout in length of thousands will prevent previously
+                # accumulated hidden/cell states from being freed.
+                self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach(),
+                              torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach())
+
+            self.model = PPOModel(
+                obs_spec=self.obs_spec,
+                action_dim=self.action_dim,
+                model_config=self.learner_config.model,
+                use_cuda=False,
+                init_log_sig=self.init_log_sig,
+                use_z_filter=self.use_z_filter,
+                if_pixel_input=self.env_config.pixel_input,
+                rnn_config=self.rnn_config,
+            )
 
     def act(self, obs):
         '''
@@ -93,34 +110,35 @@ class PPOAgent(Agent):
         # see ExpSenderWrapperMultiStepMovingWindowWithInfo in exp_sender_wrapper for more
         action_info = [[], []]
 
-        obs_tensor = {}
-        for mod in obs.keys():
-            obs_tensor[mod] = {}
-            for k in obs[mod].keys():
-                obs_tensor[mod][k] = torch.tensor(obs[mod][k], dtype=torch.float32).unsqueeze(0)
+        with tx.device_scope(self.gpu_ids):
+            obs_tensor = {}
+            for mod in obs.keys():
+                obs_tensor[mod] = {}
+                for k in obs[mod].keys():
+                    obs_tensor[mod][k] = torch.tensor(obs[mod][k], dtype=torch.float32).unsqueeze(0)
 
-        if self.rnn_config.if_rnn_policy:
-            action_info[0].append(self.cells[0].squeeze(1).numpy())
-            action_info[0].append(self.cells[1].squeeze(1).numpy())
+            if self.rnn_config.if_rnn_policy:
+                action_info[0].append(self.cells[0].squeeze(1).cpu().numpy())
+                action_info[0].append(self.cells[1].squeeze(1).cpu().numpy())
 
-        action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
-        action_pd = action_pd.detach().numpy()
-        action_pd[self.action_dim:] *= np.exp(self.noise)
+            action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
+            action_pd = action_pd.detach().cpu().numpy()
+            action_pd[:, self.action_dim:] *= np.exp(self.noise)
 
-        if self.agent_mode != 'eval_deterministic':
-            action_choice = self.pd.sample(action_pd)
-        else:
-            action_choice = self.pd.maxprob(action_pd)
-        np.clip(action_choice, -1, 1, out=action_choice)
-        
-        action_choice = action_choice.reshape((-1,))
-        action_pd     = action_pd.reshape((-1,))
-        action_info[1].append(action_pd)
-        if self.agent_mode != 'training':
-            return action_choice
-        else: 
-            time.sleep(self.env_config.sleep_time)
-            return action_choice, action_info
+            if self.agent_mode != 'eval_deterministic':
+                action_choice = self.pd.sample(action_pd)
+            else:
+                action_choice = self.pd.maxprob(action_pd)
+            np.clip(action_choice, -1, 1, out=action_choice)
+            
+            action_choice = action_choice.reshape((-1,))
+            action_pd     = action_pd.reshape((-1,))
+            action_info[1].append(action_pd)
+            if self.agent_mode != 'training':
+                return action_choice
+            else: 
+                time.sleep(self.env_config.sleep_time)
+                return action_choice, action_info
 
     def module_dict(self):
         return {
@@ -139,15 +157,15 @@ class PPOAgent(Agent):
         '''
             reset of LSTM hidden and cell states
         '''
-        self.tensorplex.add_scalars({'.core/init_log_sig': self.init_log_sig})
         if self.rnn_config.if_rnn_policy:
             # Note that .detach() is necessary here to prevent overflow of memory
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
-            self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach(),
-                          torch.zeros(self.rnn_config.rnn_layer, 
-                                               1, # batch_size is 1
-                                               self.rnn_config.rnn_hidden).detach())
+            with tx.device_scope(self.gpu_ids):
+                self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach(),
+                              torch.zeros(self.rnn_config.rnn_layer, 
+                                                   1, # batch_size is 1
+                                                   self.rnn_config.rnn_hidden).detach())
 

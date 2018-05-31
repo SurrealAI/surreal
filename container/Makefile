@@ -40,3 +40,15 @@ pull-gpu90:
 	docker pull $(CU90_URL):latest
 
 publish-gpu90: build-gpu90 push-gpu90
+
+GPUMJ_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-mujoco
+build-gpumj:
+	docker build -t $(GPUMJ_URL):latest -f DockerfileMujocopyGPUBase .
+
+push-gpumj:
+	docker push $(GPUMJ_URL):latest
+
+pull-gpumj:
+	docker pull $(GPUMJ_URL):latest
+
+publish-gpumj: build-gpumj push-gpumj

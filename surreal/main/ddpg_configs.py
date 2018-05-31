@@ -10,8 +10,11 @@ def generate(argv):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, required=True, help='name of the environment')
+    parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
     parser.add_argument('--num-gpus', type=int, default=0,
                         help='number of GPUs to use, 0 for CPU only.')
+    parser.add_argument('--agent-num-gpus', type=int, default=0,
+                        help='number of GPUs to use for agent, 0 for CPU only.')
 
     args = parser.parse_args(args=argv)
 
@@ -20,7 +23,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
-            'use_layernorm': True,
+            'use_layernorm': False,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -38,11 +41,11 @@ def generate(argv):
             'experience': 'ExpSenderWrapperSSARNStepBootstrap',
             'use_z_filter': False,
             'gamma': .99,
-            'n_step': 5,
+            'n_step': 3,
             'stride': 1,
             'network': {
                 'lr_actor': 1e-4,
-                'lr_critic': 1e-4,
+                'lr_critic': 1e-3,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': False,
@@ -57,11 +60,14 @@ def generate(argv):
                 },
             },
             'exploration': {
+                'param_noise_type': None,
+                'param_noise_sigma': 0.05,
+                'param_noise_alpha': 1.15,
+                'param_noise_target_stddev': 0.005,
                 'noise_type': 'normal',
-                # Assigns a sigma from the list to each agent. If only one agent, it uses default 0.3 sigma.
-                # 5 agents works well. If you use more than 5 agents, the sigma values will wrap around.
-                # For example, the sixth agent (with agent_id 5) will have sigma 0.3
-                'sigma': [0.3, 0.0, 0.1, 0.2, 0.4],
+                # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
+                # The sigma values will be 0.0, 0.33, 0.66
+                'max_sigma': 1.,
                 # 'noise_type': 'ou_noise',
                 # 'theta': 0.15,
                 # 'sigma': 0.3,
@@ -83,16 +89,17 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': True,
+        'num_agents': args.num_agents,
+        'pixel_input': False,
         'frame_stacks': 3,
         'sleep_time': 0.0,
         # 'limit_episode_length': 200, # 0 means no limit
-        'limit_episode_length': 1000, # 0 means no limit
+        'limit_episode_length': 0, # 0 means no limit
         'video': {
-            'record_video': True,
+            'record_video': False,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 100,
+            'record_every': 20,
         },
         'observation': {
             'pixel':['camera0', 'depth'],
@@ -120,6 +127,7 @@ def generate(argv):
             # every episode, every n episodes, every step, every n steps
             'fetch_parameter_mode': 'step',
             'fetch_parameter_interval': 200,
+            'num_gpus': args.agent_num_gpus,
         },
         'sender': {
             'flush_iteration': 100,
