@@ -102,16 +102,16 @@ We use python3 for all development. Note that numpy has officially announced tha
 `-e` means "editable installation". If you change any code in the `Surreal/` repo, it will be reflected system-wide for all `import surreal`. 
 
 ```
-git clone https://github.com/StanfordVL/Surreal.git
+git clone https://github.com/SurrealAI/Surreal.git
 pip install -e Surreal/
 ```
 
 ### Tensorplex package
 
-Read [Tensorplex API on Github](https://github.com/StanfordVL/Tensorplex).
+Read [Tensorplex API on Github](https://github.com/SurrealAI/Tensorplex).
 
 ```
-git clone https://github.com/StanfordVL/Tensorplex.git
+git clone https://github.com/SurrealAI/Tensorplex.git
 pip install -e Tensorplex/
 ```
 
@@ -162,7 +162,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 
 **TODO**
 
-Copy the system config file from `surreal/kube/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). You will need to [generate a git access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) if you don't have one already. You also need to decide which branch is the temp branch to snapshot your code.
+Copy the system config file from `container/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). You will need to [generate a git access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) if you don't have one already. You also need to decide which branch is the temp branch to snapshot your code.
 
 
 ## Miscellaneous
