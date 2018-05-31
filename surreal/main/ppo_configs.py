@@ -101,8 +101,9 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
+        'action_repeat': 1,
         'pixel_input': False,
-        # 'pixel_input': True,
+        'use_grayscale': False,
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
@@ -115,9 +116,8 @@ def generate(argv):
             'pixel':['camera0'],
             'low_dim':['proprio', 'low-level'],
         },
-        # 'limit_episode_length': 500,
+        'limit_episode_length': 500,
         # 'stochastic_eval': True,
-        'limit_episode_length': 1000,
         'stochastic_eval': False,
     }
 

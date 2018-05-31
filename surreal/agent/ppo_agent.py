@@ -55,7 +55,6 @@ class PPOAgent(Agent):
         self.init_log_sig += noise
 
         self.rnn_config = self.learner_config.algo.rnn
-
         self._num_gpus = session_config.agent.num_gpus
         if self._num_gpus == 0:
             self.gpu_ids = 'cpu'

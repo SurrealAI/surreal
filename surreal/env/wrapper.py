@@ -216,17 +216,20 @@ class MujocoManipulationWrapper(Wrapper):
         env.metadata = {}
         super().__init__(env)
         self._input_list = env_config.observation
-        
+        self._action_repeat = env_config.action_repeat or 1
+
         env_name = env_config.env_name
         env_category, env_name = env_name.split(':')
         if env_name == 'BaxterLiftEnv':
             self.dof = 16
         elif env_name == 'BaxterHoleEnv':
             self.dof = 14
+        elif env_name == 'SawyerLiftEnv':
+            self.dof = 8
+        elif env_name == 'SawyerStackEnv':
+            self.dof = 8
         else:
-            # TODO: put sawyer envs in, not doing it yet as it is temporary
-            raise ValueError('Unknown MujocoManip env {}'.format(env_name)) 
-
+            raise ValueError('Unknown environment name {}'.format(env_name))
 
     def _add_modality(self, obs, verbose=False):
         pixel_modality = collections.OrderedDict()
@@ -248,16 +251,12 @@ class MujocoManipulationWrapper(Wrapper):
         return obs
 
     def _step(self, action):
-        # print('action before:\t', action)
-        # action[-1] = 0
-        # if action[-2] >= 0:
-        #     action[-2] = 1
-        # else:
-        #     action[-2] = -1
-        # print('action after:\t', action)
-        action_repeat = 1
-        for repeat in range(action_repeat):
+        rewards = []
+        for repeat in range(self._action_repeat):
             obs, reward, done, info = self.env.step(action)
+            rewards.append(reward)
+            if done: break
+        reward = np.mean(rewards)
         return self._add_modality(obs), reward, done, info
 
     def _reset(self):
@@ -289,11 +288,11 @@ class MujocoManipulationWrapper(Wrapper):
 
 class MujocoManipulationDummyWrapper(Env):
     def __init__(
-            self,
-            use_camera_obs,
-            camera_height,
-            camera_width,
-            use_object_obs,
+        self,
+        use_camera_obs,
+        camera_height,
+        camera_width,
+        use_object_obs,
     ):
         super().__init__()
         self._use_camera_obs = use_camera_obs
