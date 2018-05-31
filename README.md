@@ -162,7 +162,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minik
 
 **TODO**
 
-Copy the system config file from `surreal/kube/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). You will need to [generate a git access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) if you don't have one already. You also need to decide which branch is the temp branch to snapshot your code.
+Copy the system config file from `container/sample.surreal.yml` to your home dir `~/.surreal.yml` and fill in the blanks (e.g. `<username>`). You will need to [generate a git access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) if you don't have one already. You also need to decide which branch is the temp branch to snapshot your code.
 
 
 ## Miscellaneous
