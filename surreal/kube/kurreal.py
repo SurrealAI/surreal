@@ -6,7 +6,7 @@ from pkg_resources import parse_version
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import KubeCluster
-from symphony.addons import DockerBuilder
+from symphony.addons import DockerBuilder, clean_images
 from benedict import BeneDict
 import surreal
 from surreal.kube.generate_command import CommandGenerator
@@ -43,6 +43,7 @@ class KurrealParser(SymphonyParser):
         self._setup_create()
         self._setup_create_dev()
         self._setup_tensorboard()
+        self._setup_docker_clean()
 
     def _check_version(self):
         """
@@ -76,6 +77,9 @@ class KurrealParser(SymphonyParser):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
 
+    def _setup_docker_clean(self):
+        parser = self.add_subparser('docker_clean', aliases=['dc'])
+
     def _setup_tensorboard(self):
         parser = self.add_subparser('tensorboard', aliases=['tb'])
         self._add_experiment_name(parser, required=False, positional=True)
@@ -103,7 +107,6 @@ class KurrealParser(SymphonyParser):
         )
         self._add_dry_run(parser)
         self._add_create_args(parser)
-
 
     def _setup_create_dev(self):
         parser = self.add_subparser('create-dev', aliases=['cd'])
@@ -540,6 +543,17 @@ class KurrealParser(SymphonyParser):
             self.config.fs.experiment_root_subfolder,
             experiment_name
         )
+
+    def action_docker_clean(self, args):
+        """
+        Cleans all docker images used to create experiments
+        """
+        images_to_clean = {}
+        for pod_type_name, pod_type in self.config.pod_types.items():
+            if 'image' in pod_type and ':' not in pod_type['image']:
+                images_to_clean[pod_type['image']] = True
+        images_to_clean = ['{}:*'.format(x) for x in images_to_clean.keys()]
+        clean_images(images_to_clean)
 
 def main():
     KurrealParser().main()
