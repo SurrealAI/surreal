@@ -115,6 +115,7 @@ def generate(argv):
         'observation': {
             'pixel':['camera0'],
             'low_dim':['proprio', 'low-level'],
+            # 'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
         'limit_episode_length': 500,
         # 'stochastic_eval': True,
