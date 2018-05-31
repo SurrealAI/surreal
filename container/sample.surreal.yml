@@ -95,6 +95,7 @@ pod_types:
     resource_limit:
       nvidia.com/gpu: 1
     build_image: mujoco-gpu-image
+
   nonagent-mj-batch-p100:
     image: us.gcr.io/surreal-dev-188523/surreal-gpu-new # kurreal handles tag now
     selector:
