@@ -102,16 +102,16 @@ We use python3 for all development. Note that numpy has officially announced tha
 `-e` means "editable installation". If you change any code in the `Surreal/` repo, it will be reflected system-wide for all `import surreal`. 
 
 ```
-git clone https://github.com/StanfordVL/Surreal.git
+git clone https://github.com/SurrealAI/Surreal.git
 pip install -e Surreal/
 ```
 
 ### Tensorplex package
 
-Read [Tensorplex API on Github](https://github.com/StanfordVL/Tensorplex).
+Read [Tensorplex API on Github](https://github.com/SurrealAI/Tensorplex).
 
 ```
-git clone https://github.com/StanfordVL/Tensorplex.git
+git clone https://github.com/SurrealAI/Tensorplex.git
 pip install -e Tensorplex/
 ```
 
