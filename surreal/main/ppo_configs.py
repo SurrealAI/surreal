@@ -158,6 +158,8 @@ def generate(argv):
         * kltarget: .01
         * update count: 10
         * kl_cutoff_coeff: 50
+        * fetch_parameter_interval: 100
+        * release_interval: 4096
         * zfilter: True/False
         * n_step: 30/15
         * stride: 20/10
