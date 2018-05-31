@@ -1,6 +1,7 @@
 import os
 import argparse
 import itertools
+from copy import copy
 from pkg_resources import parse_version
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
@@ -267,14 +268,18 @@ class KurrealParser(SymphonyParser):
                              .format(list(POD_TYPES.keys())))
         nonagent_pod_type = POD_TYPES[num_gpus]
         config_command += ["--num-gpus", str(num_gpus)]
+        config_command += ["--num-agents", str(args.num_agents)]
         # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
         config_py = 'surreal/surreal/main/' + args.config_file
 
-        if args.batch_agent:
+        if args.batch_agent > 1:
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
             eval_pod_type = 'eval-mj-batch'
             config_command += ["--agent-num-gpus", '1']
+        else:
+            agent_pod_type = 'agent'
+            eval_pod_type = 'agent'
 
 
         self._create_helper(
@@ -376,9 +381,9 @@ class KurrealParser(SymphonyParser):
         assert eval_pod_type in C.pod_types, \
             'eval pod type not found in `pod_types` section in ~/.surreal.yml'
         
-        agent_pod_spec = C.pod_types[agent_pod_type]
-        nonagent_pod_spec = C.pod_types[nonagent_pod_type]
-        eval_pod_spec = C.pod_types[eval_pod_type]
+        agent_pod_spec = copy(C.pod_types[agent_pod_type])
+        nonagent_pod_spec = copy(C.pod_types[nonagent_pod_type])
+        eval_pod_spec = copy(C.pod_types[eval_pod_type])
         
         agent_resource_request = agent_pod_spec.get('resource_request', {})
         nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})

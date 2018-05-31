@@ -55,7 +55,7 @@ class PPOAgent(Agent):
         self.init_log_sig += noise
 
         self.rnn_config = self.learner_config.algo.rnn
-        
+
         self._num_gpus = session_config.agent.num_gpus
         if self._num_gpus == 0:
             self.gpu_ids = 'cpu'
@@ -128,6 +128,7 @@ class PPOAgent(Agent):
 
             action_pd, self.cells = self.model.forward_actor_expose_cells(obs_tensor, self.cells)
             action_pd = action_pd.detach().cpu().numpy()
+            action_pd[:, self.action_dim:] *= np.exp(self.noise)
 
             if self.agent_mode != 'eval_deterministic':
                 action_choice = self.pd.sample(action_pd)

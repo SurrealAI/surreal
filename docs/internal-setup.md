@@ -1,5 +1,5 @@
 # Internal Setup
-
+# IMPORTANT: YOU DONT NEED TO DO THIS GUIDE. THIS IS JIREN's NOTE ON HOW OT SETUP EVERYTHING
 This guide is for internal dev only. It contains mostly one-time commands to configure the GCloud cluster, docker image, and workarounds for dependencies like DM control.
 
 For contributors: you don't need to read this doc unless you need to change the cluster configuration, docker image, or other low-level infrastructure. 
