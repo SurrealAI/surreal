@@ -101,19 +101,22 @@ def generate(argv):
 
     env_config = {
         'env_name': args.env,
-        'pixel_input': True,
+        'pixel_input': False,
+        # 'pixel_input': True,
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
-            'record_video': False,
+            'record_video': True,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 5,
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['proprio'],
+            'low_dim':['proprio', 'low-level'],
         },
+        # 'limit_episode_length': 500,
+        # 'stochastic_eval': True,
         'limit_episode_length': 1000,
         'stochastic_eval': False,
     }

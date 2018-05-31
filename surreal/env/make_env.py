@@ -33,26 +33,28 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    if os.getenv('SYMPHONY_ROLE') == 'learner':
-        env = MujocoManipulationDummyWrapper(
-            use_camera_obs=env_config.pixel_input,
-            camera_height=84,
-            camera_width=84,
-            use_object_obs=(not env_config.pixel_input),
-        )
-    else:
-        import MujocoManip
-        env = MujocoManip.make(
-            env_name,
-            has_renderer=False,
-            ignore_done=True,
-            use_camera_obs=env_config.pixel_input,
-            camera_height=84,
-            camera_width=84,
-            camera_name='tabletop',
-            use_object_obs=(not env_config.pixel_input),
-            reward_shaping=True
-        )
+    # if os.getenv('SYMPHONY_ROLE') == 'learner':
+    #     env = MujocoManipulationDummyWrapper(
+    #         use_camera_obs=env_config.pixel_input,
+    #         camera_height=84,
+    #         camera_width=84,
+    #         use_object_obs=(not env_config.pixel_input),
+    #     )
+    # else:
+    import MujocoManip
+    env = MujocoManip.make(
+        env_name,
+        has_renderer=False,
+        ignore_done=True,
+        use_camera_obs=env_config.pixel_input,
+        camera_height=84,
+        camera_width=84,
+        render_collision_mesh=False,
+        render_visual_mesh=True,
+        camera_name='tabletop',
+        use_object_obs=(not env_config.pixel_input),
+        reward_shaping=True
+    )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
