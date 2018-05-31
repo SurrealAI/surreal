@@ -146,11 +146,13 @@ def generate(argv):
     return learner_config, env_config, session_config
 
 '''
-    Specific parameter without RNN difference:
-        * n_step -> 10
-        * stride -> 10
-        * fetch_parameter_mode -> 'step'
-        * fetch_parameter_interval -> 10
-    Pixel specific parameter differnce:
-        * param_release_min -> 8192 (instead of 4096)
+    Specific hyperparameters For Cheetah v. Hopper:
+        * n_step: 30/15
+        * stride: 20/10
+        * initial learning rate: 3e-4/1e-4
+        * annealed final learning rate: 5e-5
+        * critic_gradient_norm_clip: 5./1.
+        * reward_scale: 1.0/0.01
+        * init_log_sig: -1 / -2
+        * log_sig_range: 0 / 0.5
 '''
