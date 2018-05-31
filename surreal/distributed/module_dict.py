@@ -30,10 +30,13 @@ class ModuleDict(object):
         return U.serialize(bin_dict)
 
     def loads(self, binary):
-        bin_dict = U.deserialize(binary)
-        for key in bin_dict:
-            for k in bin_dict[key]:
-                bin_dict[key][k] = torch.from_numpy(np_cast(bin_dict[key][k], np.float32))
+        numpy_dict = U.deserialize(binary)
+        self.load(numpy_dict)
+
+    def load(self, numpy_dict):
+        for key in numpy_dict:
+            for k in numpy_dict[key]:
+                numpy_dict[key][k] = torch.from_numpy(np_cast(numpy_dict[key][k], np.float32))
         for k, m in self._module_dict.items():
-            m.load_state_dict(bin_dict[k])
+            m.load_state_dict(numpy_dict[k])
 
