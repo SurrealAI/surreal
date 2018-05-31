@@ -86,7 +86,7 @@ pod_types:
     build_image: mujoco-gpu-image # kurreal specific, builds the corresponding image and push to repo specified by image
 
   nonagent-mj-batch-highmem:
-    image: us.gcr.io/surreal-dev-188523/surreal-gpu-new # kurreal handles tag now
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu-mujoco # kurreal handles tag now
     selector:
       surreal-node: k80-highmem
       cloud.google.com/gke-accelerator: nvidia-tesla-k80
@@ -97,7 +97,7 @@ pod_types:
     build_image: mujoco-gpu-image
 
   nonagent-mj-batch-p100:
-    image: us.gcr.io/surreal-dev-188523/surreal-gpu-new # kurreal handles tag now
+    image: us.gcr.io/surreal-dev-188523/surreal-gpu-mujoco # kurreal handles tag now
     selector:
       surreal-node: n1-standard-16-1p100
       cloud.google.com/gke-accelerator: nvidia-tesla-p100
