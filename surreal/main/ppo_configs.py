@@ -152,10 +152,18 @@ def generate(argv):
 
 '''
     Specific hyperparameters For Cheetah v. Hopper:
+        * ADAPT
+        * gamma: 0.995
+        * lam: 0.97
+        * kltarget: .01
+        * update count: 10
+        * kl_cutoff_coeff: 50
+        * zfilter: True/False
         * n_step: 30/15
         * stride: 20/10
         * initial learning rate: 3e-4/1e-4
         * annealed final learning rate: 5e-5
+        * actor_gradient_norm_clip: 1./1.
         * critic_gradient_norm_clip: 5./1.
         * reward_scale: 1.0/0.01
         * init_log_sig: -1 / -2
