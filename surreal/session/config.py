@@ -214,7 +214,7 @@ class Config(dict):
         return d
 
     def dump_file(self, file_path):
-        assert file_path.endswith('.json') or file_path.endswith('yaml')
+        assert file_path.endswith('.json') or file_path.endswith('yaml') or file_path.endswith('yml')
         with open(file_path, 'w') as fp:
             if file_path.endswith('.json'):
                 json.dump(self, fp, indent=4)

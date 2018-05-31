@@ -17,7 +17,7 @@ from surreal.main_scripts.tensorplex_server_main import tensorplex_parser_setup,
 from surreal.main_scripts.tensorboard_wrapper_main import tensorboard_parser_setup, run_tensorboardwrapper_main
 from surreal.main_scripts.loggerplex_server_main import loggerplex_parser_setup, run_loggerplexserver_main
 from surreal.session import Config, BASE_LEARNER_CONFIG, BASE_ENV_CONFIG, BASE_SESSION_CONFIG
-from surreal.utils import EzDict
+# from surreal.utils import EzDict
 
 """
     def *_parser_setup(parser):
@@ -117,7 +117,7 @@ def load_config(pathname, config_command):
     config_module = importlib.import_module(basename)
 
     learner_config, env_config, session_config = config_module.generate(config_command)
-    configs = EzDict(
+    configs = Config(
         learner_config=learner_config,
         env_config=env_config,
         session_config=session_config
