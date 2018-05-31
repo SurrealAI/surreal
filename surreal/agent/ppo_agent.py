@@ -42,7 +42,6 @@ class PPOAgent(Agent):
 
         self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
         self.log_sig_range = self.learner_config.algo.consts.log_sig_range
-        noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
 
         if self.agent_mode != 'training':
             if self.env_config.stochastic_eval:
@@ -51,8 +50,9 @@ class PPOAgent(Agent):
                 self.agent_mode = 'eval_deterministic'
 
         if self.agent_mode != 'training':
-            noise = 0 
-        self.init_log_sig += noise
+            self.noise = 0 
+        else:
+            self.noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
 
         self.rnn_config = self.learner_config.algo.rnn
         self._num_gpus = session_config.agent.num_gpus
