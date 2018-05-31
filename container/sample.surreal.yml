@@ -153,3 +153,18 @@ docker_build_settings:
       - name: torchx
         path: ~/surreal/TorchX
         force_update: false
+  - name: mujoco-gpu-image # kurreal refers to this name when launching
+    # set it to your favorite, a subdirectory will hold all build files
+    temp_directory: ~/symph_temp/cpu
+    # verbose: true (default: prints docker cmdline output)
+    dockerfile: ~/surreal/Surreal/container/DockerfileMujocopyGPU
+    context_directories: # These paths will be copied to temp_directory before build
+      - name: surreal # Directory will be under folder @name in the build context
+        path: ~/surreal/Surreal
+        force_update: true # Copy a new version every time
+      - name: mujoco
+        path: ~/surreal/MujocoManipulation
+        force_update: true 
+      - name: torchx
+        path: ~/surreal/TorchX
+        force_update: false
