@@ -29,7 +29,10 @@ def run_learner_main(args, config):
         session_config.checkpoint.restore = True
         session_config.checkpoint.restore_folder = args.restore_folder
 
-    config.dump_file(str(Path(session_config.folder) / 'config.yml'))
+    folder = Path(session_config.folder)
+    folder.mkdir(exist_ok=True, parents=True)
+    config.dump_file(str(folder / 'config.yml'))
+
     learner_class = learner_factory(learner_config.algo.learner_class)
     learner = learner_class(
         learner_config=learner_config,
