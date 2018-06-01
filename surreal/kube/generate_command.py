@@ -75,6 +75,8 @@ class CommandGenerator:
                 if len(batch) == self.batch_agent:
                     cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
                     batch = []
+            if len(batch) >0:
+                cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
         cmd_dict['eval'] = [self.get_command('eval', ['0', '--mode', 'eval_deterministic'])]
 
         for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:
