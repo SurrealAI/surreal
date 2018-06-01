@@ -30,11 +30,11 @@ def generate(argv):
             'agent_class': 'PPOAgent', 
             'learner_class': 'PPOLearner',
             'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
+            'use_z_filter': True,
             'use_r_filter': False,
             'gamma': .995, 
-            'n_step': 15, # 10 for without RNN
-            'stride': 10, # 10 for without RNN
+            'n_step': 30, # 10 for without RNN
+            'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
                 'lr_critic': 1e-4,
@@ -46,34 +46,38 @@ def generate(argv):
                 'critic_regularization': 0.0,
                 'anneal':{  
                     'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e6,
+                    'frames_to_anneal': 5e7,
                     'lr_update_frequency': 100, 
-                    'min_lr': 5e-5,
+                    'min_lr': 1e-4,
+                },
+                'target_update':{
+                    'type': 'hard',
+                    'interval': 8192,
                 },
             },
             # ppo specific parameters:
-            'ppo_mode': 'adapt',
+            'ppo_mode': 'clip',
             'advantage':{
                 'norm_adv': True,
-                'lam': 0.97,
+                'lam': 1.0,
                 'reward_scale': 1.0,
             },
             'rnn': {
                 'if_rnn_policy': True, 
                 'rnn_hidden': 100,
                 'rnn_layer': 1,
-                'horizon': 5,
+                'horizon': 10,
             },
             'consts': {
-                'init_log_sig': -2,
+                'init_log_sig': -1.0,
                 'log_sig_range': 0.5,
-                'epoch_policy': 10,
-                'epoch_baseline': 10,
+                'epoch_policy': 5,
+                'epoch_baseline': 5,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.02, # target KL divergence between before and after
             },
             'adapt_consts': {
-                'kl_cutoff_coeff': 50, # penalty coeff when kl large
+                'kl_cutoff_coeff': 500, # penalty coeff when kl large
                 'beta_init': 1.0, # original beta
                 'beta_range': (1/35.0, 35.0), # range of the adapted penalty factor
                 'scale_constant': 1.5,
@@ -118,8 +122,8 @@ def generate(argv):
             # 'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
         },
         'limit_episode_length': 500,
-        # 'stochastic_eval': True,
-        'stochastic_eval': False,
+        'stochastic_eval': True,
+        # 'stochastic_eval': False,
     }
 
     session_config = Config({
