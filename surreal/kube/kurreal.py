@@ -252,7 +252,8 @@ class KurrealParser(SymphonyParser):
         results = connection.run('ls -1 {}'.format(str(remote_folder)), hide='out')
         video_files = results.stdout.strip().split('\n')
         video_episodes = [x[len('video_eps_'):] for x in video_files]
-        video_episodes = sorted([x[:len(x) - len('.mp4')] for x in video_episodes], reverse=True)
+        video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
+        video_episodes = sorted(video_episodes, reverse=True)
         if save_last > 0:
             save_last = min(save_last, len(video_episodes))
             video_episodes = video_episodes[:save_last]
