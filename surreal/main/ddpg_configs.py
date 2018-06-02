@@ -45,13 +45,13 @@ def generate(argv):
             'stride': 1,
             'network': {
                 'lr_actor': 1e-4,
-                'lr_critic': 1e-3,
+                'lr_critic': 1e-4,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': False,
                 'critic_gradient_norm_clip': 5.,
-                'actor_regularization': 0.0,
-                'critic_regularization': 0.0,
+                'actor_regularization': 1e-4,
+                'critic_regularization': 1e-4,
                 'target_update': {
                     'type': 'soft',
                     'tau': 1e-3,
@@ -67,11 +67,11 @@ def generate(argv):
                 'noise_type': 'normal',
                 # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
                 # The sigma values will be 0.0, 0.33, 0.66
-                'max_sigma': 1.,
-                # 'noise_type': 'ou_noise',
-                # 'theta': 0.15,
+                'max_sigma': 1.0,
+                'noise_type': 'ou_noise',
+                'theta': 0.15,
                 # 'sigma': 0.3,
-                # 'dt': 1e-3,
+                'dt': 1e-3,
             },
         },
         'replay': {
@@ -92,11 +92,11 @@ def generate(argv):
         'num_agents': args.num_agents,
         'pixel_input': False,
         'use_grayscale': False,
-        'action_repeat': 1,
+        'action_repeat': 10,
         'frame_stacks': 3,
         'sleep_time': 0.0,
-        #'limit_episode_length': 200, # 0 means no limit
-        'limit_episode_length': 0, # 0 means no limit
+        'limit_episode_length': 200, # 0 means no limit
+        #'limit_episode_length': 0, # 0 means no limit
         'video': {
             'record_video': True,
             'save_folder': None,
