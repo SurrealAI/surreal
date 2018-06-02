@@ -88,7 +88,7 @@ class KurrealParser(SymphonyParser):
                             'none to retrieve your own running experiments')
         parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
                             help='Number of most recent videos, -1 to get all')
-        parser.add_argument('save_folder', type=str, nargs='?', default='.',
+        parser.add_argument('save_folder', type=str,
                             help='save_videos in [save_folder]/experiment_name')
 
     def _setup_docker_clean(self):
@@ -223,7 +223,7 @@ class KurrealParser(SymphonyParser):
         nfs_host = self.config.nfs_host
         print('Connectin to {}'.format(nfs_host))
         connection = Connection(nfs_host)
-        
+
         save_folder = os.path.expanduser(args.save_folder)
         path_on_server = Path(self.config.fs.path_on_server)
         remote_folder = str(path_on_server / self.config.fs.experiment_root_subfolder)
