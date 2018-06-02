@@ -91,12 +91,14 @@ def generate(argv):
         'env_name': args.env,
         'num_agents': args.num_agents,
         'pixel_input': False,
+        'use_grayscale': False,
+        'action_repeat': 1,
         'frame_stacks': 3,
         'sleep_time': 0.0,
-        # 'limit_episode_length': 200, # 0 means no limit
+        #'limit_episode_length': 200, # 0 means no limit
         'limit_episode_length': 0, # 0 means no limit
         'video': {
-            'record_video': False,
+            'record_video': True,
             'save_folder': None,
             'max_videos': 500,
             'record_every': 20,
@@ -104,8 +106,8 @@ def generate(argv):
         'observation': {
             'pixel':['camera0', 'depth'],
             # if using ObservationConcatWrapper, low_dim inputs will be concatenated into 'flat_inputs'
-            # 'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
-            'low_dim':['position', 'velocity', 'proprio'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
+            #'low_dim':['position', 'velocity', 'proprio'],
         },
     }
 

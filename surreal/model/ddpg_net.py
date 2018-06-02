@@ -33,17 +33,22 @@ class DDPGModel(nnx.Module):
         else:
             self.input_dim = obs_spec['low_dim']['flat_inputs'][0]
 
+        concatenated_perception_dim = 0
         if self.is_pixel_input:
             perception_hidden_dim = 200
             self.perception = CNNStemNetwork(self.input_dim, perception_hidden_dim)
-            concatenated_perception_dim = perception_hidden_dim
-            if 'low_dim' in obs_spec:
-                concatenated_perception_dim += obs_spec['low_dim']['flat_inputs'][0]
-            self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
-            self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            concatenated_perception_dim += perception_hidden_dim
+        if 'low_dim' in obs_spec:
+            concatenated_perception_dim += obs_spec['low_dim']['flat_inputs'][0]
+        self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+        self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+
+
+        '''
         else:
             self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes, use_layernorm=self.use_layernorm)
             self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes, use_layernorm=self.use_layernorm)
+        '''
 
     def get_actor_parameters(self):
         return itertools.chain(self.actor.parameters())
@@ -61,16 +66,16 @@ class DDPGModel(nnx.Module):
         return self.critic(obs, action)
 
     def forward_perception(self, obs):
+        concatenated_inputs = []
         if self.is_pixel_input:
             obs_pixel = obs['pixel']['camera0']
             obs_pixel = self.scale_image(obs_pixel)
             cnn_updated = self.perception(obs_pixel)
-            if 'low_dim' in obs:
-                cnn_updated = torch.cat((cnn_updated, obs['low_dim']['flat_inputs']), dim=1)
-            return cnn_updated
-        else:
-            obs = obs['low_dim']['flat_inputs']
-            return obs
+            concatenated_inputs.append(cnn_updated)
+        if 'low_dim' in obs:
+            concatenated_inputs.append(obs['low_dim']['flat_inputs'])
+        concatenated_inputs = torch.cat(concatenated_inputs, dim=1)
+        return concatenated_inputs
 
     def forward(self, obs_in, calculate_value=True):
         obs_in = self.forward_perception(obs_in)

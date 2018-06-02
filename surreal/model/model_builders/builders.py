@@ -35,13 +35,18 @@ class CNNStemNetwork(nnx.Module):
         return obs
 
 class ActorNetworkX(nnx.Module):
-    def __init__(self, D_in, D_act, hidden_size=200, use_layernorm=True):
+    def __init__(self, D_in, D_act, hidden_sizes=[300, 200], use_layernorm=True):
         super(ActorNetworkX, self).__init__()
+
         xp_input = L.Placeholder((None, D_in))
-        xp = L.Linear(hidden_size)(xp_input)
+        xp = L.Linear(hidden_sizes[0])(xp_input)
         xp = L.ReLU()(xp)
         if use_layernorm:
             # Normalize 1 dimension
+            xp = L.LayerNorm(1)(xp)
+        xp = L.Linear(hidden_sizes[1])(xp)
+        xp = L.ReLU()(xp)
+        if use_layernorm:
             xp = L.LayerNorm(1)(xp)
         xp = L.Linear(D_act)(xp)
         xp = L.Tanh()(xp)
@@ -53,28 +58,64 @@ class ActorNetworkX(nnx.Module):
         return self.model(obs)
 
 class CriticNetworkX(nnx.Module):
-    def __init__(self, D_in, D_act, hidden_size=300, use_layernorm=True):
+    def __init__(self, D_in, D_act, hidden_sizes=[400, 300], use_layernorm=True):
         super(CriticNetworkX, self).__init__()
+
+        '''
         xp_input = L.Placeholder((None, D_in + D_act))
 
-        xp = L.Linear(hidden_size)(xp_input)
+        xp = L.Linear(hidden_sizes[0])(xp_input)
         xp = L.ReLU()(xp)
         if use_layernorm:
             # Normalize 1 dimension
             xp = L.LayerNorm(1)(xp)
+
+
+
+        xp = L.Linear(hidden_sizes[1])(xp_input)
+        xp = L.ReLU()(xp)
+        if use_layernorm:
+            # Normalize 1 dimension
+            xp = L.LayerNorm(1)(xp)
+
         xp = L.Linear(1)(xp)
 
         self.model = L.Functional(inputs=xp_input, outputs=xp)
         self.model.build((None, D_in + D_act))
 
-    def forward(self, obs, action):
-        x = torch.cat((obs, action), dim=1)
-        return self.model(x)
+        '''
+
+        xp_input_obs = L.Placeholder((None, D_in))
+        xp = L.Linear(hidden_sizes[0])(xp_input_obs)
+        xp = L.ReLU()(xp)
+        if use_layernorm:
+            xp = L.LayerNorm(1)(xp)
+        self.model_obs = L.Functional(inputs=xp_input_obs, outputs=xp)
+        self.model_obs.build((None, D_in))
+
+        xp_input_concat = L.Placeholder((None, hidden_sizes[0] + D_act))
+        xp = L.Linear(hidden_sizes[1])(xp_input_concat)
+        xp = L.ReLU()(xp)
+        if use_layernorm:
+            xp = L.LayerNorm(1)(xp)
+        xp = L.Linear(1)(xp)
+
+        self.model_concat = L.Functional(inputs=xp_input_concat, outputs=xp)
+        self.model_concat.build((None, D_act + hidden_sizes[0]))
+
+    def forward(self, obs, act):
+        h_obs = self.model_obs(obs)
+        h1 = torch.cat((h_obs, act), 1)
+        value = self.model_concat(h1)
+        return value
+
+
+'''
 
 class ActorNetwork(nnx.Module):
-    '''
+    \'''
     For use with flat observations
-    '''
+    \'''
 
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_layernorm=False):
         super(ActorNetwork, self).__init__()
@@ -128,6 +169,7 @@ class CriticNetwork(nnx.Module):
         value = self.model_concat(h1)
         return value
 
+'''
 
 class PPO_ActorNetwork(nnx.Module):
     '''
