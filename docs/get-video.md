@@ -24,3 +24,11 @@ pip install fabric
 kurreal gv .
 ```
 It will get videos of all your running experiments.
+
+You can also do 
+```
+kurreal gv experiment_1 experiment_2
+```
+to fetch videos for older environments
+
+For other options see `--help`
