@@ -1,8 +1,11 @@
 import os
 import argparse
 import itertools
+import re
 from copy import copy
 from pkg_resources import parse_version
+from fabric import Connection
+from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import KubeCluster
@@ -44,6 +47,7 @@ class KurrealParser(SymphonyParser):
         self._setup_create_dev()
         self._setup_tensorboard()
         self._setup_docker_clean()
+        self._setup_get_videos()
 
     def _check_version(self):
         """
@@ -77,8 +81,18 @@ class KurrealParser(SymphonyParser):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
 
+    def _setup_get_videos(self):
+        parser = self.add_subparser('get-videos', aliases=['gv'])
+        parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
+                            help='experiments to retrieve videos for, '\
+                            'none to retrieve your own running experiments')
+        parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
+                            help='Number of most recent videos, -1 to get all')
+        parser.add_argument('save_folder', type=str,
+                            help='save_videos in [save_folder]/experiment_name')
+
     def _setup_docker_clean(self):
-        parser = self.add_subparser('docker_clean', aliases=['dc'])
+        parser = self.add_subparser('docker-clean', aliases=['dc'])
 
     def _setup_tensorboard(self):
         parser = self.add_subparser('tensorboard', aliases=['tb'])
@@ -193,6 +207,66 @@ class KurrealParser(SymphonyParser):
             help='force overwrite an existing kurreal.yml file '
                  'if its experiment folder already exists.'
         )
+
+    def action_get_videos(self, args):
+        todos = []
+        if len(args.experiment_names) == 0:
+            experiments = self.cluster.list_experiments()
+            for experiment in experiments:
+                if re.match(self.username, experiment):
+                    todos.append(experiment)
+        else:
+            todos = args.experiment_names
+
+        print('Fetching videos for:')
+        print('\n'.join(['\t' + x for x in todos]))
+        nfs_host = self.config.nfs_host
+        print('Connectin to {}'.format(nfs_host))
+        connection = Connection(nfs_host)
+
+        save_folder = os.path.expanduser(args.save_folder)
+        path_on_server = Path(self.config.fs.path_on_server)
+        remote_folder = str(path_on_server / self.config.fs.experiment_root_subfolder)
+        save_last = args.last
+        for experiment_name in todos:
+            self._get_video_for_experiment(experiment_name,
+                                           save_folder,
+                                           remote_folder,
+                                           connection,
+                                           save_last)
+
+    def _get_video_for_experiment(self,
+                                  experiment_name,
+                                  save_folder,
+                                  remote_folder,
+                                  connection,
+                                  save_last=-1):
+        # Find remote path
+        username = self.username
+        if experiment_name.find(username) == 0: # strip 'username-''
+            experiment_name_remote = experiment_name[len(username):]
+        if experiment_name_remote.find('-') == 0:
+            experiment_name_remote = experiment_name_remote[1:]
+        remote_folder = Path(remote_folder) / experiment_name_remote / 'videos'
+        # parse existing files
+        results = connection.run('ls -1 {}'.format(str(remote_folder)), hide='out')
+        video_files = results.stdout.strip().split('\n')
+        video_episodes = [x[len('video_eps_'):] for x in video_files]
+        video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
+        video_episodes = sorted(video_episodes, reverse=True)
+        if save_last > 0:
+            save_last = min(save_last, len(video_episodes))
+            video_episodes = video_episodes[:save_last]
+        filenames = ['video_eps_{}.mp4'.format(x) for x in video_episodes]
+        # local path
+        local_folder = Path(os.path.expanduser(save_folder)) / experiment_name
+        local_folder.mkdir(exist_ok=True, parents=True)
+        # download
+        for filename in filenames:
+            print('$> get {}'.format(str(remote_folder / filename)))
+            connection.get(str(remote_folder / filename), 
+                           local=str(local_folder / filename))
+        return filenames
 
     def action_tensorboard(self, args):
         self.action_visit(args)
