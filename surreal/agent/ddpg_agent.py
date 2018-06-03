@@ -46,7 +46,11 @@ class DDPGAgent(Agent):
         self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
-        self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
+        if env_config.num_agents == 1:
+            # If only one agent, we don't want a sigma of 0
+            self.sigma = self.learner_config.algo.exploration.max_sigma / 3.0
+        else:
+            self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
         print('Using exploration sigma', self.sigma)
 
         self._num_gpus = session_config.agent.num_gpus
