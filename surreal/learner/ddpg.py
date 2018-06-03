@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import itertools
 from .base import Learner
-from .aggregator import NstepReturnAggregator, SSARAggregator
+from .aggregator import NstepReturnAggregator, SSARAggregator, FrameStackPreprocessor
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
@@ -97,6 +97,7 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
+            self.fame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
             self.model_target.actor.hard_update(self.model.actor)
@@ -306,3 +307,10 @@ class DDPGLearner(Learner):
                 self.model_target.critic.hard_update(self.model.critic)
                 if self.is_pixel_input:
                     self.model_target.perception.hard_update(self.model.perception)
+
+    # override
+    def _prefetch_thread_preprocess(self, batch):
+        batch = self.fame_stack_preprocess(batch)
+        batch = self.aggregator.aggregate(batch)
+        return batch
+

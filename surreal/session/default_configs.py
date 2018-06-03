@@ -43,6 +43,8 @@ BASE_ENV_CONFIG = {
     },
     'action_spec': {},
     'obs_spec': {},
+    'frame_stacks': 1,
+    'frame_stack_concatenate_on_agent': True,
     # 'action_spec': {
     #     'dim': '_list_',
     #     'type': '_enum[continuous, discrete]_'

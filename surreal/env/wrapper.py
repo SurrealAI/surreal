@@ -387,6 +387,7 @@ class FrameStackWrapper(Wrapper):
     def __init__(self, env, env_config):
         super().__init__(env)
         self.n = env_config.frame_stacks
+        self.frame_stack_concatenate_on_agent = env_config.frame_stack_concatenate_on_agent
         self._history = deque(maxlen=self.n)
 
     def _stacked_observation(self, obs):
@@ -403,7 +404,10 @@ class FrameStackWrapper(Wrapper):
             for history_obs in self._history:
                 obs_stacked.append(history_obs['pixel'][key])
             assert len(obs_stacked) <= self.n
-            stacked = np.concatenate(obs_stacked, axis=0)
+            if self.frame_stack_concatenate_on_agent:
+                stacked = np.concatenate(obs_stacked, axis=0)
+            else:
+                stacked = obs_stacked
             #stacked_obs_dict_unordered['pixel'][key] = stacked
             new_pixel_modality[key] = stacked
         next_stacked_dict = collections.OrderedDict()
