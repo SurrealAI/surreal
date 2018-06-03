@@ -16,7 +16,7 @@ def make_env(env_config, override=None):
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
     if override in env_config.overrides:
-        for k, v in env_config.overrides[override]:
+        for k, v in env_config.overrides[override].items():
             env_config[k] = v
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
@@ -40,6 +40,7 @@ def make_gym(env_name, env_config):
 
 def make_mujocomanip(env_name, env_config):
     import MujocoManip
+    print('use_demonstration:', env_config.use_demonstration)
     env = MujocoManip.make(
         env_name,
         has_renderer=False,
