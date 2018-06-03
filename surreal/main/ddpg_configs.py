@@ -92,6 +92,7 @@ def generate(argv):
         'num_agents': args.num_agents,
         'pixel_input': False,
         'frame_stacks': 3,
+        'frame_stack_concatenate_on_agent': False,
         'sleep_time': 0.0,
         # 'limit_episode_length': 200, # 0 means no limit
         'limit_episode_length': 0, # 0 means no limit
