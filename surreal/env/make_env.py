@@ -5,7 +5,7 @@ from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 import os
 
 
-def make_env(env_config, override):
+def make_env(env_config, override=None):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
