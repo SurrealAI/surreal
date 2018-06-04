@@ -118,8 +118,8 @@ def generate(argv):
             'low_dim':['proprio'],
             #'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
         }, 
-        'overrides': {
-            'eval': {'use_demonstration': False}
+        'eval_mode': {
+            'use_demonstration': False
         },
         'use_demonstration': True,
         'limit_episode_length': 200,
