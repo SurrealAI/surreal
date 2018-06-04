@@ -22,7 +22,7 @@ def learner_parser_setup(parser):
 def run_learner_main(args, config):
     session_config, learner_config, env_config = \
         config.session_config, config.learner_config, config.env_config
-    env, env_config = make_env(env_config, 'learner')
+    env, env_config = make_env(env_config)
     del env  # Does not work for dm_control as they don't clean up
 
     if args.restore:
