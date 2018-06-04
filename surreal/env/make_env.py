@@ -5,13 +5,19 @@ from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 import os
 
 
-def make_env(env_config):
+def make_env(env_config, mode=None):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
+    Args:
+        overrides(str): point to the override in env_config to 
+                        provide differnt kwargs to the initializer of the environment
     """
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
+    if mode == 'eval' and eval_mode in env_config:
+        for k, v in env_config.eval_mode.items():
+            env_config[k] = v
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'mujocomanip':
@@ -25,7 +31,7 @@ def make_env(env_config):
 
 def make_gym(env_name, env_config):
     import gym
-    env = gym.make(env_name)
+    env = gym.make(env_name, **additional_kwargs)
     env = GymAdapter(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
@@ -34,6 +40,7 @@ def make_gym(env_name, env_config):
 
 def make_mujocomanip(env_name, env_config):
     import MujocoManip
+    print('use_demonstration:', env_config.use_demonstration)
     env = MujocoManip.make(
         env_name,
         has_renderer=False,
@@ -45,7 +52,8 @@ def make_mujocomanip(env_name, env_config):
         render_visual_mesh=True,
         camera_name='tabletop',
         use_object_obs=(not env_config.pixel_input),
-        reward_shaping=True
+        reward_shaping=True,
+        use_demonstration=env_config.use_demonstration,
     )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
