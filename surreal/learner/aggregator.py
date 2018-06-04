@@ -7,6 +7,16 @@ import torch
 import surreal.utils as U
 from surreal.env import ActionType
 
+class FrameStackPreprocessor():
+    def __init__(self, frame_stacks):
+        self.frame_stacks = frame_stacks
+
+    def preprocess(self, exp_list):
+        for exp in exp_list:
+            # sth = np.concatenate(sth else, axis=0)
+            pass
+            # Format frame-stacking
+
 class SSARAggregator():
     """
         Accepts experience sent by SSAR experience senders
