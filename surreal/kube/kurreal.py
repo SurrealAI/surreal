@@ -221,7 +221,7 @@ class KurrealParser(SymphonyParser):
         print('Fetching videos for:')
         print('\n'.join(['\t' + x for x in todos]))
         nfs_host = self.config.nfs_host
-        print('Connectin to {}'.format(nfs_host))
+        print('Connecting to {}'.format(nfs_host))
         connection = Connection(nfs_host)
 
         save_folder = os.path.expanduser(args.save_folder)
@@ -242,12 +242,10 @@ class KurrealParser(SymphonyParser):
                                   connection,
                                   save_last=-1):
         # Find remote path
-        username = self.username
-        if experiment_name.find(username) == 0: # strip 'username-''
-            experiment_name_remote = experiment_name[len(username):]
-        if experiment_name_remote.find('-') == 0:
-            experiment_name_remote = experiment_name_remote[1:]
-        remote_folder = Path(remote_folder) / experiment_name_remote / 'videos'
+        folder_exps = Path(remote_folder).parent
+        username = experiment_name.split('-')[0]
+        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
+        remote_folder = folder_exps / username / experiment_name_remote / 'videos'
         # parse existing files
         results = connection.run('ls -1 {}'.format(str(remote_folder)), hide='out')
         video_files = results.stdout.strip().split('\n')
