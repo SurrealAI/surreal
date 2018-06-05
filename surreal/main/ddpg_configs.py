@@ -94,7 +94,7 @@ def generate(argv):
         'use_grayscale': False,
         'action_repeat': 10,
         'frame_stacks': 3,
-        'frame_stack_concatenate_on_agent': True,
+        'frame_stack_concatenate_on_agent': False,
         'sleep_time': 0.0,
         'limit_episode_length': 200, # 0 means no limit
         #'limit_episode_length': 0, # 0 means no limit
