@@ -22,33 +22,12 @@ class FrameStackPreprocessor():
         obs = copy.deepcopy(obs)
         if 'pixel' in obs:
             for key in obs['pixel']:
-                #print(obs['pixel'][key])
-                if not self.printed:
-                    #print('shape', obs['pixel'][key][0].shape)
-                    #print('shape', obs['pixel'][key][0].shape)
-                    #print('len', len(obs['pixel'][key]))
-                    pass
-                #obs['pixel'][key] = np.array(obs['pixel'][key])
-                #if not self.printed:
-                #    print('shape2', obs['pixel'][key].shape)
-                # concat along the channel axis
                 obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
-                '''
-                if len(obs['pixel'][key].shape) == 4:
-                    # N, C, H, W
-                    obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=1)
-                else:
-                    # C, H, W
-                    obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
-                '''
-                if not self.printed:
-                    #print('shapeout', obs['pixel'][key].shape)
                 assert len(obs['pixel'][key].shape) == 3
         return obs
 
     def preprocess_list(self, exp_list):
         for exp in exp_list:  # dict
-            print('aewf', len(exp['obs']))
             for obs in (exp['obs'][0], exp['obs'][1]):
                 self.preprocess_obs(obs)
         return exp_list
