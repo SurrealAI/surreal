@@ -10,6 +10,7 @@ import importlib
 from surreal.main_scripts.agent_main import agent_parser_setup, run_agent_main
 from surreal.main_scripts.agent_batch_main import agent_batch_parser_setup, run_agent_batch_main
 from surreal.main_scripts.eval_main import eval_parser_setup, run_eval_main
+from surreal.main_scripts.eval_batch_main import eval_batch_parser_setup, run_eval_batch_main
 from surreal.main_scripts.learner_main import learner_parser_setup, run_learner_main
 from surreal.main_scripts.replay_main import replay_parser_setup, run_replay_main
 from surreal.main_scripts.parameter_server_main import parameterserver_parser_setup, run_parameterserver_main
@@ -62,6 +63,10 @@ def setup_parser():
     eval_parser = subparsers.add_parser('eval')
     eval_parser.set_defaults(function=run_eval_main)
     eval_parser_setup(eval_parser)
+
+    eval_batch_parser = subparsers.add_parser('eval-batch')
+    eval_batch_parser.set_defaults(function=run_eval_batch_main)
+    eval_batch_parser_setup(eval_batch_parser)
 
     learner_parser = subparsers.add_parser('learner')
     learner_parser.set_defaults(function=run_learner_main)

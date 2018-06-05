@@ -10,6 +10,7 @@ class CommandGenerator:
                  num_agents,
                  config_py,
                  experiment_folder,
+                 num_evals,
                  batch_agent=1,
                  config_command=None,
                  service_url=None,
@@ -26,6 +27,7 @@ class CommandGenerator:
             restore_folder: restore experiment from checkpoint folder
         """
         self.num_agents = num_agents
+        self.num_evals = num_evals
         self.config_py = config_py
         self.experiment_folder = experiment_folder
         if U.is_sequence(config_command):
@@ -67,6 +69,8 @@ class CommandGenerator:
         if self.batch_agent == 1:
             cmd_dict['agent'] = [self.get_command('agent', [str(i)])
                                  for i in range(self.num_agents)]
+            cmd_dict['eval'] = [self.get_command('eval', [str(i), '--mode', 'eval_deterministic']) 
+                                for i in range(self.num_evals)]
         else:
             batch = []
             cmd_dict['agent-batch'] = []
@@ -75,9 +79,19 @@ class CommandGenerator:
                 if len(batch) == self.batch_agent:
                     cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
                     batch = []
-            if len(batch) >0:
+            if len(batch) > 0:
                 cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
-        cmd_dict['eval'] = [self.get_command('eval', ['0', '--mode', 'eval_deterministic'])]
+
+            batch = []
+            cmd_dict['eval-batch'] = []
+            for i in range(self.num_evals):
+                batch.append(str(i))
+                if len(batch) == self.batch_agent:
+                    batch_eval = self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic'])
+                    cmd_dict['eval-batch'].append(batch_eval)
+                    batch = []
+            if len(batch) > 0:
+                cmd_dict['eval-batch'].append(self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic']))
 
         for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:
             cmd_dict[role] = self.get_command(role)

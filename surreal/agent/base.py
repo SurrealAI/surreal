@@ -301,7 +301,7 @@ class Agent(object, metaclass=AgentMeta):
         )
 
         env_category = self.env_config.env_name.split(':')[0]
-        if self.env_config.video.record_video:
+        if self.env_config.video.record_video and self.agent_id == 0:
             if env_category == 'gym':
                 env = GymMonitorWrapper(env, self.env_config, self.session_config)
             else:

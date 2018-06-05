@@ -15,7 +15,7 @@ def make_env(env_config, mode=None):
     """
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
-    if mode == 'eval' and eval_mode in env_config:
+    if mode == 'eval' and 'eval_mode' in env_config:
         for k, v in env_config.eval_mode.items():
             env_config[k] = v
     if env_category == 'gym':
