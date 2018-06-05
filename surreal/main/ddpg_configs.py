@@ -90,7 +90,7 @@ def generate(argv):
     env_config = {
         'env_name': args.env,
         'num_agents': args.num_agents,
-        'pixel_input': False,
+        'pixel_input': True,
         'use_grayscale': False,
         'action_repeat': 10,
         'frame_stacks': 3,

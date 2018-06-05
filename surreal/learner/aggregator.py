@@ -19,12 +19,10 @@ class FrameStackPreprocessor():
 
     def preprocess_obs(self, obs):
         # We must copy here because the experience sender should send the non-stacked version
-        obs = copy.deepcopy(obs)
         if 'pixel' in obs:
             for key in obs['pixel']:
                 obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
                 assert len(obs['pixel'][key].shape) == 3
-        return obs
 
     def preprocess_list(self, exp_list):
         for exp in exp_list:  # dict

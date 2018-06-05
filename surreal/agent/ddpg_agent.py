@@ -47,7 +47,6 @@ class DDPGAgent(Agent):
         self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
 
         self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
-        self.frame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if env_config.num_agents == 1:
@@ -128,7 +127,10 @@ class DDPGAgent(Agent):
             if self.sleep_time > 0.0:
                 time.sleep(self.sleep_time)
             if not self.frame_stack_concatenate_on_agent:
-                obs = self.frame_stack_preprocess.preprocess_obs(obs)
+                obs = copy.deepcopy(obs)
+                if 'pixel' in obs:
+                    for key in obs['pixel']:
+                        obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
             obs_variable = collections.OrderedDict()
             for modality in obs:
                 modality_dict = collections.OrderedDict()
