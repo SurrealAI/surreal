@@ -64,7 +64,7 @@ def generate(argv):
                 'param_noise_sigma': 0.05,
                 'param_noise_alpha': 1.15,
                 'param_noise_target_stddev': 0.005,
-                'noise_type': 'normal',
+                #'noise_type': 'normal',
                 # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
                 # The sigma values will be 0.0, 0.33, 0.66
                 'max_sigma': 1.0,
