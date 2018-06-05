@@ -31,6 +31,8 @@ class DDPGLearner(Learner):
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
 
+        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
+
         self.log.info('Initializing DDPG learner')
         self._num_gpus = session_config.learner.num_gpus
         if self._num_gpus == 0:
@@ -97,7 +99,7 @@ class DDPGLearner(Learner):
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
-            self.fame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
+            self.frame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
             self.model_target.actor.hard_update(self.model.actor)
@@ -310,7 +312,8 @@ class DDPGLearner(Learner):
 
     # override
     def _prefetch_thread_preprocess(self, batch):
-        batch = self.fame_stack_preprocess(batch)
+        if not self.frame_stack_concatenate_on_agent:
+            batch = self.frame_stack_preprocess.preprocess_list(batch)
         batch = self.aggregator.aggregate(batch)
         return batch
 
