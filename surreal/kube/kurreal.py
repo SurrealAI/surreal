@@ -352,11 +352,13 @@ class KurrealParser(SymphonyParser):
         if args.batch_agent > 1:
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
-            eval_pod_type = 'eval-mj-batch'
+            eval_pod_type = 'agent-mj-batch'
             config_command += ["--agent-num-gpus", '1']
+            num_evals = 8
         else:
             agent_pod_type = 'agent'
             eval_pod_type = 'agent'
+            num_evals = 1
 
 
         self._create_helper(
@@ -373,6 +375,7 @@ class KurrealParser(SymphonyParser):
             dry_run=args.dry_run,
             colocate_agent=args.colocate_agent,
             batch_agent=args.batch_agent,
+            num_evals=num_evals,
         )
 
     def _create_helper(self, *,
@@ -386,6 +389,7 @@ class KurrealParser(SymphonyParser):
                        restore,
                        restore_folder,
                        force,
+                       num_evals,
                        colocate_agent=1,
                        batch_agent=1,
                        dry_run=False):
@@ -407,6 +411,7 @@ class KurrealParser(SymphonyParser):
             restore=restore,
             restore_folder=restore_folder,
             batch_agent=batch_agent,
+            num_evals=num_evals,
         )
         cmd_dict = cmd_gen.generate()
         print('  agent_pod_type:', agent_pod_type)
@@ -517,9 +522,14 @@ class KurrealParser(SymphonyParser):
 
         # TODO: make command generator return list
         evals = []
-        for i, arg in enumerate(cmd_dict['eval']):
-            eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
-            evals.append(eval_p)
+        if batch_agent > 1:
+            for i, arg in enumerate(cmd_dict['eval-batch']):
+                eval_p = exp.new_process('evals-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
+                evals.append(eval_p)
+        else:
+            for i, arg in enumerate(cmd_dict['eval']):
+                eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
+                evals.append(eval_p)
 
         for proc in itertools.chain(agents, evals):
             proc.connects('ps-frontend')
