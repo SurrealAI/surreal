@@ -253,7 +253,7 @@ class Replay(object, metaclass=ReplayMeta):
             'lifetime_experience_utilization_percent': \
                 cum_count_sampled / (cum_count_collected + 1) * 100,
             'current_experience_utilization_percent': exp_out_speed / (exp_in_speed + 1) * 100,
-            'serializate_load_percent': serialize_load * 100,
+            'serialization_load_percent': serialize_load * 100,
             'collect_exp_load_percent': collect_exp_load * 100,
             'sample_exp_load_percent': sample_exp_load * 100,
             # 'exp_queue_occupancy_percent': self._exp_queue.occupancy() * 100,
