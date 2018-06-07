@@ -59,6 +59,7 @@ class TmuxCluster(object):
         self.config_command = config_command
         self.generator = CommandGenerator(
             num_agents=num_agents,
+            num_evals=self.num_evals,
             experiment_folder=experiment_folder,
             config_py=config_path,
             config_command=config_command,

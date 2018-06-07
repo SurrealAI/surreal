@@ -41,6 +41,7 @@ BASE_ENV_CONFIG = {
         'record_every': 10,
         'save_folder': None,
     },
+    'eval_mode': {}, # for providing different env init args when in eval
     'action_spec': {},
     'obs_spec': {},
     'frame_stacks': 1,
