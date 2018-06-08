@@ -53,10 +53,10 @@ def generate(argv):
                 'actor_regularization': 1e-4,
                 'critic_regularization': 1e-4,
                 'target_update': {
-                    'type': 'soft',
-                    'tau': 1e-3,
-                    # 'type': 'hard',
-                    # 'interval': 100,
+                    #'type': 'soft',
+                    #'tau': 1e-3,
+                    'type': 'hard',
+                    'interval': 500,
                 },
             },
             'exploration': {
@@ -67,7 +67,7 @@ def generate(argv):
                 #'noise_type': 'normal',
                 # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
                 # The sigma values will be 0.0, 0.33, 0.66
-                'max_sigma': 1.0,
+                'max_sigma': 2.0,
                 'noise_type': 'ou_noise',
                 'theta': 0.15,
                 # 'sigma': 0.3,
@@ -90,6 +90,7 @@ def generate(argv):
     env_config = {
         'env_name': args.env,
         'num_agents': args.num_agents,
+        'use_demonstration': False,
         'pixel_input': True,
         'use_grayscale': False,
         'action_repeat': 10,
@@ -102,7 +103,7 @@ def generate(argv):
             'record_video': True,
             'save_folder': None,
             'max_videos': 500,
-            'record_every': 2,
+            'record_every': 20,
         },
         'observation': {
             'pixel':['camera0', 'depth'],
@@ -129,7 +130,7 @@ def generate(argv):
             # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
             # every episode, every n episodes, every step, every n steps
             'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 200,
+            'fetch_parameter_interval': 400,
             'num_gpus': args.agent_num_gpus,
         },
         'sender': {
