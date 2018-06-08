@@ -34,7 +34,7 @@ BASE_LEARNER_CONFIG = {
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
     'env_name' : '_str_',
-    'agent_sleep_time': 0.0,
+    'sleep_time': 0.0,
     'video' : {
         'record_video' : False,
         'max_videos': 10,

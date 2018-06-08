@@ -38,7 +38,7 @@ class DDPGAgent(Agent):
         self.obs_spec = self.env_config.obs_spec
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
-        self.sleep_time = self.env_config.agent_sleep_time
+        self.sleep_time = self.env_config.sleep_time
 
         self.param_noise = None
         self.param_noise_type = self.learner_config.algo.exploration.param_noise_type
