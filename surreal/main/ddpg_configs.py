@@ -108,7 +108,7 @@ def generate(argv):
         'observation': {
             'pixel':['camera0', 'depth'],
             # if using ObservationConcatWrapper, low_dim inputs will be concatenated into 'flat_inputs'
-            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube'],
+            'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
             #'low_dim':['position', 'velocity', 'proprio'],
         },
     }
