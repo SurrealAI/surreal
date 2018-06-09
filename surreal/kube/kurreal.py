@@ -305,6 +305,8 @@ class KurrealParser(SymphonyParser):
             'hopper': 'dm_control:hopper-hop',
             'mjsawyerlift': 'mujocomanip:SawyerLiftEnv',
             'mjsawyerstack': 'mujocomanip:SawyerStackEnv',
+            'mjsawyerpegs': 'mujocomanip:SawyerPegsEnv',
+            'mjsawyerbins': 'mujocomanip:SawyerBinsEnv',
             'mjbaxterhole': 'mujocomanip:BaxterHoleEnv',
             'mjbaxterlift': 'mujocomanip:BaxterLiftEnv',
             'gym-ch':'gym:HalfCheetah-v2',
