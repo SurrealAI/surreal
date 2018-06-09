@@ -23,7 +23,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
-            'use_layernorm': False,
+            'use_layernorm': True,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
