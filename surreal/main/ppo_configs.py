@@ -33,7 +33,7 @@ def generate(argv):
             'use_z_filter': False,
             'use_r_filter': False,
             'gamma': .99, 
-            'n_step': 30, # 10 for without RNN
+            'n_step': 25, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
@@ -48,7 +48,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e6,
                     'lr_update_frequency': 100, 
-                    'min_lr': 0.0001,
+                    'min_lr': 1e-4,
                 },
             },
 
@@ -116,15 +116,20 @@ def generate(argv):
         'observation': {
             'pixel':['camera0'],
             'low_dim':['proprio'],
-            #'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
+            # 'low_dim':['proprio', 'low-level'],
         }, 
         'eval_mode': {
-            'use_demonstration': False
+            'demonstration': None
         },
-        'use_demonstration': True,
-        'limit_episode_length': 200,
+        'demonstration': {
+            'use_demo': True,
+            'increment_frequency': 100,
+            'sample_window_width': 25,
+            'increment': 25,
+            'use_demo_prob': 0.5
+        },
+        'limit_episode_length': 500,
         'stochastic_eval': True,
-        #'stochastic_eval': False,
     }
 
     session_config = Config({
