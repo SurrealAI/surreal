@@ -19,6 +19,7 @@ class DDPGModel(nnx.Module):
                  actor_fc_hidden_sizes,
                  critic_fc_hidden_sizes,
                  use_z_filter=False,
+                 critic_only=False,
                  ):
         super(DDPGModel, self).__init__()
 
@@ -40,7 +41,10 @@ class DDPGModel(nnx.Module):
             concatenated_perception_dim += perception_hidden_dim
         if 'low_dim' in obs_spec:
             concatenated_perception_dim += obs_spec['low_dim']['flat_inputs'][0]
-        self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+        if not critic_only:
+            self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+        else:
+            self.actor = None
         self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
 
 
@@ -77,9 +81,10 @@ class DDPGModel(nnx.Module):
         concatenated_inputs = torch.cat(concatenated_inputs, dim=1)
         return concatenated_inputs
 
-    def forward(self, obs_in, calculate_value=True):
+    def forward(self, obs_in, calculate_value=True, action=None):
         obs_in = self.forward_perception(obs_in)
-        action = self.forward_actor(obs_in)
+        if action is None:
+            action = self.forward_actor(obs_in)
         value = None
         if calculate_value:
             value = self.forward_critic(obs_in, action)

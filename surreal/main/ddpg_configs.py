@@ -52,6 +52,8 @@ def generate(argv):
                 'critic_gradient_norm_clip': 5.,
                 'actor_regularization': 1e-4,
                 'critic_regularization': 1e-4,
+                'use_action_regularization': True,
+                'use_double_critic': True,
                 'target_update': {
                     #'type': 'soft',
                     #'tau': 1e-3,
