@@ -221,7 +221,7 @@ class KurrealParser(SymphonyParser):
         return subprocess.check_output(
             "gcloud compute ssh {} -- '{}'".format(self.config.fs.server, command),
             shell=True
-        ).decode('utf-8')
+        ).decode('utf-8').replace('\r\n', '\n')
 
     def _gcloud_download(self, remote_path, local_path):
         cmd = "gcloud compute scp {}:'{}' '{}'".format(
@@ -270,7 +270,7 @@ class KurrealParser(SymphonyParser):
         remote_folder = remote_folder / username / experiment_name_remote / 'videos'
         # parse existing files
         results = self._gcloud_nfs_exec('ls -1 {}'.format(remote_folder))
-        video_files = results.strip().replace('\r\n', '\n').split('\n')
+        video_files = results.strip().split('\n')
         video_episodes = [x[len('video_eps_'):] for x in video_files]
         video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
         video_episodes = sorted(video_episodes, reverse=True)
