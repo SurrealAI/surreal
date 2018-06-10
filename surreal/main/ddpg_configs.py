@@ -41,7 +41,7 @@ def generate(argv):
             'experience': 'ExpSenderWrapperSSARNStepBootstrap',
             'use_z_filter': False,
             'gamma': .99,
-            'n_step': 3,
+            'n_step': 6,
             'stride': 1,
             'network': {
                 'lr_actor': 1e-4,
@@ -50,8 +50,8 @@ def generate(argv):
                 'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': False,
                 'critic_gradient_norm_clip': 5.,
-                'actor_regularization': 1e-4,
-                'critic_regularization': 1e-4,
+                'actor_regularization': 0.0,
+                'critic_regularization': 0.0,
                 'use_action_regularization': True,
                 'use_double_critic': True,
                 'target_update': {
