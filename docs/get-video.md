@@ -1,3 +1,4 @@
+ # DEPRECATED
 To use `kurreal gv` functionality, you need to do some preparations
 
 # Installation
