@@ -123,10 +123,11 @@ def generate(argv):
         },
         'demonstration': {
             'use_demo': True,
-            'increment_frequency': 100,
+            # params for reverse curriculum
+            'increment_frequency': 50,
             'sample_window_width': 25,
             'increment': 25,
-            'use_demo_prob': 0.5
+            'use_demo_prob': 0.5,
         },
         'limit_episode_length': 500,
         'stochastic_eval': True,

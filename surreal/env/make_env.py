@@ -52,7 +52,7 @@ def make_mujocomanip(env_name, env_config):
         camera_name='tabletop',
         use_object_obs=(not env_config.pixel_input),
         reward_shaping=True,
-        demo_config=env_config.demonstration if env_config.demonstration.use_demo else None,
+        demo_config=env_config.demonstration,
     )
     env = MujocoManipulationWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
