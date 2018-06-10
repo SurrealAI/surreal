@@ -246,7 +246,8 @@ class DDPGLearner(Learner):
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 if self.use_double_critic:
                     y2 = rewards + pow(self.discount_factor, self.n_step) * next_Q_target2 * (1.0 - done)
-                    y = min(y, y2)
+                    y = torch.min(y, y2)
+                y = y.detach()
 
                 # compute Q(s_t, a_t)
                 perception = self.model.forward_perception(obs)
