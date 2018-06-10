@@ -4,7 +4,6 @@ import itertools
 import re
 from copy import copy
 from pkg_resources import parse_version
-from fabric import Connection
 from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
@@ -12,6 +11,7 @@ from symphony.kube import KubeCluster
 from symphony.addons import DockerBuilder, clean_images
 from benedict import BeneDict
 import surreal
+import subprocess
 from surreal.kube.generate_command import CommandGenerator
 import surreal.utils as U
 
@@ -48,6 +48,7 @@ class KurrealParser(SymphonyParser):
         self._setup_tensorboard()
         self._setup_docker_clean()
         self._setup_get_videos()
+        self._setup_get_config()
 
     def _check_version(self):
         """
@@ -90,6 +91,14 @@ class KurrealParser(SymphonyParser):
                             help='Number of most recent videos, -1 to get all')
         parser.add_argument('save_folder', type=str,
                             help='save_videos in [save_folder]/experiment_name')
+
+    def _setup_get_config(self):
+        parser = self.add_subparser('get-config', aliases=['gc'])
+        parser.add_argument('experiment_name', type=str,
+                            help='experiments to retrieve videos for, ' \
+                                 'none to retrieve your own running experiments')
+        parser.add_argument('-o', '--output-file', type=str,
+                            help='save remote config to a specified local file path')
 
     def _setup_docker_clean(self):
         parser = self.add_subparser('docker-clean', aliases=['dc'])
@@ -174,8 +183,8 @@ class KurrealParser(SymphonyParser):
         """
         new_name = experiment_name.lower().replace('.', '-').replace('_', '-')
         if new_name != experiment_name:
-            print_err('experiment name string has been fixed: {} -> {}'
-                      .format(experiment_name, new_name))
+            print('experiment name string has been fixed: {} -> {}'
+                  .format(experiment_name, new_name))
         return new_name
 
     def _add_create_args(self, parser):
@@ -208,6 +217,27 @@ class KurrealParser(SymphonyParser):
                  'if its experiment folder already exists.'
         )
 
+    def _gcloud_nfs_exec(self, command):
+        return subprocess.check_output(
+            "gcloud compute ssh {} -- '{}'".format(self.config.fs.server, command),
+            shell=True
+        ).decode('utf-8').replace('\r\n', '\n')
+
+    def _gcloud_download(self, remote_path, local_path):
+        cmd = "gcloud compute scp {}:'{}' '{}'".format(
+            self.config.fs.server, remote_path, local_path
+        )
+        os.system(cmd)
+
+    def _gcloud_nfs_remote_root(self):
+        """
+        Returns:
+            - fabric connection
+            - remote experiment root folder (without username): pathlib.Path
+        """
+        path_on_server = Path(self.config.fs.path_on_server)
+        return (path_on_server / self.config.fs.experiment_root_subfolder).parent
+
     def action_get_videos(self, args):
         todos = []
         if len(args.experiment_names) == 0:
@@ -220,35 +250,27 @@ class KurrealParser(SymphonyParser):
 
         print('Fetching videos for:')
         print('\n'.join(['\t' + x for x in todos]))
-        nfs_host = self.config.nfs_host
-        print('Connecting to {}'.format(nfs_host))
-        connection = Connection(nfs_host)
 
         save_folder = os.path.expanduser(args.save_folder)
-        path_on_server = Path(self.config.fs.path_on_server)
-        remote_folder = str(path_on_server / self.config.fs.experiment_root_subfolder)
         save_last = args.last
+        remote_folder = self._gcloud_nfs_remote_root()
         for experiment_name in todos:
-            self._get_video_for_experiment(experiment_name,
-                                           save_folder,
-                                           remote_folder,
-                                           connection,
-                                           save_last)
+            self._get_video_for_experiment(
+                experiment_name, save_folder, remote_folder, save_last
+            )
 
     def _get_video_for_experiment(self,
                                   experiment_name,
                                   save_folder,
                                   remote_folder,
-                                  connection,
                                   save_last=-1):
         # Find remote path
-        folder_exps = Path(remote_folder).parent
         username = experiment_name.split('-')[0]
         experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
-        remote_folder = folder_exps / username / experiment_name_remote / 'videos'
+        remote_folder = remote_folder / username / experiment_name_remote / 'videos'
         # parse existing files
-        results = connection.run('ls -1 {}'.format(str(remote_folder)), hide='out')
-        video_files = results.stdout.strip().split('\n')
+        results = self._gcloud_nfs_exec('ls -1 {}'.format(remote_folder))
+        video_files = results.strip().split('\n')
         video_episodes = [x[len('video_eps_'):] for x in video_files]
         video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
         video_episodes = sorted(video_episodes, reverse=True)
@@ -262,9 +284,25 @@ class KurrealParser(SymphonyParser):
         # download
         for filename in filenames:
             print('$> get {}'.format(str(remote_folder / filename)))
-            connection.get(str(remote_folder / filename), 
-                           local=str(local_folder / filename))
+            self._gcloud_download(remote_folder / filename, local_folder / filename)
         return filenames
+
+    def action_get_config(self, args):
+        """
+        Download remote config.yml in the experiment folder
+        """
+        if args.output_file:
+            output_file = args.output_file
+        else:
+            output_file = 'config.yml'
+        experiment_name = args.experiment_name
+        username = experiment_name.split('-')[0]
+        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
+        remote_folder = self._gcloud_nfs_remote_root()
+        remote_config_file = (remote_folder / username
+                              / experiment_name_remote / 'config.yml')
+        print('download', remote_config_file)
+        self._gcloud_download(remote_config_file, output_file)
 
     def action_tensorboard(self, args):
         self.action_visit(args)

@@ -6,7 +6,6 @@ local_kurreal_folder: ~/Temp/kurreal
 # Put your name here. We usually use SUNET ID: jimfan, jirenz, etc.
 username: <user_name_for_experiments_and_fs>
 prefix_experiment_with_username: True
-nfs_host: surrealfs # the (user) + host name that you ssh into to access nfs
 fs:
   type: nfs
   server: surreal-shared-fs-vm
