@@ -240,11 +240,14 @@ class DDPGLearner(Learner):
                     noise_clip = 0.5
                     noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size, self.action_dim)), -noise_clip,
                                     noise_clip)
-                    model_policy += torch.tensor(noise, dtype=torch.float32).detach()
-                    model_policy = model_policy.clamp(-1, 1)
-                _, next_Q_target2 = self.model_target2.forward(obs_next, action=model_policy)
+                    device_name = 'cpu'
+                    if self._num_gpus > 0:
+                        device_name = 'cuda'
+                    model_policy += torch.tensor(noise, dtype=torch.float32).to(device_name).detach()
+                    model_policy = model_policy.clamp(-1, 1).to(device_name)
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
                 if self.use_double_critic:
+                    _, next_Q_target2 = self.model_target2.forward(obs_next, action=model_policy)
                     y2 = rewards + pow(self.discount_factor, self.n_step) * next_Q_target2 * (1.0 - done)
                     y = torch.min(y, y2)
                 y = y.detach()
