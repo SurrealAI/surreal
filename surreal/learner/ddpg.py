@@ -313,7 +313,7 @@ class DDPGLearner(Learner):
                 'performance/actor_update_time': self.actor_update_time.avg,
             }
             if self.use_double_critic:
-                tensorplex_update_dict['Q_policy2'] = y_policy2
+                tensorplex_update_dict['Q_policy2'] = y_policy2.mean().item()
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                 tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
