@@ -259,6 +259,7 @@ class DDPGLearner(Learner):
                     actions.detach() # TODO: why do we detach here
                 )
 
+                y_policy2 = None
                 if self.use_double_critic:
                     perception2 = self.model2.forward_perception(obs)
                     y_policy2 = self.model2.forward_critic(
@@ -311,6 +312,8 @@ class DDPGLearner(Learner):
                 'performance/critic_update_time': self.critic_update_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
             }
+            if self.use_double_critic:
+                tensorplex_update_dict['Q_policy2'] = y_policy2
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                 tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
@@ -367,6 +370,10 @@ class DDPGLearner(Learner):
         if self.target_update_type == 'soft':
             self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
             self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
+            if self.use_double_critic:
+                self.model_target2.critic.soft_update(self.model2.critic, self.target_update_tau)
+                if self.is_pixel_input:
+                    self.model_target2.perception.soft_update(self.model2.perception, self.target_update_tau)
             if self.is_pixel_input:
                 self.model_target.perception.soft_update(self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
@@ -374,6 +381,10 @@ class DDPGLearner(Learner):
             if self.target_update_counter % self.target_update_interval == 0:
                 self.model_target.actor.hard_update(self.model.actor)
                 self.model_target.critic.hard_update(self.model.critic)
+                if self.use_double_critic:
+                    self.model_target2.critic.hard_update(self.model2.critic)
+                    if self.is_pixel_input:
+                        self.model_target2.perception.hard_update(self.model2.perception)
                 if self.is_pixel_input:
                     self.model_target.perception.hard_update(self.model.perception)
 
