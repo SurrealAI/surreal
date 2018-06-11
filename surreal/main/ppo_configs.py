@@ -124,11 +124,20 @@ def generate(argv):
         },
         'demonstration': {
             'use_demo': False,
-            # params for reverse curriculum
+            'adaptive': True,
+            # params for open loop reverse curriculum
             'increment_frequency': 100,
             'sample_window_width': 25,
             'increment': 25,
             'use_demo_prob': 0.5,
+
+            # params for adaptive curriculum
+            'mixing': ['random'],
+            'mixting_ratio': [1.0],
+            'ratio_step': [0.0]
+            'curriculum_episodes': 20,
+            'improve_threshold': 0.1,
+            'curriculum_length': 50,
         },
         'limit_episode_length': 500,
         'stochastic_eval': True,
