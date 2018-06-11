@@ -7,6 +7,7 @@ import collections
 from .base import Agent
 from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
+from surreal.learner.aggregator import FrameStackPreprocessor
 import numpy as np
 from .action_noise import *
 from surreal.session import ConfigError
@@ -37,13 +38,15 @@ class DDPGAgent(Agent):
         self.obs_spec = self.env_config.obs_spec
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
-        self.sleep_time = self.env_config.agent_sleep_time
+        self.sleep_time = self.env_config.sleep_time
 
         self.param_noise = None
         self.param_noise_type = self.learner_config.algo.exploration.param_noise_type
         self.param_noise_sigma = self.learner_config.algo.exploration.param_noise_sigma
         self.param_noise_alpha = self.learner_config.algo.exploration.param_noise_alpha
         self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
+
+        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if env_config.num_agents == 1:
@@ -123,6 +126,11 @@ class DDPGAgent(Agent):
         with tx.device_scope(self.gpu_ids):
             if self.sleep_time > 0.0:
                 time.sleep(self.sleep_time)
+            if not self.frame_stack_concatenate_on_agent:
+                obs = copy.deepcopy(obs)
+                if 'pixel' in obs:
+                    for key in obs['pixel']:
+                        obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
             obs_variable = collections.OrderedDict()
             for modality in obs:
                 modality_dict = collections.OrderedDict()

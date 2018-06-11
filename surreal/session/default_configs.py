@@ -34,7 +34,7 @@ BASE_LEARNER_CONFIG = {
 # ======================== Env side ========================
 BASE_ENV_CONFIG = {
     'env_name' : '_str_',
-    'agent_sleep_time': 0.0,
+    'sleep_time': 0.0,
     'video' : {
         'record_video' : False,
         'max_videos': 10,
@@ -44,6 +44,8 @@ BASE_ENV_CONFIG = {
     'eval_mode': {}, # for providing different env init args when in eval
     'action_spec': {},
     'obs_spec': {},
+    'frame_stacks': 1,
+    'frame_stack_concatenate_on_agent': True,
     # 'action_spec': {
     #     'dim': '_list_',
     #     'type': '_enum[continuous, discrete]_'
