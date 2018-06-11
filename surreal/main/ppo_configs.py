@@ -133,11 +133,12 @@ def generate(argv):
 
             # params for adaptive curriculum
             'mixing': ['random'],
-            'mixting_ratio': [1.0],
+            'mixing_ratio': [1.0],
             'ratio_step': [0.0]
             'curriculum_episodes': 20,
             'improve_threshold': 0.1,
             'curriculum_length': 50,
+            'history_length': 20,
         },
         'limit_episode_length': 500,
         'stochastic_eval': True,
