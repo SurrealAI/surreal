@@ -68,8 +68,8 @@ def generate(argv):
             'consts': {
                 'init_log_sig': -1.0,
                 'log_sig_range': 0,
-                'epoch_policy': 5,
-                'epoch_baseline': 5,
+                'epoch_policy': 10,
+                'epoch_baseline': 10,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.02, # target KL divergence between before and after
             },
@@ -105,6 +105,7 @@ def generate(argv):
         'action_repeat': 10,
         'pixel_input': True,
         'use_grayscale': False,
+        'use_depth': False,
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
@@ -122,9 +123,9 @@ def generate(argv):
             'demonstration': None
         },
         'demonstration': {
-            'use_demo': True,
+            'use_demo': False,
             # params for reverse curriculum
-            'increment_frequency': 50,
+            'increment_frequency': 100,
             'sample_window_width': 25,
             'increment': 25,
             'use_demo_prob': 0.5,

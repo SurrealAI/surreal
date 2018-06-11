@@ -215,6 +215,7 @@ class MujocoManipulationWrapper(Wrapper):
         # dm_control envs don't have metadata
         env.metadata = {}
         super().__init__(env)
+        self.use_depth = env_config.use_depth and env_config.pixel_input
         self._input_list = env_config.observation
         self._action_repeat = env_config.action_repeat or 1
 
@@ -244,10 +245,18 @@ class MujocoManipulationWrapper(Wrapper):
             rewards.append(reward)
             if done: break
         reward = np.mean(rewards)
+
+        if self.use_depth:
+            obs['image'] = np.concatenate((obs['image'], np.expand_dims(obs['depth'], 2)), 2)
+
         return self._add_modality(obs), reward, done, info
 
     def _reset(self):
         obs = self.env.reset()
+
+        if self.use_depth:
+            obs['image'] = np.concatenate((obs['image'], np.expand_dims(obs['depth'], 2)), 2)
+        
         return self._add_modality(obs), {}
 
     def _close(self):
@@ -259,8 +268,13 @@ class MujocoManipulationWrapper(Wrapper):
 
     def observation_spec(self):
         spec = self.env.observation_spec()
+
+        if self.use_depth:
+            spec['image'] = np.concatenate((spec['image'], np.expand_dims(spec['depth'], 2)), 2)
+
         for k in spec:
             spec[k] = tuple(np.array(spec[k]).shape)
+
         return self._add_modality(spec, verbose=True)
 
     def action_spec(self): # we haven't finalized the action spec of mujocomanip
