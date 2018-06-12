@@ -49,6 +49,7 @@ class KurrealParser(SymphonyParser):
         self._setup_docker_clean()
         self._setup_get_videos()
         self._setup_get_config()
+        self._setup_get_tensorboard()
 
     def _check_version(self):
         """
@@ -85,7 +86,7 @@ class KurrealParser(SymphonyParser):
     def _setup_get_videos(self):
         parser = self.add_subparser('get-videos', aliases=['gv'])
         parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
-                            help='experiments to retrieve videos for, '\
+                            help='experiments to retrieve videos for, '
                             'none to retrieve your own running experiments')
         parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
                             help='Number of most recent videos, -1 to get all')
@@ -95,10 +96,21 @@ class KurrealParser(SymphonyParser):
     def _setup_get_config(self):
         parser = self.add_subparser('get-config', aliases=['gc'])
         parser.add_argument('experiment_name', type=str,
-                            help='experiments to retrieve videos for, ' \
+                            help='experiments to retrieve videos for, '
                                  'none to retrieve your own running experiments')
         parser.add_argument('-o', '--output-file', type=str,
                             help='save remote config to a specified local file path')
+
+    def _setup_get_tensorboard(self):
+        parser = self.add_subparser('get-tensorboard', aliases=['gt'])
+        parser.add_argument('experiment_name', type=str,
+                            help='experiments to retrieve tensorboard for, '
+                                 'none to retrieve your own running experiments')
+        parser.add_argument('-s', '--subfolder', type=str, default='',
+                            help='retrieve only a subfolder under the "tensorboard" folder. '
+                                 'currently valid folders are agent, eval, learner, replay')
+        parser.add_argument('-o', '--output-folder', type=str,
+                            help='save remote TB folder to a specified local folder path')
 
     def _setup_docker_clean(self):
         parser = self.add_subparser('docker-clean', aliases=['dc'])
@@ -224,7 +236,7 @@ class KurrealParser(SymphonyParser):
         ).decode('utf-8').replace('\r\n', '\n')
 
     def _gcloud_download(self, remote_path, local_path):
-        cmd = "gcloud compute scp {}:'{}' '{}'".format(
+        cmd = "gcloud compute scp --recurse {}:'{}' '{}'".format(
             self.config.fs.server, remote_path, local_path
         )
         os.system(cmd)
@@ -301,8 +313,25 @@ class KurrealParser(SymphonyParser):
         remote_folder = self._gcloud_nfs_remote_root()
         remote_config_file = (remote_folder / username
                               / experiment_name_remote / 'config.yml')
-        print('download', remote_config_file)
+        print('Downloading', remote_config_file)
         self._gcloud_download(remote_config_file, output_file)
+
+    def action_get_tensorboard(self, args):
+        """
+        Download remote config.yml in the experiment folder
+        """
+        experiment_name = args.experiment_name
+        if args.output_folder:
+            output_folder = args.output_folder
+        else:
+            output_folder = experiment_name
+        username = experiment_name.split('-')[0]
+        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
+        remote_folder = self._gcloud_nfs_remote_root()
+        remote_tb_folder = (remote_folder / username
+                  / experiment_name_remote / 'tensorboard' / args.subfolder)
+        print('Downloading', remote_tb_folder)
+        self._gcloud_download(remote_tb_folder, output_folder)
 
     def action_tensorboard(self, args):
         self.action_visit(args)
