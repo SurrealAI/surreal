@@ -134,7 +134,7 @@ def generate(argv):
             # params for adaptive curriculum
             'mixing': ['random'],
             'mixing_ratio': [1.0],
-            'ratio_step': [0.0]
+            'ratio_step': [0.0],
             'curriculum_episodes': 20,
             'improve_threshold': 0.1,
             'curriculum_length': 50,
