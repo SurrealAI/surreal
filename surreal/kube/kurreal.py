@@ -158,6 +158,11 @@ class KurrealParser(SymphonyParser):
             type=int,
             default=1
         )
+        parser.add_argument(
+            '--no-eval',
+            action='store_true',
+            help='turn off eval'
+        )
         self._add_dry_run(parser)
 
     # ==================== helpers ====================
@@ -376,6 +381,7 @@ class KurrealParser(SymphonyParser):
             colocate_agent=args.colocate_agent,
             batch_agent=args.batch_agent,
             num_evals=num_evals,
+            has_eval=not args.no_eval,
         )
 
     def _create_helper(self, *,
@@ -392,7 +398,8 @@ class KurrealParser(SymphonyParser):
                        num_evals,
                        colocate_agent=1,
                        batch_agent=1,
-                       dry_run=False):
+                       dry_run=False,
+                       has_eval=True):
         if colocate_agent > 1 and batch_agent > 1:
             raise ValueError('Cannot colocate and batch at the same time')
         if config_py.startswith('/'):
@@ -428,6 +435,7 @@ class KurrealParser(SymphonyParser):
             dry_run=dry_run,
             colocate_agent=colocate_agent,
             batch_agent=batch_agent,
+            has_eval=has_eval,
         )
 
     def create_surreal(self,
@@ -439,7 +447,8 @@ class KurrealParser(SymphonyParser):
                        colocate_agent=1,
                        batch_agent=1,
                        force=False,
-                       dry_run=False):
+                       dry_run=False,
+                       has_eval=True):
         """
         Then create a surreal experiment
         Args:
@@ -486,10 +495,11 @@ class KurrealParser(SymphonyParser):
             image_name = nonagent_pod_spec['build_image']
             images_to_build[image_name] = nonagent_pod_spec['image']
             nonagent_pod_spec['image'] = '{}:{}'.format(nonagent_pod_spec['image'], exp.name)
-        if 'build_image' in eval_pod_spec:
-            image_name = eval_pod_spec['build_image']
-            images_to_build[image_name] = eval_pod_spec['image']
-            eval_pod_spec['image'] = '{}:{}'.format(eval_pod_spec['image'], exp.name)
+        if has_eval:
+            if 'build_image' in eval_pod_spec:
+                image_name = eval_pod_spec['build_image']
+                images_to_build[image_name] = eval_pod_spec['image']
+                eval_pod_spec['image'] = '{}:{}'.format(eval_pod_spec['image'], exp.name)
 
         nonagent = exp.new_process_group('nonagent')
         learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, args=[cmd_dict['learner']])
@@ -519,17 +529,17 @@ class KurrealParser(SymphonyParser):
                 agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
                 agent_pods.append(agent_p)
                 agents.append(agent_p)
-
-        # TODO: make command generator return list
         evals = []
-        if batch_agent > 1:
-            for i, arg in enumerate(cmd_dict['eval-batch']):
-                eval_p = exp.new_process('evals-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
-                evals.append(eval_p)
-        else:
-            for i, arg in enumerate(cmd_dict['eval']):
-                eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
-                evals.append(eval_p)
+        if has_eval:
+            # TODO: make command generator return list
+            if batch_agent > 1:
+                for i, arg in enumerate(cmd_dict['eval-batch']):
+                    eval_p = exp.new_process('evals-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
+                    evals.append(eval_p)
+            else:
+                for i, arg in enumerate(cmd_dict['eval']):
+                    eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
+                    evals.append(eval_p)
 
         for proc in itertools.chain(agents, evals):
             proc.connects('ps-frontend')
