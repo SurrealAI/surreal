@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import itertools
 from .base import Learner
-from .aggregator import NstepReturnAggregator, SSARAggregator
+from .aggregator import NstepReturnAggregator, SSARAggregator, FrameStackPreprocessor
 from surreal.model.ddpg_net import DDPGModel
 from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
@@ -25,11 +25,16 @@ class DDPGLearner(Learner):
         self.batch_queue_size = 5
         self.batch_queue = Queue(maxsize=self.batch_queue_size)
 
+        self.batch_size = self.learner_config.replay.batch_size
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.is_pixel_input = self.env_config.pixel_input
         self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
+        self.use_double_critic = self.learner_config.algo.network.use_double_critic
+        self.use_action_regularization = self.learner_config.algo.network.use_action_regularization
+
+        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
 
         self.log.info('Initializing DDPG learner')
         self._num_gpus = session_config.learner.num_gpus
@@ -67,7 +72,6 @@ class DDPGLearner(Learner):
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
                 use_z_filter=self.use_z_filter,
             )
-            # self.model.train()
 
             self.model_target = DDPGModel(
                 obs_spec=self.env_config.obs_spec,
@@ -77,7 +81,27 @@ class DDPGLearner(Learner):
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
                 use_z_filter=self.use_z_filter,
             )
-            # self.model.eval()
+
+            if self.use_double_critic:
+                self.model2 = DDPGModel(
+                    obs_spec=self.env_config.obs_spec,
+                    action_dim=self.action_dim,
+                    use_layernorm=self.use_layernorm,
+                    actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                    critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+                    use_z_filter=self.use_z_filter,
+                    critic_only=True,
+                )
+
+                self.model_target2 = DDPGModel(
+                    obs_spec=self.env_config.obs_spec,
+                    action_dim=self.action_dim,
+                    use_layernorm=self.use_layernorm,
+                    actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
+                    critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
+                    use_z_filter=self.use_z_filter,
+                    critic_only=True,
+                )
 
             self.critic_criterion = nn.MSELoss()
 
@@ -95,12 +119,24 @@ class DDPGLearner(Learner):
                 weight_decay=self.learner_config.algo.network.actor_regularization # Weight regularization term
             )
 
+            if self.use_double_critic:
+                self.log.info('Using Adam for critic with learning rate {}'.format(self.learner_config.algo.network.lr_critic))
+                self.critic_optim2 = torch.optim.Adam(
+                    self.model2.get_critic_parameters(),
+                    lr=self.learner_config.algo.network.lr_critic,
+                    weight_decay=self.learner_config.algo.network.critic_regularization # Weight regularization term
+                )
+
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
             # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
+            self.frame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
             self.model_target.actor.hard_update(self.model.actor)
             self.model_target.critic.hard_update(self.model.critic)
+
+            if self.use_double_critic:
+                self.model_target2.critic.hard_update(self.model2.critic)
             # self.train_iteration = 0
             
             self.total_learn_time = U.TimeRecorder()
@@ -195,8 +231,25 @@ class DDPGLearner(Learner):
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
                 # obs_next.volatile = True
-                _, next_Q_target = self.model_target.forward(obs_next)
+
+                model_policy, next_Q_target = self.model_target.forward(obs_next)
+                if self.use_action_regularization:
+                    # https://github.com/sfujim/TD3/blob/master/TD3.py -- action regularization
+                    policy_noise = 0.2
+                    batch_size = self.batch_size
+                    noise_clip = 0.5
+                    noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size, self.action_dim)), -noise_clip,
+                                    noise_clip)
+                    device_name = 'cpu'
+                    if self._num_gpus > 0:
+                        device_name = 'cuda'
+                    model_policy += torch.tensor(noise, dtype=torch.float32).to(device_name).detach()
+                    model_policy = model_policy.clamp(-1, 1).to(device_name)
                 y = rewards + pow(self.discount_factor, self.n_step) * next_Q_target * (1.0 - done)
+                if self.use_double_critic:
+                    _, next_Q_target2 = self.model_target2.forward(obs_next, action=model_policy)
+                    y2 = rewards + pow(self.discount_factor, self.n_step) * next_Q_target2 * (1.0 - done)
+                    y = torch.min(y, y2)
                 y = y.detach()
 
                 # compute Q(s_t, a_t)
@@ -205,6 +258,14 @@ class DDPGLearner(Learner):
                     perception,
                     actions.detach() # TODO: why do we detach here
                 )
+
+                y_policy2 = None
+                if self.use_double_critic:
+                    perception2 = self.model2.forward_perception(obs)
+                    y_policy2 = self.model2.forward_critic(
+                        perception2,
+                        actions.detach() # TODO: why do we detach here
+                    )
 
             # critic update
             with self.critic_update_time.time():
@@ -216,6 +277,16 @@ class DDPGLearner(Learner):
                 if self.clip_critic_gradient:
                     self.model.critic.clip_grad_value(self.critic_gradient_clip_value)
                 self.critic_optim.step()
+
+                if self.use_double_critic:
+                    self.model2.critic.zero_grad()
+                    if self.is_pixel_input:
+                        self.model2.perception.zero_grad()
+                    critic_loss = self.critic_criterion(y_policy2, y)
+                    critic_loss.backward()
+                    if self.clip_critic_gradient:
+                        self.model2.critic.clip_grad_value(self.critic_gradient_clip_value)
+                    self.critic_optim2.step()
 
             # actor update
             with self.actor_update_time.time():
@@ -241,6 +312,8 @@ class DDPGLearner(Learner):
                 'performance/critic_update_time': self.critic_update_time.avg,
                 'performance/actor_update_time': self.actor_update_time.avg,
             }
+            if self.use_double_critic:
+                tensorplex_update_dict['Q_policy2'] = y_policy2.mean().item()
             if self.use_z_filter:
                 tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
                 tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
@@ -297,6 +370,10 @@ class DDPGLearner(Learner):
         if self.target_update_type == 'soft':
             self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
             self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
+            if self.use_double_critic:
+                self.model_target2.critic.soft_update(self.model2.critic, self.target_update_tau)
+                if self.is_pixel_input:
+                    self.model_target2.perception.soft_update(self.model2.perception, self.target_update_tau)
             if self.is_pixel_input:
                 self.model_target.perception.soft_update(self.model.perception, self.target_update_tau)
         elif self.target_update_type == 'hard':
@@ -304,5 +381,17 @@ class DDPGLearner(Learner):
             if self.target_update_counter % self.target_update_interval == 0:
                 self.model_target.actor.hard_update(self.model.actor)
                 self.model_target.critic.hard_update(self.model.critic)
+                if self.use_double_critic:
+                    self.model_target2.critic.hard_update(self.model2.critic)
+                    if self.is_pixel_input:
+                        self.model_target2.perception.hard_update(self.model2.perception)
                 if self.is_pixel_input:
                     self.model_target.perception.hard_update(self.model.perception)
+
+    # override
+    def _prefetch_thread_preprocess(self, batch):
+        if not self.frame_stack_concatenate_on_agent:
+            batch = self.frame_stack_preprocess.preprocess_list(batch)
+        batch = self.aggregator.aggregate(batch)
+        return batch
+

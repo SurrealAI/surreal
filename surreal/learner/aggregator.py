@@ -2,10 +2,33 @@
 Aggregate experience tuple into pytorch-ready tensors
 """
 import numpy as np
+import copy
 import collections
 import torch
 import surreal.utils as U
 from surreal.env import ActionType
+
+class FrameStackPreprocessor():
+    """
+        Accepts experience sent by SSAR experience senders
+    """
+
+    def __init__(self, frame_stacks):
+        self.frame_stacks = frame_stacks
+        self.printed = False
+
+    def preprocess_obs(self, obs):
+        # We must copy here because the experience sender should send the non-stacked version
+        if 'pixel' in obs:
+            for key in obs['pixel']:
+                obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
+                assert len(obs['pixel'][key].shape) == 3
+
+    def preprocess_list(self, exp_list):
+        for exp in exp_list:  # dict
+            for obs in (exp['obs'][0], exp['obs'][1]):
+                self.preprocess_obs(obs)
+        return exp_list
 
 class SSARAggregator():
     """

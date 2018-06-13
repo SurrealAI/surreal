@@ -31,7 +31,7 @@ def make_env(env_config, mode=None):
 
 def make_gym(env_name, env_config):
     import gym
-    env = gym.make(env_name, **additional_kwargs)
+    env = gym.make(env_name)
     env = GymAdapter(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()

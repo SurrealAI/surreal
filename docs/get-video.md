@@ -1,6 +1,10 @@
+ # DEPRECATED
+
+**Now we use `gcloud compute ssh` and `gcloud compute scp` instead of plain SSH, so no need for configuring ssh.**
+ 
 To use `kurreal gv` functionality, you need to do some preparations
 
-# Installation
+## Installation
 * Setup ssh connection to surrealfs
 In `~/.ssh/config` I have following settings to allow me to do `ssh surrealfs`
 ```
@@ -18,7 +22,7 @@ nfs_host: surrealfs # or whatever you do ssh into to access nfs
 pip install fabric
 ```
 
-# Usage
+## Usage
 * Find a directory that you want to store the videos
 ```
 kurreal gv .
