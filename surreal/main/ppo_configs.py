@@ -172,6 +172,13 @@ def generate(argv):
             'max_puller_queue': 3,
             'max_prefetch_batch_queue': 1,
         },
+        'checkpoint': {
+            'learner': {
+                'mode': 'history',
+                'periodic': 1000, # Save every 1000 steps
+                'min_interval': 15 * 60, # No checkpoint less than 15 min apart.
+            },
+        },
     })
 
     session_config.extend(LOCAL_SESSION_CONFIG)

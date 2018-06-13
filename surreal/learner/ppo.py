@@ -58,6 +58,7 @@ class PPOLearner(Learner):
         super().__init__(learner_config, env_config, session_config)
 
         # GPU setting
+        self.current_iteration = 0
         self.global_step = 0
         num_gpus = session_config.learner.num_gpus
         if num_gpus == 0:
@@ -595,6 +596,7 @@ class PPOLearner(Learner):
             Args:
                 batch: pre-aggregated list of experiences rolled out by the agent
         '''
+        self.current_iteration += 1
         batch = self._preprocess_batch_ppo(batch)
         tensorplex_update_dict = self._optimize(
             batch.obs,
@@ -604,6 +606,10 @@ class PPOLearner(Learner):
             batch.persistent_infos,
             batch.onetime_infos,
             batch.dones,
+        )
+        self.periodic_checkpoint(
+            global_steps=self.current_iteration,
+            score=None,
         )
 
         self.tensorplex.add_scalars(tensorplex_update_dict, self.global_step)
@@ -669,3 +675,11 @@ class PPOLearner(Learner):
         self.critic_lr_scheduler.step()
         self.force_publish = False
 
+    def checkpoint_attributes(self):
+        return [
+            'model',
+            'ref_target_model',
+            'actor_lr_scheduler',
+            'critic_lr_scheduler',
+            'current_iteration',
+        ]
