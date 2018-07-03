@@ -11,7 +11,7 @@ from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
     MaxStepWrapper, TrainingTensorplexMonitor,
     expSenderWrapperFactory, EvalTensorplexMonitor,
-    VideoWrapper, GymMonitorWrapper
+    VideoWrapper
 )
 import os
 
@@ -302,9 +302,9 @@ class Agent(object, metaclass=AgentMeta):
 
         env_category = self.env_config.env_name.split(':')[0]
         if self.env_config.video.record_video and self.agent_id == 0:
-            if env_category == 'gym':
-                env = GymMonitorWrapper(env, self.env_config, self.session_config)
-            else:
+            if env_category != 'gym':
+                # gym video recording not supported due to bug in OpenAI gym
+                # https://github.com/openai/gym/issues/1050
                 env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 

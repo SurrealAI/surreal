@@ -176,6 +176,14 @@ class PPO_ActorNetwork(nnx.Module):
         PPO custom actor network structure
     '''
     def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], init_log_sig=0):
+        '''
+            Constructor for PPO actor network
+            Args: 
+                D_obs: observation space dimension, scalar
+                D_act: action space dimension, scalar
+                hidden_sizes: list of fully connected dimension
+                init_log_sig: initial value for log standard deviation parameter
+        '''
         super(PPO_ActorNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim
         xp_input = L.Placeholder((None, D_obs))
@@ -192,6 +200,12 @@ class PPO_ActorNetwork(nnx.Module):
         self.log_var = nn.Parameter(torch.zeros(1, D_act) + init_log_sig)
 
     def forward(self, obs):
+        '''
+            Forward pass of actor network. Input assume to be output of CNN
+            and/or LSTM feature extractor
+            Args:
+                obs: batched tensor denotes the states
+        '''
         obs_shape = obs.size()
         if_high_dim = (len(obs_shape) == 3)
         if if_high_dim: 
@@ -211,6 +225,12 @@ class PPO_CriticNetwork(nnx.Module):
         PPO custom critic network structure
     '''
     def __init__(self, D_obs, hidden_sizes=[64, 64]):
+        '''
+            Constructor for PPO critic network
+            Args: 
+                D_obs: observation space dimension, scalar
+                hidden_sizes: list of fully connected dimension
+        '''
         super(PPO_CriticNetwork, self).__init__()
         # assumes D_obs here is the correct RNN hidden dim if necessary
 
@@ -225,6 +245,12 @@ class PPO_CriticNetwork(nnx.Module):
         self.model.build((None, D_obs))
 
     def forward(self, obs):
+        '''
+            Forward pass of actor network. Input assume to be output of CNN
+            and/or LSTM feature extractor
+            Args:
+                obs: batched tensor denotes the states
+        '''
         obs_shape = obs.size()
         if_high_dim = (len(obs_shape) == 3)
         if if_high_dim: 

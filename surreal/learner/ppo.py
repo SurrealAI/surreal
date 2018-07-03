@@ -125,7 +125,6 @@ class PPOLearner(Learner):
         num_updates = int(self.frames_to_anneal / self.learner_config.parameter_publish.exp_interval)
         lr_scheduler = eval(self.learner_config.algo.network.anneal.lr_scheduler) 
 
-        self.force_publish = False
         self.exp_counter = 0
         self.kl_record = []
 
@@ -189,6 +188,7 @@ class PPOLearner(Learner):
             # placeholder for RNN hidden cells
             self.cells = None
 
+            # Reward White-filtering
             if self.use_r_filter: 
                 self.reward_filter= RewardFilter()
 
@@ -215,8 +215,6 @@ class PPOLearner(Learner):
                                                1 + self.clip_epsilon)
         surr = -prob_ratio * advantages.view(-1, 1)
         cliped_surr = -cliped_ratio * advantages.view(-1, 1)
-
-        # a fishy line here, particularly max(1)[0]. need to look into this
         clip_loss = torch.cat([surr, cliped_surr], 1).max(1)[0].mean() 
 
         stats = {
@@ -557,7 +555,6 @@ class PPOLearner(Learner):
                 kl = self.pd.kl(ref_pol, curr_pol).mean()
                 stats['_pol_kl'] = kl.item()
                 if kl.item() > self.kl_target * 4: 
-                    # self.force_publish = True
                     break
 
             self.kl_record.append(stats['_pol_kl'])
@@ -616,10 +613,6 @@ class PPOLearner(Learner):
         self.exp_counter += self.batch_size
         self.global_step += 1
 
-        # if self.force_publish:
-        #     with self.publish_timer.time():
-        #         self.publish_parameter(self.current_iter, message='batch '+str(self.current_iter))
-
     def module_dict(self):
         '''
         returns the corresponding parameters
@@ -638,8 +631,7 @@ class PPOLearner(Learner):
             iteration: the current number of learning iterations
             message: optional message, must be pickleable.
         """
-        if  self.exp_counter >= self.learner_config.parameter_publish.exp_interval or \
-            self.force_publish:
+        if  self.exp_counter >= self.learner_config.parameter_publish.exp_interval:
             self._ps_publisher.publish(iteration, message=message)
             self._post_publish()  
 
@@ -673,9 +665,11 @@ class PPOLearner(Learner):
         self.exp_counter = 0
         self.actor_lr_scheduler.step()
         self.critic_lr_scheduler.step()
-        self.force_publish = False
 
     def checkpoint_attributes(self):
+        '''
+            outlines attributes to be checkpointed
+        '''
         return [
             'model',
             'ref_target_model',

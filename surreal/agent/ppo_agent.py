@@ -43,6 +43,7 @@ class PPOAgent(Agent):
         self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
         self.log_sig_range = self.learner_config.algo.consts.log_sig_range
 
+        # setting agent mode
         if self.agent_mode != 'training':
             if self.env_config.stochastic_eval:
                 self.agent_mode = 'eval_stochastic'
@@ -53,8 +54,9 @@ class PPOAgent(Agent):
             self.noise = 0 
         else:
             self.noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
-
         self.rnn_config = self.learner_config.algo.rnn
+
+        # GPU setup 
         self._num_gpus = session_config.agent.num_gpus
         if self._num_gpus == 0:
             self.gpu_ids = 'cpu'
