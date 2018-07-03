@@ -116,8 +116,7 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['proprio'],
-            # 'low_dim':['proprio', 'low-level'],
+            'low_dim':['proprio', 'low-level'],
         }, 
         'eval_mode': {
             'demonstration': None
@@ -129,13 +128,11 @@ def generate(argv):
             'increment_frequency': 100,
             'sample_window_width': 25,
             'increment': 25,
-            'use_demo_prob': 0.5,
 
             # params for adaptive curriculum
             'mixing': ['random'],
             'mixing_ratio': [1.0],
             'ratio_step': [0.0],
-            'curriculum_episodes': 20,
             'improve_threshold': 0.1,
             'curriculum_length': 50,
             'history_length': 20,
