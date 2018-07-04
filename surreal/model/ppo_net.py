@@ -127,17 +127,20 @@ class PPOModel(nnx.Module):
         self.if_pixel_input = if_pixel_input
         self.rnn_config = rnn_config
 
+        # compute low dimensional feature dimension
         self.low_dim = 0
         if 'low_dim' in self.obs_spec.keys():
             for key in self.obs_spec['low_dim'].keys():
                 self.low_dim += self.obs_spec['low_dim'][key][0]
 
+        # optional CNN stem feature extractor
         self.cnn_stem = None
         if self.if_pixel_input:
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
                                            self.model_config.cnn_feature_dim,
                                            use_layernorm=self.model_config.use_layernorm)
 
+        # optional LSTM stem feature extractor
         self.rnn_stem = None
         if self.rnn_config.if_rnn_policy:
             rnn_insize = self.low_dim + (self.model_config.cnn_feature_dim if self.if_pixel_input else 0)
@@ -149,6 +152,7 @@ class PPOModel(nnx.Module):
                 device = torch.device("cuda")
                 self.rnn_stem = self.rnn_stem.to(device)
 
+        # computing final feature dimension for leaf actor/critic network
         input_size = self.low_dim + (self.model_config.cnn_feature_dim if self.if_pixel_input else 0)
         input_size = self.rnn_config.rnn_hidden if self.rnn_config.if_rnn_policy else input_size
 
@@ -166,6 +170,8 @@ class PPOModel(nnx.Module):
         '''
             Concatenate (along 2nd dimension) all the low-dimensional
             (propioceptive) features from input observation tuple
+            Args:
+                obs: dictionary of tensors
         '''
         if 'low_dim' not in obs.keys(): return None
         list_obs_ld = [obs['low_dim'][key] for key in obs['low_dim'].keys()]
@@ -249,7 +255,8 @@ class PPOModel(nnx.Module):
         '''
             forward pass actor to generate policy with option to use z-filter
             Args:
-                obs -- batch of observations
+                obs: dictionary of batched observations
+                cells: tuple of hidden and cell state for LSTM stem. optional
             Returns:
                 The output of actor network
         '''
@@ -281,7 +288,8 @@ class PPOModel(nnx.Module):
             Note: assumes input has either shape length 2 or 4 without RNN and
             length 3 or 5 with RNN depending on if image based training is used
             Args: 
-                obs -- batch of observations
+                obs: dictionary of batched observations
+                cells: tuple of hidden and cell state for LSTM stem. optional
             Returns:
                 output of critic network
         '''
@@ -312,7 +320,8 @@ class PPOModel(nnx.Module):
             forward pass critic to generate policy with option to use z-filter
             also returns an updated LSTM hidden/cell state when necessary
             Args: 
-                obs -- batch of observations
+                obs: dictionary of batched observations
+                cells: tuple of hidden and cell state for LSTM stem. optional
             Returns:
                 output of critic network
         '''
@@ -348,7 +357,8 @@ class PPOModel(nnx.Module):
     def z_update(self, obs):
         '''
             updates Z_filter running obs mean and variance
-            Args: obs -- batch of observations
+            Args:
+                obs: dictionary of batched observations
         '''
         if self.use_z_filter:
             obs_flat = self._gather_low_dim_input(obs)
@@ -360,5 +370,7 @@ class PPOModel(nnx.Module):
         '''
             Given uint8 input from the environment, scale to float32 and
             divide by 255 to scale inputs between 0.0 and 1.0
+            Args:
+                obs: dictionary of batched observations
         '''
         return obs / 255.0
