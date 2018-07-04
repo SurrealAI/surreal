@@ -94,8 +94,6 @@ def generate(argv):
             'replay_shards': 1,
         },
         'parameter_publish': {
-            # Minimum amount of time (seconds) between two parameter publish
-            'min_publish_interval': 0.2, 
             'exp_interval': 4096,  
         },
     }
