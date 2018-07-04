@@ -98,6 +98,7 @@ def generate(argv):
         'action_repeat': 10,
         'frame_stacks': 3,
         'frame_stack_concatenate_on_agent': False,
+        # Debug only: agent will sleep for this number of seconds between actions
         'sleep_time': 0.0,
         'limit_episode_length': 200, # 0 means no limit
         #'limit_episode_length': 0, # 0 means no limit

@@ -1,5 +1,5 @@
 """
-Actor function
+DDPG actor class
 """
 import copy
 import torch
@@ -7,6 +7,7 @@ import collections
 from .base import Agent
 from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
+# TODO: Remove
 from surreal.learner.aggregator import FrameStackPreprocessor
 import numpy as np
 from .action_noise import *
@@ -17,6 +18,23 @@ import torchx.nn as nnx
 from .param_noise import NormalParameterNoise, AdaptiveNormalParameterNoise
 
 class DDPGAgent(Agent):
+    '''
+    DDPGAgent: subclass of Agent that contains DDPG algorithm logic
+    Attributes:
+        model: A DDPG neural network model to generate actions from observations
+        noise: A traditional action noise model. When called, noise produces an output
+            of the same dimension as the action dimension
+        param_noise: If not None, a parameter noise model, as outlined by
+            https://blog.openai.com/better-exploration-with-parameter-noise/
+
+    important member functions:
+        public methods:
+        act: method to generate action from observation using the model
+        module_dict: returns the corresponding parameters
+        on_parameter_fetched: performs necessary updates to parameter noise
+            given new parameters from the parameter server
+        pre_episode: prepares model for new episode, performs update to the noise model
+    '''
 
     def __init__(self,
                  learner_config,
@@ -24,6 +42,13 @@ class DDPGAgent(Agent):
                  session_config,
                  agent_id,
                  agent_mode):
+        '''
+        Constructor for DDPGAgent class.
+        Important attributes:
+            learner_config, env_config, session_config: experiment configurations
+            agent_id: unique id in the range [0, num_agents)
+            agent_mode: toggles between agent noise and deterministic behavior
+        '''
 
         super().__init__(
             learner_config=learner_config,
@@ -82,10 +107,11 @@ class DDPGAgent(Agent):
 
             self.init_noise()
 
+    # TODO: private
     def init_noise(self):
         """
-            initializes exploration noise
-            and populates self.noise, a callable that returns noise of dimension same as action
+            initializes exploration noise and populates self.noise, a callable
+            that returns noise of dimension same as action
         """
         if self.agent_mode == 'eval_deterministic':
             return
@@ -127,10 +153,14 @@ class DDPGAgent(Agent):
             if self.sleep_time > 0.0:
                 time.sleep(self.sleep_time)
             if not self.frame_stack_concatenate_on_agent:
+                # Output pixels of environment is a list of frames,
+                # we concatenate the frames into a single numpy array
                 obs = copy.deepcopy(obs)
                 if 'pixel' in obs:
                     for key in obs['pixel']:
                         obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
+            # Convert to pytorch tensor
+            # TODO: rename to obs_tensor
             obs_variable = collections.OrderedDict()
             for modality in obs:
                 modality_dict = collections.OrderedDict()
