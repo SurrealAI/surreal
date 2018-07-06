@@ -2,6 +2,7 @@ from queue import Queue
 import torch
 import torch.nn as nn
 import numpy as np
+#TODO: REMOVE
 import itertools
 from .base import Learner
 from .aggregator import NstepReturnAggregator, SSARAggregator, FrameStackPreprocessor
@@ -15,6 +16,40 @@ import torchx.nn as nnx
 
 
 class DDPGLearner(Learner):
+    '''
+    DDPGLearner: subclass of Learner that contains DDPG algorithm logic
+    Attributes:
+        gpu_option: 'cpu' if not using GPU, 'cuda:all' otherwise
+        model: instance of DDPGModel from surreal.model.ddpg_net
+        model_target: instance of DDPGModel, used as a reference policy
+            for Bellman updates
+        use_z_filter: boolean flag -- whether to use obs Z-Filtering
+        use_action_regularization: boolean flag -- regularization method based on
+            https://arxiv.org/pdf/1802.09477.pdf
+        use_double_critic: boolean flag -- overestimation bias correction based on
+            https://arxiv.org/pdf/1802.09477.pdf
+        [actor/critic]_optim: Adam Optimizer for policy and baseline network
+        aggregator: experience aggregator used to batch experiences from
+            a list of experiences into a format usable by the model.
+            For available aggregators, see surreal.learner.aggregator
+        target_update_type: 'hard' update sets the weights of model_target equal to model
+            after target_update_interval steps, whereas 'soft' update moves the parameters
+            of model_target towards model after every step
+        total_learn_time, forward_time, etc: timers that measure average time spent in
+            each operation of the learner. These timers will be reported in tensorboard.
+
+    important member functions:
+        private methods:
+        _optimize: function that makes policy and value function updates
+
+        public methods:
+        learn: method to perform optimization and send to tensorplex for log
+        module_dict: returns the corresponding parameters
+        preprocess: this function is called in agent/main prior to learn(),
+            This operation occurs in a separate thread, meaning that conversion
+            from numpy arrays to gpu tensors can occur asynchronously to gpu
+            processing operations in learn().
+    '''
 
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
@@ -51,7 +86,7 @@ class DDPGLearner(Learner):
             torch.backends.cudnn.benchmark = True
 
         with tx.device_scope(self.gpu_ids):
-            self.target_update_init()
+            self._target_update_init()
 
             self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
             if self.clip_actor_gradient:
@@ -194,21 +229,6 @@ class DDPGLearner(Learner):
             )
             return batch
 
-    def _assert_gpu(self, tensor, name):
-        # Sometimes automatic conversion to cuda tensor in tx.device_scope
-        # doesn't work, correct for that here
-        if self._num_gpus == 0:
-            return tensor
-        if not tensor.is_cuda:
-            print('----Expected cuda tensor, received cpu tensor------')
-            print('name', name)
-            print('is_cuda', tensor.is_cuda)
-            print('tensor_type', type(tensor))
-            print('dimensions', tensor.dim())
-            print('iter', self.current_iteration)
-            return tensor.to(torch.device('cuda'))
-        return tensor
-
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
         obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
@@ -218,14 +238,6 @@ class DDPGLearner(Learner):
         with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
-                for o in [obs, obs_next]:
-                    for modality in o:
-                        for k in o[modality]:
-                            o[modality][k] = self._assert_gpu(o[modality][k], k)
-                actions = self._assert_gpu(actions, 'actions')
-                rewards = self._assert_gpu(rewards, 'rewards')
-                done = self._assert_gpu(done, 'done')
-
                 assert actions.max().item() <= 1.0
                 assert actions.min().item() >= -1.0
 
@@ -236,8 +248,8 @@ class DDPGLearner(Learner):
                 if self.use_action_regularization:
                     # https://github.com/sfujim/TD3/blob/master/TD3.py -- action regularization
                     policy_noise = 0.2
-                    batch_size = self.batch_size
                     noise_clip = 0.5
+                    batch_size = self.batch_size
                     noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size, self.action_dim)), -noise_clip,
                                     noise_clip)
                     device_name = 'cpu'
@@ -320,7 +332,7 @@ class DDPGLearner(Learner):
                 tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]            
 
             # (possibly) update target networks
-            self.target_update()
+            self._target_update()
 
             return tensorplex_update_dict
 
@@ -352,7 +364,7 @@ class DDPGLearner(Learner):
             'model', 'model_target'
         ]
 
-    def target_update_init(self):
+    def _target_update_init(self):
         target_update_config = self.learner_config.algo.network.target_update
         self.target_update_type = target_update_config.type
 
@@ -366,7 +378,7 @@ class DDPGLearner(Learner):
         else:
             raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
 
-    def target_update(self):
+    def _target_update(self):
         if self.target_update_type == 'soft':
             self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
             self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
