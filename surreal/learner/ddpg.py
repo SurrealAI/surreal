@@ -45,10 +45,16 @@ class DDPGLearner(Learner):
         public methods:
         learn: method to perform optimization and send to tensorplex for log
         module_dict: returns the corresponding parameters
-        preprocess: this function is called in agent/main prior to learn(),
+        preprocess: this function is called in learner/main prior to learn(),
             This operation occurs in a separate thread, meaning that conversion
             from numpy arrays to gpu tensors can occur asynchronously to gpu
             processing operations in learn().
+
+    Arguments:
+        learner_config, env_config, session_config: experiment setup configurations.  An example set of configs
+            can be found at surreal/main/ddpg_configs.py.  Note that the surreal/env/make_env function adds attributes
+            env_config.action_spec and env_config.obs_spec, which are required for this init method to function
+            properly.
     '''
 
     def __init__(self, learner_config, env_config, session_config):
@@ -179,7 +185,16 @@ class DDPGLearner(Learner):
             self.critic_update_time = U.TimeRecorder()
             self.actor_update_time = U.TimeRecorder()
 
+    # override
     def preprocess(self, batch):
+        '''
+        Override for learner/base/preprocess.  Before learn() is called, preprocess() takes the batch and converts
+        the numpy arrays to pytorch tensors.  Note that this operation will transfer the data to gpu if a gpu is used.
+
+        Arguments:
+            batch: a batch of numpy arrays from the replay memory
+        '''
+        # Convert all numpy arrays to pytorch tensors, and transfers to gpu if applicable
         with tx.device_scope(self.gpu_ids):
             obs, actions, rewards, obs_next, done = (
                 batch['obs'],
@@ -231,9 +246,17 @@ class DDPGLearner(Learner):
 
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
-        obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
-        of observations, (N, C, H, W).  Note that while the replay contains uint8, the
+        Note that while the replay contains uint8, the
         aggregator returns float32 tensors
+
+        Arguments:
+            obs: an observation from the minibatch, often represented as s_n in literature. Dimensionality: (N, C) for
+                low dimensional inputs, (N, C, H, W) for pixel inputs
+            actions: actions taken given observations obs, often represented as a_n in literature.
+                Dimensionality: (N, A), where A is the dimensionality of a single action
+            rewards: rewards received after action is taken. Dimensionality: N
+            obs_next: an observation from the minibatch, often represented as s_{n+1} in literature
+            done: 1 if obs_next is terminal, 0 otherwise. Dimensionality: N
         '''
         with tx.device_scope(self.gpu_ids):
 
@@ -242,7 +265,6 @@ class DDPGLearner(Learner):
                 assert actions.min().item() >= -1.0
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
-                # obs_next.volatile = True
 
                 model_policy, next_Q_target = self.model_target.forward(obs_next)
                 if self.use_action_regularization:
@@ -268,7 +290,7 @@ class DDPGLearner(Learner):
                 perception = self.model.forward_perception(obs)
                 y_policy = self.model.forward_critic(
                     perception,
-                    actions.detach() # TODO: why do we detach here
+                    actions.detach()
                 )
 
                 y_policy2 = None
@@ -276,7 +298,7 @@ class DDPGLearner(Learner):
                     perception2 = self.model2.forward_perception(obs)
                     y_policy2 = self.model2.forward_critic(
                         perception2,
-                        actions.detach() # TODO: why do we detach here
+                        actions.detach()
                     )
 
             # critic update
@@ -337,6 +359,13 @@ class DDPGLearner(Learner):
             return tensorplex_update_dict
 
     def learn(self, batch):
+        '''
+        Performs a gradient descent step on 'batch'
+
+        Arguments:
+            batch: a minibatch sampled from the replay memory, after preprocessing steps such as transfer to pytorch
+            tensors and aggregation step
+        '''
         self.current_iteration += 1
         with self.total_learn_time.time():
             tensorplex_update_dict = self._optimize(
@@ -379,6 +408,11 @@ class DDPGLearner(Learner):
             raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
 
     def _target_update(self):
+        '''
+        Perform update on target model networks.  This update is either 'soft', meaning the target model drifts towards
+        the current model at a rate tau, or 'hard', meaning the target model performs a hard copy operation on the
+        current model every target_update_interval steps.
+        '''
         if self.target_update_type == 'soft':
             self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
             self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
@@ -402,6 +436,11 @@ class DDPGLearner(Learner):
 
     # override
     def _prefetch_thread_preprocess(self, batch):
+        '''
+        If frame_stack_preprocess is not set, each experience in the replay will be stored as a list of frames, as
+        opposed to a single numpy array.  We must condense them into a single numpy array as that is what the
+        aggregator expects.
+        '''
         if not self.frame_stack_concatenate_on_agent:
             batch = self.frame_stack_preprocess.preprocess_list(batch)
         batch = self.aggregator.aggregate(batch)

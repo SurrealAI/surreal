@@ -160,7 +160,6 @@ class Learner(metaclass=LearnerMeta):
     ######
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
-        # We don't do it here so that we don't require _prefetch_queue to be setup beforehands
         self.iter_timer = U.TimeRecorder()
         self.publish_timer = U.TimeRecorder()
 
@@ -173,7 +172,6 @@ class Learner(metaclass=LearnerMeta):
 
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
-
         self._tensorplex_thread = None
 
     def _get_tensorplex(self, name):
@@ -312,7 +310,9 @@ class Learner(metaclass=LearnerMeta):
     ######
     def preprocess(self, batch):
         '''
-        Perform algorithm-specific preprocessing tasks, overridden in subclasses
+        Perform algorithm-specific preprocessing tasks on a given batch, overridden in subclasses
+        This operation occurs asynchronously to the learner main loop, so if training on gpu, any cpu-bound or high
+        latency tasks can be done here.
         For example, ddpg converts relevant variables onto gpu
         '''
         return batch
@@ -330,10 +330,8 @@ class Learner(metaclass=LearnerMeta):
 
     def _setup_batch_prefetch(self):
         self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
-        self._preprocess_threads = []
-        for i in range(1):
-            self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
-            self._preprocess_threads[-1].start()
+        self._preprocess_thread = threading.Thread(target=self._preprocess_batch)
+        self._preprocess_thread.start()
 
     def fetch_processed_batch_iterator(self):
         while True:
