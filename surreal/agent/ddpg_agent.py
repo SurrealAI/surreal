@@ -7,7 +7,6 @@ import collections
 from .base import Agent
 from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
-# TODO: Remove
 from surreal.learner.aggregator import FrameStackPreprocessor
 import numpy as np
 from .action_noise import *
@@ -108,10 +107,9 @@ class DDPGAgent(Agent):
             )
             self.model.eval()
 
-            self.init_noise()
+            self._init_noise()
 
-    # TODO: private
-    def init_noise(self):
+    def _init_noise(self):
         """
             initializes exploration noise and populates self.noise, a callable
             that returns noise of dimension same as action
@@ -163,16 +161,15 @@ class DDPGAgent(Agent):
                     for key in obs['pixel']:
                         obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
             # Convert to pytorch tensor
-            # TODO: rename to obs_tensor
-            obs_variable = collections.OrderedDict()
+            obs_tensor = collections.OrderedDict()
             for modality in obs:
                 modality_dict = collections.OrderedDict()
                 for key in obs[modality]:
                     modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
-                obs_variable[modality] = modality_dict
-            action, _ = self.model(obs_variable, calculate_value=False)
+                obs_tensor[modality] = modality_dict
+            action, _ = self.model(obs_tensor, calculate_value=False)
             if self.param_noise and self.param_noise_type == 'adaptive_normal':
-                self.param_noise.compute_action_distance(obs_variable, action)
+                self.param_noise.compute_action_distance(obs_tensor, action)
             action = action.data.cpu().numpy()[0]
 
             action = action.clip(-1, 1)

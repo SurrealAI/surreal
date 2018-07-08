@@ -2,17 +2,12 @@ from queue import Queue
 import torch
 import torch.nn as nn
 import numpy as np
-#TODO: REMOVE
-import itertools
 from .base import Learner
-from .aggregator import NstepReturnAggregator, SSARAggregator, FrameStackPreprocessor
+from .aggregator import SSARAggregator, FrameStackPreprocessor
 from surreal.model.ddpg_net import DDPGModel
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
-#from surreal.utils.pytorch import #GpuVariable as Variable
 import surreal.utils as U
 import torchx as tx
-import torchx.nn as nnx
 
 
 class DDPGLearner(Learner):
@@ -62,9 +57,6 @@ class DDPGLearner(Learner):
         self.current_iteration = 0
 
         # load multiple optimization instances onto a single gpu
-        self.batch_queue_size = 5
-        self.batch_queue = Queue(maxsize=self.batch_queue_size)
-
         self.batch_size = self.learner_config.replay.batch_size
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
@@ -179,7 +171,6 @@ class DDPGLearner(Learner):
                 )
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
-            # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.frame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
@@ -188,8 +179,7 @@ class DDPGLearner(Learner):
 
             if self.use_double_critic:
                 self.model_target2.critic.hard_update(self.model2.critic)
-            # self.train_iteration = 0
-            
+
             self.total_learn_time = U.TimeRecorder()
             self.forward_time = U.TimeRecorder()
             self.critic_update_time = U.TimeRecorder()

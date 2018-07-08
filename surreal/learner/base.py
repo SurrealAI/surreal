@@ -99,7 +99,6 @@ class Learner(metaclass=LearnerMeta):
         # sampler_port = self.session_config.replay.sampler_frontend_port
         ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         batch_size = self.learner_config.replay.batch_size
-        # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
         self._ps_publisher = None  # in _initialize()
         self._ps_port = ps_publish_port
