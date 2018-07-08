@@ -23,7 +23,7 @@ def generate(argv):
             'convs': [],
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
-            'use_layernorm': True,
+            'use_layernorm': False,
             'dueling': False,
             'conv_spec': {
                 'out_channels': [64, 64],
@@ -45,7 +45,7 @@ def generate(argv):
             'stride': 1,
             'network': {
                 'lr_actor': 1e-4,
-                'lr_critic': 1e-4,
+                'lr_critic': 1e-3,
                 'clip_actor_gradient': True,
                 'actor_gradient_norm_clip': 1.,
                 'clip_critic_gradient': False,
@@ -93,7 +93,7 @@ def generate(argv):
         'env_name': args.env,
         'num_agents': args.num_agents,
         'use_demonstration': False,
-        'pixel_input': True,
+        'pixel_input': False,
         'use_grayscale': False,
         'action_repeat': 10,
         'frame_stacks': 3,
