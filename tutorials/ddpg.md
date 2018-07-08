@@ -13,6 +13,8 @@ The replay buffer performs a similar function of mitigating the moving target pr
 
 ## Implementation details
 
+To see an example Surreal DDPG experiment, run the [ipython notebook](../surreal/main/cluster_dashboard_symphony.ipynb). This will run the environments, agents, and learner locally on your machine.
+
 The code for Surreal DDPG is contained in the following files
 * [DDPG Learner class](../surreal/learner/ddpg.py)
 * [DDPG Agent class](../surreal/agent/ddpg_agent.py)
