@@ -31,6 +31,7 @@ Learner Config:
 * `learner_config.parameter_publish.exp_interval`: specifies how often learner pushes parameter to Parameter Server. For ddpg, parameter publish is time-based, and occurs at set time intervals.
 
 Environment Config:
+* See the [Environment Readme](../surreal/env/README.md) for details on observation and action formats.
 * `env_config.action_repeat`: specifies how many times the input action is repeated before allowing next action input from actor. We find this highly impactful for Robotic Manipulation benchmark tasks
 * `env_config.pixel_input`: set to True if the environment returns image output.
 * `env_config.limit_episode length`: specifies the maximum number of steps an environment can perform before termination.
