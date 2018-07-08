@@ -123,7 +123,7 @@ def generate(argv):
         # If false, the agent will send an image will be a list of frames to the replay.  When the learner receives an
         # observation, it will concatenate the frames into a single tensor.  This allows the replay to optimize memory
         # usage so that identical frames aren't duplicated in memory
-        'frame_stack_concatenate_on_agent': False,
+        'frame_stack_concatenate_on_env': False,
         # Debug only: agent will sleep for this number of seconds between actions
         'sleep_time': 0.0,
         # If an episode reaches this number of steps, the state will be considered terminal

@@ -65,7 +65,7 @@ class DDPGLearner(Learner):
         self.use_double_critic = self.learner_config.algo.network.use_double_critic
         self.use_action_regularization = self.learner_config.algo.network.use_action_regularization
 
-        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
+        self.frame_stack_concatenate_on_env = self.env_config.frame_stack_concatenate_on_env
 
         self.log.info('Initializing DDPG learner')
         self._num_gpus = session_config.learner.num_gpus
@@ -437,7 +437,7 @@ class DDPGLearner(Learner):
         opposed to a single numpy array.  We must condense them into a single numpy array as that is what the
         aggregator expects.
         '''
-        if not self.frame_stack_concatenate_on_agent:
+        if not self.frame_stack_concatenate_on_env:
             batch = self.frame_stack_preprocess.preprocess_list(batch)
         batch = self.aggregator.aggregate(batch)
         return batch

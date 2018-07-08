@@ -66,7 +66,7 @@ class DDPGAgent(Agent):
         self.param_noise_alpha = self.learner_config.algo.exploration.param_noise_alpha
         self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
 
-        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
+        self.frame_stack_concatenate_on_env = self.env_config.frame_stack_concatenate_on_env
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if env_config.num_agents == 1:
@@ -149,7 +149,7 @@ class DDPGAgent(Agent):
         with tx.device_scope(self.gpu_ids):
             if self.sleep_time > 0.0:
                 time.sleep(self.sleep_time)
-            if not self.frame_stack_concatenate_on_agent:
+            if not self.frame_stack_concatenate_on_env:
                 # Output pixels of environment is a list of frames,
                 # we concatenate the frames into a single numpy array
                 obs = copy.deepcopy(obs)
