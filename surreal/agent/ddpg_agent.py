@@ -7,13 +7,10 @@ import collections
 from .base import Agent
 from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
-from surreal.learner.aggregator import FrameStackPreprocessor
-import numpy as np
 from .action_noise import *
 from surreal.session import ConfigError
 import time
 import torchx as tx
-import torchx.nn as nnx
 from .param_noise import NormalParameterNoise, AdaptiveNormalParameterNoise
 
 class DDPGAgent(Agent):
@@ -60,7 +57,6 @@ class DDPGAgent(Agent):
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.sleep_time = self.env_config.sleep_time
 

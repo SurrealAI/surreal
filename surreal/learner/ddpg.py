@@ -86,12 +86,12 @@ class DDPGLearner(Learner):
 
             self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
             if self.clip_actor_gradient:
-                self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_norm_clip
+                self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_value_clip
                 self.log.info('Clipping actor gradient at {}'.format(self.actor_gradient_clip_value))
 
             self.clip_critic_gradient = self.learner_config.algo.network.clip_critic_gradient
             if self.clip_critic_gradient:
-                self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_norm_clip
+                self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_value_clip
                 self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
