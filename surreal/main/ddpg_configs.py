@@ -24,22 +24,17 @@ def generate(argv):
             'actor_fc_hidden_sizes': [300, 200],
             'critic_fc_hidden_sizes': [400, 300],
             'use_layernorm': False,
-            'dueling': False,
             'conv_spec': {
-                'out_channels': [64, 64],
-                'kernel_sizes': [3, 5],
-                'use_batch_norm': False
-            },
-            'mlp_spec': {
-                'sizes': [128],
-                'use_dropout': False
+                'out_channels': [16, 32],
+                'kernel_sizes': [8, 4],
+                'strides': [4, 2],
+                'hidden_output_dim': 200,
             },
         },
         'algo': {
             'agent_class': 'DDPGAgent',
             'learner_class': 'DDPGLearner',
             'experience': 'ExpSenderWrapperSSARNStepBootstrap',
-            'use_z_filter': False,
             'gamma': .99,
             'n_step': 3,
             'stride': 1,

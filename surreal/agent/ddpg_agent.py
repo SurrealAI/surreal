@@ -101,7 +101,10 @@ class DDPGAgent(Agent):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
             self.model.eval()
 

@@ -23,7 +23,6 @@ class DDPGLearner(Learner):
         model: instance of DDPGModel from surreal.model.ddpg_net
         model_target: instance of DDPGModel, used as a reference policy
             for Bellman updates
-        use_z_filter: boolean flag -- whether to use obs Z-Filtering
         use_action_regularization: boolean flag -- regularization method based on
             https://arxiv.org/pdf/1802.09477.pdf
         use_double_critic: boolean flag -- overestimation bias correction based on
@@ -70,7 +69,6 @@ class DDPGLearner(Learner):
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.is_pixel_input = self.env_config.pixel_input
-        self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.use_double_critic = self.learner_config.algo.network.use_double_critic
         self.use_action_regularization = self.learner_config.algo.network.use_action_regularization
@@ -111,7 +109,10 @@ class DDPGLearner(Learner):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
 
             self.model_target = DDPGModel(
@@ -120,7 +121,10 @@ class DDPGLearner(Learner):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
 
             if self.use_double_critic:
@@ -130,7 +134,10 @@ class DDPGLearner(Learner):
                     use_layernorm=self.use_layernorm,
                     actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                     critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                    use_z_filter=self.use_z_filter,
+                    conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                    conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                    conv_strides=self.learner_config.model.conv_spec.strides,
+                    conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
                     critic_only=True,
                 )
 
@@ -140,7 +147,10 @@ class DDPGLearner(Learner):
                     use_layernorm=self.use_layernorm,
                     actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                     critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                    use_z_filter=self.use_z_filter,
+                    conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                    conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                    conv_strides=self.learner_config.model.conv_spec.strides,
+                    conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
                     critic_only=True,
                 )
 
@@ -348,10 +358,6 @@ class DDPGLearner(Learner):
             }
             if self.use_double_critic:
                 tensorplex_update_dict['Q_policy2'] = y_policy2.mean().item()
-            if self.use_z_filter:
-                tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
-                tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]            
 
             # (possibly) update target networks
             self._target_update()
