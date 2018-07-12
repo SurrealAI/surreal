@@ -184,6 +184,12 @@ class MultistepAggregatorWithInfo():
                 'dones': np.stack(dones).astype('float32')}
 
     def _batch_obs(self, traj_list):
+        '''
+            Helper function that batches a list of observation (nested dictionary)
+            into one whole dictionary of batched observation
+            Args:
+                traj_list: list of nested observation
+        '''
         batched_obs = {}
         for modality in self.obs_spec.keys():
             batched_obs[modality] = {}

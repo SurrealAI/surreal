@@ -3,12 +3,23 @@ import numpy as np
 import torchx.nn as nnx
 
 class RewardFilter(nnx.Module):
-
+    """
+        Keeps historical average of rewards
+        Attributes:
+            eps: tolerance value for computing reward filter (whitening)
+                default to 10
+            running_sum: running sum of all previous rewards
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
+            running_sumsq: sum of square of all previous states
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
+            count: number of experiences accumulated
+                (Note, type is torch.cuda.FloatTensor or torch.FloatTensor)
+    """
     def __init__(self, eps=1e-5):
         """
-        Constructor for RewardFilter class
-        Args:
-            eps: tolerance value for computing reward filter (whitening)
+            Constructor for RewardFilter class
+            Args:
+                eps: tolerance value for computing reward filter (whitening)
         """
         super(RewardFilter, self).__init__()
 
@@ -46,4 +57,7 @@ class RewardFilter(nnx.Module):
         return normed
 
     def reward_mean(self):
+        '''
+            Outputs the current reward mean
+        '''
         return (self.running_sum / self.count).item()

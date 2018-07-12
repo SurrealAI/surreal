@@ -33,7 +33,7 @@ def generate(argv):
             'use_z_filter': False,
             'use_r_filter': False,
             'gamma': .99, 
-            'n_step': 30, # 10 for without RNN
+            'n_step': 25, # 10 for without RNN
             'stride': 20, # 10 for without RNN
             'network': {
                 'lr_actor': 1e-4,
@@ -48,7 +48,7 @@ def generate(argv):
                     'lr_scheduler': "LinearWithMinLR",
                     'frames_to_anneal': 5e6,
                     'lr_update_frequency': 100, 
-                    'min_lr': 0.0001,
+                    'min_lr': 1e-4,
                 },
             },
 
@@ -68,8 +68,8 @@ def generate(argv):
             'consts': {
                 'init_log_sig': -1.0,
                 'log_sig_range': 0,
-                'epoch_policy': 5,
-                'epoch_baseline': 5,
+                'epoch_policy': 10,
+                'epoch_baseline': 10,
                 'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
                 'kl_target': 0.02, # target KL divergence between before and after
             },
@@ -94,8 +94,6 @@ def generate(argv):
             'replay_shards': 1,
         },
         'parameter_publish': {
-            # Minimum amount of time (seconds) between two parameter publish
-            'min_publish_interval': 0.2, 
             'exp_interval': 4096,  
         },
     }
@@ -105,6 +103,7 @@ def generate(argv):
         'action_repeat': 10,
         'pixel_input': True,
         'use_grayscale': False,
+        'use_depth': False,
         'frame_stacks': 1,
         'sleep_time': 0,
         'video': {
@@ -115,16 +114,29 @@ def generate(argv):
         },
         'observation': {
             'pixel':['camera0'],
-            'low_dim':['proprio'],
-            #'low_dim':['position', 'velocity','cube_pos', 'cube_quat', 'gripper_to_cube'],
+            'low_dim':['proprio', 'low-level'],
         }, 
         'eval_mode': {
-            'use_demonstration': False
+            'demonstration': None
         },
-        'use_demonstration': True,
-        'limit_episode_length': 200,
+        'demonstration': {
+            'use_demo': False,
+            'adaptive': True,
+            # params for open loop reverse curriculum
+            'increment_frequency': 100,
+            'sample_window_width': 25,
+            'increment': 25,
+
+            # params for adaptive curriculum
+            'mixing': ['random'],
+            'mixing_ratio': [1.0],
+            'ratio_step': [0.0],
+            'improve_threshold': 0.1,
+            'curriculum_length': 50,
+            'history_length': 20,
+        },
+        'limit_episode_length': 500,
         'stochastic_eval': True,
-        #'stochastic_eval': False,
     }
 
     session_config = Config({
@@ -154,6 +166,13 @@ def generate(argv):
         'replay' : {
             'max_puller_queue': 3,
             'max_prefetch_batch_queue': 1,
+        },
+        'checkpoint': {
+            'learner': {
+                'mode': 'history',
+                'periodic': 1000, # Save every 1000 steps
+                'min_interval': 15 * 60, # No checkpoint less than 15 min apart.
+            },
         },
     })
 
