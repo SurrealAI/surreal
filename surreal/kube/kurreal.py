@@ -159,7 +159,7 @@ class KurrealParser(SymphonyParser):
             '--gpu-type',
             dest='gpu_type',
             type=str,
-            default='k80'
+            default='v100'
         )
         parser.add_argument('-f', '--force', action='store_true')
         parser.add_argument(
