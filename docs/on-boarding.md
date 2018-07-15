@@ -59,7 +59,7 @@ To run an experiment remotely, we deploy the framework into docker containers. H
 * Goto `<surreal_repo>/container` and do `make pull-all`. This fetches all the base images that you will build from. Note: This will take 30G of disk space.
 * Install [google cloud commandline tools](https://cloud.google.com/sdk/). 
 * To talk to kubernetes, we have a commandline wrapper `kurreal` that orchestrates experiments. `kurreal` requires some configs.
-* Copy `<surreal_repo>/surreal/kube/sample.surreal.yml` to `~/.surreal.yml`. 
+* Copy `<surreal_repo>/container/sample.surreal.yml` to `~/.surreal.yml`. 
 * IMPORTANT!!!: Update your `~/.surreal.yml` following the comments in the file.
 * Install `kubectl`. This is the commandline tool to talk to a kubernetes cluster. You can use [the official guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/) or do `gcloud components install kubectl`
 * Now we need to configure google cloud config to our project/cluster/zone. Do the following
