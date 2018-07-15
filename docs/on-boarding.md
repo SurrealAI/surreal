@@ -54,18 +54,20 @@ python -m ipykernel install --user --name surreal
 
 ## Docker - Kubernetes - Google Cloud
 To run an experiment remotely, we deploy the framework into docker containers. Here are the setup guides
-* Ask Yuke to add you to the surreal-dev google cloud project.
-* (Skip this unless you are adding new dependencies to the codebase, which should be rare) Install [docker](https://www.docker.com)
+* Ask Jim to add you to the his google cloud project.
+* Install [docker](https://www.docker.com)
+* Goto `<surreal_repo>/container` and do `make pull-all`. This fetches all the base images that you will build from. Note: This will take 30G of disk space.
 * Install [google cloud commandline tools](https://cloud.google.com/sdk/). 
 * To talk to kubernetes, we have a commandline wrapper `kurreal` that orchestrates experiments. `kurreal` requires some configs.
-* Copy `<surreal_path>/surreal/kube/sample.surreal.yml` to `~/.surreal.yml`. Update your `~/.surreal.yml` following the comments in the file.
+* Copy `<surreal_repo>/surreal/kube/sample.surreal.yml` to `~/.surreal.yml`. 
+* IMPORTANT!!!: Update your `~/.surreal.yml` following the comments in the file.
 * Install `kubectl`. This is the commandline tool to talk to a kubernetes cluster. You can use [the official guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/) or do `gcloud components install kubectl`
 * Now we need to configure google cloud config to our project/cluster/zone. Do the following
 ```bash
-gcloud config set project surreal-dev-188523
-gcloud config set container/cluster kurreal-1
+gcloud config set project jimfan2018-208323
+gcloud config set container/cluster kurreal
 gcloud config set compute/zone us-west1-b
-gcloud container clusters get-credentials kurreal-1
+gcloud container clusters get-credentials kurreal
 ```
 
 # Run an experiment on the cloud

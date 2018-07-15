@@ -5,6 +5,8 @@ setup-gcloud-credential:
 
 publish-base-all: setup-gcloud-credential publish-cpubase publish-gpubase
 
+pull-all: setup-gcloud-credential pull-cpubase pull-gpubase pull-gpumj
+
 # surreal-dev-188523
 CPU_BASE_URL = us.gcr.io/jimfan2018-208323/surreal-base-cpu-new
 build-cpubase:
@@ -42,7 +44,7 @@ pull-gpu90:
 
 publish-gpu90: build-gpu90 push-gpu90
 
-GPUMJ_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-mujoco
+GPUMJ_URL = us.gcr.io/jimfan2018-208323/surreal-base-gpu-mujoco
 build-gpumj:
 	docker build -t $(GPUMJ_URL):latest -f DockerfileMujocopyGPUBase .
 
