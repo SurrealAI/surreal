@@ -3,9 +3,10 @@
 setup-gcloud-credential:
 	gcloud auth configure-docker
 
-publish-base-all: publish-cpubase publish-gpubase
+publish-base-all: setup-gcloud-credential publish-cpubase publish-gpubase
 
-CPU_BASE_URL = us.gcr.io/surreal-dev-188523/surreal-base-cpu-new
+# surreal-dev-188523
+CPU_BASE_URL = us.gcr.io/jimfan2018-208323/surreal-base-cpu-new
 build-cpubase:
 	docker build -t $(CPU_BASE_URL):latest -f DockerfileCPUBase .
 
@@ -17,7 +18,7 @@ pull-cpubase:
 
 publish-cpubase: build-cpubase push-cpubase
 
-GPU_BASE_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-new
+GPU_BASE_URL = us.gcr.io/jimfan2018-208323/surreal-base-gpu-new
 build-gpubase:
 	docker build -t $(GPU_BASE_URL):latest -f DockerfileGPUBase .
 
@@ -29,7 +30,7 @@ pull-gpubase:
 
 publish-gpubase: build-gpubase push-gpubase
 
-CU90_URL = us.gcr.io/surreal-dev-188523/surreal-base-gpu-cuda9
+CU90_URL = us.gcr.io/jimfan2018-208323/surreal-base-gpu-cuda9
 build-gpu90:
 	docker build -t $(CU90_URL):latest -f DockerfileGPUBaseCuda90 .
 
