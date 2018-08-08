@@ -3,7 +3,7 @@
 setup-gcloud-credential:
 	gcloud auth configure-docker
 
-publish-base-all: setup-gcloud-credential publish-cpubase publish-gpubase
+publish-base-all: setup-gcloud-credential publish-cpubase publish-gpubase publish-gpumj
 
 pull-all: setup-gcloud-credential pull-cpubase pull-gpubase pull-gpumj
 

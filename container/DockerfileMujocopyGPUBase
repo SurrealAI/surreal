@@ -55,7 +55,7 @@ RUN rm /mylibs/Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/mylibs/miniconda/bin:${PATH}
 
 # pytorch
-RUN conda install --yes pytorch torchvision -c pytorch
+RUN conda install --yes pytorch torchvision cuda90 -c pytorch
 RUN conda install --yes ffmpeg -c conda-forge
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
