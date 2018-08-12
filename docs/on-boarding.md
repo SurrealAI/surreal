@@ -9,7 +9,7 @@ This guide helps you setup surreal and run experiments, both locally and remotel
 * The remainder of the installation should be done within the virtualenv, using `source activate <surreal_venv>`
 
 ## Surreal and Tensorplex 
-We will install necessary libraries so we can start an experiment locally. The installation below requires make and a c++ compiler installed.
+We will install necessary libraries so we can start an experiment locally. The installation below requires make and a C++ compiler installed.
 * Clone these repos [Surreal](https://github.com/SurrealAI/Surreal), [Tensorplex](https://github.com/SurrealAI/Tensorplex), [TorchX](https://github.com/SurrealAI/TorchX) and [Symphony](https://github.com/SurrealAI/symphony). We will refer to their path as `<surreal_path>`, `<tensorplex_path>`, `<torchx_path>`, and `<symphony_path>`. We will need these paths later
 * Install some dependencies. Go to `<surreal_path>`, run
 ```bash
