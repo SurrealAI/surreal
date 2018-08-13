@@ -6,18 +6,16 @@ import torchx.layers as L
 import numpy as np
 
 class CNNStemNetwork(nnx.Module):
-    def __init__(self, D_obs, D_out, use_layernorm=True):
+    def __init__(self, D_obs, D_out, conv_channels=[16, 32], kernel_sizes=[8, 4], strides=[4,2]):
         super(CNNStemNetwork, self).__init__()
-        conv_channels=[16, 32]
-        self.model = L.Sequential(
-            L.Conv2d(conv_channels[0], kernel_size=8, stride=4),
-            L.ReLU(),
-            L.Conv2d(conv_channels[1], kernel_size=4, stride=2),
-            L.ReLU(),
-            L.Flatten(),
-            L.Linear(D_out),
-            L.ReLU(),
-        )
+        layers = []
+        for i in range(len(conv_channels)):
+            layers.append(L.Conv2d(conv_channels[i], kernel_size=kernel_sizes[i], stride=strides[i]))
+            layers.append(L.ReLU())
+        layers.append(L.Flatten())
+        layers.append(L.Linear(D_out))
+        layers.append(L.ReLU())
+        self.model = L.Sequential(*layers)
 
         # instantiate parameters
         self.model.build((None, *D_obs))
@@ -61,30 +59,6 @@ class CriticNetworkX(nnx.Module):
     def __init__(self, D_in, D_act, hidden_sizes=[400, 300], use_layernorm=True):
         super(CriticNetworkX, self).__init__()
 
-        '''
-        xp_input = L.Placeholder((None, D_in + D_act))
-
-        xp = L.Linear(hidden_sizes[0])(xp_input)
-        xp = L.ReLU()(xp)
-        if use_layernorm:
-            # Normalize 1 dimension
-            xp = L.LayerNorm(1)(xp)
-
-
-
-        xp = L.Linear(hidden_sizes[1])(xp_input)
-        xp = L.ReLU()(xp)
-        if use_layernorm:
-            # Normalize 1 dimension
-            xp = L.LayerNorm(1)(xp)
-
-        xp = L.Linear(1)(xp)
-
-        self.model = L.Functional(inputs=xp_input, outputs=xp)
-        self.model.build((None, D_in + D_act))
-
-        '''
-
         xp_input_obs = L.Placeholder((None, D_in))
         xp = L.Linear(hidden_sizes[0])(xp_input_obs)
         xp = L.ReLU()(xp)
@@ -108,68 +82,6 @@ class CriticNetworkX(nnx.Module):
         h1 = torch.cat((h_obs, act), 1)
         value = self.model_concat(h1)
         return value
-
-
-'''
-
-class ActorNetwork(nnx.Module):
-    \'''
-    For use with flat observations
-    \'''
-
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_layernorm=False):
-        super(ActorNetwork, self).__init__()
-        self.use_layernorm = use_layernorm
-
-        xp_input = L.Placeholder((None, D_obs))
-        xp = L.Linear(hidden_sizes[0])(xp_input)
-        if self.use_layernorm:
-            xp = L.LayerNorm(1)(xp)
-        xp = L.ReLU()(xp)
-        xp = L.Linear(hidden_sizes[1])(xp)
-        if self.use_layernorm:
-            xp = L.LayerNorm(1)(xp)
-        xp = L.ReLU()(xp)
-        xp = L.Linear(D_act)(xp)
-        xp = L.Tanh()(xp)
-
-        self.model = L.Functional(inputs=xp_input, outputs=xp)
-        self.model.build((None, D_obs))
-
-    def forward(self, obs):
-        return self.model(obs)
-
-class CriticNetwork(nnx.Module):
-
-    def __init__(self, D_obs, D_act, hidden_sizes=[64, 64], use_layernorm=False):
-        super(CriticNetwork, self).__init__()
-        self.use_layernorm = use_layernorm
-
-        xp_input_obs = L.Placeholder((None, D_obs))
-        xp = L.Linear(hidden_sizes[0])(xp_input_obs)
-        if self.use_layernorm:
-            xp = L.LayerNorm(1)(xp)
-        xp = L.ReLU()(xp)
-        self.model_obs = L.Functional(inputs=xp_input_obs, outputs=xp)
-        self.model_obs.build((None, D_obs))
-
-        xp_input_concat = L.Placeholder((None, hidden_sizes[0] + D_act))
-        xp = L.Linear(hidden_sizes[1])(xp_input_concat)
-        if self.use_layernorm:
-            xp = L.LayerNorm(1)(xp)
-        xp = L.ReLU()(xp)
-        xp = L.Linear(1)(xp)
-
-        self.model_concat = L.Functional(inputs=xp_input_concat, outputs=xp)
-        self.model_concat.build((None, D_act + hidden_sizes[0]))
-
-    def forward(self, obs, act):
-        h_obs = self.model_obs(obs)
-        h1 = torch.cat((h_obs, act), 1)
-        value = self.model_concat(h1)
-        return value
-
-'''
 
 class PPO_ActorNetwork(nnx.Module):
     '''

@@ -28,6 +28,20 @@ The 'name' key simply refers to the name of the observation, such as 'camera0', 
 Many environments use the `ObservationConcatenationWrapper`, which takes all observations under the `low_dim` modality and
 concatenates them into the new array at `obs['low_dim']['flat_inputs']`.
 
+Example observation:
+
+```
+{
+    'pixel': {
+        'camera0': (numpy array),
+    },
+    'low_dim': {
+        'position': (numpy array),
+        'velocity': (numpy array),
+    }
+}
+```
+
 ## observation_spec (OrderedDict):
 observation_spec dictionaries are returned by the `env.observation_spec()` function
 

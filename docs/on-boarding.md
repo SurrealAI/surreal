@@ -4,12 +4,13 @@ This guide helps you setup surreal and run experiments, both locally and remotel
 ## Setup python env
 * Depending on your preference, setup a python 3 (3.5/3.6) environment, say named `<surreal_venv>`
 * We will assume that `<surreal_venv>` is activated in this guide
-* It is highly recommended that you use conda
+* It is highly recommended that you use conda, `conda create -n <surreal_venv> python=3.6`
 * Our own tradition is `<surreal_venv> = surreal`
+* The remainder of the installation should be done within the virtualenv, using `source activate <surreal_venv>`
 
 ## Surreal and Tensorplex 
-We will install necessary libraries so we can start an experiment locally.
-* Clone these repos [Surreal](https://github.com/StanfordVL/Surreal) and [Tensorplex](https://github.com/StanfordVL/Tensorplex). We will refer to their path as `<surreal_path>` and `<tensorplex_path>`. We will need these paths later
+We will install necessary libraries so we can start an experiment locally. The installation below requires make and a C++ compiler installed.
+* Clone these repos [Surreal](https://github.com/SurrealAI/Surreal), [Tensorplex](https://github.com/SurrealAI/Tensorplex), [TorchX](https://github.com/SurrealAI/TorchX) and [Symphony](https://github.com/SurrealAI/symphony). We will refer to their path as `<surreal_path>`, `<tensorplex_path>`, `<torchx_path>`, and `<symphony_path>`. We will need these paths later
 * Install some dependencies. Go to `<surreal_path>`, run
 ```bash
 pip install -e .
@@ -18,14 +19,6 @@ pip install -r container/requirements.txt
 * Install pytorch: our computation backend. 
 ```bash
 conda install pytorch torchvision -c pytorch # or refer to http://pytorch.org
-```
-* Install [dm_control](https://github.com/deepmind/dm_control), a set of benchmarking enviroments. Besides running the following command, check [dm_control's](https://github.com/deepmind/dm_control) readme.md 
-```bash
-pip install git+git://github.com/deepmind/dm_control.git
-```
-* Install the tensorplex library (later we will make it pip install-able). Go to `<tensorplex_path>`, run
-```bash
-pip install -e .
 ```
 * [Mujoco](http://www.mujoco.org) is a physical simulator. We need to set it up for use
 ```bash
@@ -39,6 +32,22 @@ unzip mjpro131_linux.zip
 rm mjpro131_linux.zip
 ```
 * Also, you need to put the liscense file `mjkey.txt` into `~/.mujoco`. Ask Jim or Jiren (or anyone you know working on surreal) if you don't have it.
+* Install [dm_control](https://github.com/deepmind/dm_control), a set of benchmarking enviroments. Besides running the following command, check [dm_control's](https://github.com/deepmind/dm_control) readme.md 
+```bash
+pip install git+git://github.com/deepmind/dm_control.git
+```
+* Install the tensorplex library (later we will make it pip install-able). Go to `<tensorplex_path>`, run
+```bash
+pip install -e .
+```
+* Install the torchx library (later we will make it pip install-able). Go to `<torchx_path>`, run
+```bash
+pip install -e .
+```
+* Install the symphony library (later we will make it pip install-able). Go to `<symphony_path>`, run
+```bash
+pip install -e .
+```
 
 ## Jupyter
 To run an experiment locally, we use jupyter notebook to manage the processes. Here is a short guide for setup.
@@ -51,6 +60,8 @@ pip install jupyter
 pip install ipykernel
 python -m ipykernel install --user --name surreal
 ```
+* You can open the jupyter notebook `cluster_dashboard_symphony.ipynb` to run an experiment using the tmux backend. All processes in tmux mode will be run in tmux windows on the same machine. Navigate to `<surreal_path>/surreal/main/` and `jupyter notebook`.
+* If using a remote machine, you can use ssh forwarding to access its jupyter notebook, `ssh -N -f -L localhost:8888:localhost:8888 remote_machine_hostname`.  Then, navigate to `localhost:8888`.
 
 ## Docker - Kubernetes - Google Cloud
 To run an experiment remotely, we deploy the framework into docker containers. Here are the setup guides
@@ -83,10 +94,5 @@ kurreal create-dev [experiment-name] 4 --gpu
 * `kurreal ls` lists all namespaces.
 * `kurreal ns [namespace_name]` swtiches your current namespace
 * Use `kurreal delete` to delete an experiment
-
-
-
-
-
 
 

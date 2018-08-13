@@ -18,7 +18,10 @@ class DDPGModel(nnx.Module):
                  use_layernorm,
                  actor_fc_hidden_sizes,
                  critic_fc_hidden_sizes,
-                 use_z_filter=False,
+                 conv_out_channels,
+                 conv_kernel_sizes,
+                 conv_strides,
+                 conv_hidden_dim,
                  critic_only=False,
                  ):
         super(DDPGModel, self).__init__()
@@ -26,7 +29,6 @@ class DDPGModel(nnx.Module):
         # hyperparameters
         self.is_pixel_input = 'pixel' in obs_spec
         self.action_dim = action_dim
-        self.use_z_filter = use_z_filter
         self.use_layernorm = use_layernorm
 
         if self.is_pixel_input:
@@ -36,23 +38,18 @@ class DDPGModel(nnx.Module):
 
         concatenated_perception_dim = 0
         if self.is_pixel_input:
-            perception_hidden_dim = 200
-            self.perception = CNNStemNetwork(self.input_dim, perception_hidden_dim)
-            concatenated_perception_dim += perception_hidden_dim
+            self.perception = CNNStemNetwork(self.input_dim, conv_hidden_dim, conv_channels=conv_out_channels,
+                                             kernel_sizes=conv_kernel_sizes, strides=conv_strides)
+            concatenated_perception_dim += conv_hidden_dim
         if 'low_dim' in obs_spec:
             concatenated_perception_dim += obs_spec['low_dim']['flat_inputs'][0]
         if not critic_only:
-            self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
+            self.actor = ActorNetworkX(concatenated_perception_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes,
+                                       use_layernorm=self.use_layernorm)
         else:
             self.actor = None
-        self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, use_layernorm=self.use_layernorm)
-
-
-        '''
-        else:
-            self.actor = ActorNetwork(self.input_dim, self.action_dim, hidden_sizes=actor_fc_hidden_sizes, use_layernorm=self.use_layernorm)
-            self.critic = CriticNetwork(self.input_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes, use_layernorm=self.use_layernorm)
-        '''
+        self.critic = CriticNetworkX(concatenated_perception_dim, self.action_dim, hidden_sizes=critic_fc_hidden_sizes,
+                                     use_layernorm=self.use_layernorm)
 
     def get_actor_parameters(self):
         return itertools.chain(self.actor.parameters())
