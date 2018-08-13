@@ -23,7 +23,7 @@ class DDPGAgent(Agent):
         param_noise: If not None, a parameter noise model, as outlined by
             https://blog.openai.com/better-exploration-with-parameter-noise/
 
-    important member functions:
+    Important member functions:
         public methods:
         act: method to generate action from observation using the model
         module_dict: returns the corresponding parameters
