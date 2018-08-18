@@ -7,14 +7,14 @@ from pkg_resources import parse_version
 from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
-from symphony.kube import KubeCluster
+from symphony.kube import KubeCluster, GKEMachineDispatcher
 from symphony.addons import DockerBuilder, clean_images
 from benedict import BeneDict
 import surreal
 import subprocess
 from surreal.kube.generate_command import CommandGenerator
 import surreal.utils as U
-
+import pkg_resources
 
 SURREAL_YML_VERSION = '0.0.3'  # force version check
 
@@ -159,7 +159,7 @@ class KurrealParser(SymphonyParser):
             '--gpu-type',
             dest='gpu_type',
             type=str,
-            default='k80'
+            default='v100'
         )
         parser.add_argument('-f', '--force', action='store_true')
         parser.add_argument(
@@ -411,6 +411,13 @@ class KurrealParser(SymphonyParser):
             POD_TYPES = {
                 0: 'nonagent-cpu',
                 1: 'nonagent-gpu-p100',
+                4: 'nonagent-gpu-4p100',
+            }
+        elif args.gpu_type == 'v100':
+            POD_TYPES = {
+                0: 'nonagent-cpu',
+                1: 'nonagent-gpu-v100',
+                4: 'nonagent-gpu-4v100',
             }
         else:
             raise ValueError('Unknown GPU type: {}'.format(args.gpu_type))
@@ -426,8 +433,10 @@ class KurrealParser(SymphonyParser):
         if args.batch_agent > 1:
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
-            if args.gpu_type == 'p100':
-                nonagent_pod_type = 'nonagent-mj-batch-p100'
+            # if args.gpu_type == 'p100':
+            #     nonagent_pod_type = 'nonagent-mj-batch-p100'
+            # if args.gpu_type == 'v100':
+            #     nonagent_pod_type = 'nonagent-mj-batch-v100'
             eval_pod_type = 'agent-mj-batch'
             config_command += ["--agent-num-gpus", '1']
             num_evals = 8
@@ -435,7 +444,6 @@ class KurrealParser(SymphonyParser):
             agent_pod_type = 'agent'
             eval_pod_type = 'agent'
             num_evals = 1
-
 
         self._create_helper(
             config_py=config_py,
@@ -547,13 +555,22 @@ class KurrealParser(SymphonyParser):
         nonagent_pod_spec = copy(C.pod_types[nonagent_pod_type])
         eval_pod_spec = copy(C.pod_types[eval_pod_type])
         
-        agent_resource_request = agent_pod_spec.get('resource_request', {})
-        nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
-        eval_resource_request = eval_pod_spec.get('resource_request', {})
+
+        json_path = 'cluster_definition.tf.json'  # always use slash
+        filepath = pkg_resources.resource_filename(__name__, json_path)
+        dispatcher = GKEMachineDispatcher(filepath)
+
+        agent_node_pool = agent_pod_spec["node_pool"]
+        nonagent_node_pool = nonagent_pod_spec["node_pool"]
+        eval_node_pool = eval_pod_spec["node_pool"]
+
+        # agent_resource_request = agent_pod_spec.get('resource_request', {})
+        # nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
+        # eval_resource_request = eval_pod_spec.get('resource_request', {})
         
-        agent_resource_limit = agent_pod_spec.get('resource_limit', {})
-        nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
-        eval_resource_limit = eval_pod_spec.get('resource_limit', {})
+        # agent_resource_limit = agent_pod_spec.get('resource_limit', {})
+        # nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
+        # eval_resource_limit = eval_pod_spec.get('resource_limit', {})
 
         images_to_build = {}
         # defer to build last, so we don't build unless everythingpasses
@@ -649,42 +666,50 @@ class KurrealParser(SymphonyParser):
             # Mount nfs
             proc.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
 
-        resource_limit_gpu(agent_resource_limit)
-        agent_selector = agent_pod_spec.get('selector', {})
+        # resource_limit_gpu(agent_resource_limit)
+        # agent_selector = agent_pod_spec.get('selector', {})
         for proc in agents:
             # required services
-            proc.resource_request(**agent_resource_request)
-            proc.resource_limit(**agent_resource_limit)
+            # proc.resource_request(**agent_resource_request)
+            # proc.resource_limit(**agent_resource_limit)
             proc.image_pull_policy('Always')
 
         for proc_g in agent_pods:
-            proc_g.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            # proc_g.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
             proc_g.restart_policy('Never')
-            for k, v in agent_selector.items():
-                proc_g.node_selector(key=k, value=v)
+            dispatcher.assign_to_nodepool(proc_g, agent_node_pool,
+                                          process_group=proc_g, exclusive=True)
+            # for k, v in agent_selector.items():
+            #     proc_g.node_selector(key=k, value=v)
 
-        resource_limit_gpu(eval_resource_limit)
-        eval_selector = eval_pod_spec.get('selector', {})
+        # resource_limit_gpu(eval_resource_limit)
+        # eval_selector = eval_pod_spec.get('selector', {})
         for eval_p in evals:
-            eval_p.resource_request(**eval_resource_request)
-            eval_p.resource_limit(**eval_resource_limit)
+            # eval_p.resource_request(**eval_resource_request)
+            # eval_p.resource_limit(**eval_resource_limit)
+            dispatcher.assign_to_nodepool(eval_p, eval_node_pool, exclusive=True)
             eval_p.image_pull_policy('Always')
-            eval_p.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+            # eval_p.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
             eval_p.restart_policy('Never')
-            for k, v in eval_selector.items():
-                eval_p.node_selector(key=k, value=v)
+            # for k, v in eval_selector.items():
+            #     eval_p.node_selector(key=k, value=v)
 
         learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
-        learner.resource_request(**nonagent_resource_request)
+        # learner.resource_request(**nonagent_resource_request)
 
-        resource_limit_gpu(nonagent_resource_limit)
-        learner.resource_limit(**nonagent_resource_limit)
+        # resource_limit_gpu(nonagent_resource_limit)
+        # learner.resource_limit(**nonagent_resource_limit)
 
-        non_agent_selector = nonagent_pod_spec.get('selector', {})
-        for k, v in non_agent_selector.items():
-            nonagent.node_selector(key=k, value=v)
-        nonagent.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
+        # non_agent_selector = nonagent_pod_spec.get('selector', {})
+        # for k, v in non_agent_selector.items():
+        #     nonagent.node_selector(key=k, value=v)
+        # nonagent.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
         nonagent.image_pull_policy('Always')
+
+        dispatcher.assign_to_nodepool(learner,
+                                      nonagent_node_pool,
+                                      process_group=nonagent,
+                                      exclusive=True)
 
         for name, repo in images_to_build.items():
             builder = DockerBuilder.from_dict(self.docker_build_settings[name])

@@ -1,4 +1,4 @@
-from nvidia/cuda:8.0-cudnn6-runtime-ubuntu16.04
+from nvidia/cuda:9.0-cudnn7-runtime-ubuntu16.04
 
 LABEL author="Stanford Surreal team"
 
@@ -24,7 +24,7 @@ RUN rm /mylibs/Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/mylibs/miniconda/bin:${PATH}
 
 # pytorch
-RUN conda install --yes pytorch torchvision -c pytorch
+RUN conda install --yes pytorch torchvision cuda90 -c pytorch
 COPY requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 

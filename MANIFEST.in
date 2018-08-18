@@ -1,2 +1,3 @@
 include surreal/kube/kurreal_template.yml
+include surreal/kube/cluster_definition.tf.json
 recursive-include docs *

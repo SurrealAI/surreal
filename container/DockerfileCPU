@@ -1,4 +1,4 @@
-FROM us.gcr.io/surreal-dev-188523/surreal-base-cpu-new:latest
+FROM us.gcr.io/jimfan2018-208323/surreal-base-cpu-new:latest
 
 # Arrange these dependencies to heuristically minimize number of layers to build
 
