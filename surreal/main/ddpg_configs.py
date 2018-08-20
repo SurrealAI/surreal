@@ -86,8 +86,8 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
 DDPG_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 DDPG_DEFAULT_ENV_CONFIG = Config({
-    'env_name': None,
-    'num_agents': None,
+    'env_name': '_str_',
+    'num_agents': '_int_',
     'use_demonstration': False,
     'pixel_input': True,
     'use_grayscale': False,
@@ -95,11 +95,11 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
     'frame_stacks': 3,
     'frame_stack_concatenate_on_agent': False,
     'sleep_time': 0.0,
-    'limit_episode_length': 200, # 0 means no limit
-    #'limit_episode_length': 0, # 0 means no limit
+    'limit_episode_length': 200,  # 0 means no limit
+    #'limit_episode_length': 0,  # 0 means no limit
     'video': {
         'record_video': True,
-        'save_folder': None,
+        'save_folder': '_str_',
         'max_videos': 500,
         'record_every': 20,
     },
@@ -173,13 +173,22 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use for agent, 0 for CPU only.')
         parser.add_argument('--restore_folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
+        parser.add_argument('--experiment-folder', required=True,
+                            help='session_config.folder that has experiment files'
+                            ' like checkpoint and logs')
 
-        args, remainder = parser.parse_known_args(args=argv)
+        args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
         _, self.env_config = make_env(self.env_config)
         self.env_config.num_agents = args.num_agents
-        super().setup(remainder)
+
+        self.session_config.folder = args.experiment_folder
+        self.session_config.agent.num_gpus = args.agent_num_gpus
+        self.session_config.learner.num_gpus = args.num_gpus
+        if args.restore_folder is not None:
+            self.session_config.checkpoint.restore = True
+            self.session_config.checkpoint.restore_folder = args.restore_folder
 
 
 if __name__ == '__main__':

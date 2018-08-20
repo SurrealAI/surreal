@@ -38,12 +38,13 @@ class CommandGenerator:
         self.batch_agent = batch_agent
 
     def get_command(self, role):
-        command = ['python', 'surreal.main_scripts.runner']
+        command = ['python']
         command += [self.config_py]
         command += [role]
+        command += ['--']
         command += ['--experiment-folder', shlex.quote(self.experiment_folder)]
         if self.config_command is not None:
-            command += ['--', self.config_command]
+            command += [self.config_command]
         if self.restore_folder:
             command += ['--restore-folder', shlex.quote(self.restore_folder)]
         return ' '.join(command)

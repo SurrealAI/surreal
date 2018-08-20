@@ -55,7 +55,7 @@ class ParameterPublisher(object):
 
 class ShardedParameterServer(object):
     def __init__(self, config):
-        self.ps_config = config.session_config.ps
+        self.ps_config = config
         self.shards = self.ps_config.shards
 
         self.frontend_port = os.environ['SYMPH_PS_FRONTEND_PORT']
@@ -95,7 +95,7 @@ class ShardedParameterServer(object):
             worker.join()
             U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
         self.proxy.join()
-        
+
 class ParameterServer(Process):
     # TODO support multiple PS
     """

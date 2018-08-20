@@ -11,8 +11,9 @@ from surreal.session import (
 )
 from surreal.distributed import ParameterClient, ModuleDict
 from surreal.env import (
-    MaxStepWrapper, TrainingTensorplexMonitor,
-    expSenderWrapperFactory, EvalTensorplexMonitor,
+    MaxStepWrapper,
+    TrainingTensorplexMonitor,
+    EvalTensorplexMonitor,
     VideoWrapper
 )
 

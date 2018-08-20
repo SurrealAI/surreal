@@ -9,6 +9,8 @@ import subprocess
 import numpy as np
 from argparse import ArgumentParser
 from multiprocessing import Process
+from tensorplex import Loggerplex
+from tensorplex import Tensorplex
 from surreal.distributed.ps import ShardedParameterServer
 from surreal.replay import ShardedReplay
 
@@ -76,7 +78,7 @@ class SurrealDefaultLauncher(Launcher):
         self.eval_mode = eval_mode
         self.render = render
 
-    def launch(self, component_name):
+    def launch(self, component_name_in):
         """
             Launches a surreal experiment
 
@@ -85,9 +87,10 @@ class SurrealDefaultLauncher(Launcher):
                             eval-{*}, learner, ps, tensorboard
 
         """
-        if '-' in component_name:
-            component_name, component_id = component_name.split('-')
+        if '-' in component_name_in:
+            component_name, component_id = component_name_in.split('-')
         else:
+            component_name = component_name_in
             component_id = None
 
         if component_name == 'agent':
@@ -104,22 +107,13 @@ class SurrealDefaultLauncher(Launcher):
             self.run_replay()
         elif component_name == 'tensorboard':
             self.run_tensorboard()
+        elif component_name == 'tensorplex':
+            self.run_tensorplex()
+        elif component_name == 'loggerplex':
+            self.run_loggerplex()
+        else:
+            raise ValueError('Unexpected component {}'.format(component_name))
         # TODO: batch agent and eval
-
-    def setup(self, argv):
-        parser = ArgumentParser()
-        parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
-        parser.add_argument('--num-gpus', type=int, default=0,
-                            help='number of GPUs to use, 0 for CPU only.')
-        parser.add_argument('--agent-num-gpus', type=int, default=0,
-                            help='number of GPUs to use for agent, 0 for CPU only.')
-
-        args = parser.parse_args(args=argv)
-        self.session_config.agent.num_gpus = args.agent_num_gpus
-        self.session_config.learner.num_gpus = args.num_gpus
-        if args.restore_folder is not None:
-            self.session_config.checkpoint.restore = True
-            self.session_config.checkpoint.restore_folder = args.restore_folder
 
     def run_agent(self, agent_id):
         np.random.seed(int(time.time() * 100000 % 100000))
@@ -229,3 +223,43 @@ class SurrealDefaultLauncher(Launcher):
                '--logdir', folder,
                '--port', str(tensorplex_config.tensorboard_port)]
         subprocess.call(cmd)
+
+    def run_tensorplex(self):
+        folder = os.path.join(self.session_config.folder, 'tensorboard')
+        tensorplex_config = self.session_config.tensorplex
+
+        tensorplex = Tensorplex(
+            folder,
+            max_processes=tensorplex_config.max_processes,
+        )
+
+        """
+            Tensorboard categories:
+                learner/replay/eval: algorithmic level, e.g. reward, ... 
+                ***-core: low level metrics, i/o speed, computation time, etc.
+                ***-system: Metrics derived from raw metric data in core,
+                    i.e. exp_in/exp_out
+        """
+        (tensorplex
+            .register_normal_group('learner')
+            .register_indexed_group('agent', tensorplex_config.agent_bin_size)
+            .register_indexed_group('eval', 4)
+            .register_indexed_group('replay', 10))
+
+        port = os.environ['SYMPH_TENSORPLEX_PORT']
+        tensorplex.start_server(port=port)
+
+    def run_loggerplex(self):
+        folder = self.session_config.folder
+        loggerplex_config = self.session_config.loggerplex
+
+        loggerplex = Loggerplex(
+            os.path.join(folder, 'logs'),
+            level=loggerplex_config.level,
+            overwrite=loggerplex_config.overwrite,
+            show_level=loggerplex_config.show_level,
+            time_format=loggerplex_config.time_format
+        )
+        port = os.environ['SYMPH_LOGGERPLEX_PORT']
+        loggerplex.start_server(port)
+

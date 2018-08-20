@@ -5,10 +5,7 @@ BASE_LEARNER_CONFIG = {
     'model': '_dict_',
     'algo': {
         # Agent class to instantiate
-        'agent_class': '_str_',
         # Learner class to instantiate
-        'learner_class': '_str_',
-        'experience': '_str_',
         'n_step': 1,
         'gamma': '_float_',
         'use_batchnorm': False,
@@ -20,7 +17,6 @@ BASE_LEARNER_CONFIG = {
     },
     'replay': {
         # The replay class to instantiate
-        'replay_class': '_str_',
         'batch_size': '_int_',
         'replay_shards': 1,
     },

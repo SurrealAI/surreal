@@ -186,12 +186,28 @@ class PPOLauncher(SurrealDefaultLauncher):
     def setup(self, argv):
         parser = argparse.ArgumentParser()
         parser.add_argument('--env', type=str, required=True, help='name of the environment')
+        parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
+        parser.add_argument('--num-gpus', type=int, default=0,
+                            help='number of GPUs to use, 0 for CPU only.')
+        parser.add_argument('--agent-num-gpus', type=int, default=0,
+                            help='number of GPUs to use for agent, 0 for CPU only.')
+        parser.add_argument('--restore_folder', type=str, default=None,
+                            help='folder containing checkpoint to restore from')
+        parser.add_argument('--experiment-folder', required=True,
+                            help='session_config.folder that has experiment files'
+                            ' like checkpoint and logs')
 
-        args, remainder = parser.parse_known_args(args=argv)
+        args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
         _, self.env_config = make_env(self.env_config)
-        super().setup(remainder)
+
+        self.session_config.folder = args.experiment_folder
+        self.session_config.agent.num_gpus = args.agent_num_gpus
+        self.session_config.learner.num_gpus = args.num_gpus
+        if args.restore_folder is not None:
+            self.session_config.checkpoint.restore = True
+            self.session_config.checkpoint.restore_folder = args.restore_folder
 
 
 if __name__ == '__main__':

@@ -24,7 +24,8 @@ class DDPGAgent(Agent):
                  env_config,
                  session_config,
                  agent_id,
-                 agent_mode):
+                 agent_mode,
+                 render=False):
 
         super().__init__(
             learner_config=learner_config,
@@ -32,6 +33,7 @@ class DDPGAgent(Agent):
             session_config=session_config,
             agent_id=agent_id,
             agent_mode=agent_mode,
+            render=render,
         )
 
         self.agent_id = agent_id
