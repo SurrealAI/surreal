@@ -66,15 +66,14 @@ class ShardedParameterServer(object):
 
         self.proxy = None
         self.workers = []
-        
+
     def launch(self):
         self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
-                                                out_add=self.parameter_serving_backend_add,
-                                                pattern='router-dealer')
+                                           out_add=self.parameter_serving_backend_add,
+                                           pattern='router-dealer')
 
         self.proxy.start()
 
-        
         self.workers = []
 
         publish_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']

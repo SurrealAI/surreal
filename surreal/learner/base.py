@@ -15,25 +15,7 @@ from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
 import os
 
 
-learner_registry = {}
-
-
-def register_learner(target_class):
-    learner_registry[target_class.__name__] = target_class
-
-
-def learner_factory(learner_name):
-    return learner_registry[learner_name]
-
-
-class LearnerMeta(U.AutoInitializeMeta):
-    def __new__(meta, name, bases, class_dict):
-        cls = super().__new__(meta, name, bases, class_dict)
-        register_learner(cls)
-        return cls
-
-
-class Learner(metaclass=LearnerMeta):
+class Learner:
     """
         Important: When extending this class, make sure to follow the init method signature so that 
         orchestrating functions can properly initialize the learner.
@@ -293,8 +275,8 @@ class Learner(metaclass=LearnerMeta):
     def restore_checkpoint(self):
         SC = self.session_config
         restore_folder = SC.checkpoint.restore_folder
-        if (restore_folder
-            and U.f_last_part_in_path(restore_folder) != 'checkpoint'):
+        if (restore_folder and
+                U.f_last_part_in_path(restore_folder) != 'checkpoint'):
             # automatically append 'checkpoint' subfolder
             restore_folder = U.f_join(restore_folder, 'checkpoint')
         restored = self._periodic_checkpoint.restore(

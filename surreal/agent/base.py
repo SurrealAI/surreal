@@ -2,7 +2,9 @@
 A template class that defines base agent APIs
 """
 import time
+import os
 import surreal.utils as U
+from surreal.env import make_env
 from surreal.session import (
     PeriodicTracker, PeriodicTensorplex,
     get_loggerplex_client, get_tensorplex_client,
@@ -13,30 +15,11 @@ from surreal.env import (
     expSenderWrapperFactory, EvalTensorplexMonitor,
     VideoWrapper
 )
-import os
-
-agent_registry = {}
-
 
 AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
 
 
-def register_agent(target_class):
-    agent_registry[target_class.__name__] = target_class
-
-
-def agent_factory(agent_name):
-    return agent_registry[agent_name]
-
-
-class AgentMeta(U.AutoInitializeMeta):
-    def __new__(meta, name, bases, class_dict):
-        cls = super().__new__(meta, name, bases, class_dict)
-        register_agent(cls)
-        return cls
-
-
-class Agent(object, metaclass=AgentMeta):
+class Agent(object):
     """
         Important: When extending this class, make sure to follow the init method signature so that 
         orchestrating functions can properly initialize custom agents.
@@ -49,7 +32,8 @@ class Agent(object, metaclass=AgentMeta):
                  env_config,
                  session_config,
                  agent_id,
-                 agent_mode):
+                 agent_mode,
+                 render=False):
         """
             Initialize the agent class, 
         """
@@ -68,6 +52,9 @@ class Agent(object, metaclass=AgentMeta):
         self.cumulative_steps = 0
         self.current_step = 0
 
+        self.actions_since_param_update = 0
+        self.episodes_since_param_update = 0
+
     #######
     # Internal initialization methods
     #######
@@ -84,7 +71,7 @@ class Agent(object, metaclass=AgentMeta):
             host=host,
             port=port,
         )
-    
+
     def _setup_parameter_pull(self):
         self._fetch_parameter_mode = self.session_config.agent.fetch_parameter_mode
         self._fetch_parameter_interval = self.session_config.agent.fetch_parameter_interval
@@ -173,14 +160,15 @@ class Agent(object, metaclass=AgentMeta):
             delay = time.time() - info['time']
             self.actions_per_param_update.add_value(self.actions_since_param_update)
             self.episodes_per_param_update.add_value(self.episodes_since_param_update)
-            self.tensorplex.add_scalars({'.core/parameter_publish_delay_s': delay,
-                        '.core/actions_per_param_update': self.actions_per_param_update.cur_value(),
-                        '.core/episodes_per_param_update': self.episodes_per_param_update.cur_value()
-                        })
+            self.tensorplex.add_scalars(
+                {
+                    '.core/parameter_publish_delay_s': delay,
+                    '.core/actions_per_param_update': self.actions_per_param_update.cur_value(),
+                    '.core/episodes_per_param_update': self.episodes_per_param_update.cur_value()
+                })
             self.actions_since_param_update = 0
             self.episodes_since_param_update = 0
         return params
-
 
     def pre_action(self, obs):
         """
@@ -222,15 +210,16 @@ class Agent(object, metaclass=AgentMeta):
 
 
     #######
-    # Main loops. 
+    # Main loops.
     # Customize this to fully customize the agent process
     #######
-    def main(self, env, render=False):
+    def main(self):
         """
             Default Main loop
         Args:
             @env: the environment to run agent on
         """
+        env = self.get_env()
         env = self.prepare_env(env)
         self.env = env
         self.fetch_parameter()
@@ -239,7 +228,7 @@ class Agent(object, metaclass=AgentMeta):
             obs, info = env.reset()
             total_reward = 0.0
             while True:
-                if render:
+                if self.render:
                     env.render()
                 self.pre_action(obs)
                 action = self.act(obs)
@@ -253,12 +242,24 @@ class Agent(object, metaclass=AgentMeta):
             if self.current_episode % 20 == 0:
                 print('episode', self.current_episode, 'reward', total_reward)
 
-    def prepare_env(self, env):
+    def get_env(self):
+        """Creates an environment instance
+
+        Returns a subclass of EnvBase
+        """
+        if self.agent_mode in ['eval_deterministic', 'eval_stochastic']:
+            env, _ = make_env(self.env_config, mode='eval')
+        else:
+            env, _ = make_env(self.env_config)
+        return env
+
+    def prepare_env(self):
         """
             Applies custom wrapper to the environment as necessary
         Returns:
             @env: The (possibly wrapped) environment
         """
+        env = self.get_env()
         if self.agent_mode == 'training':
             return self.prepare_env_agent(env)
         else:
@@ -313,15 +314,15 @@ class Agent(object, metaclass=AgentMeta):
             Main loop ran by the agent script
             Override if you want to customize agent behavior completely
         """
-        self.main(env)
+        self.main()
 
-    def main_eval(self, env):
+    def main_eval(self):
         """
             Main loop ran by the eval script
             Override if you want to customize eval behavior completely
         """
-        self.main(env)
-    
+        self.main()
+
     #######
     # Exposed public methods
     #######
@@ -348,4 +349,3 @@ class Agent(object, metaclass=AgentMeta):
         """
         assert agent_mode in AGENT_MODES
         self.agent_mode = agent_mode
-

@@ -1,183 +1,211 @@
 from surreal.session import Config, LOCAL_SESSION_CONFIG
+from surreal.agent import PPOAgent
+from surreal.learner import PPOLearner
+from surreal.replay import FIFOReplay
+from surreal.launcher import SurrealDefaultLauncher
+from surreal.env import make_env
 import argparse
 
-def generate(argv):
-    """
-    The function name must be `generate`.
-    Will be called by `surreal.main_scripts.runner`
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, required=True, help='name of the environment')
-    parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
-    parser.add_argument('--num-gpus', type=int, default=0,
-                        help='number of GPUs to use, 0 for CPU only.')
-    parser.add_argument('--agent-num-gpus', type=int, default=0,
-                        help='number of GPUs to use for agent, 0 for CPU only.')
 
-
-    args = parser.parse_args(args=argv)
-    
-    learner_config = {
-        'model': {
-            'convs':[], # this can wait until TorchX
-            'actor_fc_hidden_sizes': [300, 200],
-            'critic_fc_hidden_sizes': [300, 200],
-            'cnn_feature_dim': 256,
-            'use_layernorm': False,
-        },
-        'algo': {
-            # base configs
-            'agent_class': 'PPOAgent', 
-            'learner_class': 'PPOLearner',
-            'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-            'use_z_filter': False,
-            'use_r_filter': False,
-            'gamma': .99, 
-            'n_step': 25, # 10 for without RNN
-            'stride': 20, # 10 for without RNN
-            'network': {
-                'lr_actor': 1e-4,
-                'lr_critic': 1e-4,
-                'clip_actor_gradient': True,
-                'actor_gradient_norm_clip': 10.,
-                'clip_critic_gradient': True,
-                'critic_gradient_norm_clip': 10.,
-                'actor_regularization': 0.0,
-                'critic_regularization': 0.0,
-                'anneal':{  
-                    'lr_scheduler': "LinearWithMinLR",
-                    'frames_to_anneal': 5e6,
-                    'lr_update_frequency': 100, 
-                    'min_lr': 1e-4,
-                },
-            },
-
-            # ppo specific parameters:
-            'ppo_mode': 'adapt',
-            'advantage':{
-                'norm_adv': True,
-                'lam': 1.0,
-                'reward_scale': 1.0,
-            },
-            'rnn': {
-                'if_rnn_policy': True, 
-                'rnn_hidden': 100,
-                'rnn_layer': 1,
-                'horizon': 5,
-            },
-            'consts': {
-                'init_log_sig': -1.0,
-                'log_sig_range': 0,
-                'epoch_policy': 10,
-                'epoch_baseline': 10,
-                'adjust_threshold': (0.5, 2.0), # threshold to magnify clip epsilon
-                'kl_target': 0.02, # target KL divergence between before and after
-            },
-            'adapt_consts': {
-                'kl_cutoff_coeff': 500, # penalty coeff when kl large
-                'beta_init': 1.0, # original beta
-                'beta_range': (1/35.0, 35.0), # range of the adapted penalty factor
-                'scale_constant': 1.5,
-            },
-            'clip_consts': {
-                'clip_epsilon_init': 0.2, # factor of clipped loss
-                'clip_range': (0.05, 0.3), # range of the adapted penalty factor
-                'scale_constant': 1.2,
-            },
-
-        },
-        'replay': {
-            'replay_class': 'FIFOReplay',
-            'batch_size': 64,
-            'memory_size': 96,
-            'sampling_start_size': 64,
-            'replay_shards': 1,
-        },
-        'parameter_publish': {
-            'exp_interval': 4096,  
-        },
-    }
-
-    env_config = {
-        'env_name': args.env,
-        'action_repeat': 10,
-        'pixel_input': True,
-        'use_grayscale': False,
-        'use_depth': False,
-        'frame_stacks': 1,
-        'sleep_time': 0,
-        'video': {
-            'record_video': True,
-            'save_folder': None,
-            'max_videos': 500,
-            'record_every': 5,
-        },
-        'observation': {
-            'pixel':['camera0'],
-            'low_dim':['proprio', 'low-level'],
-        }, 
-        'eval_mode': {
-            'demonstration': None
-        },
-        'demonstration': {
-            'use_demo': False,
-            'adaptive': True,
-            # params for open loop reverse curriculum
-            'increment_frequency': 100,
-            'sample_window_width': 25,
-            'increment': 25,
-
-            # params for adaptive curriculum
-            'mixing': ['random'],
-            'mixing_ratio': [1.0],
-            'ratio_step': [0.0],
-            'improve_threshold': 0.1,
-            'curriculum_length': 50,
-            'history_length': 20,
-        },
-        'limit_episode_length': 500,
-        'stochastic_eval': True,
-    }
-
-    session_config = Config({
-        'folder': '_str_',
-        'tensorplex': {
-            'update_schedule': {
-                # for TensorplexWrapper:
-                'training_env': 20,  # env record every N episodes
-                'eval_env': 5,
-                'eval_env_sleep': 2,  # throttle eval by sleep n seconds
-                # for manual updates:
-                'agent': 50,  # agent.update_tensorplex()
-                'learner': 20,  # learner.update_tensorplex()
+PPO_DEFAULT_LEARNER_CONFIG = Config({
+    'model': {
+        'convs': [],  # this can wait until TorchX
+        'actor_fc_hidden_sizes': [300, 200],
+        'critic_fc_hidden_sizes': [300, 200],
+        'cnn_feature_dim': 256,
+        'use_layernorm': False,
+    },
+    'algo': {
+        # base configs
+        # 'agent_class': 'PPOAgent',
+        # 'learner_class': 'PPOLearner',
+        # TODO: clean up
+        'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
+        'use_z_filter': False,
+        'use_r_filter': False,
+        'gamma': .99,
+        'n_step': 25,  # 10 for without RNN
+        'stride': 20,  # 10 for without RNN
+        'network': {
+            'lr_actor': 1e-4,
+            'lr_critic': 1e-4,
+            'clip_actor_gradient': True,
+            'actor_gradient_norm_clip': 10.,
+            'clip_critic_gradient': True,
+            'critic_gradient_norm_clip': 10.,
+            'actor_regularization': 0.0,
+            'critic_regularization': 0.0,
+            'anneal': {
+                'lr_scheduler': "LinearWithMinLR",
+                'frames_to_anneal': 5e6,
+                'lr_update_frequency': 100,
+                'min_lr': 1e-4,
             },
         },
-        'agent' : {
-            'fetch_parameter_mode': 'step',
-            'fetch_parameter_interval': 250, # 10 for without RNN
-            'num_gpus': args.agent_num_gpus,
+
+        # ppo specific parameters:
+        'ppo_mode': 'adapt',
+        'advantage':{
+            'norm_adv': True,
+            'lam': 1.0,
+            'reward_scale': 1.0,
         },
-        'sender': {
-            'flush_iteration': 3,
+        'rnn': {
+            'if_rnn_policy': True, 
+            'rnn_hidden': 100,
+            'rnn_layer': 1,
+            'horizon': 5,
         },
+        'consts': {
+            'init_log_sig': -1.0,
+            'log_sig_range': 0,
+            'epoch_policy': 10,
+            'epoch_baseline': 10,
+            'adjust_threshold': (0.5, 2.0),  # threshold to magnify clip epsilon
+            'kl_target': 0.02,  # target KL divergence between before and after
+        },
+        'adapt_consts': {
+            'kl_cutoff_coeff': 500,  # penalty coeff when kl large
+            'beta_init': 1.0,  # original beta
+            'beta_range': (1/35.0, 35.0),  # range of the adapted penalty factor
+            'scale_constant': 1.5,
+        },
+        'clip_consts': {
+            'clip_epsilon_init': 0.2,  # factor of clipped loss
+            'clip_range': (0.05, 0.3),  # range of the adapted penalty factor
+            'scale_constant': 1.2,
+        },
+
+    },
+    'replay': {
+        # 'replay_class': 'FIFOReplay',
+        'batch_size': 64,
+        'memory_size': 96,
+        'sampling_start_size': 64,
+        'replay_shards': 1,
+    },
+    'parameter_publish': {
+        'exp_interval': 4096,
+    },
+})
+
+PPO_DEFAULT_ENV_CONFIG = Config({
+    'env_name': args.env,
+    'action_repeat': 10,
+    'pixel_input': True,
+    'use_grayscale': False,
+    'use_depth': False,
+    'frame_stacks': 1,
+    'sleep_time': 0,
+    'video': {
+        'record_video': True,
+        'save_folder': None,
+        'max_videos': 500,
+        'record_every': 5,
+    },
+    'observation': {
+        'pixel': ['camera0'],
+        'low_dim': ['proprio', 'low-level'],
+    },
+    'eval_mode': {
+        'demonstration': None
+    },
+    'demonstration': {
+        'use_demo': False,
+        'adaptive': True,
+        # params for open loop reverse curriculum
+        'increment_frequency': 100,
+        'sample_window_width': 25,
+        'increment': 25,
+
+        # params for adaptive curriculum
+        'mixing': ['random'],
+        'mixing_ratio': [1.0],
+        'ratio_step': [0.0],
+        'improve_threshold': 0.1,
+        'curriculum_length': 50,
+        'history_length': 20,
+    },
+    'limit_episode_length': 500,
+    'stochastic_eval': True,
+})
+
+PPO_DEFAULT_SESSION_CONFIG = Config({
+    'folder': '_str_',
+    'tensorplex': {
+        'update_schedule': {
+            # for TensorplexWrapper:
+            'training_env': 20,  # env record every N episodes
+            'eval_env': 5,
+            'eval_env_sleep': 2,  # throttle eval by sleep n seconds
+            # for manual updates:
+            'agent': 50,  # agent.update_tensorplex()
+            'learner': 20,  # learner.update_tensorplex()
+        },
+    },
+    'agent': {
+        'fetch_parameter_mode': 'step',
+        'fetch_parameter_interval': 250,  # 10 for without RNN
+        'num_gpus': 0, # args
+    },
+    'sender': {
+        'flush_iteration': 3,
+    },
+    'learner': {
+        'num_gpus': 0, # args
+    },
+    'replay': {
+        'max_puller_queue': 3,
+        'max_prefetch_batch_queue': 1,
+    },
+    'checkpoint': {
         'learner': {
-            'num_gpus': args.num_gpus,
+            'mode': 'history',
+            'periodic': 1000, # Save every 1000 steps
+            'min_interval': 15 * 60, # No checkpoint less than 15 min apart.
         },
-        'replay' : {
-            'max_puller_queue': 3,
-            'max_prefetch_batch_queue': 1,
-        },
-        'checkpoint': {
-            'learner': {
-                'mode': 'history',
-                'periodic': 1000, # Save every 1000 steps
-                'min_interval': 15 * 60, # No checkpoint less than 15 min apart.
-            },
-        },
-    })
+    },
+})
+PPO_DEFAULT_SESSION_CONFIG.extend(LOCAL_SESSION_CONFIG)
 
-    session_config.extend(LOCAL_SESSION_CONFIG)
-    return learner_config, env_config, session_config
+
+class PPOLauncher(SurrealDefaultLauncher):
+    def __init__(self):
+        learner_class = PPOLearner
+        agent_class = PPOAgent
+        replay_class = FIFOReplay
+        learner_config = PPO_DEFAULT_LEARNER_CONFIG
+        env_config = PPO_DEFAULT_ENV_CONFIG
+        session_config = PPO_DEFAULT_SESSION_CONFIG
+        super().__init__(agent_class,
+                         learner_class,
+                         replay_class,
+                         session_config,
+                         env_config,
+                         learner_config)
+
+    def setup(self, argv):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--env', type=str, required=True, help='name of the environment')
+        parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
+        parser.add_argument('--num-gpus', type=int, default=0,
+                            help='number of GPUs to use, 0 for CPU only.')
+        parser.add_argument('--agent-num-gpus', type=int, default=0,
+                            help='number of GPUs to use for agent, 0 for CPU only.')
+
+        args = parser.parse_args(args=argv)
+
+        self.env_config.env_name = args.env
+
+        _, self.env_config = make_env(self.env_config)
+
+        self.session_config.agent.num_gpus = args.agent_num_gpus
+        self.session_config.learner.num_gpus = args.num_gpus
+
+
+if __name__ == '__main__':
+    PPOLauncher().main()
+
 
 '''
     Specific hyperparameters For Cheetah v. Hopper:

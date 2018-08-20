@@ -1,29 +1,15 @@
-import threading
 import time
+import os
 import surreal.utils as U
 from surreal.session import get_tensorplex_client, get_loggerplex_client
 from surreal.distributed import ZmqSimpleServer, ExperienceCollectorServer
-import os
 
 
-replay_registry = {}
-
-def register_replay(target_class):
-    replay_registry[target_class.__name__] = target_class
-
-def replay_factory(replay_name):
-    return replay_registry[replay_name]
-
-class ReplayMeta(type):
-    def __new__(meta, name, bases, class_dict):
-        cls = super().__new__(meta, name, bases, class_dict)
-        register_replay(cls)
-        return cls
-
-class Replay(object, metaclass=ReplayMeta):
+class Replay:
     """
-        Important: When extending this class, make sure to follow the init method signature so that 
-        orchestrating functions can properly initialize the replay server.
+        Important: When extending this class, make sure to follow the init
+        method signature so that orchestrating functions can properly
+        initialize the replay server.
     """
     def __init__(self,
                  learner_config,
@@ -64,9 +50,9 @@ class Replay(object, metaclass=ReplayMeta):
     def start_threads(self):
         if self._has_tensorplex:
             self.start_tensorplex_thread()
-        
+
         self._collector_server.start()
-        
+
         if self._evict_interval:
             self.start_evict_thread()
 
@@ -149,7 +135,7 @@ class Replay(object, metaclass=ReplayMeta):
         self.last_experience_count = 0
         self.last_sample_count = 0
         self.last_request_count = 0
-        
+
         self.insert_time = U.TimeRecorder(decay=0.99998)
         self.sample_time = U.TimeRecorder()
         self.serialize_time = U.TimeRecorder()
@@ -204,10 +190,10 @@ class Replay(object, metaclass=ReplayMeta):
         return self._tensorplex_thread
 
     def generate_tensorplex_report(self):
-        """ 
+        """
             Generates tensorplex reports
         """
-        global_step=int(time.time() - self.init_time)
+        global_step = int(time.time() - self.init_time)
 
         time_elapsed = time.time() - self.last_tensorplex_iter_time + 1e-6
 
@@ -248,10 +234,10 @@ class Replay(object, metaclass=ReplayMeta):
         serialize_load = serialize_time * handle_sample_request_speed / time_elapsed
         collect_exp_load = insert_time * exp_in_speed / time_elapsed
         sample_exp_load = sample_time * handle_sample_request_speed / time_elapsed
-        
+
         system_metrics = {
-            'lifetime_experience_utilization_percent': \
-                cum_count_sampled / (cum_count_collected + 1) * 100,
+            'lifetime_experience_utilization_percent':
+            cum_count_sampled / (cum_count_collected + 1) * 100,
             'current_experience_utilization_percent': exp_out_speed / (exp_in_speed + 1) * 100,
             'serialization_load_percent': serialize_load * 100,
             'collect_exp_load_percent': collect_exp_load * 100,
@@ -267,4 +253,3 @@ class Replay(object, metaclass=ReplayMeta):
         self.tensorplex.add_scalars(all_metrics, global_step=global_step)
 
         self.last_tensorplex_iter_time = time.time()
-
