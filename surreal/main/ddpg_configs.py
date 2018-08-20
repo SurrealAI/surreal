@@ -1,10 +1,15 @@
-from surreal.session import Config, LOCAL_SESSION_CONFIG
+import argparse
+from surreal.session import (
+    Config,
+    LOCAL_SESSION_CONFIG,
+    BASE_LEARNER_CONFIG,
+    BASE_ENV_CONFIG
+    )
 from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
 from surreal.launcher import SurrealDefaultLauncher
 from surreal.env import make_env
-import argparse
 
 # TODO：Documentation on config files
 
@@ -28,7 +33,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
     'algo': {
         # 'agent_class': 'DDPGAgent',
         # 'learner_class': 'DDPGLearner',
-        'experience': 'ExpSenderWrapperSSARNStepBootstrap',
+        # 'experience': 'ExpSenderWrapperSSARNStepBootstrap',
         'use_z_filter': False,
         'gamma': .99,
         'n_step': 6,
@@ -78,6 +83,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'min_publish_interval': 3,
     },
 })
+DDPG_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 DDPG_DEFAULT_ENV_CONFIG = Config({
     'env_name': None,
@@ -104,6 +110,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
         #'low_dim':['position', 'velocity', 'proprio'],
     },
 })
+DDPG_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)
 
 DDPG_DEFAULT_SESSION_CONFIG = Config({
     'folder': '_str_',
@@ -164,14 +171,15 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
+        parser.add_argument('--restore_folder', type=str, default=None,
+                            help='folder containing checkpoint to restore from')
 
-        args = parser.parse_args(args=argv)
+        args, remainder = parser.parse_known_args(args=argv)
 
         self.env_config.env_name = args.env
-        self.env_config.num_agents = args.num_agents
         _, self.env_config = make_env(self.env_config)
-        self.session_config.agent.num_gpus = args.agent_num_gpus
-        self.session_config.learner.num_gpus = args.num_gpus
+        self.env_config.num_agents = args.num_agents
+        super().setup(remainder)
 
 
 if __name__ == '__main__':

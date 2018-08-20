@@ -7,7 +7,6 @@ import os
 import sys
 import subprocess
 import numpy as np
-from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Process
 from surreal.distributed.ps import ShardedParameterServer
@@ -55,8 +54,7 @@ class Launcher:
         Args:
             args: A list of commandline arguments provided.
         """
-        raise NotImplementedError
-
+        pass
 
 class SurrealDefaultLauncher(Launcher):
     def __init__(self,
@@ -106,6 +104,22 @@ class SurrealDefaultLauncher(Launcher):
             self.run_replay()
         elif component_name == 'tensorboard':
             self.run_tensorboard()
+        # TODO: batch agent and eval
+
+    def setup(self, argv):
+        parser = ArgumentParser()
+        parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
+        parser.add_argument('--num-gpus', type=int, default=0,
+                            help='number of GPUs to use, 0 for CPU only.')
+        parser.add_argument('--agent-num-gpus', type=int, default=0,
+                            help='number of GPUs to use for agent, 0 for CPU only.')
+
+        args = parser.parse_args(args=argv)
+        self.session_config.agent.num_gpus = args.agent_num_gpus
+        self.session_config.learner.num_gpus = args.num_gpus
+        if args.restore_folder is not None:
+            self.session_config.checkpoint.restore = True
+            self.session_config.checkpoint.restore_folder = args.restore_folder
 
     def run_agent(self, agent_id):
         np.random.seed(int(time.time() * 100000 % 100000))
@@ -177,18 +191,6 @@ class SurrealDefaultLauncher(Launcher):
     def run_learner(self):
         session_config, learner_config, env_config = \
             self.session_config, self.learner_config, self.env_config
-        # env, env_config = make_env(env_config)
-        # del env  # Does not work for dm_control as they don't clean up
-
-        # TODO: clean up
-        # if args.restore:
-        #     session_config.checkpoint.restore = True
-        #     session_config.checkpoint.restore_folder = args.restore_folder
-
-        # TODO: clean up
-        # folder = Path(session_config.folder)
-        # folder.mkdir(exist_ok=True, parents=True)
-        # config.dump_file(str(folder / 'config.yml'))
 
         learner_class = self.learner_class
         learner = learner_class(

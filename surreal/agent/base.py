@@ -275,8 +275,6 @@ class Agent(object):
         if limit_episode_length > 0:
             env = MaxStepWrapper(env, limit_episode_length)
 
-        expSenderWrapper = expSenderWrapperFactory(self.learner_config.algo.experience)
-        env = expSenderWrapper(env, self.learner_config, self.session_config)
         env = TrainingTensorplexMonitor(
             env,
             agent_id=self.agent_id,

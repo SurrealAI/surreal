@@ -493,7 +493,6 @@ class KurrealParser(SymphonyParser):
             experiment_folder=remote_experiment_folder, # TODO: fixme
             config_py=config_py,
             config_command=config_command,
-            service_url=None,
             restore=restore,
             restore_folder=restore_folder,
             batch_agent=batch_agent,

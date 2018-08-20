@@ -19,8 +19,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         # base configs
         # 'agent_class': 'PPOAgent',
         # 'learner_class': 'PPOLearner',
-        # TODO: clean up
-        'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
+        # 'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
         'use_z_filter': False,
         'use_r_filter': False,
         'gamma': .99,
@@ -51,7 +50,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
             'reward_scale': 1.0,
         },
         'rnn': {
-            'if_rnn_policy': True, 
+            'if_rnn_policy': True,
             'rnn_hidden': 100,
             'rnn_layer': 1,
             'horizon': 5,
@@ -90,7 +89,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
 })
 
 PPO_DEFAULT_ENV_CONFIG = Config({
-    'env_name': args.env,
+    'env_name': None,
     'action_repeat': 10,
     'pixel_input': True,
     'use_grayscale': False,
@@ -146,13 +145,13 @@ PPO_DEFAULT_SESSION_CONFIG = Config({
     'agent': {
         'fetch_parameter_mode': 'step',
         'fetch_parameter_interval': 250,  # 10 for without RNN
-        'num_gpus': 0, # args
+        'num_gpus': 0,
     },
     'sender': {
         'flush_iteration': 3,
     },
     'learner': {
-        'num_gpus': 0, # args
+        'num_gpus': 0,
     },
     'replay': {
         'max_puller_queue': 3,
@@ -187,20 +186,12 @@ class PPOLauncher(SurrealDefaultLauncher):
     def setup(self, argv):
         parser = argparse.ArgumentParser()
         parser.add_argument('--env', type=str, required=True, help='name of the environment')
-        parser.add_argument('--num-agents', type=int, required=True, help='number of agents used')
-        parser.add_argument('--num-gpus', type=int, default=0,
-                            help='number of GPUs to use, 0 for CPU only.')
-        parser.add_argument('--agent-num-gpus', type=int, default=0,
-                            help='number of GPUs to use for agent, 0 for CPU only.')
 
-        args = parser.parse_args(args=argv)
+        args, remainder = parser.parse_known_args(args=argv)
 
         self.env_config.env_name = args.env
-
         _, self.env_config = make_env(self.env_config)
-
-        self.session_config.agent.num_gpus = args.agent_num_gpus
-        self.session_config.learner.num_gpus = args.num_gpus
+        super().setup(remainder)
 
 
 if __name__ == '__main__':
