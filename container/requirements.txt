@@ -8,3 +8,5 @@ tensorboardX # TODO: remove
 imageio
 pyarrow
 pygame
+cython
+pyyaml

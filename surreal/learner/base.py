@@ -84,7 +84,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
         # sampler_port = self.session_config.replay.sampler_frontend_port
         ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         batch_size = self.learner_config.replay.batch_size
-        # max_prefetch_batch_queue = self.session_config.learner.max_prefetch_batch_queue
 
         self._ps_publisher = None  # in _initialize()
         self._ps_port = ps_publish_port
@@ -145,7 +144,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
     ######
     def _setup_logging(self):
         self.learn_timer = U.TimeRecorder()
-        # We don't do it here so that we don't require _prefetch_queue to be setup beforehands
         self.iter_timer = U.TimeRecorder()
         self.publish_timer = U.TimeRecorder()
 
@@ -158,7 +156,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
 
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
-
         self._tensorplex_thread = None
 
     def _get_tensorplex(self, name):
@@ -297,7 +294,9 @@ class Learner(metaclass=U.AutoInitializeMeta):
     ######
     def preprocess(self, batch):
         '''
-        Perform algorithm-specific preprocessing tasks, overridden in subclasses
+        Perform algorithm-specific preprocessing tasks on a given batch, overridden in subclasses
+        This operation occurs asynchronously to the learner main loop, so if training on gpu, any cpu-bound or high
+        latency tasks can be done here.
         For example, ddpg converts relevant variables onto gpu
         '''
         return batch
@@ -315,10 +314,8 @@ class Learner(metaclass=U.AutoInitializeMeta):
 
     def _setup_batch_prefetch(self):
         self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
-        self._preprocess_threads = []
-        for i in range(1):
-            self._preprocess_threads.append(threading.Thread(target=self._preprocess_batch))
-            self._preprocess_threads[-1].start()
+        self._preprocess_thread = threading.Thread(target=self._preprocess_batch)
+        self._preprocess_thread.start()
 
     def fetch_processed_batch_iterator(self):
         while True:

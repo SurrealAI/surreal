@@ -2,19 +2,54 @@ from queue import Queue
 import torch
 import torch.nn as nn
 import numpy as np
-import itertools
 from .base import Learner
-from .aggregator import NstepReturnAggregator, SSARAggregator, FrameStackPreprocessor
+from .aggregator import SSARAggregator, FrameStackPreprocessor
 from surreal.model.ddpg_net import DDPGModel
-from surreal.session import Config, extend_config, BASE_SESSION_CONFIG
 from surreal.session import BASE_LEARNER_CONFIG, ConfigError
-#from surreal.utils.pytorch import #GpuVariable as Variable
 import surreal.utils as U
 import torchx as tx
-import torchx.nn as nnx
 
 
 class DDPGLearner(Learner):
+    '''
+    DDPGLearner: subclass of Learner that contains DDPG algorithm logic
+    Attributes:
+        gpu_option: 'cpu' if not using GPU, 'cuda:all' otherwise
+        model: instance of DDPGModel from surreal.model.ddpg_net
+        model_target: instance of DDPGModel, used as a reference policy
+            for Bellman updates
+        use_action_regularization: boolean flag -- regularization method based on
+            https://arxiv.org/pdf/1802.09477.pdf
+        use_double_critic: boolean flag -- overestimation bias correction based on
+            https://arxiv.org/pdf/1802.09477.pdf
+        [actor/critic]_optim: Adam Optimizer for policy and baseline network
+        aggregator: experience aggregator used to batch experiences from
+            a list of experiences into a format usable by the model.
+            For available aggregators, see surreal.learner.aggregator
+        target_update_type: 'hard' update sets the weights of model_target equal to model
+            after target_update_interval steps, whereas 'soft' update moves the parameters
+            of model_target towards model after every step
+        total_learn_time, forward_time, etc: timers that measure average time spent in
+            each operation of the learner. These timers will be reported in tensorboard.
+
+    important member functions:
+        private methods:
+        _optimize: function that makes policy and value function updates
+
+        public methods:
+        learn: method to perform optimization and send to tensorplex for log
+        module_dict: returns the corresponding parameters
+        preprocess: this function is called in learner/main prior to learn(),
+            This operation occurs in a separate thread, meaning that conversion
+            from numpy arrays to gpu tensors can occur asynchronously to gpu
+            processing operations in learn().
+
+    Arguments:
+        learner_config, env_config, session_config: experiment setup configurations.  An example set of configs
+            can be found at surreal/main/ddpg_configs.py.  Note that the surreal/env/make_env function adds attributes
+            env_config.action_spec and env_config.obs_spec, which are required for this init method to function
+            properly.
+    '''
 
     def __init__(self, learner_config, env_config, session_config):
         super().__init__(learner_config, env_config, session_config)
@@ -22,19 +57,15 @@ class DDPGLearner(Learner):
         self.current_iteration = 0
 
         # load multiple optimization instances onto a single gpu
-        self.batch_queue_size = 5
-        self.batch_queue = Queue(maxsize=self.batch_queue_size)
-
         self.batch_size = self.learner_config.replay.batch_size
         self.discount_factor = self.learner_config.algo.gamma
         self.n_step = self.learner_config.algo.n_step
         self.is_pixel_input = self.env_config.pixel_input
-        self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.use_double_critic = self.learner_config.algo.network.use_double_critic
         self.use_action_regularization = self.learner_config.algo.network.use_action_regularization
 
-        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
+        self.frame_stack_concatenate_on_env = self.env_config.frame_stack_concatenate_on_env
 
         self.log.info('Initializing DDPG learner')
         self._num_gpus = session_config.learner.num_gpus
@@ -51,16 +82,16 @@ class DDPGLearner(Learner):
             torch.backends.cudnn.benchmark = True
 
         with tx.device_scope(self.gpu_ids):
-            self.target_update_init()
+            self._target_update_init()
 
             self.clip_actor_gradient = self.learner_config.algo.network.clip_actor_gradient
             if self.clip_actor_gradient:
-                self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_norm_clip
+                self.actor_gradient_clip_value = self.learner_config.algo.network.actor_gradient_value_clip
                 self.log.info('Clipping actor gradient at {}'.format(self.actor_gradient_clip_value))
 
             self.clip_critic_gradient = self.learner_config.algo.network.clip_critic_gradient
             if self.clip_critic_gradient:
-                self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_norm_clip
+                self.critic_gradient_clip_value = self.learner_config.algo.network.critic_gradient_value_clip
                 self.log.info('Clipping critic gradient at {}'.format(self.critic_gradient_clip_value))
 
             self.action_dim = self.env_config.action_spec.dim[0]
@@ -70,7 +101,10 @@ class DDPGLearner(Learner):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
 
             self.model_target = DDPGModel(
@@ -79,7 +113,10 @@ class DDPGLearner(Learner):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
 
             if self.use_double_critic:
@@ -89,7 +126,10 @@ class DDPGLearner(Learner):
                     use_layernorm=self.use_layernorm,
                     actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                     critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                    use_z_filter=self.use_z_filter,
+                    conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                    conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                    conv_strides=self.learner_config.model.conv_spec.strides,
+                    conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
                     critic_only=True,
                 )
 
@@ -99,7 +139,10 @@ class DDPGLearner(Learner):
                     use_layernorm=self.use_layernorm,
                     actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                     critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                    use_z_filter=self.use_z_filter,
+                    conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                    conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                    conv_strides=self.learner_config.model.conv_spec.strides,
+                    conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
                     critic_only=True,
                 )
 
@@ -128,7 +171,6 @@ class DDPGLearner(Learner):
                 )
 
             self.log.info('Using {}-step bootstrapped return'.format(self.learner_config.algo.n_step))
-            # Note that the Nstep Return aggregator does not care what is n. It is the experience sender that cares
             self.frame_stack_preprocess = FrameStackPreprocessor(self.env_config.frame_stacks)
             self.aggregator = SSARAggregator(self.env_config.obs_spec, self.env_config.action_spec)
 
@@ -137,14 +179,22 @@ class DDPGLearner(Learner):
 
             if self.use_double_critic:
                 self.model_target2.critic.hard_update(self.model2.critic)
-            # self.train_iteration = 0
-            
+
             self.total_learn_time = U.TimeRecorder()
             self.forward_time = U.TimeRecorder()
             self.critic_update_time = U.TimeRecorder()
             self.actor_update_time = U.TimeRecorder()
 
+    # override
     def preprocess(self, batch):
+        '''
+        Override for learner/base/preprocess.  Before learn() is called, preprocess() takes the batch and converts
+        the numpy arrays to pytorch tensors.  Note that this operation will transfer the data to gpu if a gpu is used.
+
+        Arguments:
+            batch: a batch of numpy arrays from the replay memory
+        '''
+        # Convert all numpy arrays to pytorch tensors, and transfers to gpu if applicable
         with tx.device_scope(self.gpu_ids):
             obs, actions, rewards, obs_next, done = (
                 batch['obs'],
@@ -194,50 +244,34 @@ class DDPGLearner(Learner):
             )
             return batch
 
-    def _assert_gpu(self, tensor, name):
-        # Sometimes automatic conversion to cuda tensor in tx.device_scope
-        # doesn't work, correct for that here
-        if self._num_gpus == 0:
-            return tensor
-        if not tensor.is_cuda:
-            print('----Expected cuda tensor, received cpu tensor------')
-            print('name', name)
-            print('is_cuda', tensor.is_cuda)
-            print('tensor_type', type(tensor))
-            print('dimensions', tensor.dim())
-            print('iter', self.current_iteration)
-            return tensor.to(torch.device('cuda'))
-        return tensor
-
     def _optimize(self, obs, actions, rewards, obs_next, done):
         '''
-        obs is a tuple (visual_obs, flat_obs). If visual_obs is not None, it is a FloatTensor
-        of observations, (N, C, H, W).  Note that while the replay contains uint8, the
+        Note that while the replay contains uint8, the
         aggregator returns float32 tensors
+
+        Arguments:
+            obs: an observation from the minibatch, often represented as s_n in literature. Dimensionality: (N, C) for
+                low dimensional inputs, (N, C, H, W) for pixel inputs
+            actions: actions taken given observations obs, often represented as a_n in literature.
+                Dimensionality: (N, A), where A is the dimensionality of a single action
+            rewards: rewards received after action is taken. Dimensionality: N
+            obs_next: an observation from the minibatch, often represented as s_{n+1} in literature
+            done: 1 if obs_next is terminal, 0 otherwise. Dimensionality: N
         '''
         with tx.device_scope(self.gpu_ids):
 
             with self.forward_time.time():
-                for o in [obs, obs_next]:
-                    for modality in o:
-                        for k in o[modality]:
-                            o[modality][k] = self._assert_gpu(o[modality][k], k)
-                actions = self._assert_gpu(actions, 'actions')
-                rewards = self._assert_gpu(rewards, 'rewards')
-                done = self._assert_gpu(done, 'done')
-
                 assert actions.max().item() <= 1.0
                 assert actions.min().item() >= -1.0
 
                 # estimate rewards using the next state: r + argmax_a Q'(s_{t+1}, u'(a))
-                # obs_next.volatile = True
 
                 model_policy, next_Q_target = self.model_target.forward(obs_next)
                 if self.use_action_regularization:
                     # https://github.com/sfujim/TD3/blob/master/TD3.py -- action regularization
                     policy_noise = 0.2
-                    batch_size = self.batch_size
                     noise_clip = 0.5
+                    batch_size = self.batch_size
                     noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size, self.action_dim)), -noise_clip,
                                     noise_clip)
                     device_name = 'cpu'
@@ -256,7 +290,7 @@ class DDPGLearner(Learner):
                 perception = self.model.forward_perception(obs)
                 y_policy = self.model.forward_critic(
                     perception,
-                    actions.detach() # TODO: why do we detach here
+                    actions.detach()
                 )
 
                 y_policy2 = None
@@ -264,7 +298,7 @@ class DDPGLearner(Learner):
                     perception2 = self.model2.forward_perception(obs)
                     y_policy2 = self.model2.forward_critic(
                         perception2,
-                        actions.detach() # TODO: why do we detach here
+                        actions.detach()
                     )
 
             # critic update
@@ -314,17 +348,20 @@ class DDPGLearner(Learner):
             }
             if self.use_double_critic:
                 tensorplex_update_dict['Q_policy2'] = y_policy2.mean().item()
-            if self.use_z_filter:
-                tensorplex_update_dict['observation_0_running_mean'] = self.model.z_filter.running_mean()[0]
-                tensorplex_update_dict['observation_0_running_square'] =  self.model.z_filter.running_square()[0]
-                tensorplex_update_dict['observation_0_running_std'] = self.model.z_filter.running_std()[0]            
 
             # (possibly) update target networks
-            self.target_update()
+            self._target_update()
 
             return tensorplex_update_dict
 
     def learn(self, batch):
+        '''
+        Performs a gradient descent step on 'batch'
+
+        Arguments:
+            batch: a minibatch sampled from the replay memory, after preprocessing steps such as transfer to pytorch
+            tensors and aggregation step
+        '''
         self.current_iteration += 1
         with self.total_learn_time.time():
             tensorplex_update_dict = self._optimize(
@@ -352,7 +389,7 @@ class DDPGLearner(Learner):
             'model', 'model_target'
         ]
 
-    def target_update_init(self):
+    def _target_update_init(self):
         target_update_config = self.learner_config.algo.network.target_update
         self.target_update_type = target_update_config.type
 
@@ -366,7 +403,12 @@ class DDPGLearner(Learner):
         else:
             raise ConfigError('Unsupported ddpg update type: {}'.format(target_update_config.type))
 
-    def target_update(self):
+    def _target_update(self):
+        '''
+        Perform update on target model networks.  This update is either 'soft', meaning the target model drifts towards
+        the current model at a rate tau, or 'hard', meaning the target model performs a hard copy operation on the
+        current model every target_update_interval steps.
+        '''
         if self.target_update_type == 'soft':
             self.model_target.actor.soft_update(self.model.actor, self.target_update_tau)
             self.model_target.critic.soft_update(self.model.critic, self.target_update_tau)
@@ -390,7 +432,12 @@ class DDPGLearner(Learner):
 
     # override
     def _prefetch_thread_preprocess(self, batch):
-        if not self.frame_stack_concatenate_on_agent:
+        '''
+        If frame_stack_preprocess is not set, each experience in the replay will be stored as a list of frames, as
+        opposed to a single numpy array.  We must condense them into a single numpy array as that is what the
+        aggregator expects.
+        '''
+        if not self.frame_stack_concatenate_on_env:
             batch = self.frame_stack_preprocess.preprocess_list(batch)
         batch = self.aggregator.aggregate(batch)
         return batch

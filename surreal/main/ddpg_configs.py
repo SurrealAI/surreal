@@ -18,98 +18,139 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'convs': [],
         'actor_fc_hidden_sizes': [300, 200],
         'critic_fc_hidden_sizes': [400, 300],
-        'use_layernorm': True,
-        'dueling': False,
+        'use_layernorm': False,
         'conv_spec': {
-            'out_channels': [64, 64],
-            'kernel_sizes': [3, 5],
-            'use_batch_norm': False
-        },
-        'mlp_spec': {
-            'sizes': [128],
-            'use_dropout': False
+            # First conv layer: 16 out channels, second layer 32 channels
+            'out_channels': [16, 32],
+            # First conv layer: kernel size 8, second layer kernel size 4
+            'kernel_sizes': [8, 4],
+            # First conv layer: stride=4, second layer stride=2
+            'strides': [4, 2],
+            # After final convolution, reshapes output to flat tensor and feed through mlp with output of this size
+            'hidden_output_dim': 200,
         },
     },
     'algo': {
-        # 'agent_class': 'DDPGAgent',
-        # 'learner_class': 'DDPGLearner',
-        # 'experience': 'ExpSenderWrapperSSARNStepBootstrap',
-        'use_z_filter': False,
         'gamma': .99,
-        'n_step': 6,
+        # Unroll the bellman update
+        'n_step': 3,
+        # Send experiences every `stride` steps
         'stride': 1,
         'network': {
             'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
+            'lr_critic': 1e-3,
             'clip_actor_gradient': True,
-            'actor_gradient_norm_clip': 1.,
+            'actor_gradient_value_clip': 1.,
             'clip_critic_gradient': False,
-            'critic_gradient_norm_clip': 5.,
+            'critic_gradient_value_clip': 5.,
+            # Weight regularization
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
-            'use_action_regularization': True,
-            'use_double_critic': True,
+            # beta version: see https://arxiv.org/pdf/1802.09477.pdf and
+            # https://github.com/sfujim/TD3/blob/master/TD3.py
+            # for action regularization and double critic algorithm details
+            'use_action_regularization': False,
+            'use_double_critic': False,
             'target_update': {
+                # Soft: after every iteration, target_params = (1 - tau) * target_params + tau * params
                 #'type': 'soft',
                 #'tau': 1e-3,
+                # Hard: after `interval` iterations, target_params = params
                 'type': 'hard',
                 'interval': 500,
             },
         },
         'exploration': {
+            # Beta implementation of parameter noise:
+            # see https://blog.openai.com/better-exploration-with-parameter-noise/ for algorithm details
             'param_noise_type': None,
+
+            # normal parameter noise applies gaussian noise over the agent's parameters
+            # 'param_noise_type': 'normal',
+
+            # adaptive parameter noise scales the noise sigma up or down in order to achieve the target action
+            # standard deviation
+            # 'param_noise_type': 'adaptive_normal',
             'param_noise_sigma': 0.05,
             'param_noise_alpha': 1.15,
             'param_noise_target_stddev': 0.005,
-            #'noise_type': 'normal',
+
+            # Vanilla noise: applies gaussian noise on every action
+            'noise_type': 'normal',
             # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
             # The sigma values will be 0.0, 0.33, 0.66
-            'max_sigma': 2.0,
-            'noise_type': 'ou_noise',
-            'theta': 0.15,
-            # 'sigma': 0.3,
-            'dt': 1e-3,
+            'max_sigma': 1.0,
+
+            # Or, use Ornstein-Uhlenbeck noise instead of gaussian
+            #'noise_type': 'ou_noise',
+            #'theta': 0.15,
+            #'dt': 1e-3,
         },
     },
     'replay': {
-        # 'replay_class': 'UniformReplay',
         'batch_size': 512,
-        'memory_size': int(1000000/3),  # Note that actual replay size is memory_size * replay_shards
+        'memory_size': int(1000000/3), # The total replay size is memory_size * replay_shards
         'sampling_start_size': 3000,
         'replay_shards': 3,
+    },
+    'exploration': {
+        'param_noise_type': None,
+        'param_noise_sigma': 0.05,
+        'param_noise_alpha': 1.15,
+        'param_noise_target_stddev': 0.005,
+        #'noise_type': 'normal',
+        # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
+        # The sigma values will be 0.0, 0.33, 0.66
+        'max_sigma': 2.0,
+        'noise_type': 'ou_noise',
+        'theta': 0.15,
+        # 'sigma': 0.3,
+        'dt': 1e-3,
     },
     'parameter_publish': {
         # Minimum amount of time (seconds) between two parameter publish
         'min_publish_interval': 3,
     },
 })
+
 DDPG_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 DDPG_DEFAULT_ENV_CONFIG = Config({
     'env_name': '_str_',
     'num_agents': '_int_',
     'use_demonstration': False,
-    'pixel_input': True,
+    # If true, DDPG will expect an image at obs['pixel']['camera0']
+    'pixel_input': False,
     'use_grayscale': False,
-    'action_repeat': 10,
+    # Stacks previous image frames together to provide history information
     'frame_stacks': 3,
-    'frame_stack_concatenate_on_agent': False,
+    # Each action will be played this number of times. The reward of the consecutive actions will be the the reward
+    # of the last action in the sequence
+    'action_repeat': 1,
+    # If false, the agent will send an image will be a list of frames to the replay.  When the learner receives an
+    # observation, it will concatenate the frames into a single tensor.  This allows the replay to optimize memory
+    # usage so that identical frames aren't duplicated in memory
+    'frame_stack_concatenate_on_env': False,
+    # Debug only: agent will sleep for this number of seconds between actions
     'sleep_time': 0.0,
-    'limit_episode_length': 200,  # 0 means no limit
-    #'limit_episode_length': 0,  # 0 means no limit
+    # If an episode reaches this number of steps, the state will be considered terminal
+    'limit_episode_length': 0, # 0 means no limit
     'video': {
-        'record_video': True,
-        'save_folder': '_str_',
+        'record_video': False,
+        'save_folder': None,
         'max_videos': 500,
         'record_every': 20,
     },
+    # observation: if using FilterWrapper, any input not listed will be thrown out.
+    # For example, if an observation had a value at obs['pixel']['badkey'], that value will be ignored
     'observation': {
         'pixel':['camera0', 'depth'],
-        # if using ObservationConcatWrapper, low_dim inputs will be concatenated into 'flat_inputs'
+        # if using ObservationConcatWrapper, all low_dim inputs will be concatenated together into a single input
+        # named 'flat_inputs'
         'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
-        #'low_dim':['position', 'velocity', 'proprio'],
     },
 })
+
 DDPG_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)
 
 DDPG_DEFAULT_SESSION_CONFIG = Config({
@@ -129,7 +170,7 @@ DDPG_DEFAULT_SESSION_CONFIG = Config({
         # fetch_parameter_mode: 'episode', 'episode:<n>', 'step', 'step:<n>'
         # every episode, every n episodes, every step, every n steps
         'fetch_parameter_mode': 'step',
-        'fetch_parameter_interval': 400,
+        'fetch_parameter_interval': 200,
         'num_gpus': 0,
     },
     'sender': {

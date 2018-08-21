@@ -1,5 +1,5 @@
 """
-Actor function
+DDPG actor class
 """
 import copy
 import collections
@@ -18,6 +18,23 @@ from .param_noise import NormalParameterNoise, AdaptiveNormalParameterNoise
 
 
 class DDPGAgent(Agent):
+    '''
+    DDPGAgent: subclass of Agent that contains DDPG algorithm logic
+    Attributes:
+        model: A DDPG neural network model to generate actions from observations
+        noise: A traditional action noise model. When called, noise produces an output
+            of the same dimension as the action dimension
+        param_noise: If not None, a parameter noise model, as outlined by
+            https://blog.openai.com/better-exploration-with-parameter-noise/
+
+    Important member functions:
+        public methods:
+        act: method to generate action from observation using the model
+        module_dict: returns the corresponding parameters
+        on_parameter_fetched: performs necessary updates to parameter noise
+            given new parameters from the parameter server
+        pre_episode: prepares model for new episode, performs update to the noise model
+    '''
 
     def __init__(self,
                  learner_config,
@@ -26,7 +43,13 @@ class DDPGAgent(Agent):
                  agent_id,
                  agent_mode,
                  render=False):
-
+        '''
+        Constructor for DDPGAgent class.
+        Important attributes:
+            learner_config, env_config, session_config: experiment configurations
+            agent_id: unique id in the range [0, num_agents)
+            agent_mode: toggles between agent noise and deterministic behavior
+        '''
         super().__init__(
             learner_config=learner_config,
             env_config=env_config,
@@ -39,7 +62,6 @@ class DDPGAgent(Agent):
         self.agent_id = agent_id
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.use_z_filter = self.learner_config.algo.use_z_filter
         self.use_layernorm = self.learner_config.model.use_layernorm
         self.sleep_time = self.env_config.sleep_time
 
@@ -49,7 +71,7 @@ class DDPGAgent(Agent):
         self.param_noise_alpha = self.learner_config.algo.exploration.param_noise_alpha
         self.param_noise_target_stddev = self.learner_config.algo.exploration.param_noise_target_stddev
 
-        self.frame_stack_concatenate_on_agent = self.env_config.frame_stack_concatenate_on_agent
+        self.frame_stack_concatenate_on_env = self.env_config.frame_stack_concatenate_on_env
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
         if env_config.num_agents == 1:
@@ -79,16 +101,19 @@ class DDPGAgent(Agent):
                 use_layernorm=self.use_layernorm,
                 actor_fc_hidden_sizes=self.learner_config.model.actor_fc_hidden_sizes,
                 critic_fc_hidden_sizes=self.learner_config.model.critic_fc_hidden_sizes,
-                use_z_filter=self.use_z_filter,
+                conv_out_channels=self.learner_config.model.conv_spec.out_channels,
+                conv_kernel_sizes=self.learner_config.model.conv_spec.kernel_sizes,
+                conv_strides=self.learner_config.model.conv_spec.strides,
+                conv_hidden_dim=self.learner_config.model.conv_spec.hidden_output_dim,
             )
             self.model.eval()
 
-            self.init_noise()
+            self._init_noise()
 
-    def init_noise(self):
+    def _init_noise(self):
         """
-            initializes exploration noise
-            and populates self.noise, a callable that returns noise of dimension same as action
+            initializes exploration noise and populates self.noise, a callable
+            that returns noise of dimension same as action
         """
         if self.agent_mode == 'eval_deterministic':
             return
@@ -129,20 +154,23 @@ class DDPGAgent(Agent):
         with tx.device_scope(self.gpu_ids):
             if self.sleep_time > 0.0:
                 time.sleep(self.sleep_time)
-            if not self.frame_stack_concatenate_on_agent:
+            if not self.frame_stack_concatenate_on_env:
+                # Output pixels of environment is a list of frames,
+                # we concatenate the frames into a single numpy array
                 obs = copy.deepcopy(obs)
                 if 'pixel' in obs:
                     for key in obs['pixel']:
                         obs['pixel'][key] = np.concatenate(obs['pixel'][key], axis=0)
-            obs_variable = collections.OrderedDict()
+            # Convert to pytorch tensor
+            obs_tensor = collections.OrderedDict()
             for modality in obs:
                 modality_dict = collections.OrderedDict()
                 for key in obs[modality]:
                     modality_dict[key] = torch.tensor(obs[modality][key], dtype=torch.float32).unsqueeze(0)
-                obs_variable[modality] = modality_dict
-            action, _ = self.model(obs_variable, calculate_value=False)
+                obs_tensor[modality] = modality_dict
+            action, _ = self.model(obs_tensor, calculate_value=False)
             if self.param_noise and self.param_noise_type == 'adaptive_normal':
-                self.param_noise.compute_action_distance(obs_variable, action)
+                self.param_noise.compute_action_distance(obs_tensor, action)
             action = action.data.cpu().numpy()[0]
 
             action = action.clip(-1, 1)
@@ -155,7 +183,7 @@ class DDPGAgent(Agent):
 
     def module_dict(self, model=None):
         # By default, module_dict refers to the module_dict for the current model.
-        # But, you can generate a module_dict for other models as well -- 
+        # But, you can generate a module_dict for other models as well --
         # e.g. param_noise uses a separate module_dict to calculate action difference
         if model == None:
             model = self.model
