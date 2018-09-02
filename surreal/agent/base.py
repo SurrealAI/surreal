@@ -308,7 +308,7 @@ class Agent(object):
                 env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
-    def main_agent(self, env):
+    def main_agent(self):
         """
             Main loop ran by the agent script
             Override if you want to customize agent behavior completely

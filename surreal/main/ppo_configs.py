@@ -194,8 +194,10 @@ class PPOLauncher(SurrealDefaultLauncher):
         parser.add_argument('--restore_folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
-                            help='session_config.folder that has experiment files'
-                            ' like checkpoint and logs')
+                            help='session_config.folder that has experiment'
+                            'files like checkpoint and logs')
+        parser.add_argument('--agent-batch', type=int, default=1,
+                            help='how many agents/evals per batch')
 
         args = parser.parse_args(args=argv)
 
@@ -208,6 +210,8 @@ class PPOLauncher(SurrealDefaultLauncher):
         if args.restore_folder is not None:
             self.session_config.checkpoint.restore = True
             self.session_config.checkpoint.restore_folder = args.restore_folder
+        self.agent_batch_size = args.agent_batch
+        self.eval_batch_size = args.agent_batch
 
 
 if __name__ == '__main__':

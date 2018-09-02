@@ -433,8 +433,8 @@ class KurrealParser(SymphonyParser):
         if args.batch_agent > 1:
             agent_pod_type = 'agent-mj-batch'
             nonagent_pod_type = 'nonagent-mj-batch'
-            # if args.gpu_type == 'p100':
-            #     nonagent_pod_type = 'nonagent-mj-batch-p100'
+            if args.gpu_type == 'p100':
+                nonagent_pod_type = 'nonagent-mj-batch-p100'
             # if args.gpu_type == 'v100':
             #     nonagent_pod_type = 'nonagent-mj-batch-v100'
             eval_pod_type = 'agent-mj-batch'

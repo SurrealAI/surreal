@@ -1,7 +1,7 @@
 import shlex
 import sys
+import math
 from collections import OrderedDict
-
 import surreal.utils as U
 
 
@@ -20,7 +20,8 @@ class CommandGenerator:
             num_agents:
             config_py: remote config.py path in the pod
             experiment_folder: remote session_config.folder in the pod
-            config_command: additional commands that pass to user-defined config.py, after "--"
+            config_command: additional commands that pass
+                to user-defined config.py, after "--"
             service_url: DNS <experiment-name>.surreal
             restore: True to restore experiment from checkpoint
             restore_folder: restore experiment from checkpoint folder
@@ -43,6 +44,8 @@ class CommandGenerator:
         command += [role]
         command += ['--']
         command += ['--experiment-folder', shlex.quote(self.experiment_folder)]
+        if self.batch_agent != 1:
+            command += ['--agent-batch', str(self.batch_agent)]
         if self.config_command is not None:
             command += [self.config_command]
         if self.restore_folder:
@@ -52,37 +55,37 @@ class CommandGenerator:
     def generate(self, save_yaml=None):
         """
         Save __init__ args as well as generated commands to <save_yaml> file
+
+        Args:
+            save_yaml: if provided, save the commandline arguments to
+                path save_yaml
         """
         cmd_dict = OrderedDict()
         cmd_dict['learner'] = self.get_command('learner')
-        # if self.batch_agent == 1:
-        cmd_dict['agent'] = [self.get_command('agent-{}'.format(i))
-                             for i in range(self.num_agents)]
-        cmd_dict['eval'] = [self.get_command('eval-{}'.format(i))
-                            for i in range(self.num_evals)]
-        # else: # TODO: fix batch agent
-        #     batch = []
-        #     cmd_dict['agent-batch'] = []
-        #     for i in range(self.num_agents):
-        #         batch.append(str(i))
-        #         if len(batch) == self.batch_agent:
-        #             cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
-        #             batch = []
-        #     if len(batch) > 0:
-        #         cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
+        if self.batch_agent == 1:
+            cmd_dict['agent'] = [self.get_command('agent-{}'.format(i))
+                                 for i in range(self.num_agents)]
+            cmd_dict['eval'] = [self.get_command('eval-{}'.format(i))
+                                for i in range(self.num_evals)]
+        else:
+            cmd_dict['agent-batch'] = []
+            n_batches = math.ceil(float(self.num_agents) / self.batch_agent)
+            for i in range(n_batches):
+                cmd_dict['agent-batch'].append(
+                    self.get_command('agents-{}'.format(i)))
 
-        #     batch = []
-        #     cmd_dict['eval-batch'] = []
-        #     for i in range(self.num_evals):
-        #         batch.append(str(i))
-        #         if len(batch) == self.batch_agent:
-        #             batch_eval = self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic'])
-        #             cmd_dict['eval-batch'].append(batch_eval)
-        #             batch = []
-        #     if len(batch) > 0:
-        #         cmd_dict['eval-batch'].append(self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic']))
+            cmd_dict['eval-batch'] = []
+            n_batches_eval = math.ceil(
+                float(self.num_evals) / self.batch_agent)
+            for i in range(n_batches_eval):
+                cmd_dict['eval-batch'].append(
+                    self.get_command('evals-{}'.format(i)))
 
-        for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:
+        for role in ['tensorplex',
+                     'tensorboard',
+                     'loggerplex',
+                     'ps',
+                     'replay']:
             cmd_dict[role] = self.get_command(role)
 
         if save_yaml:

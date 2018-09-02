@@ -118,6 +118,10 @@ DDPG_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 DDPG_DEFAULT_ENV_CONFIG = Config({
     'env_name': '_str_',
     'num_agents': '_int_',
+
+    'demonstration': None,
+    'use_depth': False,
+
     'use_demonstration': False,
     # If true, DDPG will expect an image at obs['pixel']['camera0']
     'pixel_input': False,
@@ -217,6 +221,8 @@ class DDPGLauncher(SurrealDefaultLauncher):
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment files'
                             ' like checkpoint and logs')
+        parser.add_argument('--agent-batch', type=int, default=1,
+                            help='how many agents/evals per batch')
 
         args = parser.parse_args(args=argv)
 
@@ -230,6 +236,8 @@ class DDPGLauncher(SurrealDefaultLauncher):
         if args.restore_folder is not None:
             self.session_config.checkpoint.restore = True
             self.session_config.checkpoint.restore_folder = args.restore_folder
+        self.agent_batch_size = args.agent_batch
+        self.eval_batch_size = args.agent_batch
 
 
 if __name__ == '__main__':
