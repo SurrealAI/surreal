@@ -9,7 +9,7 @@ from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
 from surreal.launcher import SurrealDefaultLauncher
-from surreal.env import make_env
+from surreal.env import make_env, make_env_config
 
 # TODO：Documentation on config files
 
@@ -227,7 +227,7 @@ class DDPGLauncher(SurrealDefaultLauncher):
         args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
-        _, self.env_config = make_env(self.env_config)
+        self.env_config = make_env_config(self.env_config)
         self.env_config.num_agents = args.num_agents
 
         self.session_config.folder = args.experiment_folder
