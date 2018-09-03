@@ -9,6 +9,14 @@ from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 def make_env_config(env_config, mode=None):
     """
     Forks a process, creates the environment and generate the config
+    This makes sure that when we initializes an environment using
+    make_env, we have not created and then deleted another one (just
+    to get the dimension of input). Many rendering related things
+    can break when created and destroyed.
+
+    e.g. If you create a mujoco_py MjOffscreenRenderContext,
+    delete it, fork the process and re-create the context, you
+    will get a setfault
 
     Args:
         env_config: see make_env
