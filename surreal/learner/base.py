@@ -38,6 +38,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
+        self.current_iter = 0
 
         self._setup_connection()
         self._setup_logging()
@@ -325,23 +326,35 @@ class Learner(metaclass=U.AutoInitializeMeta):
     # Main Loop
     # Override to completely change learner behavior
     ######
-    def main_loop(self):    
+    def main(self):
         """
-            Main loop that defines learner process
+            Main function that defines learner process
+        """
+        self.main_setup()
+        self.main_loop()
+
+    def main_setup(self):
+        """
+            Setup before constant looping
         """
         self.save_config()
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
 
-        for i, data in enumerate(self.fetch_processed_batch_iterator()):
-            self.current_iter = i
-            with self.learn_timer.time():
-                self.learn(data)
-            if self.should_publish_parameter():
-                with self.publish_timer.time():
-                    # pass
-                    self.publish_parameter(i, message='batch '+str(i))
-            self.iter_timer.lap()
+    def main_loop(self):
+        """
+            One loop of learner, runs one learn operation of learner
+        """
+        data = self._preprocess_prefetch_queue.get()
+        with self.learn_timer.time():
+            self.learn(data)
+        if self.should_publish_parameter():
+            with self.publish_timer.time():
+                # pass
+                self.publish_parameter(self.current_iter,
+                                       message='batch '+str(self.current_iter))
+        self.iter_timer.lap()
+        self.current_iter += 1
 
     def save_config(self):
         folder = Path(self.session_config.folder)

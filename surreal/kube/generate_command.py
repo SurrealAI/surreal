@@ -22,7 +22,6 @@ class CommandGenerator:
             experiment_folder: remote session_config.folder in the pod
             config_command: additional commands that pass
                 to user-defined config.py, after "--"
-            service_url: DNS <experiment-name>.surreal
             restore: True to restore experiment from checkpoint
             restore_folder: restore experiment from checkpoint folder
         """
@@ -90,7 +89,7 @@ class CommandGenerator:
 
         if save_yaml:
             init_dict = OrderedDict()
-            for attr in ['num_agents', 'config_py', 'config_command', 'service_url']:
+            for attr in ['num_agents', 'config_py', 'config_command']:
                 init_dict[attr] = getattr(self, attr)
             save_dict = OrderedDict(init=init_dict)
             save_dict['commands'] = cmd_dict
@@ -102,6 +101,7 @@ class CommandGenerator:
             print('  {}: {}'.format(attr, getattr(self, attr)))
         return cmd_dict
 
+    # TODO: shall we deprecate
     @staticmethod
     def get_yaml(saved_yaml):
         try:
@@ -109,20 +109,3 @@ class CommandGenerator:
         except FileNotFoundError as e:
             print('Warning:', e, file=sys.stderr)
             return None
-
-
-if __name__ == "__main__":
-    gen = CommandGenerator(config_py='~/.abc',
-                           num_agents=3,
-                           experiment_folder='/remote/exp/folder',
-                           config_command='--test-command def -m "ab cd ef"',
-                           service_url='foo.bar.com',
-                           restore=True,
-                           restore_folder='remote/restore/folder')
-    save_yaml = '~/Temp/kurreal/launch_commands.yml'
-    di = gen.generate(save_yaml)
-    print(di)
-    print(di['learner'])
-
-    print(CommandGenerator.get_yaml(save_yaml))
-    print(vars(gen))

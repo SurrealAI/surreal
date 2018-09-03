@@ -1,0 +1,21 @@
+# TODO: change the repo location
+FROM us.gcr.io/jimfan2018-208323/surreal-base-gpu-mujoco:latest
+
+# used for busting docker build cache
+RUN echo cache bust 231
+COPY mjkey.txt /root/.mujoco/mjkey.txt
+
+# TODO: remove (by deprecating) lines below
+RUN pip install pandas easydict \
+	git+git://github.com/SurrealAI/Tensorplex.git \ 
+	git+git://github.com/SurrealAI/BeneDict.git \
+	git+git://github.com/SurrealAI/nanolog.git
+
+COPY torchx /mylibs/torchx
+RUN pip install -e /mylibs/torchx
+
+COPY mujoco /mylibs/mujoco
+RUN pip install -e /mylibs/mujoco
+
+COPY surreal /mylibs/surreal
+RUN pip install -e /mylibs/surreal

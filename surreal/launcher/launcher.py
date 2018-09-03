@@ -300,7 +300,7 @@ class SurrealDefaultLauncher(Launcher):
             env_config=env_config,
             session_config=session_config
         )
-        learner.main_loop()
+        learner.main()
 
     def run_ps(self):
         """

@@ -9,7 +9,7 @@ from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
 from surreal.launcher import SurrealDefaultLauncher
-from surreal.env import make_env, make_env_config
+from surreal.env import make_env_config
 
 # TODO：Documentation on config files
 

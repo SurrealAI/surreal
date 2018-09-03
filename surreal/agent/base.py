@@ -220,33 +220,44 @@ class Agent(object):
         Args:
             @env: the environment to run agent on
         """
+        self.main_setup()
+        while True:
+            self.main_loop()
+
+    def main_setup(self):
+        """
+            Setup before constant looping
+        """
         env = self.get_env()
         env = self.prepare_env(env)
         self.env = env
         self.fetch_parameter()
+
+    def main_loop(self):
+        """
+            One loop of agent, runs one episode of the environment
+        """
+        self.pre_episode()
+        obs, info = env.reset()
+        total_reward = 0.0
         while True:
-            self.pre_episode()
-            obs, info = env.reset()
-            total_reward = 0.0
-            while True:
-                if self.render:
-                    env.render()
-                self.pre_action(obs)
-                action = self.act(obs)
-                obs_next, reward, done, info = env.step(action)
-                total_reward += reward
-                self.post_action(obs, action, obs_next, reward, done, info)
-                obs = obs_next
-                if done:
-                    break
-            self.post_episode()
-            if self.current_episode % 20 == 0:
-                print('episode', self.current_episode, 'reward', total_reward)
+            if self.render:
+                env.render()
+            self.pre_action(obs)
+            action = self.act(obs)
+            obs_next, reward, done, info = env.step(action)
+            total_reward += reward
+            self.post_action(obs, action, obs_next, reward, done, info)
+            obs = obs_next
+            if done:
+                break
+        self.post_episode()
+        if self.current_episode % 20 == 0:
+            print('episode', self.current_episode, 'reward', total_reward)
 
     def get_env(self):
-        """Creates an environment instance
-
-        Returns a subclass of EnvBase
+        """
+        Returns a subclass of EnvBase, created from self.env_config
         """
         if self.agent_mode in ['eval_deterministic', 'eval_stochastic']:
             env, _ = make_env(self.env_config, mode='eval')
@@ -254,13 +265,15 @@ class Agent(object):
             env, _ = make_env(self.env_config)
         return env
 
-    def prepare_env(self):
+    def prepare_env(self, env):
         """
             Applies custom wrapper to the environment as necessary
+        Args:
+            @env: subclass of EnvBse
+
         Returns:
             @env: The (possibly wrapped) environment
         """
-        env = self.get_env()
         if self.agent_mode == 'training':
             return self.prepare_env_agent(env)
         else:
