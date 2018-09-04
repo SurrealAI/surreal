@@ -2,11 +2,11 @@ from multiprocessing import Process
 import os
 from surreal.distributed import ZmqLoadBalancerThread
 import surreal.utils as U
-from .base import replay_factory
 
 
 class ShardedReplay(object):
     def __init__(self,
+                 replay_class,
                  learner_config,
                  env_config,
                  session_config,):
@@ -22,7 +22,7 @@ class ShardedReplay(object):
         self.env_config = env_config
         self.session_config = session_config
 
-        self.replay_class = replay_factory(self.learner_config.replay.replay_class)
+        self.replay_class = replay_class
 
         self.shards = self.learner_config.replay.replay_shards
 

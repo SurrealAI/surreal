@@ -2,16 +2,20 @@
 DDPG actor class
 """
 import copy
-import torch
 import collections
-from .base import Agent
+import time
+import torch
+import numpy as np
+import torchx as tx
+import torchx.nn as nnx
 from surreal.distributed import ModuleDict
 from surreal.model.ddpg_net import DDPGModel
-from .action_noise import *
+from surreal.env import ExpSenderWrapperSSARNStepBootstrap
 from surreal.session import ConfigError
-import time
-import torchx as tx
+from .base import Agent
+from .action_noise import *
 from .param_noise import NormalParameterNoise, AdaptiveNormalParameterNoise
+
 
 class DDPGAgent(Agent):
     '''
@@ -37,7 +41,8 @@ class DDPGAgent(Agent):
                  env_config,
                  session_config,
                  agent_id,
-                 agent_mode):
+                 agent_mode,
+                 render=False):
         '''
         Constructor for DDPGAgent class.
         Important attributes:
@@ -45,13 +50,13 @@ class DDPGAgent(Agent):
             agent_id: unique id in the range [0, num_agents)
             agent_mode: toggles between agent noise and deterministic behavior
         '''
-
         super().__init__(
             learner_config=learner_config,
             env_config=env_config,
             session_config=session_config,
             agent_id=agent_id,
             agent_mode=agent_mode,
+            render=render,
         )
 
         self.agent_id = agent_id
@@ -177,9 +182,9 @@ class DDPGAgent(Agent):
             return action
 
     def module_dict(self, model=None):
-        # My default, module_dict refers to the module_dict for the current model.  But, you can
-        # generate a module_dict for other models as well -- e.g. param_noise uses a separate module_dict
-        # to calculate action difference
+        # By default, module_dict refers to the module_dict for the current model.
+        # But, you can generate a module_dict for other models as well --
+        # e.g. param_noise uses a separate module_dict to calculate action difference
         if model == None:
             model = self.model
         return {
@@ -200,3 +205,9 @@ class DDPGAgent(Agent):
         if self.agent_mode != 'eval_deterministic':
             self.noise.reset()
 
+    def prepare_env_agent(self, env):
+        env = super().prepare_env_agent(env)
+        env = ExpSenderWrapperSSARNStepBootstrap(env,
+                                                 self.learner_config,
+                                                 self.session_config)
+        return env

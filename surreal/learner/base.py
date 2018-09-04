@@ -1,39 +1,24 @@
 """
 Template class for all learners
 """
+import os
 import threading
 import queue
 import time
-from benedict import BeneDict
 import numpy as np
+from pathlib import Path
+from benedict import BeneDict
 import surreal.utils as U
 from surreal.session import (
     TimeThrottledTensorplex,
-    get_loggerplex_client, get_tensorplex_client
+    get_loggerplex_client,
+    get_tensorplex_client,
+    Config
 )
 from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
-import os
 
 
-learner_registry = {}
-
-
-def register_learner(target_class):
-    learner_registry[target_class.__name__] = target_class
-
-
-def learner_factory(learner_name):
-    return learner_registry[learner_name]
-
-
-class LearnerMeta(U.AutoInitializeMeta):
-    def __new__(meta, name, bases, class_dict):
-        cls = super().__new__(meta, name, bases, class_dict)
-        register_learner(cls)
-        return cls
-
-
-class Learner(metaclass=LearnerMeta):
+class Learner(metaclass=U.AutoInitializeMeta):
     """
         Important: When extending this class, make sure to follow the init method signature so that 
         orchestrating functions can properly initialize the learner.
@@ -210,10 +195,10 @@ class Learner(metaclass=LearnerMeta):
         global_step = cur_time - self.init_time
         time_elapsed = cur_time - self.last_time
         self.last_time = cur_time
-        
+
         core_metrics = {}
         system_metrics = {}
-        
+
         learn_time = self.learn_timer.avg + 1e-6
         fetch_timer = self._prefetch_queue.timer
         fetch_time = fetch_timer.avg + 1e-6
@@ -290,8 +275,8 @@ class Learner(metaclass=LearnerMeta):
     def restore_checkpoint(self):
         SC = self.session_config
         restore_folder = SC.checkpoint.restore_folder
-        if (restore_folder
-            and U.f_last_part_in_path(restore_folder) != 'checkpoint'):
+        if (restore_folder and
+                U.f_last_part_in_path(restore_folder) != 'checkpoint'):
             # automatically append 'checkpoint' subfolder
             restore_folder = U.f_join(restore_folder, 'checkpoint')
         restored = self._periodic_checkpoint.restore(
@@ -344,6 +329,7 @@ class Learner(metaclass=LearnerMeta):
         """
             Main loop that defines learner process
         """
+        self.save_config()
         self.iter_timer.start()
         self.publish_parameter(0, message='batch '+str(0))
 
@@ -356,3 +342,13 @@ class Learner(metaclass=LearnerMeta):
                     # pass
                     self.publish_parameter(i, message='batch '+str(i))
             self.iter_timer.lap()
+
+    def save_config(self):
+        folder = Path(self.session_config.folder)
+        folder.mkdir(exist_ok=True, parents=True)
+        config = Config(
+            learner_config=self.learner_config,
+            env_config=self.env_config,
+            session_config=self.session_config
+        )
+        config.dump_file(str(folder / 'config.yml'))
