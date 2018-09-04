@@ -14,6 +14,9 @@ RUN pip install -e /mylibs/torchx
 COPY mujoco /mylibs/mujoco
 RUN pip install -e /mylibs/mujoco
 
+COPY caraml /mylibs/caraml
+RUN pip install -e /mylibs/caraml
+
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 

@@ -3,7 +3,6 @@ import argparse
 import itertools
 import re
 from copy import copy
-from pkg_resources import parse_version
 from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
@@ -16,8 +15,6 @@ from surreal.kube.generate_command import CommandGenerator
 import surreal.utils as U
 import pkg_resources
 
-SURREAL_YML_VERSION = '0.0.3'  # force version check
-
 
 def _process_labels(label_string):
     """
@@ -28,10 +25,16 @@ def _process_labels(label_string):
     return [label_pair.split('=') for label_pair in label_pairs]
 
 
-def resource_limit_gpu(di):
-    if 'nvidia.com/gpu' in di:
-        di['gpu'] = di['nvidia.com/gpu']
-        del di['nvidia.com/gpu']
+def _merge_setting_dictionaries(customize, base):
+    di = copy(base)
+    for key in di:
+        if isinstance(di[key], dict):
+            if key in customize:
+                di[key] = _merge_setting_dictionaries(customize[key], di[key])
+        else:
+            if key in customize:
+                di[key] = customize[key]
+    return di
 
 
 class KurrealParser(SymphonyParser):
@@ -45,28 +48,19 @@ class KurrealParser(SymphonyParser):
         self.load_config()
         self._setup_create()
         self._setup_create_dev()
-        self._setup_tensorboard()
-        self._setup_docker_clean()
-        self._setup_get_videos()
-        self._setup_get_config()
-        self._setup_get_tensorboard()
+        # self._setup_tensorboard()
+        # self._setup_docker_clean()
 
-    def _check_version(self):
-        """
-        Check ~/.surreal.yml `version` key
-        """
-        assert 'version' in self.config, 'surreal yml version not specified.'
-        if parse_version(SURREAL_YML_VERSION) != parse_version(self.config.version):
-            raise ValueError('version incompatible, please check the latest '
-                             'sample.surreal.yml and make sure ~/.surreal.yml is '
-                             + SURREAL_YML_VERSION)
+        # Secondary nfs related support
+        # self._setup_get_videos()
+        # self._setup_get_config()
+        # self._setup_get_tensorboard()
 
     def load_config(self, surreal_yml='~/.surreal.yml'):
         surreal_yml = U.f_expand(surreal_yml)
         if not U.f_exists(surreal_yml):
             raise ValueError('Cannot find surreal config file at {}'.format(surreal_yml))
         self.config = BeneDict.load_yaml_file(surreal_yml)
-        self._check_version()
         SymphonyConfig().set_username(self.username)
         SymphonyConfig().set_experiment_folder(self.folder)
 
@@ -83,34 +77,34 @@ class KurrealParser(SymphonyParser):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
 
-    def _setup_get_videos(self):
-        parser = self.add_subparser('get-videos', aliases=['gv'])
-        parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
-                            help='experiments to retrieve videos for, '
-                            'none to retrieve your own running experiments')
-        parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
-                            help='Number of most recent videos, -1 to get all')
-        parser.add_argument('save_folder', type=str,
-                            help='save_videos in [save_folder]/experiment_name')
+    # def _setup_get_videos(self):
+    #     parser = self.add_subparser('get-videos', aliases=['gv'])
+    #     parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
+    #                         help='experiments to retrieve videos for, '
+    #                         'none to retrieve your own running experiments')
+    #     parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
+    #                         help='Number of most recent videos, -1 to get all')
+    #     parser.add_argument('save_folder', type=str,
+    #                         help='save_videos in [save_folder]/experiment_name')
 
-    def _setup_get_config(self):
-        parser = self.add_subparser('get-config', aliases=['gc'])
-        parser.add_argument('experiment_name', type=str,
-                            help='experiments to retrieve videos for, '
-                                 'none to retrieve your own running experiments')
-        parser.add_argument('-o', '--output-file', type=str,
-                            help='save remote config to a specified local file path')
+    # def _setup_get_config(self):
+    #     parser = self.add_subparser('get-config', aliases=['gc'])
+    #     parser.add_argument('experiment_name', type=str,
+    #                         help='experiments to retrieve videos for, '
+    #                              'none to retrieve your own running experiments')
+    #     parser.add_argument('-o', '--output-file', type=str,
+    #                         help='save remote config to a specified local file path')
 
-    def _setup_get_tensorboard(self):
-        parser = self.add_subparser('get-tensorboard', aliases=['gt'])
-        parser.add_argument('experiment_name', type=str,
-                            help='experiments to retrieve tensorboard for, '
-                                 'none to retrieve your own running experiments')
-        parser.add_argument('-s', '--subfolder', type=str, default='',
-                            help='retrieve only a subfolder under the "tensorboard" folder. '
-                                 'currently valid folders are agent, eval, learner, replay')
-        parser.add_argument('-o', '--output-folder', type=str,
-                            help='save remote TB folder to a specified local folder path')
+    # def _setup_get_tensorboard(self):
+    #     parser = self.add_subparser('get-tensorboard', aliases=['gt'])
+    #     parser.add_argument('experiment_name', type=str,
+    #                         help='experiments to retrieve tensorboard for, '
+    #                              'none to retrieve your own running experiments')
+    #     parser.add_argument('-s', '--subfolder', type=str, default='',
+    #                         help='retrieve only a subfolder under the "tensorboard" folder. '
+    #                              'currently valid folders are agent, eval, learner, replay')
+    #     parser.add_argument('-o', '--output-folder', type=str,
+    #                         help='save remote TB folder to a specified local folder path')
 
     def _setup_docker_clean(self):
         parser = self.add_subparser('docker-clean', aliases=['dc'])
@@ -129,60 +123,47 @@ class KurrealParser(SymphonyParser):
         parser = self.add_subparser('create', aliases=['c'])
         self._add_experiment_name(parser)
         parser.add_argument(
-            'config_py',
+            'setting_name',
             type=str,
-            help='location of python script **in the Kube pod** that contains the '
-                 'runnable config. If the path does not start with /, defaults to '
+            help='the setting in .surreal.yml that specifies how an'
+                 'experiment should be run')
+        parser.add_argument(
+            'algorithm',
+            type=str,
+            help='ddpg / ppo or the'
+                 'location of algorithm python script **in the docker container**'
                  'home dir, i.e. /root/ on the pod'
         )
         parser.add_argument(
-            'num_agents',
+            '--num_agent',
             type=int,
+            default=None,
             help='number of agents to run in parallel.'
         )
-        self._add_dry_run(parser)
-        self._add_create_args(parser)
+        parser.add_argument(
+            '--num_eval',
+            type=int,
+            default=None,
+            help='number of evals to run in parallel.'
+        )
+        parser.add_argument(
+            '--batch_agent',
+            type=int,
+            default=None,
+            help='put how many agent on each agent machine'
+        )
+        parser.add_argument(
+            '--batch_eval',
+            type=int,
+            default=None,
+            help='put how many eval on each eval machine'
+        )
 
-    def _setup_create_dev(self):
-        parser = self.add_subparser('create-dev', aliases=['cd'])
-        self._add_experiment_name(parser)
-        parser.add_argument('num_agents', type=int)
-        parser.add_argument('-e', '--env', default='cheetah')
         parser.add_argument(
-            '-g', '--gpu', '--num-gpus',
-            dest='num_gpus',
-            type=int,
-            nargs='?',
-            default=0
-        )
-        parser.add_argument(
-            '--gpu-type',
-            dest='gpu_type',
-            type=str,
-            default='v100'
-        )
-        parser.add_argument('-f', '--force', action='store_true')
-        parser.add_argument(
-            '-c', '--config_file',
-            default='ddpg_configs.py',
-            help='which config file in surreal/main to use'
-        )
-        parser.add_argument(
-            '--colocate-agent',
-            dest='colocate_agent',
-            type=int,
-            default=1
-        )
-        parser.add_argument(
-            '-b', '--batch-agent',
-            dest='batch_agent',
-            type=int,
-            default=1
-        )
-        parser.add_argument(
-            '--no-eval',
+            '-f', '--force',
             action='store_true',
-            help='turn off eval'
+            help='force overwrite an existing kurreal.yml file '
+                 'if its experiment folder already exists.'
         )
         self._add_dry_run(parser)
 
@@ -204,161 +185,99 @@ class KurrealParser(SymphonyParser):
                   .format(experiment_name, new_name))
         return new_name
 
-    def _add_create_args(self, parser):
-        """
-        Used in create(), restore(), resume()
-        """
-        parser.add_argument(
-            '-at', '--agent-pod-type',
-            default='agent',
-            help='key in ~/.surreal.yml `pod_types` section that describes spec for agent pod. '
-                 'Default: "agent"'
-        )
-        parser.add_argument(
-            '-nt', '--nonagent-pod-type',
-            default='nonagent-cpu',
-            help='key in ~/.surreal.yml `pod_types` section that describes spec for '
-                 'nonagent pod with multiple containers: learner, ps, tensorboard, etc. '
-                 'Default: "nonagent-cpu"'
-        )
-        parser.add_argument(
-            '-et', '--eval-pod-type',
-            default=None,
-            help='key in ~/.surreal.yml `pod_types` section that describes spec for '
-                 'eval pod Default: use agent pod type'
-        )
-        parser.add_argument(
-            '-f', '--force',
-            action='store_true',
-            help='force overwrite an existing kurreal.yml file '
-                 'if its experiment folder already exists.'
-        )
-
-    def _gcloud_nfs_exec(self, command):
-        return subprocess.check_output(
-            "gcloud compute ssh {} -- '{}'".format(self.config.fs.server, command),
-            shell=True
-        ).decode('utf-8').replace('\r\n', '\n')
-
-    def _gcloud_download(self, remote_path, local_path):
-        cmd = "gcloud compute scp --recurse {}:'{}' '{}'".format(
-            self.config.fs.server, remote_path, local_path
-        )
-        os.system(cmd)
-
-    def _gcloud_nfs_remote_root(self):
-        """
-        Returns:
-            - fabric connection
-            - remote experiment root folder (without username): pathlib.Path
-        """
-        path_on_server = Path(self.config.fs.path_on_server)
-        return (path_on_server / self.config.fs.experiment_root_subfolder).parent
-
-    def action_get_videos(self, args):
-        todos = []
-        if len(args.experiment_names) == 0:
-            experiments = self.cluster.list_experiments()
-            for experiment in experiments:
-                if re.match(self.username, experiment):
-                    todos.append(experiment)
-        else:
-            todos = args.experiment_names
-
-        print('Fetching videos for:')
-        print('\n'.join(['\t' + x for x in todos]))
-
-        save_folder = os.path.expanduser(args.save_folder)
-        save_last = args.last
-        remote_folder = self._gcloud_nfs_remote_root()
-        for experiment_name in todos:
-            self._get_video_for_experiment(
-                experiment_name, save_folder, remote_folder, save_last
-            )
-
-    def _get_video_for_experiment(self,
-                                  experiment_name,
-                                  save_folder,
-                                  remote_folder,
-                                  save_last=-1):
-        # Find remote path
-        username = experiment_name.split('-')[0]
-        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
-        remote_folder = remote_folder / username / experiment_name_remote / 'videos'
-        # parse existing files
-        results = self._gcloud_nfs_exec('ls -1 {}'.format(remote_folder))
-        video_files = results.strip().split('\n')
-        video_episodes = [x[len('video_eps_'):] for x in video_files]
-        video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
-        video_episodes = sorted(video_episodes, reverse=True)
-        if save_last > 0:
-            save_last = min(save_last, len(video_episodes))
-            video_episodes = video_episodes[:save_last]
-        filenames = ['video_eps_{}.mp4'.format(x) for x in video_episodes]
-        # local path
-        local_folder = Path(os.path.expanduser(save_folder)) / experiment_name
-        local_folder.mkdir(exist_ok=True, parents=True)
-        # download
-        for filename in filenames:
-            print('$> get {}'.format(str(remote_folder / filename)))
-            self._gcloud_download(remote_folder / filename, local_folder / filename)
-        return filenames
-
-    def action_get_config(self, args):
-        """
-        Download remote config.yml in the experiment folder
-        """
-        if args.output_file:
-            output_file = args.output_file
-        else:
-            output_file = 'config.yml'
-        experiment_name = args.experiment_name
-        username = experiment_name.split('-')[0]
-        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
-        remote_folder = self._gcloud_nfs_remote_root()
-        remote_config_file = (remote_folder / username
-                              / experiment_name_remote / 'config.yml')
-        print('Downloading', remote_config_file)
-        self._gcloud_download(remote_config_file, output_file)
-
-    def action_get_tensorboard(self, args):
-        """
-        Download remote config.yml in the experiment folder
-        """
-        experiment_name = args.experiment_name
-        if args.output_folder:
-            output_folder = args.output_folder
-        else:
-            output_folder = experiment_name
-        username = experiment_name.split('-')[0]
-        experiment_name_remote = '-'.join(experiment_name.split('-')[1:])
-        remote_folder = self._gcloud_nfs_remote_root()
-        remote_tb_folder = (remote_folder / username
-                  / experiment_name_remote / 'tensorboard' / args.subfolder)
-        print('Downloading', remote_tb_folder)
-        self._gcloud_download(remote_tb_folder, output_folder)
-
-    def action_tensorboard(self, args):
-        self.action_visit(args)
-
+    SUPPORTED_MODES = ['basic', 'batch']
     def action_create(self, args):
         """
         Spin up a multi-node distributed Surreal experiment.
         Put any command line args that pass to the config script after "--"
         """
-        self._create_helper(
-            config_py=args.config_py,
-            experiment_name=args.experiment_name,
-            num_agents=args.num_agents,
-            config_command=args.remainder,  # cmd line remainder after "--"
-            agent_pod_type=args.agent_pod_type,
-            nonagent_pod_type=args.nonagent_pod_type,
-            eval_pod_type=args.eval_pod_type,
-            restore=False,
-            restore_folder=None,
-            force=args.force,
-            dry_run=args.dry_run
-        )
+        setting_name = args.setting_name
+
+        if not setting_name in self.config.creation_settings:
+            raise KeyError('Cannot find setting {}'.format(setting_name))
+        setting = self.config.creation_settings[setting_name]
+        mode = setting['mode']
+        if mode not in self.SUPPORTED_MODES:
+            raise ValueError('Unknown mode {}'.format(mode) +
+                             'available options are : {}'.format(
+                                 ', '.join(self.SUPPORTED_MODES)
+                             ))
+        if mode == 'basic':
+            self.create_basic(
+                setting=setting,
+                experiment_name=args.experiment_name,
+                algorithm_args=args.remainder,
+                custom_input=vars(args),
+                force=args.force,
+                dry_run=args.dry_run,
+                )
+        elif mode == 'batch':
+            self.create_batch(
+                setting=setting,
+                algorithm_args=args.remainder,
+                experiment_name=args.experiment_name,
+                custom_input=vars(args),
+                force=args.force,
+                dry_run=args.dry_run,
+                )
+
+    DEFAULT_SETTING_BASIC = {
+        'algorithm': 'ppo',
+        'num_agents': 2,
+        'num_evals': 3,
+        'compute_additional_args': True,
+        'agent': {
+            'image': 'surreal-cpu-image',  # TODO
+            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'build_image': None
+        },
+        'nonagent': {
+            'image': 'surreal-cpu-image',  # TODO
+            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'build_image': None
+        },
+    }
+    def create_basic(self, *,
+                     setting,
+                     experiment_name,
+                     algorithm_args,
+                     custom_input,
+                     force,
+                     dry_run):
+        setting = _merge_setting_dictionaries(setting,
+                                              self.DEFAULT_SETTING_BASIC)
+        setting = _merge_setting_dictionaries(custom_input, setting)
+        setting = BeneDict(setting)
+
+    DEFAULT_SETTING_BATCH = {
+        'algorithm': 'ppo',
+        'num_agents': 16,
+        'num_evals': 8,
+        'compute_additional_args': True,
+        'agent_batch': 8,
+        'eval_batch': 8,
+        'agent': {
+            'image': 'surreal-cpu-image',  # TODO
+            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'build_image': None
+        },
+        'nonagent': {
+            'image': 'surreal-cpu-image',  # TODO
+            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'build_image': None
+        },
+    }
+    def create_batch(self, *,
+                     setting,
+                     experiment_name,
+                     algorithm_args,
+                     custom_input,
+                     force,
+                     dry_run):
+        setting = _merge_setting_dictionaries(setting,
+                                              self.DEFAULT_SETTING_BATCH)
+        setting = _merge_setting_dictionaries(custom_input, setting)
+        setting = BeneDict(setting)
 
     def action_create_dev(self, args):
         """
@@ -366,34 +285,12 @@ class KurrealParser(SymphonyParser):
         """
         assert not args.has_remainder, \
             'create_dev cannot have "--". Use --env and --gpu'
-        ENV_ALIAS = {
-            # dm_control:cartpole-swingup
-            'humanoid': 'dm_control:humanoid-walk',
-            'ball': 'dm_control:manipulator-bring_ball',
-            'ca': 'dm_control:cartpole-balance',
-            'cartpole': 'dm_control:cartpole-balance',
-            'ch': 'dm_control:cheetah-run',
-            'cheetah': 'dm_control:cheetah-run',
-            'hopper': 'dm_control:hopper-hop',
-            'mjsawyerlift': 'mujocomanip:SawyerLiftEnv',
-            'mjsawyerstack': 'mujocomanip:SawyerStackEnv',
-            'mjsawyerpegs': 'mujocomanip:SawyerPegsEnv',
-            'mjsawyerbins': 'mujocomanip:SawyerBinsEnv',
-            'mjbaxterhole': 'mujocomanip:BaxterHoleEnv',
-            'mjbaxterlift': 'mujocomanip:BaxterLiftEnv',
-            'gym-ch':'gym:HalfCheetah-v2',
-            'gym-hopper':'gym:Hopper-v2',
-        }
+
         if args.env:
             env = args.env
         else:
-            env = 'cheetah'
-        config_command = ['--env', ENV_ALIAS[env]]
-
-        if 'mujoco' in args.experiment_name:
-            if args.env and 'mj' not in env:
-                raise ValueError('Mujoco is in environment name but the environment'
-                                'selected is not a mujocomanip env')
+            env = 'gym:HalfCheetah-v2'
+        config_command = ['--env', env]
 
         if args.num_gpus is None:  # nargs=?, num gpu should be 1 when omitted
             num_gpus = 1
@@ -490,7 +387,7 @@ class KurrealParser(SymphonyParser):
 
         cmd_gen = CommandGenerator(
             num_agents=num_agents,
-            experiment_folder=remote_experiment_folder, # TODO: fixme
+            experiment_folder=remote_experiment_folder,  # TODO: fixme
             config_py=config_py,
             config_command=config_command,
             restore=restore,
@@ -549,11 +446,10 @@ class KurrealParser(SymphonyParser):
         if eval_pod_type is None: eval_pod_type = agent_pod_type
         assert eval_pod_type in C.pod_types, \
             'eval pod type not found in `pod_types` section in ~/.surreal.yml'
-        
+
         agent_pod_spec = copy(C.pod_types[agent_pod_type])
         nonagent_pod_spec = copy(C.pod_types[nonagent_pod_type])
         eval_pod_spec = copy(C.pod_types[eval_pod_type])
-        
 
         json_path = 'cluster_definition.tf.json'  # always use slash
         filepath = pkg_resources.resource_filename(__name__, json_path)
@@ -566,7 +462,7 @@ class KurrealParser(SymphonyParser):
         # agent_resource_request = agent_pod_spec.get('resource_request', {})
         # nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
         # eval_resource_request = eval_pod_spec.get('resource_request', {})
-        
+
         # agent_resource_limit = agent_pod_spec.get('resource_limit', {})
         # nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
         # eval_resource_limit = eval_pod_spec.get('resource_limit', {})
@@ -618,7 +514,6 @@ class KurrealParser(SymphonyParser):
                 agents.append(agent_p)
         evals = []
         if has_eval:
-            # TODO: make command generator return list
             if batch_agent > 1:
                 for i, arg in enumerate(cmd_dict['eval-batch']):
                     eval_p = exp.new_process('evals-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
