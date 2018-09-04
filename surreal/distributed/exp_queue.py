@@ -1,28 +1,35 @@
-import sys
 import weakref
-import surreal.utils as U
-import threading
-# from .zmq_struct import ZmqQueue
-from surreal.distributed.zmq_struct import ZmqPuller, ZmqReceiver
 from threading import Thread
+import surreal.utils as U
+from caraml.zmq import ZmqReceiver
 
 
 class ExperienceCollectorServer(Thread):
+    """
+        Accepts experience from agents,
+        deduplicates experience whenever possible
+    """
     def __init__(self, host, port, exp_handler, load_balanced=True):
         Thread.__init__(self)
         self.host = host
         self.port = port
         self.bind = not load_balanced
         self._exp_handler = exp_handler
+        # To be initialized in run()
+        self._weakref_map = None
+        self.receiver = None
 
     def run(self):
+        """
+            Starts the server loop
+        """
         self._weakref_map = weakref.WeakValueDictionary()
-        self.puller = ZmqReceiver(host=self.host, 
-                                port=self.port, 
-                                bind=self.bind, 
-                                preprocess=U.deserialize)
+        self.receiver = ZmqReceiver(host=self.host,
+                                    port=self.port,
+                                    bind=self.bind,
+                                    preprocess=U.deserialize)
         while True:
-            exp, storage = self.puller.recv()
+            exp, storage = self.receiver.recv()
             experience_list = self._retrieve_storage(exp, storage)
             for exp in experience_list:
                 self._exp_handler(exp)
@@ -38,6 +45,7 @@ class ExperienceCollectorServer(Thread):
         if isinstance(exp, list):
             for i, e in enumerate(exp):
                 exp[i] = self._retrieve_storage(e, storage)
+
         elif isinstance(exp, dict):
             for key in list(exp.keys()):  # copy keys
                 if key.endswith('_hash'):
@@ -55,4 +63,3 @@ class ExperienceCollectorServer(Thread):
                 self._weakref_map[exphash] = storage[exphash]
                 return storage[exphash]
         return exp
-
