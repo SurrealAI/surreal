@@ -1,16 +1,17 @@
 """
 Actor function
 """
-import torch
-from .base import Agent
-from surreal.model.ppo_net import PPOModel, DiagGauss
-import surreal.utils as U
-import numpy as np
-from surreal.session import ConfigError
 import time
-
+import torch
+import numpy as np
 import torchx as tx
 import torchx.nn as nnx
+import surreal.utils as U
+from surreal.model.ppo_net import PPOModel, DiagGauss
+from surreal.env import ExpSenderWrapperMultiStepMovingWindowWithInfo
+from surreal.session import ConfigError
+from .base import Agent
+
 
 class PPOAgent(Agent):
     '''
@@ -38,25 +39,26 @@ class PPOAgent(Agent):
         )
         self.action_dim = self.env_config.action_spec.dim[0]
         self.obs_spec = self.env_config.obs_spec
-        self.use_z_filter  = self.learner_config.algo.use_z_filter
+        self.use_z_filter = self.learner_config.algo.use_z_filter
 
-        self.init_log_sig  = self.learner_config.algo.consts.init_log_sig
+        self.init_log_sig = self.learner_config.algo.consts.init_log_sig
         self.log_sig_range = self.learner_config.algo.consts.log_sig_range
 
         # setting agent mode
         if self.agent_mode != 'training':
             if self.env_config.stochastic_eval:
                 self.agent_mode = 'eval_stochastic'
-            else: 
+            else:
                 self.agent_mode = 'eval_deterministic'
 
         if self.agent_mode != 'training':
-            self.noise = 0 
+            self.noise = 0
         else:
-            self.noise  = np.random.uniform(low=-self.log_sig_range, high=self.log_sig_range)
+            self.noise = np.random.uniform(low=-self.log_sig_range,
+                                           high=self.log_sig_range)
         self.rnn_config = self.learner_config.algo.rnn
 
-        # GPU setup 
+        # GPU setup
         self._num_gpus = session_config.agent.num_gpus
         if self._num_gpus == 0:
             self.gpu_ids = 'cpu'
@@ -78,12 +80,12 @@ class PPOAgent(Agent):
                 # Note that .detach() is necessary here to prevent overflow of memory
                 # otherwise rollout in length of thousands will prevent previously
                 # accumulated hidden/cell states from being freed.
-                self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
-                                                   1, # batch_size is 1
-                                                   self.rnn_config.rnn_hidden).detach(),
-                              torch.zeros(self.rnn_config.rnn_layer, 
-                                                   1, # batch_size is 1
-                                                   self.rnn_config.rnn_hidden).detach())
+                self.cells = (torch.zeros(self.rnn_config.rnn_layer,
+                                          1,  # batch_size is 1
+                                          self.rnn_config.rnn_hidden).detach(),
+                              torch.zeros(self.rnn_config.rnn_layer,
+                                          1,  # batch_size is 1
+                                          self.rnn_config.rnn_hidden).detach())
 
             self.model = PPOModel(
                 obs_spec=self.obs_spec,
@@ -142,7 +144,7 @@ class PPOAgent(Agent):
             action_info[1].append(action_pd)
             if self.agent_mode != 'training':
                 return action_choice
-            else: 
+            else:
                 time.sleep(self.env_config.sleep_time)
                 return action_choice, action_info
 
@@ -168,10 +170,16 @@ class PPOAgent(Agent):
             # otherwise rollout in length of thousands will prevent previously
             # accumulated hidden/cell states from being freed.
             with tx.device_scope(self.gpu_ids):
-                self.cells = (torch.zeros(self.rnn_config.rnn_layer, 
-                                                   1, # batch_size is 1
-                                                   self.rnn_config.rnn_hidden).detach(),
-                              torch.zeros(self.rnn_config.rnn_layer, 
-                                                   1, # batch_size is 1
-                                                   self.rnn_config.rnn_hidden).detach())
+                self.cells = (torch.zeros(self.rnn_config.rnn_layer,
+                                          1,  # batch_size is 1
+                                          self.rnn_config.rnn_hidden).detach(),
+                              torch.zeros(self.rnn_config.rnn_layer,
+                                          1,  # batch_size is 1
+                                          self.rnn_config.rnn_hidden).detach())
 
+    def prepare_env_agent(self, env):
+        env = super().prepare_env_agent(env)
+        env = ExpSenderWrapperMultiStepMovingWindowWithInfo(env,
+                                                            self.learner_config,
+                                                            self.session_config)
+        return env

@@ -1,7 +1,7 @@
 import shlex
 import sys
+import math
 from collections import OrderedDict
-
 import surreal.utils as U
 
 
@@ -13,7 +13,6 @@ class CommandGenerator:
                  num_evals,
                  batch_agent=1,
                  config_command=None,
-                 service_url=None,
                  restore=False,
                  restore_folder=None):
         """
@@ -21,7 +20,8 @@ class CommandGenerator:
             num_agents:
             config_py: remote config.py path in the pod
             experiment_folder: remote session_config.folder in the pod
-            config_command: additional commands that pass to user-defined config.py, after "--"
+            config_command: additional commands that pass
+                to user-defined config.py, after "--"
             service_url: DNS <experiment-name>.surreal
             restore: True to restore experiment from checkpoint
             restore_folder: restore experiment from checkpoint folder
@@ -34,66 +34,58 @@ class CommandGenerator:
             self.config_command = ' '.join(map(shlex.quote, config_command))
         else:
             self.config_command = config_command
-        self.service_url = service_url
         self.restore = restore
         self.restore_folder = restore_folder
         self.batch_agent = batch_agent
 
-    def get_command(self, role, args=None):
-        if args is None:
-            args = []
-        command = ['python -u -m', 'surreal.main_scripts.runner']
-        command += ['--experiment-folder', shlex.quote(self.experiment_folder)]
-        if self.service_url is not None:
-            command += ['--service-url', shlex.quote(self.service_url)]
+    def get_command(self, role):
+        command = ['python']
         command += [self.config_py]
         command += [role]
-        command += args
+        command += ['--']
+        command += ['--experiment-folder', shlex.quote(self.experiment_folder)]
+        if self.batch_agent != 1:
+            command += ['--agent-batch', str(self.batch_agent)]
         if self.config_command is not None:
-            command += ['--', self.config_command]
+            command += [self.config_command]
+        if self.restore_folder:
+            command += ['--restore-folder', shlex.quote(self.restore_folder)]
         return ' '.join(command)
 
     def generate(self, save_yaml=None):
         """
         Save __init__ args as well as generated commands to <save_yaml> file
+
+        Args:
+            save_yaml: if provided, save the commandline arguments to
+                path save_yaml
         """
         cmd_dict = OrderedDict()
-        if self.restore:
-            restore_cmd = ['--restore']
-            if self.restore_folder:
-                restore_cmd += ['--restore-folder',
-                                shlex.quote(self.restore_folder)]
-        else:
-            restore_cmd = []
-        cmd_dict['learner'] = self.get_command('learner', restore_cmd)
+        cmd_dict['learner'] = self.get_command('learner')
         if self.batch_agent == 1:
-            cmd_dict['agent'] = [self.get_command('agent', [str(i)])
+            cmd_dict['agent'] = [self.get_command('agent-{}'.format(i))
                                  for i in range(self.num_agents)]
-            cmd_dict['eval'] = [self.get_command('eval', [str(i), '--mode', 'eval_deterministic']) 
+            cmd_dict['eval'] = [self.get_command('eval-{}'.format(i))
                                 for i in range(self.num_evals)]
         else:
-            batch = []
             cmd_dict['agent-batch'] = []
-            for i in range(self.num_agents):
-                batch.append(str(i))
-                if len(batch) == self.batch_agent:
-                    cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
-                    batch = []
-            if len(batch) > 0:
-                cmd_dict['agent-batch'].append(self.get_command('agent-batch', [','.join(batch)]))
+            n_batches = math.ceil(float(self.num_agents) / self.batch_agent)
+            for i in range(n_batches):
+                cmd_dict['agent-batch'].append(
+                    self.get_command('agents-{}'.format(i)))
 
-            batch = []
             cmd_dict['eval-batch'] = []
-            for i in range(self.num_evals):
-                batch.append(str(i))
-                if len(batch) == self.batch_agent:
-                    batch_eval = self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic'])
-                    cmd_dict['eval-batch'].append(batch_eval)
-                    batch = []
-            if len(batch) > 0:
-                cmd_dict['eval-batch'].append(self.get_command('eval-batch', [','.join(batch), '--mode', 'eval_deterministic']))
+            n_batches_eval = math.ceil(
+                float(self.num_evals) / self.batch_agent)
+            for i in range(n_batches_eval):
+                cmd_dict['eval-batch'].append(
+                    self.get_command('evals-{}'.format(i)))
 
-        for role in ['tensorplex', 'tensorboard', 'loggerplex', 'ps', 'replay']:
+        for role in ['tensorplex',
+                     'tensorboard',
+                     'loggerplex',
+                     'ps',
+                     'replay']:
             cmd_dict[role] = self.get_command(role)
 
         if save_yaml:
@@ -106,7 +98,7 @@ class CommandGenerator:
 
         print('Launch settings:')
         for attr in ['experiment_folder', 'num_agents',
-                     'config_py', 'config_command', 'service_url']:
+                     'config_py', 'config_command']:
             print('  {}: {}'.format(attr, getattr(self, attr)))
         return cmd_dict
 

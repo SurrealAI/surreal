@@ -55,7 +55,7 @@ class ParameterPublisher(object):
 
 class ShardedParameterServer(object):
     def __init__(self, config):
-        self.ps_config = config.session_config.ps
+        self.ps_config = config
         self.shards = self.ps_config.shards
 
         self.frontend_port = os.environ['SYMPH_PS_FRONTEND_PORT']
@@ -66,15 +66,14 @@ class ShardedParameterServer(object):
 
         self.proxy = None
         self.workers = []
-        
+
     def launch(self):
         self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
-                                                out_add=self.parameter_serving_backend_add,
-                                                pattern='router-dealer')
+                                           out_add=self.parameter_serving_backend_add,
+                                           pattern='router-dealer')
 
         self.proxy.start()
 
-        
         self.workers = []
 
         publish_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
@@ -96,7 +95,7 @@ class ShardedParameterServer(object):
             worker.join()
             U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
         self.proxy.join()
-        
+
 class ParameterServer(Process):
     # TODO support multiple PS
     """

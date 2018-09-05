@@ -6,22 +6,8 @@ import os
 import copy
 
 
-exp_sender_wrapper_registry = {}
-
-def register_exp_sender_wrapper(target_class):
-    exp_sender_wrapper_registry[target_class.__name__] = target_class
-
-def expSenderWrapperFactory(name):
-    return exp_sender_wrapper_registry[name]
-    
-class ExpSenderWrapperMeta(type):
-    def __new__(meta, name, bases, class_dict):
-        cls = type.__new__(meta, name, bases, class_dict)
-        register_exp_sender_wrapper(cls)
-        return cls
-
 # https://effectivepython.com/2015/02/02/register-class-existence-with-metaclasses/
-class ExpSenderWrapperBase(Wrapper, metaclass=ExpSenderWrapperMeta):
+class ExpSenderWrapperBase(Wrapper):
     def __init__(self, env, learner_config, session_config):
         """
         Default sender configs are in BASE_SESSION_CONFIG['sender']
