@@ -24,9 +24,13 @@ def make_env_config(env_config, mode=None):
     """
     q = Queue()
     p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
+    print("HI8")
     p.start()
+    print("HI9")
     config = q.get()
+    print("HI0")
     p.join()
+    print("DONE")
     return config
 
 
@@ -34,8 +38,12 @@ def _make_env_wrapped(q, env_config, mode):
     """
     For running make env in another process
     """
-    config, _ = make_env(env_config, mode)
+    print("HI")
+    _, config = make_env(env_config, mode)
+    print("HI4")
     q.put(config)
+    print(type(config))
+    print("HI5")
 
 
 def make_env(env_config, mode=None):

@@ -1,3 +1,4 @@
+import os
 from surreal.main.ddpg_configs import DDPGLauncher
 from surreal.main.ppo_configs import PPOLauncher
 
@@ -20,17 +21,23 @@ def _setup_env():
 
 
 def test_ddpg(tmpdir):
-    temp_path = tmpdir.mkdir("test_ddpg")
+    print("Making temp directory...")
+    temp_path = os.path.join(tmpdir, "test_ddpg")
+    os.makedirs(temp_path, exist_ok=True)
+    print("Setting up experiment launcher...")
     launcher = DDPGLauncher()
     args = ['--num-agents',
             '1',
             '--env',
             'dm_control:cartpole-balance',
-            '--experiment_folder',
+            '--experiment-folder',
             str(temp_path)]
     launcher.setup(args)
 
+    print("Setting up environment variables...")
     _setup_env()
+
+    print("Running...")
 
     """
     Fork out all the necessary processes
@@ -47,3 +54,6 @@ def test_ppo(tmpdir):
     temp_path = tmpdir.mkdir("test_ddpg")
     launcher = PPOLauncher()
     # TODO: same as DDPG
+
+if __name__ == '__main__':
+    test_ddpg("/tmp/surreal")
