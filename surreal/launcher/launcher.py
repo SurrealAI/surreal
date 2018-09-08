@@ -134,6 +134,7 @@ class SurrealDefaultLauncher(Launcher):
         """
         if '-' in component_name_in:
             component_name, component_id = component_name_in.split('-')
+            component_id = int(component_id)
         else:
             component_name = component_name_in
             component_id = None
