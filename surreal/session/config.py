@@ -184,10 +184,11 @@ class Config(dict):
             setattr(self, k, v)
 
     def __getattr__(self, key):
-        try:
-            return super().__getattribute__(key)
-        except AttributeError:
-            raise ConfigError('config key "{}" missing.'.format(key))
+        # try:
+
+        return super().__getattribute__(key)    
+        # except AttributeError:
+        #     raise ConfigError('config key "{}" missing.'.format(key))
 
     @classmethod
     def load_file(cls, file_path):

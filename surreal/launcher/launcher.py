@@ -50,6 +50,8 @@ class Launcher:
                             help='which component to launch')
         args = parser.parse_args(parser_args)
 
+        self.config_args = config_args
+
         self.setup(config_args)
         self.launch(args.component_name)
 
@@ -173,6 +175,7 @@ class SurrealDefaultLauncher(Launcher):
             agent_id (int): agent's id
         """
         np.random.seed(int(time.time() * 100000 % 100000))
+        print('run agent {}'.format(agent_id))
 
         session_config, learner_config, env_config = \
             self.session_config, self.learner_config, self.env_config
@@ -199,14 +202,32 @@ class SurrealDefaultLauncher(Launcher):
             agent_ids (list(int)): each agent's id
         """
         agents = []
+        print('run agent batch')
         for agent_id in agent_ids:
-            agent = Process(target=self.run_agent, args=[agent_id])
-            agent.start()
+            component_name = 'agent-{}'.format(agent_id)
+            agent = subprocess.Popen([sys.executable,
+                                      sys.argv[0],
+                                      component_name,
+                                      '--']
+                                     + self.config_args)
             agents.append(agent)
-        for i, agent in enumerate(agents):
-            agent.join()
-            raise RuntimeError('Agent {} exited with code {}'
-                               .format(i, agent.exitcode))
+        print('agents', len(agents))
+        while True:
+            time.sleep(1)
+            for i, agent in enumerate(agents):
+                if agent is None:
+                    continue
+                ret = agent.poll()
+                if ret is not None:
+                    if ret == 0:
+                        agents[i] = None
+                        print('Agent {} exited with code 0'.format(i))
+                    else:
+                        for agent in agents:
+                            if agent is not None:
+                                agent.kill()
+                        raise RuntimeError('Agent {} exited with code {}'
+                                           .format(i, ret))
 
     def get_agent_batch(self, batch_id):
         """
@@ -219,7 +240,7 @@ class SurrealDefaultLauncher(Launcher):
             agent_ids (list): ids of the agents in the batch
         """
         return range(self.agent_batch_size * int(batch_id),
-                     self.agent_batch_size * int(batch_id) + 1)
+                     self.agent_batch_size * (int(batch_id) + 1))
 
     def run_eval(self, eval_id, mode, render):
         """
@@ -264,13 +285,29 @@ class SurrealDefaultLauncher(Launcher):
         """
         evals = []
         for eval_id in eval_ids:
-            agent = Process(target=self.run_eval, args=[eval_id, mode, render])
-            agent.start()
+            component_name = 'eval-{}'.format(eval_id)
+            agent = subprocess.Popen([sys.executable,
+                                      sys.argv[0],
+                                      component_name,
+                                      '--']
+                                     + self.config_args)
             evals.append(agent)
-        for i, agent in enumerate(evals):
-            agent.join()
-            raise RuntimeError('Eval {} exited with code {}'
-                               .format(i, agent.exitcode))
+
+        while True:
+            time.sleep(1)
+            for i, agent in enumerate(evals):
+                if agent is None:
+                    continue
+                ret = agent.poll()
+                if ret is not None:
+                    if ret == 0:
+                        evals[i] = None
+                    else:
+                        for agent in evals:
+                            if agent is not None:
+                                agent.kill()
+                        raise RuntimeError('Eval {} exited with code {}'
+                                           .format(i, ret))
 
     def get_eval_batch(self, batch_id):
         """

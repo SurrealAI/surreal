@@ -220,15 +220,21 @@ class Agent(object):
         Args:
             @env: the environment to run agent on
         """
+        print('get_env')
         env = self.get_env()
+        print('prepare_env')
         env = self.prepare_env(env)
         self.env = env
+        print('fetch_parameter')
         self.fetch_parameter()
         while True:
+            print('Agent {} episode'.format(self.agent_id))
             self.pre_episode()
             obs, info = env.reset()
             total_reward = 0.0
             while True:
+                print('Agent {} steps'.format(self.agent_id))
+                self.agent_id
                 if self.render:
                     env.render()
                 self.pre_action(obs)
@@ -254,13 +260,12 @@ class Agent(object):
             env, _ = make_env(self.env_config)
         return env
 
-    def prepare_env(self):
+    def prepare_env(self, env):
         """
             Applies custom wrapper to the environment as necessary
         Returns:
             @env: The (possibly wrapped) environment
         """
-        env = self.get_env()
         if self.agent_mode == 'training':
             return self.prepare_env_agent(env)
         else:
@@ -275,13 +280,14 @@ class Agent(object):
         limit_episode_length = self.env_config.limit_episode_length
         if limit_episode_length > 0:
             env = MaxStepWrapper(env, limit_episode_length)
-
+        print('before_tp')
         env = TrainingTensorplexMonitor(
             env,
             agent_id=self.agent_id,
             session_config=self.session_config,
             separate_plots=True
         )
+        print('after_tp')
         return env
 
     def prepare_env_eval(self, env):

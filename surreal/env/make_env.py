@@ -1,9 +1,15 @@
 import os
 from multiprocessing import Process, Queue
 from surreal.env.video_env import VideoWrapper
+import surreal.utils as U
 from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
 from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
+
+import sys
+import pickle
+import subprocess
+import shlex
 
 
 def make_env_config(env_config, mode=None):
@@ -22,20 +28,31 @@ def make_env_config(env_config, mode=None):
         env_config: see make_env
         mode: see make_env
     """
-    q = Queue()
-    p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
-    p.start()
-    config = q.get()
-    p.join()
+    # p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
+    env, config = make_env(env_config, mode)
+    print(env)
+    print(config)
+    # _make_env_wrapped(q, env_config, mode)
+    # p = subprocess.run([sys.executable,
+    #                     '-u',
+    #                     '-m',
+    #                     'surreal.env.make_env_config',
+    #                     U.to_pickle_hex(env_config)],
+    #                    stdout=subprocess.PIPE)
+
+    # print(p.stdout)
+    # config = pickle.loads(p.stdout)
     return config
 
 
-def _make_env_wrapped(q, env_config, mode):
+def make_env_wrapped(q, env_config, mode):
     """
     For running make env in another process
     """
-    config, _ = make_env(env_config, mode)
-    q.put(config)
+    print('ABC')
+    _, config = make_env(env_config, mode)
+    sys.stdout.write(pickle.dumps(config))
+    # q.close()
 
 
 def make_env(env_config, mode=None):
@@ -107,12 +124,17 @@ def make_mujocomanip(env_name, env_config):
 
 
 def make_dm_control(env_name, env_config):
+    print('x')
     from dm_control import suite
+    print('y-1')
     from dm_control.suite.wrappers import pixels
     from .dm_wrapper import DMControlAdapter, DMControlDummyWrapper
+    print('y0')
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
+    print('y1')
     env = suite.load(domain_name=domain_name, task_name=task_name)
+    print('y2')
     if pixel_input:
         if os.getenv('DISABLE_MUJOCO_RENDERING'):
             # We are asking for rendering on a pod that cannot support rendering, 
@@ -123,11 +145,11 @@ def make_dm_control(env_name, env_config):
             env = DMControlDummyWrapper(env) #...
         else:
             env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
-        
+    print('y3')
     # TODO: what to do with reward visualization
     # Reward visualization should only be done in the eval agent
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
-
+    print('z')
     env = DMControlAdapter(env, pixel_input)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)

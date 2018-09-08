@@ -227,7 +227,7 @@ class DDPGLauncher(SurrealDefaultLauncher):
         args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
-        self.env_config = make_env_config(self.env_config)
+        _, self.env_config = make_env(self.env_config)
         self.env_config.num_agents = args.num_agents
 
         self.session_config.folder = args.experiment_folder

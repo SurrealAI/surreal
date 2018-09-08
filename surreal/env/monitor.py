@@ -181,10 +181,12 @@ class EvalTensorplexMonitor(EpisodeMonitor):
                 Tensorboard, False to put all plots together
         """
         super().__init__(env)
+        print('before_get_client')
         self.tensorplex = get_tensorplex_client(
             '{}/{}'.format('eval', eval_id),
             session_config
         )
+        print('after_get_client')
         interval = session_config['tensorplex']['update_schedule']['eval_env']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval
