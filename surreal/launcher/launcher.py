@@ -296,7 +296,7 @@ class SurrealDefaultLauncher(Launcher):
         return range(self.eval_batch_size * int(batch_id),
                      self.eval_batch_size * int(batch_id) + 1)
 
-    def run_learner(self):
+    def run_learner(self, iterations=None):
         """
             Launches the learner process.
             Learner consumes experience from replay
@@ -311,7 +311,14 @@ class SurrealDefaultLauncher(Launcher):
             env_config=env_config,
             session_config=session_config
         )
-        learner.main()
+
+        if iterations is None:
+            learner.main()
+        else:
+            learner.main_setup()
+            for i in range(iterations):
+                learner.main_loop()
+
 
     def run_ps(self):
         """

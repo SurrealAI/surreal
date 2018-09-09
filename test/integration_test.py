@@ -64,15 +64,17 @@ def test_ddpg(tmpdir):
 
     subprocesses = []
 
-    #for module in ['tensorboard']:
-    #for module in ['agent-0', 'eval-0', 'replay', 'learner', 'ps', 'tensorboard']:
-    for module in ['eval-0', 'replay', 'learner', 'ps', 'tensorboard']:
+    for module in ['eval-0', 'replay', 'ps', 'tensorboard']:
         subprocesses.append(subprocess.Popen([sys.executable, '../surreal/main/ddpg_configs.py', module, '--'] + args))
-    #subprocess.check_call([sys.executable, '../surreal/main/ddpg_configs.py', 'agent-0', '--'] + args)
 
-    launcher = DDPGLauncher()
-    launcher.setup(args)
-    launcher.run_agent(0, iterations=1)
+    agent_launcher = DDPGLauncher()
+    agent_launcher.setup(args)
+    agent_launcher.run_agent(0, iterations=10)
+
+    learner_launcher = DDPGLauncher()
+    learner_launcher.setup(args)
+    learner_launcher.run_learner(iterations=1)
+
 
     for subprocess_ in subprocesses:
         parent = psutil.Process(subprocess_.pid)
