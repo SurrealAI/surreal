@@ -47,6 +47,7 @@ def test_ddpg(tmpdir):
     os.makedirs(temp_path, exist_ok=True)
     print("Setting up experiment launcher...")
     args = [
+            '--unit-test',
             '--num-agents',
             '1',
             '--env',
@@ -64,20 +65,41 @@ def test_ddpg(tmpdir):
                                               os.path.join(os.path.dirname(__file__), '../surreal/main/ddpg_configs.py'),
                                               module,
                                               '--'] + args))
+        print(module + '=' * 20 + 'done')
+    print('Supplementary components launched')
 
-    agent_launcher = DDPGLauncher()
-    agent_launcher.setup(args)
-    agent_launcher.run_agent(0, iterations=10)
+    launcher = DDPGLauncher()
+    launcher.setup(args)
 
-    learner_launcher = DDPGLauncher()
-    learner_launcher.setup(args)
-    learner_launcher.run_learner(iterations=1)
+    print('Launcher setup')
+    # # Prevent IP address in use error
+    # launcher.learner_config.replay.replay_shards = 1
+    # launcher.session_config.ps.shards = 1
+
+    agent = launcher.setup_agent(0)
+    agent.main_setup()
+
+    print('Agetn setup')
+
+    learner = launcher.setup_learner()
+    learner.main_setup()
+
+    print('Learner setup')
+
+    for i in range(5):
+        print('Iteration {}'.format(i))
+        for j in range(3):
+            agent.main_loop()
+        learner.main_loop()
 
     for subprocess_ in subprocesses:
         parent = psutil.Process(subprocess_.pid)
         for child in parent.children(recursive=True):
             child.kill()
         parent.kill()
+    print('Finished testing.')
+    exit(0)
+
 
 def test_ppo(tmpdir):
     print("Making temp directory...")
@@ -117,12 +139,13 @@ def test_ppo(tmpdir):
             child.kill()
         parent.kill()
 
+
 if __name__ == '__main__':
     print('BEGIN DDPG TEST')
     test_ddpg('/tmp/surreal')
     print('PASSED')
-    print('BEGIN PPO TEST')
-    test_ppo("/tmp/surreal")
-    print('PASSED')
-    self = psutil.Process()
-    self.kill()
+    # print('BEGIN PPO TEST')
+    # test_ppo("/tmp/surreal")
+    # print('PASSED')
+    # self = psutil.Process()
+    # self.kill()
