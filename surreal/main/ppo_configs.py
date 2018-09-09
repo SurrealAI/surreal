@@ -3,7 +3,7 @@ from surreal.agent import PPOAgent
 from surreal.learner import PPOLearner
 from surreal.replay import FIFOReplay
 from surreal.launcher import SurrealDefaultLauncher
-from surreal.env import make_env_config
+from surreal.env import make_env_config, make_env
 import argparse
 
 
@@ -202,7 +202,7 @@ class PPOLauncher(SurrealDefaultLauncher):
         args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
-        self.env_config = make_env_config(self.env_config)
+        _, self.env_config = make_env(self.env_config)
 
         self.session_config.folder = args.experiment_folder
         self.session_config.agent.num_gpus = args.agent_num_gpus
