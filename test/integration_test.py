@@ -60,7 +60,10 @@ def test_ddpg(tmpdir):
     subprocesses = []
 
     for module in ['eval-0', 'replay', 'ps', 'tensorboard']:
-        subprocesses.append(subprocess.Popen([sys.executable, '../surreal/main/ddpg_configs.py', module, '--'] + args))
+        subprocesses.append(subprocess.Popen([sys.executable,
+                                              os.path.join(os.path.dirname(__file__), '../surreal/main/ddpg_configs.py'),
+                                              module,
+                                              '--'] + args))
 
     agent_launcher = DDPGLauncher()
     agent_launcher.setup(args)
@@ -95,7 +98,10 @@ def test_ppo(tmpdir):
     subprocesses = []
 
     for module in ['eval-0', 'replay', 'ps', 'tensorboard']:
-        subprocesses.append(subprocess.Popen([sys.executable, '../surreal/main/ppo_configs.py', module, '--'] + args))
+        subprocesses.append(subprocess.Popen([sys.executable,
+                                              os.path.join(os.path.dirname(__file__), '../surreal/main/ppo_configs.py'),
+                                              module,
+                                              '--'] + args))
 
     agent_launcher = PPOLauncher()
     agent_launcher.setup(args)
@@ -113,6 +119,7 @@ def test_ppo(tmpdir):
 
 if __name__ == '__main__':
     print('BEGIN DDPG TEST')
+    test_ddpg('/tmp/surreal')
     print('PASSED')
     print('BEGIN PPO TEST')
     test_ppo("/tmp/surreal")

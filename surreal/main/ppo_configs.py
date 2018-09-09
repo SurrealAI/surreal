@@ -91,20 +91,20 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': None,
     'action_repeat': 10,
-    'pixel_input': True,
+    'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
     'frame_stacks': 1,
     'sleep_time': 0,
     'video': {
-        'record_video': True,
+        'record_video': False,
         'save_folder': None,
         'max_videos': 500,
         'record_every': 5,
     },
     'observation': {
         'pixel': ['camera0'],
-        'low_dim': ['proprio', 'low-level'],
+        'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
     },
     'eval_mode': {
         'demonstration': None
