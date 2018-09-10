@@ -198,6 +198,8 @@ class PPOLauncher(SurrealDefaultLauncher):
                             'files like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--unit-test', action='store_true',
+                            help='Set config values to settings that can run locally for unit testing')
 
         args = parser.parse_args(args=argv)
 
@@ -212,6 +214,10 @@ class PPOLauncher(SurrealDefaultLauncher):
             self.session_config.checkpoint.restore_folder = args.restore_folder
         self.agent_batch_size = args.agent_batch
         self.eval_batch_size = args.agent_batch
+
+        if args.unit_test:
+            # ppo behavior doesn't change in a unit test
+            pass
 
 
 if __name__ == '__main__':
