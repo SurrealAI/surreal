@@ -72,14 +72,11 @@ def test_ddpg(tmpdir):
     launcher.setup(args)
 
     print('Launcher setup')
-    # # Prevent IP address in use error
-    # launcher.learner_config.replay.replay_shards = 1
-    # launcher.session_config.ps.shards = 1
 
     agent = launcher.setup_agent(0)
     agent.main_setup()
 
-    print('Agetn setup')
+    print('Agent setup')
 
     learner = launcher.setup_learner()
     learner.main_setup()
@@ -94,11 +91,13 @@ def test_ddpg(tmpdir):
 
     for subprocess_ in subprocesses:
         parent = psutil.Process(subprocess_.pid)
-        for child in parent.children(recursive=True):
-            child.kill()
-        parent.kill()
+        assert (parent.status() == 'running')
+
+    parent = psutil.Process()
+    for child in parent.children(recursive=True):
+        child.kill()
+
     print('Finished testing.')
-    exit(0)
 
 
 def test_ppo(tmpdir):
@@ -147,5 +146,5 @@ if __name__ == '__main__':
     # print('BEGIN PPO TEST')
     # test_ppo("/tmp/surreal")
     # print('PASSED')
-    # self = psutil.Process()
-    # self.kill()
+    self = psutil.Process()
+    self.kill()
