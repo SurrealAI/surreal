@@ -1,41 +1,15 @@
 import os
 from multiprocessing import Process, Queue
 from surreal.env.video_env import VideoWrapper
+import surreal.utils as U
 from .wrapper import GymAdapter
 from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
 from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
 
-
-def make_env_config(env_config, mode=None):
-    """
-    Forks a process, creates the environment and generate the config
-    This makes sure that when we initializes an environment using
-    make_env, we have not created and then deleted another one (just
-    to get the dimension of input). Many rendering related things
-    can break when created and destroyed.
-
-    e.g. If you create a mujoco_py MjOffscreenRenderContext,
-    delete it, fork the process and re-create the context, you
-    will get a setfault
-
-    Args:
-        env_config: see make_env
-        mode: see make_env
-    """
-    q = Queue()
-    p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
-    p.start()
-    config = q.get()
-    p.join()
-    return config
-
-
-def _make_env_wrapped(q, env_config, mode):
-    """
-    For running make env in another process
-    """
-    config, _ = make_env(env_config, mode)
-    q.put(config)
+import sys
+import pickle
+import subprocess
+import shlex
 
 
 def make_env(env_config, mode=None):
@@ -123,11 +97,9 @@ def make_dm_control(env_name, env_config):
             env = DMControlDummyWrapper(env) #...
         else:
             env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
-        
     # TODO: what to do with reward visualization
     # Reward visualization should only be done in the eval agent
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
-
     env = DMControlAdapter(env, pixel_input)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
@@ -138,4 +110,3 @@ def make_dm_control(env_name, env_config):
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
-

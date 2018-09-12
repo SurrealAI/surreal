@@ -185,7 +185,7 @@ class Config(dict):
 
     def __getattr__(self, key):
         try:
-            return super().__getattribute__(key)
+            return super().__getattribute__(key)    
         except AttributeError:
             raise ConfigError('config key "{}" missing.'.format(key))
 

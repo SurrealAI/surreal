@@ -13,9 +13,11 @@ from tensorplex import Loggerplex
 from tensorplex import Tensorplex
 from surreal.distributed.ps import ShardedParameterServer
 from surreal.replay import ShardedReplay
+import surreal.utils as U
 import faulthandler
 
 faulthandler.enable()
+
 
 class Launcher:
     """
@@ -49,6 +51,8 @@ class Launcher:
                             type=str,
                             help='which component to launch')
         args = parser.parse_args(parser_args)
+
+        self.config_args = config_args
 
         self.setup(config_args)
         self.launch(args.component_name)
@@ -134,6 +138,7 @@ class SurrealDefaultLauncher(Launcher):
         """
         if '-' in component_name_in:
             component_name, component_id = component_name_in.split('-')
+            component_id = int(component_id)
         else:
             component_name = component_name_in
             component_id = None
@@ -200,13 +205,14 @@ class SurrealDefaultLauncher(Launcher):
         """
         agents = []
         for agent_id in agent_ids:
-            agent = Process(target=self.run_agent, args=[agent_id])
-            agent.start()
+            component_name = 'agent-{}'.format(agent_id)
+            agent = subprocess.Popen([sys.executable, '-u',
+                                      sys.argv[0],
+                                      component_name,
+                                      '--']
+                                     + self.config_args)
             agents.append(agent)
-        for i, agent in enumerate(agents):
-            agent.join()
-            raise RuntimeError('Agent {} exited with code {}'
-                               .format(i, agent.exitcode))
+        U.wait_for_popen(agents)
 
     def get_agent_batch(self, batch_id):
         """
@@ -219,7 +225,7 @@ class SurrealDefaultLauncher(Launcher):
             agent_ids (list): ids of the agents in the batch
         """
         return range(self.agent_batch_size * int(batch_id),
-                     self.agent_batch_size * int(batch_id) + 1)
+                     self.agent_batch_size * (int(batch_id) + 1))
 
     def run_eval(self, eval_id, mode, render):
         """
@@ -264,13 +270,14 @@ class SurrealDefaultLauncher(Launcher):
         """
         evals = []
         for eval_id in eval_ids:
-            agent = Process(target=self.run_eval, args=[eval_id, mode, render])
-            agent.start()
+            component_name = 'eval-{}'.format(eval_id)
+            agent = subprocess.Popen([sys.executable, '-u',
+                                      sys.argv[0],
+                                      component_name,
+                                      '--']
+                                     + self.config_args)
             evals.append(agent)
-        for i, agent in enumerate(evals):
-            agent.join()
-            raise RuntimeError('Eval {} exited with code {}'
-                               .format(i, agent.exitcode))
+        U.wait_for_popen(evals)
 
     def get_eval_batch(self, batch_id):
         """

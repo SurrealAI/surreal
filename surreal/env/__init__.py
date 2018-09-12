@@ -4,5 +4,5 @@ from .atari_wrappers import *
 from .exp_sender_wrapper import *
 from .monitor import *
 from .wrapper import *
-from .make_env import make_env, make_env_config
+from .make_env import make_env
 from .video_env import VideoWrapper
