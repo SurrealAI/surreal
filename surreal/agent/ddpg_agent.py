@@ -206,11 +206,8 @@ class DDPGAgent(Agent):
             self.noise.reset()
 
     def prepare_env_agent(self, env):
-        print('a')
         env = super().prepare_env_agent(env)
-        print('b')
         env = ExpSenderWrapperSSARNStepBootstrap(env,
                                                  self.learner_config,
                                                  self.session_config)
-        print('c')
         return env

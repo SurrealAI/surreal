@@ -13,9 +13,11 @@ from tensorplex import Loggerplex
 from tensorplex import Tensorplex
 from surreal.distributed.ps import ShardedParameterServer
 from surreal.replay import ShardedReplay
+import surreal.utils as U
 import faulthandler
 
 faulthandler.enable()
+
 
 class Launcher:
     """
@@ -141,7 +143,6 @@ class SurrealDefaultLauncher(Launcher):
             component_name = component_name_in
             component_id = None
 
-
         if component_name == 'agent':
             self.run_agent(agent_id=component_id)
         elif component_name == 'agents':
@@ -177,7 +178,6 @@ class SurrealDefaultLauncher(Launcher):
             agent_id (int): agent's id
         """
         np.random.seed(int(time.time() * 100000 % 100000))
-        print('run agent {}'.format(agent_id))
 
         session_config, learner_config, env_config = \
             self.session_config, self.learner_config, self.env_config
@@ -204,32 +204,15 @@ class SurrealDefaultLauncher(Launcher):
             agent_ids (list(int)): each agent's id
         """
         agents = []
-        print('run agent batch')
         for agent_id in agent_ids:
             component_name = 'agent-{}'.format(agent_id)
-            agent = subprocess.Popen([sys.executable,
+            agent = subprocess.Popen([sys.executable, '-u',
                                       sys.argv[0],
                                       component_name,
                                       '--']
                                      + self.config_args)
             agents.append(agent)
-        print('agents', len(agents))
-        while True:
-            time.sleep(1)
-            for i, agent in enumerate(agents):
-                if agent is None:
-                    continue
-                ret = agent.poll()
-                if ret is not None:
-                    if ret == 0:
-                        agents[i] = None
-                        print('Agent {} exited with code 0'.format(i))
-                    else:
-                        for agent in agents:
-                            if agent is not None:
-                                agent.kill()
-                        raise RuntimeError('Agent {} exited with code {}'
-                                           .format(i, ret))
+        U.wait_for_popen(agents)
 
     def get_agent_batch(self, batch_id):
         """
@@ -288,28 +271,13 @@ class SurrealDefaultLauncher(Launcher):
         evals = []
         for eval_id in eval_ids:
             component_name = 'eval-{}'.format(eval_id)
-            agent = subprocess.Popen([sys.executable,
+            agent = subprocess.Popen([sys.executable, '-u',
                                       sys.argv[0],
                                       component_name,
                                       '--']
                                      + self.config_args)
             evals.append(agent)
-
-        while True:
-            time.sleep(1)
-            for i, agent in enumerate(evals):
-                if agent is None:
-                    continue
-                ret = agent.poll()
-                if ret is not None:
-                    if ret == 0:
-                        evals[i] = None
-                    else:
-                        for agent in evals:
-                            if agent is not None:
-                                agent.kill()
-                        raise RuntimeError('Eval {} exited with code {}'
-                                           .format(i, ret))
+        U.wait_for_popen(evals)
 
     def get_eval_batch(self, batch_id):
         """

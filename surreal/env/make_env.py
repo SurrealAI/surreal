@@ -12,49 +12,6 @@ import subprocess
 import shlex
 
 
-def make_env_config(env_config, mode=None):
-    """
-    Forks a process, creates the environment and generate the config
-    This makes sure that when we initializes an environment using
-    make_env, we have not created and then deleted another one (just
-    to get the dimension of input). Many rendering related things
-    can break when created and destroyed.
-
-    e.g. If you create a mujoco_py MjOffscreenRenderContext,
-    delete it, fork the process and re-create the context, you
-    will get a setfault
-
-    Args:
-        env_config: see make_env
-        mode: see make_env
-    """
-    # p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
-    env, config = make_env(env_config, mode)
-    print(env)
-    print(config)
-    # _make_env_wrapped(q, env_config, mode)
-    # p = subprocess.run([sys.executable,
-    #                     '-u',
-    #                     '-m',
-    #                     'surreal.env.make_env_config',
-    #                     U.to_pickle_hex(env_config)],
-    #                    stdout=subprocess.PIPE)
-
-    # print(p.stdout)
-    # config = pickle.loads(p.stdout)
-    return config
-
-
-def make_env_wrapped(q, env_config, mode):
-    """
-    For running make env in another process
-    """
-    print('ABC')
-    _, config = make_env(env_config, mode)
-    sys.stdout.write(pickle.dumps(config))
-    # q.close()
-
-
 def make_env(env_config, mode=None):
     """
     Makes an environment and populates related fields in env_config
@@ -124,17 +81,12 @@ def make_mujocomanip(env_name, env_config):
 
 
 def make_dm_control(env_name, env_config):
-    print('x')
     from dm_control import suite
-    print('y-1')
     from dm_control.suite.wrappers import pixels
     from .dm_wrapper import DMControlAdapter, DMControlDummyWrapper
-    print('y0')
     pixel_input = env_config.pixel_input
     domain_name, task_name = env_name.split('-')
-    print('y1')
     env = suite.load(domain_name=domain_name, task_name=task_name)
-    print('y2')
     if pixel_input:
         if os.getenv('DISABLE_MUJOCO_RENDERING'):
             # We are asking for rendering on a pod that cannot support rendering, 
@@ -145,11 +97,9 @@ def make_dm_control(env_name, env_config):
             env = DMControlDummyWrapper(env) #...
         else:
             env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
-    print('y3')
     # TODO: what to do with reward visualization
     # Reward visualization should only be done in the eval agent
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
-    print('z')
     env = DMControlAdapter(env, pixel_input)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
@@ -160,4 +110,3 @@ def make_dm_control(env_name, env_config):
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
-

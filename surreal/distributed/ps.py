@@ -214,7 +214,6 @@ class ParameterClient(object):
         Returns:
             True if parameter is actually fetched (changed since last request).
         """
-        print('fp-1')
         client = ZmqReq(
             host=self.host,
             port=self.port,
@@ -222,15 +221,12 @@ class ParameterClient(object):
             postprocess=U.deserialize,
             timeout=self.timeout
         )
-        print('fp-2')
         try:
             response = client.request('parameter:' + self._last_hash)
         except ZmqTimeoutError:
             self.report_fetch_parameter_failed()
             return False
-        print('fp-3')
         self.report_fetch_parameter_success()
-        print('fp-4')
         param, cur_hash = response
         self._last_hash = cur_hash
         if param:
@@ -246,7 +242,6 @@ class ParameterClient(object):
         Returns:
             (info dict, True if parameter is actually fetched)
         """
-        print('fpi-1')
         client = ZmqReq(
             host=self.host,
             port=self.port,
@@ -254,17 +249,14 @@ class ParameterClient(object):
             postprocess=U.deserialize,
             timeout=self.timeout
         )
-        print('fpi-2')
         try:
             response = client.request('both:' + self._last_hash)
         except ZmqTimeoutError:
             self.report_fetch_parameter_failed()
             return False, {}
-        print('fpi-3')
         self.report_fetch_parameter_success()
         param, info = response
         self._last_hash = info['hash'] if info else ''
-        print('fpi-4')
         if param:
             return param, info
         else:
@@ -282,6 +274,3 @@ class ParameterClient(object):
         if not self.alive:
             self.alive = True
             print('Parameter client came back alive')
-
-
-

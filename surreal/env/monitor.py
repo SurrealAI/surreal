@@ -7,9 +7,6 @@ from surreal.session import (PeriodicTracker, get_tensorplex_client)
 import surreal.utils as U
 from .wrapper import Wrapper
 
-from tensorplex.zmq_queue import *
-import zmq
-
 
 class EpisodeMonitor(Wrapper):
     """
@@ -132,17 +129,15 @@ class TrainingTensorplexMonitor(EpisodeMonitor):
                 Tensorboard, False to put all plots together
         """
         super().__init__(env)
-
+        U.assert_type(agent_id, int)
         self.tensorplex = get_tensorplex_client(
             '{}/{}'.format('agent', agent_id),
             session_config
         )
-        print('tp-2')
         interval = session_config['tensorplex']['update_schedule']['training_env']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval
         self._separate_plots = separate_plots
-        print('tp-3')
 
     def _get_tag(self, tag):
         if self._separate_plots:
@@ -186,12 +181,10 @@ class EvalTensorplexMonitor(EpisodeMonitor):
                 Tensorboard, False to put all plots together
         """
         super().__init__(env)
-        print('before_get_client')
         self.tensorplex = get_tensorplex_client(
             '{}/{}'.format('eval', eval_id),
             session_config
         )
-        print('after_get_client')
         interval = session_config['tensorplex']['update_schedule']['eval_env']
         self._periodic = PeriodicTracker(interval)
         self._avg = interval

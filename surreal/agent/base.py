@@ -222,21 +222,15 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         Args:
             @env: the environment to run agent on
         """
-        print('get_env')
         env = self.get_env()
-        print('prepare_env')
         env = self.prepare_env(env)
         self.env = env
-        print('fetch_parameter')
         self.fetch_parameter()
         while True:
-            print('Agent {} episode'.format(self.agent_id))
             self.pre_episode()
             obs, info = env.reset()
             total_reward = 0.0
             while True:
-                print('Agent {} steps'.format(self.agent_id))
-                self.agent_id
                 if self.render:
                     env.render()
                 self.pre_action(obs)
@@ -249,7 +243,9 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
                     break
             self.post_episode()
             if self.current_episode % 20 == 0:
-                print('episode', self.current_episode, 'reward', total_reward)
+                self.log.info('Episode {} reward {}'
+                              .format(self.current_episode,
+                                      total_reward))
 
     def get_env(self):
         """Creates an environment instance
@@ -282,14 +278,12 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         limit_episode_length = self.env_config.limit_episode_length
         if limit_episode_length > 0:
             env = MaxStepWrapper(env, limit_episode_length)
-        print('before_tp')
         env = TrainingTensorplexMonitor(
             env,
             agent_id=self.agent_id,
             session_config=self.session_config,
             separate_plots=True
         )
-        print('after_tp')
         return env
 
     def prepare_env_eval(self, env):
@@ -337,16 +331,11 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         """
             Extends base class fetch_parameters to add some logging
         """
-        print('agent-fp-0')
         params, info = self._ps_client.fetch_parameter_with_info()
-        print('agent-fp-1')
         if params:
             params = U.deserialize(params)
-            print('agent-fp-2')
             params = self.on_parameter_fetched(params, info)
-            print('agent-fp-3')
             self._module_dict.load(params)
-        print('agent-fp-4')
 
     def fetch_parameter_info(self):
         """
