@@ -136,9 +136,11 @@ class SurrealDefaultLauncher(Launcher):
         """
         if '-' in component_name_in:
             component_name, component_id = component_name_in.split('-')
+            component_id = int(component_id)
         else:
             component_name = component_name_in
             component_id = None
+
 
         if component_name == 'agent':
             self.run_agent(agent_id=component_id)

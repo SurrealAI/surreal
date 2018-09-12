@@ -20,7 +20,7 @@ from surreal.env import (
 AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
 
 
-class Agent(object):
+class Agent(object, metaclass=U.AutoInitializeMeta):
     """
         Important: When extending this class, make sure to follow the init method signature so that 
         orchestrating functions can properly initialize custom agents.
@@ -55,6 +55,8 @@ class Agent(object):
 
         self.actions_since_param_update = 0
         self.episodes_since_param_update = 0
+
+        self.render = render
 
     #######
     # Internal initialization methods
@@ -335,11 +337,16 @@ class Agent(object):
         """
             Extends base class fetch_parameters to add some logging
         """
+        print('agent-fp-0')
         params, info = self._ps_client.fetch_parameter_with_info()
+        print('agent-fp-1')
         if params:
             params = U.deserialize(params)
+            print('agent-fp-2')
             params = self.on_parameter_fetched(params, info)
+            print('agent-fp-3')
             self._module_dict.load(params)
+        print('agent-fp-4')
 
     def fetch_parameter_info(self):
         """
