@@ -56,6 +56,8 @@ class Agent(object):
         self.actions_since_param_update = 0
         self.episodes_since_param_update = 0
 
+        self.render = render
+
     #######
     # Internal initialization methods
     #######
@@ -238,14 +240,14 @@ class Agent(object):
             One loop of agent, runs one episode of the environment
         """
         self.pre_episode()
-        obs, info = env.reset()
+        obs, info = self.env.reset()
         total_reward = 0.0
         while True:
             if self.render:
-                env.render()
+                self.env.render()
             self.pre_action(obs)
             action = self.act(obs)
-            obs_next, reward, done, info = env.step(action)
+            obs_next, reward, done, info = self.env.step(action)
             total_reward += reward
             self.post_action(obs, action, obs_next, reward, done, info)
             obs = obs_next

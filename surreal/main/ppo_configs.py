@@ -3,7 +3,7 @@ from surreal.agent import PPOAgent
 from surreal.learner import PPOLearner
 from surreal.replay import FIFOReplay
 from surreal.launcher import SurrealDefaultLauncher
-from surreal.env import make_env_config
+from surreal.env import make_env_config, make_env
 import argparse
 
 
@@ -91,20 +91,20 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': None,
     'action_repeat': 10,
-    'pixel_input': True,
+    'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
     'frame_stacks': 1,
     'sleep_time': 0,
     'video': {
-        'record_video': True,
+        'record_video': False,
         'save_folder': None,
         'max_videos': 500,
         'record_every': 5,
     },
     'observation': {
         'pixel': ['camera0'],
-        'low_dim': ['proprio', 'low-level'],
+        'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
     },
     'eval_mode': {
         'demonstration': None
@@ -202,7 +202,7 @@ class PPOLauncher(SurrealDefaultLauncher):
         args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
-        self.env_config = make_env_config(self.env_config)
+        _, self.env_config = make_env(self.env_config)
 
         self.session_config.folder = args.experiment_folder
         self.session_config.agent.num_gpus = args.agent_num_gpus

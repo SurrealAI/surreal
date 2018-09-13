@@ -331,7 +331,8 @@ class Learner(metaclass=U.AutoInitializeMeta):
             Main function that defines learner process
         """
         self.main_setup()
-        self.main_loop()
+        while True:
+            self.main_loop()
 
     def main_setup(self):
         """

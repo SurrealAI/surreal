@@ -134,6 +134,7 @@ class SurrealDefaultLauncher(Launcher):
         """
         if '-' in component_name_in:
             component_name, component_id = component_name_in.split('-')
+            component_id = int(component_id)
         else:
             component_name = component_name_in
             component_id = None
@@ -165,12 +166,13 @@ class SurrealDefaultLauncher(Launcher):
         else:
             raise ValueError('Unexpected component {}'.format(component_name))
 
-    def run_agent(self, agent_id):
+    def run_agent(self, agent_id, iterations=None):
         """
             Launches an agent process with agent_id
 
         Args:
             agent_id (int): agent's id
+            iterations (int): if not none, the number of episodes to run before exiting
         """
         np.random.seed(int(time.time() * 100000 % 100000))
 
@@ -188,7 +190,14 @@ class SurrealDefaultLauncher(Launcher):
             agent_mode=agent_mode,
         )
 
-        agent.main_agent()
+        agent._initialize()
+
+        if iterations is None:
+            agent.main_agent()
+        else:
+            agent.main_setup()
+            for i in range(iterations):
+                agent.main_loop()
 
     def run_agent_batch(self, agent_ids):
         """
@@ -250,6 +259,8 @@ class SurrealDefaultLauncher(Launcher):
             render=render
         )
 
+        agent._initialize()
+
         agent.main_eval()
 
     def run_eval_batch(self, eval_ids, mode, render):
@@ -285,7 +296,7 @@ class SurrealDefaultLauncher(Launcher):
         return range(self.eval_batch_size * int(batch_id),
                      self.eval_batch_size * int(batch_id) + 1)
 
-    def run_learner(self):
+    def run_learner(self, iterations=None):
         """
             Launches the learner process.
             Learner consumes experience from replay
@@ -300,7 +311,14 @@ class SurrealDefaultLauncher(Launcher):
             env_config=env_config,
             session_config=session_config
         )
-        learner.main()
+
+        if iterations is None:
+            learner.main()
+        else:
+            learner.main_setup()
+            for i in range(iterations):
+                learner.main_loop()
+
 
     def run_ps(self):
         """
