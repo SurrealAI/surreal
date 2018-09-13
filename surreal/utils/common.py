@@ -648,3 +648,34 @@ class AverageDictionary(object):
         return response
 
 
+def wait_for_popen(processes, verbose=True):
+    """
+
+    Wait for some processes, terminate all if one of them fails
+
+    Args:
+        processes: A list of Popen
+        verbose (bool, default True): when True, print to console
+            when a process exited with code 0
+
+    Raises:
+        RuntimeError: When one process fails
+    """
+    completed = [False for i in processes]
+    while True:
+        time.sleep(1)
+        for i, process in enumerate(processes):
+            if completed[i]:
+                continue
+            ret = process.poll()
+            if ret is not None:
+                if ret == 0:
+                    completed[i] = True
+                    if verbose:
+                        print('Process {} exited with code 0'.format(i))
+                else:
+                    for process in processes:
+                        if process is not None:
+                            process.kill()
+                    raise RuntimeError('Process {} exited with code {}'
+                                       .format(i, ret))

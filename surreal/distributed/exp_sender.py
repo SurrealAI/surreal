@@ -75,8 +75,7 @@ class ExpSender(object):
         """
         U.assert_type(flush_iteration, int)
         self._client = ZmqSender(host=host,
-                                 port=port,
-                                 preprocess=None)
+                                 port=port)
         self._exp_buffer = ExpBuffer()
         self._flush_tracker = PeriodicTracker(flush_iteration)
 

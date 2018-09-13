@@ -38,7 +38,7 @@ class CommandGenerator:
         self.batch_agent = batch_agent
 
     def get_command(self, role):
-        command = ['python']
+        command = ['python', '-u']
         command += [self.config_py]
         command += [role]
         command += ['--']

@@ -20,7 +20,7 @@ from surreal.env import (
 AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
 
 
-class Agent(object):
+class Agent(object, metaclass=U.AutoInitializeMeta):
     """
         Important: When extending this class, make sure to follow the init method signature so that 
         orchestrating functions can properly initialize custom agents.
@@ -239,15 +239,16 @@ class Agent(object):
         """
             One loop of agent, runs one episode of the environment
         """
+        env = self.env
         self.pre_episode()
-        obs, info = self.env.reset()
+        obs, info = env.reset()
         total_reward = 0.0
         while True:
             if self.render:
-                self.env.render()
+                env.render()
             self.pre_action(obs)
             action = self.act(obs)
-            obs_next, reward, done, info = self.env.step(action)
+            obs_next, reward, done, info = env.step(action)
             total_reward += reward
             self.post_action(obs, action, obs_next, reward, done, info)
             obs = obs_next
@@ -255,7 +256,9 @@ class Agent(object):
                 break
         self.post_episode()
         if self.current_episode % 20 == 0:
-            print('episode', self.current_episode, 'reward', total_reward)
+            self.log.info('Episode {} reward {}'
+                          .format(self.current_episode,
+                                  total_reward))
 
     def get_env(self):
         """
@@ -290,7 +293,6 @@ class Agent(object):
         limit_episode_length = self.env_config.limit_episode_length
         if limit_episode_length > 0:
             env = MaxStepWrapper(env, limit_episode_length)
-
         env = TrainingTensorplexMonitor(
             env,
             agent_id=self.agent_id,

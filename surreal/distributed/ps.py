@@ -274,6 +274,3 @@ class ParameterClient(object):
         if not self.alive:
             self.alive = True
             print('Parameter client came back alive')
-
-
-
