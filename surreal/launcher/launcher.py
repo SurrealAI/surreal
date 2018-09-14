@@ -178,6 +178,18 @@ class SurrealDefaultLauncher(Launcher):
             agent_id (int): agent's id
             iterations (int): if not none, the number of episodes to run before exiting
         """
+        agent = self.setup_agent(agent_id)
+        agent.main_agent()
+
+    def setup_agent(self, agent_id):
+        """'
+
+        Same as launch_agent, but instead of running agent.main()
+        infinite loop, returns the agent instance
+
+        Args:
+            agent_id: [description]
+        """
         np.random.seed(int(time.time() * 100000 % 100000))
 
         session_config, learner_config, env_config = \
@@ -194,7 +206,7 @@ class SurrealDefaultLauncher(Launcher):
             agent_mode=agent_mode,
         )
 
-        agent.main_agent()
+        return agent
 
     def run_agent_batch(self, agent_ids):
         """
@@ -299,6 +311,14 @@ class SurrealDefaultLauncher(Launcher):
             Learner consumes experience from replay
             and publishes experience to parameter server
         """
+        learner = self.setup_learner()
+        return learner
+
+    def setup_learner(self):
+        """
+            Same as run_learner, but returns the Learner instance
+            instead of calling learner.main_loop()
+        """
         session_config, learner_config, env_config = \
             self.session_config, self.learner_config, self.env_config
 
@@ -309,13 +329,7 @@ class SurrealDefaultLauncher(Launcher):
             session_config=session_config
         )
 
-        if iterations is None:
-            learner.main()
-        else:
-            learner.main_setup()
-            for i in range(iterations):
-                learner.main_loop()
-
+        return learner
 
     def run_ps(self):
         """

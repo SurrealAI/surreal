@@ -223,6 +223,10 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             ' like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--unit-test', action='store_true',
+                            help='Prevents sharding replay and paramter '
+                            'server. Helps prevent address collision'
+                            ' in unit testing.')
 
         args = parser.parse_args(args=argv)
 
@@ -238,6 +242,15 @@ class DDPGLauncher(SurrealDefaultLauncher):
             self.session_config.checkpoint.restore_folder = args.restore_folder
         self.agent_batch_size = args.agent_batch
         self.eval_batch_size = args.agent_batch
+
+        # Used in tests: Prevent IP address in use error
+        #                Prevent replay from hanging learner
+        #                due to sample_start
+        if args.unit_test:
+            self.learner_config.replay.sampling_start_size = 5
+            self.learner_config.replay.replay_shards = 1
+            self.session_config.ps.shards = 1
+
 
 
 if __name__ == '__main__':

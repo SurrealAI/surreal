@@ -41,50 +41,13 @@ def _setup_env():
     os.environ["SYMPH_PREFETCH_QUEUE_HOST"] = "127.0.0.1"
     os.environ["SYMPH_PREFETCH_QUEUE_PORT"] = "7000"
 
-def test_ddpg(tmpdir):
+
+def test(temp_path, config_path, launcher):
     print("Making temp directory...")
-    temp_path = os.path.join(tmpdir, "test_ddpg")
     os.makedirs(temp_path, exist_ok=True)
     print("Setting up experiment launcher...")
     args = [
-            '--num-agents',
-            '1',
-            '--env',
-            'dm_control:cartpole-balance',
-            '--experiment-folder',
-            str(temp_path)]
-
-    print("Setting up environment variables...")
-    _setup_env()
-
-    subprocesses = []
-
-    for module in ['eval-0', 'replay', 'ps', 'tensorboard']:
-        subprocesses.append(subprocess.Popen([sys.executable,
-                                              os.path.join(os.path.dirname(__file__), '../surreal/main/ddpg_configs.py'),
-                                              module,
-                                              '--'] + args))
-
-    agent_launcher = DDPGLauncher()
-    agent_launcher.setup(args)
-    agent_launcher.run_agent(0, iterations=10)
-
-    learner_launcher = DDPGLauncher()
-    learner_launcher.setup(args)
-    learner_launcher.run_learner(iterations=1)
-
-    for subprocess_ in subprocesses:
-        parent = psutil.Process(subprocess_.pid)
-        for child in parent.children(recursive=True):
-            child.kill()
-        parent.kill()
-
-def test_ppo(tmpdir):
-    print("Making temp directory...")
-    temp_path = os.path.join(tmpdir, "test_ddpg")
-    os.makedirs(temp_path, exist_ok=True)
-    print("Setting up experiment launcher...")
-    args = [
+        '--unit-test',
         '--num-agents',
         '1',
         '--env',
@@ -97,32 +60,57 @@ def test_ppo(tmpdir):
 
     subprocesses = []
 
-    for module in ['eval-0', 'replay', 'ps', 'tensorboard']:
+    for module in ['replay', 'ps', 'eval-0']:  # tensorboard,
         subprocesses.append(subprocess.Popen([sys.executable,
-                                              os.path.join(os.path.dirname(__file__), '../surreal/main/ppo_configs.py'),
+                                              '-u',
+                                              config_path,
                                               module,
                                               '--'] + args))
+        print(module + '=' * 20 + 'done')
+    print('Supplementary components launched')
 
-    agent_launcher = PPOLauncher()
-    agent_launcher.setup(args)
-    agent_launcher.run_agent(0, iterations=10)
+    launcher.setup(args)
 
-    learner_launcher = PPOLauncher()
-    learner_launcher.setup(args)
-    learner_launcher.run_learner(iterations=1)
+    print('Launcher setup')
+
+    agent = launcher.setup_agent(0)
+    agent.main_setup()
+
+    print('Agent setup')
+
+    learner = launcher.setup_learner()
+    learner.main_setup()
+
+    print('Learner setup')
+
+    for i in range(2):
+        print('Iteration {}'.format(i))
+        for j in range(2):
+            agent.main_loop()
+        learner.main_loop()
 
     for subprocess_ in subprocesses:
-        parent = psutil.Process(subprocess_.pid)
-        for child in parent.children(recursive=True):
-            child.kill()
-        parent.kill()
+        assert(psutil.Process(subprocess_.pid).status() == 'running')
+
+    parent = psutil.Process()
+    for child in parent.children(recursive=True):
+        child.terminate()
+
+    print('Finished testing.')
+
 
 if __name__ == '__main__':
     print('BEGIN DDPG TEST')
-    test_ddpg('/tmp/surreal')
+    test('/tmp/surreal/ddpg',
+         os.path.join(os.path.dirname(__file__),
+                      '../surreal/main/ddpg_configs.py'),
+         DDPGLauncher())
     print('PASSED')
-    print('BEGIN PPO TEST')
-    test_ppo("/tmp/surreal")
-    print('PASSED')
+    # print('BEGIN PPO TEST')
+    # test('/tmp/surreal/ppo',
+    #      os.path.join(os.path.dirname(__file__),
+    #                   '../surreal/main/ppo_configs.py'),
+    #      PPOLauncher())
+    # print('PASSED')
     self = psutil.Process()
     self.kill()
