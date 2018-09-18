@@ -156,18 +156,22 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
     #######
     def on_parameter_fetched(self, params, info):
         """
-            Method called when a new parameter is fetched. Free to be inherited by subclasses.
+            Called when a new parameter is fetched.
         """
-        # The time it takes for parameter to go from learner to agent
         if self.agent_mode == 'training':
+            # The time it takes for parameter to go from learner to agent
             delay = time.time() - info['time']
-            self.actions_per_param_update.add_value(self.actions_since_param_update)
-            self.episodes_per_param_update.add_value(self.episodes_since_param_update)
+            self.actions_per_param_update.add_value(
+                self.actions_since_param_update)
+            self.episodes_per_param_update.add_value(
+                self.episodes_since_param_update)
             self.tensorplex.add_scalars(
                 {
                     '.core/parameter_publish_delay_s': delay,
-                    '.core/actions_per_param_update': self.actions_per_param_update.cur_value(),
-                    '.core/episodes_per_param_update': self.episodes_per_param_update.cur_value()
+                    '.core/actions_per_param_update':
+                        self.actions_per_param_update.cur_value(),
+                    '.core/episodes_per_param_update':
+                        self.episodes_per_param_update.cur_value()
                 })
             self.actions_since_param_update = 0
             self.episodes_since_param_update = 0
@@ -210,7 +214,6 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             I.e. after the post_action when done = True
         """
         self.current_episode += 1
-
 
     #######
     # Main loops.

@@ -15,14 +15,14 @@ class ModuleDict(object):
     def __init__(self, module_dict):
         U.assert_type(module_dict, dict)
         for k, m in module_dict.items():
-            U.assert_type(k, str), 'Key "{}" must be string.'.format(k)
-            U.assert_type(m, nnx.Module), \
-            '"{}" must be torchx.nn.Module.'.format(m)
+            U.assert_type(k, str, 'Key "{}" must be string.'.format(k))
+            U.assert_type(m, nnx.Module,
+                          '"{}" must be torchx.nn.Module.'.format(m))
         self._module_dict = module_dict
 
     def dumps(self):
         bin_dict = {}
-        for k,m in self._module_dict.items():
+        for k, m in self._module_dict.items():
             state_dict = m.state_dict()
             for key in state_dict:
                 state_dict[key] = state_dict[key].cpu().numpy()
@@ -36,7 +36,7 @@ class ModuleDict(object):
     def load(self, numpy_dict):
         for key in numpy_dict:
             for k in numpy_dict[key]:
-                numpy_dict[key][k] = torch.from_numpy(np_cast(numpy_dict[key][k], np.float32))
+                numpy_dict[key][k] = torch.from_numpy(
+                    np_cast(numpy_dict[key][k], np.float32))
         for k, m in self._module_dict.items():
             m.load_state_dict(numpy_dict[k])
-

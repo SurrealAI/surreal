@@ -252,6 +252,5 @@ class DDPGLauncher(SurrealDefaultLauncher):
             self.session_config.ps.shards = 1
 
 
-
 if __name__ == '__main__':
     DDPGLauncher().main()

@@ -26,7 +26,7 @@ class ExperienceCollectorServer(Thread):
         self._weakref_map = weakref.WeakValueDictionary()
         self.receiver = ZmqReceiver(host=self.host,
                                     port=self.port,
-                                    load_balanced=self.load_balanced,
+                                    bind=not self.load_balanced,
                                     deserializer=U.deserialize)
         while True:
             exp, storage = self.receiver.recv()

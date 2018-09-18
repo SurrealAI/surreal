@@ -1,35 +1,37 @@
 """
-Learner: pushes parameters to key "ps" and
-    param info to hashmap key "psinfo" on Redis.
-Agent: pulls parameters from key "ps"
-Evaluator: pulls param info from "psinfo" and do diagnostics.
+    Defines the parameter publishing mechanism that propagates
+        updated parameters from the learner to agents
 """
-import pickle
 import time
-import surreal.utils as U
-from surreal.distributed.zmq_struct import ZmqPub, ZmqReq, ZmqSimpleServer, ZmqSubClient, ZmqTimeoutError
-from surreal.distributed.proxy import ZmqLoadBalancerThread
-from surreal.distributed.module_dict import ModuleDict
-from threading import Lock
 from multiprocessing import Process
 import os
+from caraml.zmq import (
+    ZmqProxyThread,
+    ZmqPub,
+    ZmqSub,
+    ZmqServer,
+    ZmqClient,
+    ZmqTimeoutError)
+import surreal.utils as U
+from surreal.distributed.module_dict import ModuleDict
+# TODO: better logging for this file
 
 
 class ParameterPublisher(object):
     """
-    Learner side
+        Publishes parameters from the learner side
+        Using ZmqPub socket
     """
     def __init__(self, port, module_dict):
         """
         Args:
-            name: key that points to the parameter binary on Redis.
-                "<name>info" will be the key to the info Redis hashmap.
-                e.g. "psinfo" -> {'time': 32541.6, 'iteration': 1200}
+            port: the port connected to the pub socket
+            module_dict: ModuleDict object that exposes model parameters
         """
         self._publisher = ZmqPub(
             host='*',
             port=port,
-            preprocess=U.serialize,
+            serializer=U.serialize,
         )
         if not isinstance(module_dict, ModuleDict):
             module_dict = ModuleDict(module_dict)
@@ -37,11 +39,11 @@ class ParameterPublisher(object):
 
     def publish(self, iteration, message=''):
         """
-        Called by learner.
+        Called by learner. Publishes model parameters with additional info
 
         Args:
             iteration: current learning iteration
-            message: any pickleable data
+            message: any U.serialize serializable data
         """
         binary = self._module_dict.dumps()
         info = {
@@ -54,223 +56,248 @@ class ParameterPublisher(object):
 
 
 class ShardedParameterServer(object):
-    def __init__(self, config):
-        self.ps_config = config
-        self.shards = self.ps_config.shards
+    """
+        Runs multiple parameter servers in parallel
+    """
+    def __init__(self, shards):
+        self.shards = shards
 
+        # Serving parameter to agents
         self.frontend_port = os.environ['SYMPH_PS_FRONTEND_PORT']
         self.backend_port = os.environ['SYMPH_PS_BACKEND_PORT']
+        self.serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
+        self.serving_backend_add = "tcp://*:{}".format(self.backend_port)
 
-        self.parameter_serving_frontend_add = "tcp://*:{}".format(self.frontend_port)
-        self.parameter_serving_backend_add = "tcp://*:{}".format(self.backend_port)
+        # Subscribing to learner published parameters
+        self.publisher_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
+        self.publisher_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
 
         self.proxy = None
         self.workers = []
 
     def launch(self):
-        self.proxy = ZmqLoadBalancerThread(in_add=self.parameter_serving_frontend_add,
-                                           out_add=self.parameter_serving_backend_add,
-                                           pattern='router-dealer')
-
+        """
+            Runs load balancing proxy thread
+                and self.shards ParameterServer processes
+            Returns after all threads and processes are running
+        """
+        self.proxy = ZmqProxyThread(in_add=self.serving_frontend_add,
+                                    out_add=self.serving_backend_add,
+                                    pattern='router-dealer')
         self.proxy.start()
 
         self.workers = []
-
-        publish_host = os.environ['SYMPH_PARAMETER_PUBLISH_HOST']
-        publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
         for i in range(self.shards):
             worker = ParameterServer(
-                publish_host=publish_host,
-                publish_port=publish_port,
+                publisher_host=self.publisher_host,
+                publisher_port=self.publisher_port,
                 serving_host='localhost',
                 serving_port=self.backend_port,
                 load_balanced=True,
             )
             worker.start()
             self.workers.append(worker)
-            # break
 
     def join(self):
+        """
+            Wait for all parameter server workers to exit
+                (Currently this means they crashed)
+            Note that proxy is a daemon thread and doesn't need waiting
+        """
         for i, worker in enumerate(self.workers):
             worker.join()
-            U.report_exitcode(worker.exitcode, 'replay-{}'.format(i))
-        self.proxy.join()
+            U.report_exitcode(worker.exitcode, 'ps-{}'.format(i))
+
 
 class ParameterServer(Process):
-    # TODO support multiple PS
     """
-    Standalone script for PS node that runs in an infinite loop.
-    PS subscribes to upstream (learner) and REPs to downstream (agent)
+        Standalone script for PS node that runs in an infinite loop.
+        The ParameterServer subscribes to learner to get the latest
+            model parameters and serves these parameters to agents
+        It implements a simple hash based caching mechanism to avoid
+            serving duplicate parameters to agent
     """
     def __init__(self,
-                 publish_host,
-                 publish_port,
+                 publisher_host,
+                 publisher_port,
                  serving_host,
                  serving_port,
-                 load_balanced=False):
+                 load_balanced=False,):
         """
-
         Args:
-            publish_host: learner side publisher server
-            publish_port:
-            agent_port: PS server that responds to agent fetch_parameter requests
+            publisher_host, publisher_port: where learner publish parameters
+            serving_host, serving_port: where to serve parameters to agents
+            load_balanced: whether multiple parameter servers are sharing the
+                same address
         """
         Process.__init__(self)
-        self.publish_host = publish_host
-        self.publish_port = publish_port
+        self.publisher_host = publisher_host
+        self.publisher_port = publisher_port
         self.serving_host = serving_host
         self.serving_port = serving_port
-        # self.serving_port = 7005
         self.load_balanced = load_balanced
         # storage
         self.parameters = None
         self.param_info = None
+        # threads
+        self._subscriber = None
+        self._server = None
+        self._subscriber_thread = None
+        self._server_thread = None
 
     def run(self):
-        self._subscriber = ZmqSubClient(
-            host=self.publish_host,
-            port=self.publish_port,
-            handler=self._set_storage,
+        """
+            Run relative threads and wait until they finish (due to error)
+        """
+        self._subscriber = ZmqSub(
+            host=self.publisher_host,
+            port=self.publisher_port,
+            # handler=self._set_storage,
             topic='ps',
-            preprocess=U.deserialize,
+            deserializer=U.deserialize,
         )
-        self._server = ZmqSimpleServer(
+        self._server = ZmqServer(
             host=self.serving_host,
             port=self.serving_port,
-            handler=self._handle_agent_request,
-            preprocess=U.deserialize,
-            postprocess=U.serialize,
-            load_balanced=self.load_balanced,
+            # handler=self._handle_agent_request,
+            serializer=U.serialize,
+            deserializer=U.deserialize,
+            bind=not self.load_balanced,
         )
-        self._subscriber.start()
-        self._server.start()
+        self._subscriber_thread = self._subscriber.start_loop(
+            handler=self._set_storage,
+            blocking=False)
+        self._server_thread = self._server.start_loop(
+            handler=self._handle_agent_request,
+            blocking=False)
         print('Parameter server started')
-        self._subscriber.join()
-        self._server.join()
-        # print('Finished')
-        # return 'abc'
+
+        self._subscriber_thread.join()
+        self._server_thread.join()
 
     def _set_storage(self, data):
         self.parameters, self.param_info = data
 
     def _handle_agent_request(self, request):
         """
-        Reply to agents pulling params
+            Reply to agents' request for parameters
 
         Args:
             request: 3 types
-             - "info": only info
-             - "parameter:<last_hash>": returns None if hash is not changed
-                since the last request
-             - "both:<last_hash>": returns (None, info) if hash is not
-                changed, otherwise (param, info)
+             - "info": (None, info)
+             - "parameter": (param, info)
+             - "parameter:<agent-hash>":
+                returns (None, None) if no parameter has been published
+                returns (None, info) if the hash
+                    of server side parameters is the same as the agent's
+                otherwise returns (param, info)
         """
         if request == 'info':
-            return self.param_info
+            return None, self.param_info
         elif request.startswith('parameter'):
             if self.parameters is None:
-                return None, ''
-            _, last_hash = request.split(':', 1)
-            current_hash = self.param_info['hash']
-            if last_hash == current_hash:  # param not changed
-                return None, current_hash
-            else:
-                return self.parameters, current_hash
-        elif request.startswith('both'):
-            if self.parameters is None:
                 return None, None
-            _, last_hash = request.split(':', 1)
-            if last_hash == self.param_info['hash']:  # param not changed
-                return None, self.param_info
+            if ':' in request:
+                _, last_hash = request.split(':', 1)
+                current_hash = self.param_info['hash']
+                if last_hash == current_hash:  # param not changed
+                    return None, self.param_info
+                else:
+                    return self.parameters, self.param_info
             else:
                 return self.parameters, self.param_info
         else:
             raise ValueError('invalid request: '+str(request))
 
 
-
 class ParameterClient(object):
     """
-    Agent side
+        On agent side, sends requests to parameter servers to fetch the
+        latest parameters.
     """
+
     def __init__(self, host, port, timeout=2):
         """
         Args:
             host: parameter server host
-            port:
-            module_dict:
+            port: parameter server port
+            timeout: how long should the the client wait
+                if the parameter server is not available
         """
         self.host = host
         self.port = port
+        self.timeout = timeout
+        self._current_info = {}
         self._last_hash = ''
         self.alive = False
-        self.timeout = timeout
 
-    def fetch_parameter(self):
-        """
-        Called by agent. Pulls from PS ONLY WHEN the parameter hash changes to
-        prevent duplicate fetching. No-op when duplicate.
-
-        Returns:
-            True if parameter is actually fetched (changed since last request).
-        """
-        client = ZmqReq(
+        self._client = ZmqClient(
             host=self.host,
             port=self.port,
-            preprocess=U.serialize,
-            postprocess=U.deserialize,
-            timeout=self.timeout
-        )
-        try:
-            response = client.request('parameter:' + self._last_hash)
-        except ZmqTimeoutError:
-            self.report_fetch_parameter_failed()
-            return False
-        self.report_fetch_parameter_success()
-        param, cur_hash = response
-        self._last_hash = cur_hash
-        if param:
-            return param
-        else:
-            return False
+            timeout=self.timeout,
+            serializer=U.serialize,
+            deserializer=U.deserialize)
 
-    def fetch_parameter_with_info(self):
+    def fetch_parameter_with_info(self, force_update=False):
         """
-        Called by agent. Pulls from PS ONLY WHEN the parameter hash changes to
-        prevent duplicate fetching. No-op when duplicate.
+            Called by agent to retrieve parameters
+            By default, pulls from PS ONLY WHEN the parameter hash changes
+                to prevent duplicate fetching. No-op when duplicate.
+            Caching can be overriden by force_update
+
+        Args:
+            force_update: forces download of parameter, regardless of
+                currently cached hash
 
         Returns:
-            (info dict, True if parameter is actually fetched)
+            (param or None, info or None)
         """
-        client = ZmqReq(
-            host=self.host,
-            port=self.port,
-            preprocess=U.serialize,
-            postprocess=U.deserialize,
-            timeout=self.timeout
-        )
         try:
-            response = client.request('both:' + self._last_hash)
+            if force_update:
+                response = self._client.request('parameter')
+            else:
+                response = self._client.request('parameter:' + self._last_hash)
         except ZmqTimeoutError:
-            self.report_fetch_parameter_failed()
-            return False, {}
-        self.report_fetch_parameter_success()
+            self.on_fetch_parameter_failed()
+            return None, None
+        self.on_fetch_parameter_success()
         param, info = response
-        self._last_hash = info['hash'] if info else ''
-        if param:
-            return param, info
-        else:
-            return False, info
+        if info is None:
+            return None, None
+
+        self._last_hash = info['hash']
+        return param, info
 
     def fetch_info(self):
-        return self._client.request('info')
+        """
+            Fetch the metadata of parameters on parameter server
 
-    def report_fetch_parameter_failed(self):
+        Returns:
+            dictionary of metadata
+        """
+        try:
+            response = self._client.request('info')
+        except ZmqTimeoutError:
+            self.on_fetch_parameter_failed()
+            return None
+        self.on_fetch_parameter_success()
+        _, info = response
+        return info
+
+    def on_fetch_parameter_failed(self):
+        """
+            Called when connection with parameter server fails
+            to be established
+        """
         if self.alive:
             self.alive = False
             print('Parameter client request timed out')
 
-    def report_fetch_parameter_success(self):
+    def on_fetch_parameter_success(self):
+        """
+            Called when connection with parameter server
+            is succesfully established
+        """
         if not self.alive:
             self.alive = True
             print('Parameter client came back alive')

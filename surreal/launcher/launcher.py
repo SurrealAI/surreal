@@ -338,7 +338,7 @@ class SurrealDefaultLauncher(Launcher):
         """
         ps_config = self.session_config.ps
 
-        server = ShardedParameterServer(config=ps_config)
+        server = ShardedParameterServer(shards=ps_config.shards)
 
         server.launch()
         server.join()
