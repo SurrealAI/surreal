@@ -104,14 +104,15 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
-            preprocess_task=self._prefetch_thread_preprocess,
+            worker_preprocess=self._prefetch_thread_preprocess,
+            main_preprocess=self.preprocess
         )
         self._prefetch_queue.start()
 
-        self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
-        self._preprocess_thread = threading.Thread(
-            target=self._preprocess_batch)
-        self._preprocess_thread.start()
+        # self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
+        # self._preprocess_thread = threading.Thread(
+        #     target=self._preprocess_batch)
+        # self._preprocess_thread.start()
 
     def _initialize(self):
         """
@@ -119,7 +120,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         """
         self._setup_publish()
         self._setup_prefetching()
-        # Logging should only start here so that all components are 
+        # Logging should only start here so that all components are
         # properly initialized
         self._tensorplex_thread.start()
 
@@ -328,27 +329,23 @@ class Learner(metaclass=U.AutoInitializeMeta):
         '''
         return batch
 
-    def _prefetch_thread_preprocess(self, batch):
-        batch = self.aggregator.aggregate(batch)
-        return batch
+    # def _prefetch_thread_preprocess(self, batch):
+    #     batch = self.aggregator.aggregate(batch)
+    #     return batch
 
-    def _preprocess_batch(self):
-        for batch in self.fetch_iterator():
-            batch = BeneDict(batch.data)
-            # The preprocess step creates Variables
-            # which will become GpuVariables
-            batch = self.preprocess(batch)
-            self._preprocess_prefetch_queue.put(batch)
+    # def _preprocess_batch(self):
+    #     for batch in self.fetch_iterator():
+    #         batch = BeneDict(batch.data)
+    #         # The preprocess step creates Variables
+    #         # which will become GpuVariables
+    #         batch = self.preprocess(batch)
+    #         self._preprocess_prefetch_queue.put(batch)
 
     # def _setup_batch_prefetch(self):
     #     self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
     #     self._preprocess_thread = threading.Thread(
     #         target=self._preprocess_batch)
     #     self._preprocess_thread.start()
-
-    def fetch_processed_batch_iterator(self):
-        while True:
-            yield self._preprocess_prefetch_queue.get()
 
     ######
     # Main Loop
@@ -374,7 +371,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         """
             One loop of learner, runs one learn operation of learner
         """
-        data = self._preprocess_prefetch_queue.get()
+        data = self._prefetch_queue.get()
         with self.learn_timer.time():
             self.learn(data)
         if self.should_publish_parameter():

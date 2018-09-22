@@ -155,7 +155,7 @@ PPO_DEFAULT_SESSION_CONFIG = Config({
     },
     'replay': {
         'max_puller_queue': 3,
-        'max_prefetch_batch_queue': 1,
+        'max_prefetch_queue': 1,
     },
     'checkpoint': {
         'learner': {
@@ -216,8 +216,8 @@ class PPOLauncher(SurrealDefaultLauncher):
         self.eval_batch_size = args.agent_batch
 
         if args.unit_test:
-            # ppo behavior doesn't change in a unit test
-            pass
+            self.learner_config.replay.batch_size = 2
+            self.learner_config.replay.sampling_start_size = 2
 
 
 if __name__ == '__main__':

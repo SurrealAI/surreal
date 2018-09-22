@@ -174,4 +174,3 @@ class FlushQueue(object):
         return len(self.queue)
 
     __len__ = size
-

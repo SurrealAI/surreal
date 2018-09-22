@@ -11,7 +11,7 @@ from multiprocessing import Process
 import numpy as np
 from tensorplex import Loggerplex
 from tensorplex import Tensorplex
-from surreal.distributed.ps import ShardedParameterServer
+from surreal.distributed import ShardedParameterServer
 from surreal.replay import ShardedReplay
 import surreal.utils as U
 import faulthandler

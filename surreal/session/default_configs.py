@@ -121,8 +121,8 @@ BASE_SESSION_CONFIG = {
         'prefetch_host': '_str_',
         'prefetch_port': '_int_',
         'prefetch_processes': '_int_',
-        'prefetch_threads_per_process': '_int_',
-        'max_prefetch_batch_queue': '_int_',  # learner side: max number of batches to prefetch
+        'max_prefetch_queue': '_int_',  # learner side: max number of batches to prefetch
+        'max_preprocess_queue': '_int_',  # learner side: max number of batches to preprocess
     },
     'checkpoint': {
         'restore': '_bool_',  # if False, ignore the other configs under 'restore'
@@ -207,8 +207,8 @@ LOCAL_SESSION_CONFIG = {
         'prefetch_host': 'localhost',
         'prefetch_port': 7010,
         'prefetch_processes': 2,
-        'prefetch_threads_per_process': 2,
-        'max_prefetch_batch_queue': 10,  # learner side: max number of batches to prefetch
+        'max_prefetch_queue': 10,  # learner side: max number of batches to prefetch
+        'max_preprocess_queue': 2,  # learner side: max number of batches to preprocess
     },
     'checkpoint': {
         'restore': False,  # if False, ignore the other configs under 'restore'
