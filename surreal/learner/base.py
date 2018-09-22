@@ -20,37 +20,36 @@ from surreal.distributed import ParameterPublisher, LearnerDataPrefetcher
 
 class Learner(metaclass=U.AutoInitializeMeta):
     """
-        Important: When extending this class, make sure to follow the init method signature so that 
-        orchestrating functions can properly initialize the learner.
+        Important: When extending this class, make sure to follow the init
+            method signature so that orchestrating functions can properly
+            initialize the learner.
     """
     def __init__(self,
                  learner_config,
                  env_config,
                  session_config):
         """
-        Write log to self.log
+        Initializes the learner instance
 
         Args:
-            config: a dictionary of hyperparameters. It can include a special
-                section "log": {logger configs}
-            model: utils.pytorch.Module for the policy network
+            learner_config, env_config, session_config: configs that define
+                an experiment
         """
         self.learner_config = learner_config
         self.env_config = env_config
         self.session_config = session_config
         self.current_iter = 0
 
-        self._setup_connection()
         self._setup_logging()
         self._setup_checkpoint()
-        self._setup_batch_prefetch()
 
     def learn(self, batch_exp):
         """
         Abstract method runs one step of learning
 
         Args:
-            batch_exp: batched experience, format is a list of whatever experience sender wrapper returns
+            batch_exp: batched experience, format is a list of whatever
+                experience sender wrapper returns
 
         Returns:
             td_error or other values for prioritized replay
@@ -59,19 +58,27 @@ class Learner(metaclass=U.AutoInitializeMeta):
 
     def module_dict(self):
         """
-        Dict of modules to be broadcasted to the parameter server.
-        MUST be consistent with the agent's `module_dict()`
+            Dict of modules to be broadcasted to the parameter server.
+            MUST be consistent with the agent's `module_dict()`
         """
         raise NotImplementedError
 
     def save(self, file_path):
         """
-        Checkpoint to disk
+            Saves checkpoint to disk
+
+        Args:
+            file_path: locatioin to save
         """
         raise NotImplementedError
 
     def checkpoint_attributes(self):
         """
+            This function defines what attributes should be serialized
+            when we are saving a checkpoint.
+
+            See implementations in DDPGLearner and PPOLearner for examples
+
         Returns:
             list of attributes to be tracked by checkpoint
         """
@@ -80,38 +87,41 @@ class Learner(metaclass=U.AutoInitializeMeta):
     ######
     # Internal, including Communication, etc.
     ######
-    def _setup_connection(self):  
-        # sampler_host = self.session_config.replay.sampler_frontend_host
-        # sampler_port = self.session_config.replay.sampler_frontend_port
-        ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
-        batch_size = self.learner_config.replay.batch_size
+    def _setup_publish(self):
+        min_publish_interval = \
+            self.learner_config.parameter_publish.min_publish_interval
+        self._ps_publish_tracker = U.TimedTracker(min_publish_interval)
 
-        self._ps_publisher = None  # in _initialize()
-        self._ps_port = ps_publish_port
+        ps_publish_port = os.environ['SYMPH_PARAMETER_PUBLISH_PORT']
+        self._ps_publisher = ParameterPublisher(
+            port=ps_publish_port,
+            module_dict=self.module_dict()
+            # This must happen after subclass __init__
+        )
+
+    def _setup_prefetching(self):
+        batch_size = self.learner_config.replay.batch_size
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
-            preprocess_task = self._prefetch_thread_preprocess,
+            preprocess_task=self._prefetch_thread_preprocess,
         )
+        self._prefetch_queue.start()
 
+        self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
+        self._preprocess_thread = threading.Thread(
+            target=self._preprocess_batch)
+        self._preprocess_thread.start()
 
     def _initialize(self):
         """
-        For AutoInitializeMeta interface
+            For AutoInitializeMeta interface
         """
-        # Module dict can only be acquired after subclass __init__
-        self._ps_publisher = ParameterPublisher(
-            port=self._ps_port,
-            module_dict=self.module_dict()
-        )
-        min_publish_interval = self.learner_config.parameter_publish.min_publish_interval
-        self._ps_publish_tracker = U.TimedTracker(min_publish_interval)
-        self._prefetch_queue.start()
-        self.start_tensorplex_thread()
-        # restore_checkpoint should be called _after_ subclass __init__
-        # that's why we put it in _initialize()
-        if self.session_config.checkpoint.restore:
-            self.restore_checkpoint()
+        self._setup_publish()
+        self._setup_prefetching()
+        # Logging should only start here so that all components are 
+        # properly initialized
+        self._tensorplex_thread.start()
 
     ######
     # Parameter publish
@@ -139,7 +149,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
         while True:
             yield self.fetch_batch()
 
-
     ######
     # Logging
     ######
@@ -157,7 +166,9 @@ class Learner(metaclass=U.AutoInitializeMeta):
 
         self.log = get_loggerplex_client('learner', self.session_config)
         self.tensorplex = self._get_tensorplex('learner/learner')
-        self._tensorplex_thread = None
+
+        self._tensorplex_thread = U.PeriodicWakeUpWorker(
+            target=self.generate_tensorplex_report)
 
     def _get_tensorplex(self, name):
         """
@@ -176,12 +187,12 @@ class Learner(metaclass=U.AutoInitializeMeta):
         )
         return periodic_tp
 
-    def start_tensorplex_thread(self):
-        if self._tensorplex_thread is not None:
-            raise RuntimeError('tensorplex thread already running')
-        self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
-        self._tensorplex_thread.start()
-        return self._tensorplex_thread
+    # def start_tensorplex_thread(self):
+    #     if self._tensorplex_thread is not None:
+    #         raise RuntimeError('tensorplex thread already running')
+    #     self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
+    #     self._tensorplex_thread.start()
+    #     return self._tensorplex_thread
 
     def generate_tensorplex_report(self):
         """
@@ -193,7 +204,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
         iter_elapsed = current_iter - self.last_iter
         self.last_iter = current_iter
 
-        global_step = cur_time - self.init_time
         time_elapsed = cur_time - self.last_time
         self.last_time = cur_time
 
@@ -218,13 +228,17 @@ class Learner(metaclass=U.AutoInitializeMeta):
         # Number of iterations per second
         system_metrics['iter_per_s'] = iter_per_s
         # Number of experience bathces processed per second
-        system_metrics['exp_per_s'] = iter_per_s * self.learner_config.replay.batch_size
+        system_metrics['exp_per_s'] = iter_per_s * \
+            self.learner_config.replay.batch_size
         # Percent of time spent on learning
-        system_metrics['compute_load_percent'] = min(learn_time / iter_time * 100, 100)
+        system_metrics['compute_load_percent'] = min(
+            learn_time / iter_time * 100, 100)
         # Percent of time spent on IO
-        system_metrics['io_fetch_experience_load_percent'] = min(fetch_time / iter_time * 100, 100)
+        system_metrics['io_fetch_experience_load_percent'] = min(
+            fetch_time / iter_time * 100, 100)
         # Percent of time spent on publishing
-        system_metrics['io_publish_load_percent'] = min(publish_time / iter_time * 100, 100)
+        system_metrics['io_publish_load_percent'] = min(
+            publish_time / iter_time * 100, 100)
 
         all_metrics = {}
         for k in core_metrics:
@@ -232,13 +246,15 @@ class Learner(metaclass=U.AutoInitializeMeta):
         for k in system_metrics:
             all_metrics['.system/' + k] = system_metrics[k]
 
-        # These are system metrics, they don't add to counter or trigger updates
+        # These are system metrics,
+        # they don't add to counter or trigger updates
         self.tensorplex.add_scalars(all_metrics)
 
     ######
     # Checkpoint
     ######
     def _setup_checkpoint(self):
+        # Setup saving
         tracked_attrs = self.checkpoint_attributes()
         assert U.is_sequence(tracked_attrs), \
             'checkpoint_attributes must return a list of string attr names'
@@ -254,17 +270,25 @@ class Learner(metaclass=U.AutoInitializeMeta):
             # TODO figure out how to add score to learner
         )
 
+        # Load when instructed by config
+        # restore_checkpoint should be called _after_ subclass __init__
+        # that's why we put it in _initialize()
+        if self.session_config.checkpoint.restore:
+            self.restore_checkpoint()
+
     def periodic_checkpoint(self, global_steps, score=None, **info):
         """
         Will only save at the end of each period
 
         Args:
-            global_steps: 
-            score: None when session_config.checkpoint.keep_best=False
-            **info: other meta info you want to save in checkpoint metadata
+            global_steps: the number of iterations
+            score: the evaluation score for saving the best parameters.
+                Currently Not supported!!!
+                None when session_config.checkpoint.keep_best=False
+            **info: other metadata to save in checkpoint
 
         Returns:
-            whether save() is actually called or not
+            saved(bool): whether save() is actually called or not
         """
         return self._periodic_checkpoint.save(
             score=score,
@@ -295,8 +319,10 @@ class Learner(metaclass=U.AutoInitializeMeta):
     ######
     def preprocess(self, batch):
         '''
-        Perform algorithm-specific preprocessing tasks on a given batch, overridden in subclasses
-        This operation occurs asynchronously to the learner main loop, so if training on gpu, any cpu-bound or high
+        Perform algorithm-specific preprocessing tasks on a given batch,
+        overridden in subclasses
+        This operation occurs asynchronously to the learner main loop,
+        so if training on gpu, any cpu-bound or high
         latency tasks can be done here.
         For example, ddpg converts relevant variables onto gpu
         '''
@@ -309,14 +335,16 @@ class Learner(metaclass=U.AutoInitializeMeta):
     def _preprocess_batch(self):
         for batch in self.fetch_iterator():
             batch = BeneDict(batch.data)
-            # The preprocess step creates Variables which will become GpuVariables
+            # The preprocess step creates Variables
+            # which will become GpuVariables
             batch = self.preprocess(batch)
             self._preprocess_prefetch_queue.put(batch)
 
-    def _setup_batch_prefetch(self):
-        self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
-        self._preprocess_thread = threading.Thread(target=self._preprocess_batch)
-        self._preprocess_thread.start()
+    # def _setup_batch_prefetch(self):
+    #     self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
+    #     self._preprocess_thread = threading.Thread(
+    #         target=self._preprocess_batch)
+    #     self._preprocess_thread.start()
 
     def fetch_processed_batch_iterator(self):
         while True:
@@ -351,13 +379,15 @@ class Learner(metaclass=U.AutoInitializeMeta):
             self.learn(data)
         if self.should_publish_parameter():
             with self.publish_timer.time():
-                # pass
                 self.publish_parameter(self.current_iter,
                                        message='batch '+str(self.current_iter))
         self.iter_timer.lap()
         self.current_iter += 1
 
     def save_config(self):
+        """
+            Save config into a yaml file in root experiment directory
+        """
         folder = Path(self.session_config.folder)
         folder.mkdir(exist_ok=True, parents=True)
         config = Config(

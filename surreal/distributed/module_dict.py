@@ -1,4 +1,3 @@
-import pickle
 import numpy as np
 import torch
 from surreal.utils.numpy_util import np_cast
@@ -21,6 +20,12 @@ class ModuleDict(object):
         self._module_dict = module_dict
 
     def dumps(self):
+        """
+            Dump content into binary
+
+        Returns:
+            bytes
+        """
         bin_dict = {}
         for k, m in self._module_dict.items():
             state_dict = m.state_dict()
@@ -30,10 +35,26 @@ class ModuleDict(object):
         return U.serialize(bin_dict)
 
     def loads(self, binary):
+        """
+            Load from binary ()
+
+        Args:
+            binary: output of ModuleDict.dumps
+        """
         numpy_dict = U.deserialize(binary)
         self.load(numpy_dict)
 
     def load(self, numpy_dict):
+        """
+            Load data from a numpy_dictionary
+
+        Args:
+            numpy_dict: {
+                <module_dict_key>: {
+                    <paramter_key_module_dict_entries>: np.array
+                }
+            }
+        """
         for key in numpy_dict:
             for k in numpy_dict[key]:
                 numpy_dict[key][k] = torch.from_numpy(

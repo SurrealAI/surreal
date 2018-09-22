@@ -77,12 +77,13 @@ class RunningAverage(object):
         """Get the current estimate"""
         return self._value
 
+
 class TimeThrottledTensorplex(object):
     """
         A tensorplex client that aggregates output from multiple threads
         Thread safe
-        
-        Update criterion: 
+
+        Update criterion:
         1) A global step is provided when updating value
         2) Time from last update in more than min_update_interval
     """
