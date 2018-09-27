@@ -2,7 +2,7 @@ from surreal.session import Config, LOCAL_SESSION_CONFIG
 from surreal.agent import PPOAgent
 from surreal.learner import PPOLearner
 from surreal.replay import FIFOReplay
-from surreal.launcher import SurrealDefaultLauncher
+from surreal.launch import SurrealDefaultLauncher
 from surreal.env import make_env
 import argparse
 

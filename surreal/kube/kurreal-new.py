@@ -1,28 +1,22 @@
 import os
 import argparse
 import itertools
-import re
+import shlex
 from copy import copy
 from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
-from symphony.kube import KubeCluster, GKEMachineDispatcher
+from symphony.kube import GKEMachineDispatcher
 from symphony.addons import DockerBuilder, clean_images
 from benedict import BeneDict
-import surreal
-import subprocess
-from surreal.kube.generate_command import CommandGenerator
+from surreal.launch import (
+    CommandGeneratorBasic,
+    CommandGeneratorBatched,
+    setup_network,
+    SurrealDockerBuilder
+)
 import surreal.utils as U
 import pkg_resources
-
-
-def _process_labels(label_string):
-    """
-    mylabel1=myvalue1,mylabel2=myvalue2
-    """
-    assert '=' in label_string
-    label_pairs = label_string.split(',')
-    return [label_pair.split('=') for label_pair in label_pairs]
 
 
 def _merge_setting_dictionaries(customize, base):
@@ -59,7 +53,8 @@ class KurrealParser(SymphonyParser):
     def load_config(self, surreal_yml='~/.surreal.yml'):
         surreal_yml = U.f_expand(surreal_yml)
         if not U.f_exists(surreal_yml):
-            raise ValueError('Cannot find surreal config file at {}'.format(surreal_yml))
+            raise ValueError('Cannot find surreal config file at {}'
+                             .format(surreal_yml))
         self.config = BeneDict.load_yaml_file(surreal_yml)
         SymphonyConfig().set_username(self.username)
         SymphonyConfig().set_experiment_folder(self.folder)
@@ -131,8 +126,8 @@ class KurrealParser(SymphonyParser):
             'algorithm',
             type=str,
             help='ddpg / ppo or the'
-                 'location of algorithm python script **in the docker container**'
-                 'home dir, i.e. /root/ on the pod'
+                 'location of algorithm python script **in the docker '
+                 'container**'
         )
         parser.add_argument(
             '--num_agent',
@@ -185,18 +180,19 @@ class KurrealParser(SymphonyParser):
                   .format(experiment_name, new_name))
         return new_name
 
-    SUPPORTED_MODES = ['basic', 'batch']
+    SUPPORTED_MODES = ['basic']
+
     def action_create(self, args):
         """
-        Spin up a multi-node distributed Surreal experiment.
-        Put any command line args that pass to the config script after "--"
+            Spin up a multi-node distributed Surreal experiment.
+            Put any command line args that pass to the config script after "--"
         """
         setting_name = args.setting_name
 
         if not setting_name in self.config.creation_settings:
             raise KeyError('Cannot find setting {}'.format(setting_name))
-        setting = self.config.creation_settings[setting_name]
-        mode = setting['mode']
+        settings = self.config.creation_settings[setting_name]
+        mode = settings['mode']
         if mode not in self.SUPPORTED_MODES:
             raise ValueError('Unknown mode {}'.format(mode) +
                              'available options are : {}'.format(
@@ -204,421 +200,245 @@ class KurrealParser(SymphonyParser):
                              ))
         if mode == 'basic':
             self.create_basic(
-                setting=setting,
+                settings=settings,
                 experiment_name=args.experiment_name,
                 algorithm_args=args.remainder,
-                custom_input=vars(args),
+                input_args=vars(args),
                 force=args.force,
                 dry_run=args.dry_run,
                 )
-        elif mode == 'batch':
-            self.create_batch(
-                setting=setting,
-                algorithm_args=args.remainder,
-                experiment_name=args.experiment_name,
-                custom_input=vars(args),
-                force=args.force,
-                dry_run=args.dry_run,
-                )
+
+    def _find_executable(self, name):
+        """
+            Finds the .py file corresponding to the algorithm specified
+
+        Args:
+            name: ddpg / ppo / <path in container to compatible .py file>
+        """
+        if name == 'ddpg':
+            return '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
+        elif name == 'ppo':
+            return '/mylibs/surreal/surreal/surreal/main/ppo_configs.py'
+        else:
+            return name
 
     DEFAULT_SETTING_BASIC = {
-        'algorithm': 'ppo',
+        'algorithm': 'ddpg',
         'num_agents': 2,
-        'num_evals': 3,
-        'compute_additional_args': True,
+        'num_evals': 1,
+        'agent_batch': 1,
+        'eval_batch': 1,
+        'restore_folder': None,
         'agent': {
             'image': 'surreal-cpu-image',  # TODO
             'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'cpu': None,
+            'memory': None,
+            'gpu': None,
             'build_image': None
         },
         'nonagent': {
             'image': 'surreal-cpu-image',  # TODO
             'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+            'cpu': None,
+            'memory': None,
+            'gpu': None,
             'build_image': None
         },
     }
+
     def create_basic(self, *,
-                     setting,
+                     settings,
                      experiment_name,
                      algorithm_args,
-                     custom_input,
+                     input_args,
                      force,
                      dry_run):
-        setting = _merge_setting_dictionaries(setting,
+        setting = _merge_setting_dictionaries(settings,
                                               self.DEFAULT_SETTING_BASIC)
-        setting = _merge_setting_dictionaries(custom_input, setting)
+        setting = _merge_setting_dictionaries(input_args, setting)
         setting = BeneDict(setting)
 
-    DEFAULT_SETTING_BATCH = {
-        'algorithm': 'ppo',
-        'num_agents': 16,
-        'num_evals': 8,
-        'compute_additional_args': True,
-        'agent_batch': 8,
-        'eval_batch': 8,
-        'agent': {
-            'image': 'surreal-cpu-image',  # TODO
-            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
-            'build_image': None
-        },
-        'nonagent': {
-            'image': 'surreal-cpu-image',  # TODO
-            'node_pool': 'surreal-default-cpu-nodepool',  # TODO
-            'build_image': None
-        },
-    }
-    def create_batch(self, *,
-                     setting,
-                     experiment_name,
-                     algorithm_args,
-                     custom_input,
-                     force,
-                     dry_run):
-        setting = _merge_setting_dictionaries(setting,
-                                              self.DEFAULT_SETTING_BATCH)
-        setting = _merge_setting_dictionaries(custom_input, setting)
-        setting = BeneDict(setting)
-
-    def action_create_dev(self, args):
-        """
-        << internal dev only >>
-        """
-        assert not args.has_remainder, \
-            'create_dev cannot have "--". Use --env and --gpu'
-
-        if args.env:
-            env = args.env
-        else:
-            env = 'gym:HalfCheetah-v2'
-        config_command = ['--env', env]
-
-        if args.num_gpus is None:  # nargs=?, num gpu should be 1 when omitted
-            num_gpus = 1
-        else:
-            num_gpus = args.num_gpus
-
-        if args.gpu_type == 'k80':
-            POD_TYPES = {
-                0: 'nonagent-cpu',
-                1: 'nonagent-gpu',
-                2: 'nonagent-2k80-16cpu',
-                4: 'nonagent-4k80-32cpu',
-            }
-        elif args.gpu_type == 'p100':
-            POD_TYPES = {
-                0: 'nonagent-cpu',
-                1: 'nonagent-gpu-p100',
-                4: 'nonagent-gpu-4p100',
-            }
-        elif args.gpu_type == 'v100':
-            POD_TYPES = {
-                0: 'nonagent-cpu',
-                1: 'nonagent-gpu-v100',
-                4: 'nonagent-gpu-4v100',
-            }
-        else:
-            raise ValueError('Unknown GPU type: {}'.format(args.gpu_type))
-        if num_gpus not in POD_TYPES:
-            raise ValueError('invalid number of GPUs, choose from {}'
-                             .format(list(POD_TYPES.keys())))
-        nonagent_pod_type = POD_TYPES[num_gpus]
-        config_command += ["--num-gpus", str(num_gpus)]
-        config_command += ["--num-agents", str(args.num_agents)]
-        # '/mylibs/surreal/surreal/surreal/main/ddpg_configs.py'
-        config_py = 'surreal/surreal/main/' + args.config_file
-
-        if args.batch_agent > 1:
-            agent_pod_type = 'agent-mj-batch'
-            nonagent_pod_type = 'nonagent-mj-batch'
-            if args.gpu_type == 'p100':
-                nonagent_pod_type = 'nonagent-mj-batch-p100'
-            # if args.gpu_type == 'v100':
-            #     nonagent_pod_type = 'nonagent-mj-batch-v100'
-            eval_pod_type = 'agent-mj-batch'
-            config_command += ["--agent-num-gpus", '1']
-            num_evals = 8
-        else:
-            agent_pod_type = 'agent'
-            eval_pod_type = 'agent'
-            num_evals = 1
-
-        self._create_helper(
-            config_py=config_py,
-            experiment_name=args.experiment_name,
-            num_agents=args.num_agents,
-            config_command=config_command,
-            agent_pod_type=agent_pod_type,
-            nonagent_pod_type=nonagent_pod_type,
-            eval_pod_type=eval_pod_type,
-            restore=False,
-            restore_folder=None,
-            force=args.force,
-            dry_run=args.dry_run,
-            colocate_agent=args.colocate_agent,
-            batch_agent=args.batch_agent,
-            num_evals=num_evals,
-            has_eval=not args.no_eval,
-        )
-
-    def _create_helper(self, *,
-                       config_py,
-                       experiment_name,
-                       num_agents,
-                       config_command,
-                       agent_pod_type,
-                       nonagent_pod_type,
-                       eval_pod_type,
-                       restore,
-                       restore_folder,
-                       force,
-                       num_evals,
-                       colocate_agent=1,
-                       batch_agent=1,
-                       dry_run=False,
-                       has_eval=True):
-        if colocate_agent > 1 and batch_agent > 1:
-            raise ValueError('Cannot colocate and batch at the same time')
-        if config_py.startswith('/'):
-            config_py = config_py
-        else:
-            config_py = U.f_join('/mylibs', config_py)
-
-        remote_experiment_folder = self.get_remote_experiment_folder(experiment_name)
-
-        cmd_gen = CommandGenerator(
-            num_agents=num_agents,
-            experiment_folder=remote_experiment_folder,  # TODO: fixme
-            config_py=config_py,
-            config_command=config_command,
-            restore=restore,
-            restore_folder=restore_folder,
-            batch_agent=batch_agent,
-            num_evals=num_evals,
-        )
-        cmd_dict = cmd_gen.generate()
-        print('  agent_pod_type:', agent_pod_type)
-        print('  nonagent_pod_type:', nonagent_pod_type)
-        print('  eval_pod_type:', eval_pod_type)
-
-        self.create_surreal(
-            experiment_name,
-            agent_pod_type=agent_pod_type,
-            nonagent_pod_type=nonagent_pod_type,
-            eval_pod_type=eval_pod_type,
-            cmd_dict=cmd_dict,
-            force=force,
-            dry_run=dry_run,
-            colocate_agent=colocate_agent,
-            batch_agent=batch_agent,
-            has_eval=has_eval,
-        )
-
-    def create_surreal(self,
-                       experiment_name,
-                       agent_pod_type,
-                       nonagent_pod_type,
-                       cmd_dict,
-                       eval_pod_type,
-                       colocate_agent=1,
-                       batch_agent=1,
-                       force=False,
-                       dry_run=False,
-                       has_eval=True):
-        """
-        Then create a surreal experiment
-        Args:
-            experiment_name: will also be used as hostname for DNS
-            agent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
-            nonagent_pod_type: key to spec defined in `pod_types` section of .surreal.yml
-            cmd_dict: dict of commands to be run on each container
-            force: check if the Kube yaml has already been generated.
-            dry_run: only print yaml, do not actually launch
-        """
-        C = self.config
         cluster = Cluster.new('kube')
         exp = cluster.new_experiment(experiment_name)
 
-        # Read pod specifications
-        assert agent_pod_type in C.pod_types, \
-            'agent pod type not found in `pod_types` section in ~/.surreal.yml'
-        assert nonagent_pod_type in C.pod_types, \
-            'nonagent pod type not found in `pod_types` section in ~/.surreal.yml'
-        if eval_pod_type is None: eval_pod_type = agent_pod_type
-        assert eval_pod_type in C.pod_types, \
-            'eval pod type not found in `pod_types` section in ~/.surreal.yml'
+        image_builder = SurrealDockerBuilder(
+            build_settings=self.config.docker_build_settings,
+            images_requested={
+                'agent': setting.agent.image,
+                'nonagent': setting.nonagent.image
+            },
+            tag=experiment_name,
+            push=True)
+        agent_image = image_builder.images_provided['agent']
+        nonagent_image = image_builder.images_provided['nonagent']
+        # defer to build last, so we don't build unless everything passes
 
-        agent_pod_spec = copy(C.pod_types[agent_pod_type])
-        nonagent_pod_spec = copy(C.pod_types[nonagent_pod_type])
-        eval_pod_spec = copy(C.pod_types[eval_pod_type])
+        # TODO: experiment_folder,
+        # TODO: restore_folder
+        # TODO: CommandGenerator
+        algorithm_args += [
+            "--num-agents",
+            str(settings.num_agents * settings.agent_batch),
+            ]
 
-        json_path = 'cluster_definition.tf.json'  # always use slash
-        filepath = pkg_resources.resource_filename(__name__, json_path)
-        dispatcher = GKEMachineDispatcher(filepath)
+        algorithm_args += ["--restore_folder",
+                           shlex.quote(settings.restore_folder)]
 
-        agent_node_pool = agent_pod_spec["node_pool"]
-        nonagent_node_pool = nonagent_pod_spec["node_pool"]
-        eval_node_pool = eval_pod_spec["node_pool"]
-
-        # agent_resource_request = agent_pod_spec.get('resource_request', {})
-        # nonagent_resource_request = nonagent_pod_spec.get('resource_request', {})
-        # eval_resource_request = eval_pod_spec.get('resource_request', {})
-
-        # agent_resource_limit = agent_pod_spec.get('resource_limit', {})
-        # nonagent_resource_limit = nonagent_pod_spec.get('resource_limit', {})
-        # eval_resource_limit = eval_pod_spec.get('resource_limit', {})
-
-        images_to_build = {}
-        # defer to build last, so we don't build unless everythingpasses
-        if 'build_image' in agent_pod_spec:
-            image_name = agent_pod_spec['build_image']
-            images_to_build[image_name] = agent_pod_spec['image']
-            # Use experiment_name as tag
-            agent_pod_spec['image'] = '{}:{}'.format(agent_pod_spec['image'], exp.name)
-        if 'build_image' in nonagent_pod_spec:
-            image_name = nonagent_pod_spec['build_image']
-            images_to_build[image_name] = nonagent_pod_spec['image']
-            nonagent_pod_spec['image'] = '{}:{}'.format(nonagent_pod_spec['image'], exp.name)
-        if has_eval:
-            if 'build_image' in eval_pod_spec:
-                image_name = eval_pod_spec['build_image']
-                images_to_build[image_name] = eval_pod_spec['image']
-                eval_pod_spec['image'] = '{}:{}'.format(eval_pod_spec['image'], exp.name)
+        # self.experiment_folder = experiment_folder
+        # --experiment-folder <experiment_folder>
+        executable = self._find_executable(setting.algorithm)
+        cmd_gen = CommandGeneratorBasic(
+            num_agents=settings.num_agents,
+            num_evals=settings.num_evals,
+            executable=executable)
+        cmd_dict = cmd_gen.generate_command
 
         nonagent = exp.new_process_group('nonagent')
-        learner = nonagent.new_process('learner', container_image=nonagent_pod_spec.image, args=[cmd_dict['learner']])
-        replay = nonagent.new_process('replay', container_image=nonagent_pod_spec.image, args=[cmd_dict['replay']])
-        ps = nonagent.new_process('ps', container_image=nonagent_pod_spec.image, args=[cmd_dict['ps']])
-        tensorboard = nonagent.new_process('tensorboard', container_image=nonagent_pod_spec.image, args=[cmd_dict['tensorboard']])
-        tensorplex = nonagent.new_process('tensorplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['tensorplex']])
-        loggerplex = nonagent.new_process('loggerplex', container_image=nonagent_pod_spec.image, args=[cmd_dict['loggerplex']])
-
-        agents = []
-        agent_pods = []
-        if colocate_agent > 1:
-            assert len(cmd_dict['agent']) % colocate_agent == 0
-            for i in range(int(len(cmd_dict['agent']) / colocate_agent)):
-                agent_pods.append(exp.new_process_group('agent-pg-{}'.format(i)))
-            for i, arg in enumerate(cmd_dict['agent']):
-                pg_index = int(i / colocate_agent)
-                agent_p = agent_pods[pg_index].new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
-                agents.append(agent_p)
-        elif batch_agent > 1:
-            for i, arg in enumerate(cmd_dict['agent-batch']):
-                agent_p = exp.new_process('agents-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
-                agent_pods.append(agent_p)
-                agents.append(agent_p)
-        else:
-            for i, arg in enumerate(cmd_dict['agent']):
-                agent_p = exp.new_process('agent-{}'.format(i), container_image=agent_pod_spec.image, args=[arg])
-                agent_pods.append(agent_p)
-                agents.append(agent_p)
-        evals = []
-        if has_eval:
-            if batch_agent > 1:
-                for i, arg in enumerate(cmd_dict['eval-batch']):
-                    eval_p = exp.new_process('evals-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
-                    evals.append(eval_p)
-            else:
-                for i, arg in enumerate(cmd_dict['eval']):
-                    eval_p = exp.new_process('eval-{}'.format(i), container_image=eval_pod_spec.image, args=[arg])
-                    evals.append(eval_p)
-
-        for proc in itertools.chain(agents, evals):
-            proc.connects('ps-frontend')
-            proc.connects('collector-frontend')
-
-        ps.binds('ps-frontend')
-        ps.binds('ps-backend')
-        ps.connects('parameter-publish')
-
-        replay.binds('collector-frontend')
-        replay.binds('sampler-frontend')
-        replay.binds('collector-backend')
-        replay.binds('sampler-backend')
-
-        learner.connects('sampler-frontend')
-        learner.binds('parameter-publish')
-        learner.binds('prefetch-queue')
-
-        tensorplex.binds('tensorplex')
-        loggerplex.binds('loggerplex')
-
-        for proc in itertools.chain(agents, evals, [ps, replay, learner]):
-            proc.connects('tensorplex')
-            proc.connects('loggerplex')
-
-        tensorboard.exposes({'tensorboard': 6006})
-
-        if not C.fs.type.lower() in ['nfs']:
-            raise NotImplementedError('Unsupported file server type: "{}". '
-                                      'Supported options are [nfs]'.format(C.fs.type))
-        nfs_server = C.fs.server
-        nfs_server_path = C.fs.path_on_server
-        nfs_mount_path = C.fs.mount_path
-
-        for proc in exp.list_all_processes():
-            # Mount nfs
-            proc.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
-
-        # resource_limit_gpu(agent_resource_limit)
-        # agent_selector = agent_pod_spec.get('selector', {})
-        for proc in agents:
-            # required services
-            # proc.resource_request(**agent_resource_request)
-            # proc.resource_limit(**agent_resource_limit)
-            proc.image_pull_policy('Always')
-
-        for proc_g in agent_pods:
-            # proc_g.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
-            proc_g.restart_policy('Never')
-            dispatcher.assign_to_nodepool(proc_g, agent_node_pool,
-                                          process_group=proc_g, exclusive=True)
-            # for k, v in agent_selector.items():
-            #     proc_g.node_selector(key=k, value=v)
-
-        # resource_limit_gpu(eval_resource_limit)
-        # eval_selector = eval_pod_spec.get('selector', {})
-        for eval_p in evals:
-            # eval_p.resource_request(**eval_resource_request)
-            # eval_p.resource_limit(**eval_resource_limit)
-            dispatcher.assign_to_nodepool(eval_p, eval_node_pool, exclusive=True)
-            eval_p.image_pull_policy('Always')
-            # eval_p.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
-            eval_p.restart_policy('Never')
-            # for k, v in eval_selector.items():
-            #     eval_p.node_selector(key=k, value=v)
-
-        learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
-        # learner.resource_request(**nonagent_resource_request)
-
-        # resource_limit_gpu(nonagent_resource_limit)
-        # learner.resource_limit(**nonagent_resource_limit)
-
-        # non_agent_selector = nonagent_pod_spec.get('selector', {})
-        # for k, v in non_agent_selector.items():
-        #     nonagent.node_selector(key=k, value=v)
-        # nonagent.add_toleration(key='surreal', operator='Exists', effect='NoExecute')
-        nonagent.image_pull_policy('Always')
-
+        learner = nonagent.new_process(
+            'learner',
+            container_image=nonagent_image,
+            args=[cmd_dict['learner']])
+        # Because learner and everything are bundled together
+        # We only need to claim resources for learner
         dispatcher.assign_to_nodepool(learner,
                                       nonagent_node_pool,
                                       process_group=nonagent,
                                       exclusive=True)
+        # For dm_control
+        learner.set_env('DISABLE_MUJOCO_RENDERING', "1")
 
-        for name, repo in images_to_build.items():
-            builder = DockerBuilder.from_dict(self.docker_build_settings[name])
-            builder.build()
-            builder.tag(repo, exp.name)
-            builder.push(repo, exp.name)
+        replay = nonagent.new_process(
+            'replay',
+            container_image=nonagent_image,
+            args=[cmd_dict['replay']])
 
+        ps = nonagent.new_process(
+            'ps',
+            container_image=nonagent_image,
+            args=[cmd_dict['ps']])
+
+        tensorboard = nonagent.new_process(
+            'tensorboard',
+            container_image=nonagent_image,
+            args=[cmd_dict['tensorboard']])
+
+        tensorplex = nonagent.new_process(
+            'tensorplex',
+            container_image=nonagent_image,
+            args=[cmd_dict['tensorplex']])
+
+        loggerplex = nonagent.new_process(
+            'loggerplex',
+            container_image=nonagent_image,
+            args=[cmd_dict['loggerplex']])
+        nonagent.image_pull_policy('Always')
+
+        agents = []
+        for i, arg in enumerate(cmd_dict['agent']):
+            if settings.agent_batch == 1:
+                agent_name = 'agent-{}'.format(i)
+            else:
+                agent_name = 'agents-{}'.format(i)
+            agent = exp.new_process(
+                agent_name,
+                container_image=agent_image,
+                args=[cmd_gen.get_command(agent_name)])
+
+            agent.image_pull_policy('Always')
+            agent.restart_policy('Never')
+            dispatcher.assign_to_nodepool(agent,
+                                          agent_node_pool,
+                                          process_group=agent,
+                                          exclusive=True)
+
+            agents.append(agent)
+
+        evals = []
+        for i, arg in enumerate(cmd_dict['eval']):
+            if settings.eval_batch == 1:
+                eval_name = 'eval-{}'.format(i)
+            else:
+                eval_name = 'evals-{}'.format(i)
+            eval_p = exp.new_process(
+                eval_name,
+                container_image=agent_image,
+                args=[cmd_gen.get_command(eval_name)])
+            dispatcher.assign_to_nodepool(eval_p,
+                                          eval_node_pool,
+                                          exclusive=True)
+            agent.image_pull_policy('Always')
+            agent.restart_policy('Never')
+
+            evals.append(eval_p)
+
+        setup_network(agents=agents,
+                      evals=evals,
+                      learner=learner,
+                      replay=replay,
+                      ps=ps,
+                      tensorboard=tensorboard,
+                      tensorplex=tensorplex,
+                      loggerplex=loggerplex)
+
+        # TODO: nfs support
+        # if not C.fs.type.lower() in ['nfs']:
+        #     raise NotImplementedError('Unsupported file server type: "{}". '
+        #                               'Supported options are [nfs]'.format(C.fs.type))
+        # nfs_server = C.fs.server
+        # nfs_server_path = C.fs.path_on_server
+        # nfs_mount_path = C.fs.mount_path
+        # for proc in exp.list_all_processes():
+        #     proc.mount_nfs(server=nfs_server, path=nfs_server_path, mount_path=nfs_mount_path)
+
+        image_builder.build()
         cluster.launch(exp, force=force, dry_run=dry_run)
+
+    # DEFAULT_SETTING_BATCH = {
+    #     'algorithm': 'ppo',
+    #     'num_agents': 16,
+    #     'num_evals': 8,
+    #     'compute_additional_args': True,
+    #     'agent_batch': 8,
+    #     'eval_batch': 8,
+    #     'agent': {
+    #         'image': 'surreal-cpu-image',  # TODO
+    #         'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+    #         'cpu': None,
+    #         'memory': None,
+    #         'gpu': None,
+    #         'build_image': None
+    #     },
+    #     'nonagent': {
+    #         'image': 'surreal-cpu-image',  # TODO
+    #         'node_pool': 'surreal-default-cpu-nodepool',  # TODO
+    #         'cpu': None,
+    #         'memory': None,
+    #         'gpu': None,
+    #         'build_image': None
+    #     },
+    # }
+
+    # def create_batch(self, *,
+    #                  setting,
+    #                  experiment_name,
+    #                  algorithm_args,
+    #                  input_args,
+    #                  force,
+    #                  dry_run):
+    #     setting = _merge_setting_dictionaries(setting,
+    #                                           self.DEFAULT_SETTING_BATCH)
+    #     setting = _merge_setting_dictionaries(input_args, setting)
+    #     setting = BeneDict(setting)
 
     def get_remote_experiment_folder(self, experiment_name):
         """
-        actual experiment folder will be <mount_path>/<root_subfolder>/<experiment_name>/
+            Actual experiment folder will be
+            <mount_path>/<root_subfolder>/<experiment_name>/
         """
         # DON'T use U.f_join because we don't want to expand the path locally
         root_subfolder = self.config.fs.experiment_root_subfolder
+        # TODO: remove assert
         assert not root_subfolder.startswith('/'), \
             'experiment_root_subfolder should not start with "/". ' \
             'Actual experiment folder path will be ' \
@@ -631,7 +451,7 @@ class KurrealParser(SymphonyParser):
 
     def action_docker_clean(self, args):
         """
-        Cleans all docker images used to create experiments
+            Cleans all docker images used to create experiments
         """
         images_to_clean = {}
         for pod_type_name, pod_type in self.config.pod_types.items():
@@ -639,6 +459,7 @@ class KurrealParser(SymphonyParser):
                 images_to_clean[pod_type['image']] = True
         images_to_clean = ['{}:*'.format(x) for x in images_to_clean.keys()]
         clean_images(images_to_clean)
+
 
 def main():
     KurrealParser().main()
