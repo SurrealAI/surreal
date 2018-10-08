@@ -20,6 +20,20 @@ pull-cpubase:
 
 publish-cpubase: build-cpubase push-cpubase
 
+# surreal-dev-188523
+MKLBASE_URL = us.gcr.io/jimfan2018-208323/surreal-base-mkl
+build-mklbase:
+	docker build -t $(MKLBASE_URL):latest -f DockerfileMKLBase .
+
+push-mklbase:
+	docker push $(MKLBASE_URL):latest
+
+pull-mklbase:
+	docker pull $(MKLBASE_URL):latest
+
+publish-mklbase: build-mklbase push-mklbase
+
+
 GPU_BASE_URL = us.gcr.io/jimfan2018-208323/surreal-base-gpu-new
 build-gpubase:
 	docker build -t $(GPU_BASE_URL):latest -f DockerfileGPUBase .
