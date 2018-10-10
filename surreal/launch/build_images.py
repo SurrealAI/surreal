@@ -19,16 +19,33 @@ class SurrealDockerBuilder:
         """
             Figures out what docker images need to be built
             Populates self.images_provided which computes
-                {name: repo:tag} for all images
+                {name: identifier} for all images
 
         Args:
             build_settings (dict):
-                {name: {<docker build setting accepted by
+                {build_settings_name: {<docker build setting accepted by
                     symphony.addons.DockerBuilder.from_dict>}}
-            images_requested (dict): {name: repo}
-                Images needed. If repo has no ":", look for entry
-                in build_settings with key @name, build it under
-                repo:tag and push
+            images_requested (dict):
+                {
+                    image_name:
+                    {
+                        repo: image_identifier
+                        build_image: build_settings_name
+                    },
+                    ...
+                }
+                Images that need to be built.
+
+                If build_image is None, the provided image_identifier
+                should be a valid docker image, DockerBuilder
+                sets `image_name: image_identifier` in self.images_provided
+
+                If build_image is not None, the provided image_identifier
+                should be a valid docker image repo, DockerBuilder
+                sets image_name: image_identifier+':'+tag
+                in self.images_provided. It will also build the image specified
+                by the build_image_field
+
             tag: specifies a tag for all images
             push: whether to push built images
         """
@@ -36,21 +53,28 @@ class SurrealDockerBuilder:
         self.images_requested = images_requested
         self.tag = tag
 
+        self.images_to_build = {}
         self.images_provided = {}
-        self.images_to_build = []
-        for key, repo in images_requested:
-            if ":" in repo:
-                self.images_provided[key] = repo
+        for name, di in images_requested.items():
+            identifier = di['identifier']
+            build_config = di['build_config']
+            if build_config is None:
+                self.images_provided[name] = identifier
             else:
-                self.images_to_build.append(key)
-                self.images_provided[key] = '{}:{}'.format(repo, tag)
+                if build_config not in self.images_to_build:
+                    self.images_to_build[build_config] = []
+                self.images_provided[name] = '{}:{}'.format(identifier, tag)
+                self.images_to_build[build_config].append((identifier, tag))
+        self.push = push
 
     def build(self):
         """
             Build all images and push them
         """
-        for name, repo in self.images_to_build.items():
+        for name, tag_settings in self.images_to_build.items():
             builder = DockerBuilder.from_dict(self.build_settings[name])
             builder.build()
-            builder.tag(repo, self.tag)
-            builder.push(repo, self.tag)
+            for repo, tag in tag_settings:
+                builder.tag(repo, self.tag)
+                if self.push:
+                    builder.push(repo, self.tag)

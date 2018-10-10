@@ -93,21 +93,3 @@ def create_surreal_containerized(exp,
         'tensorplex': tensorplex,
         'loggerplex': loggerplex
     }
-
-    # Because learner and everything are bundled together
-    # We only need to claim resources for learner
-    # dispatcher.assign_to_nodepool(learner,
-    #                               nonagent_node_pool,
-    #                               process_group=nonagent,
-    #                               exclusive=True)
-    # agent.image_pull_policy('Always')
-    # agent.restart_policy('Never')
-    # dispatcher.assign_to_nodepool(proc_g,
-    #                               agent_node_pool,
-    #                               process_group=proc_g,
-    #                               exclusive=True)
-    # dispatcher.assign_to_nodepool(eval_p,
-    #                               eval_node_pool,
-    #                               exclusive=True)
-    # eval.image_pull_policy('Always')
-    # eval.restart_policy('Never')
