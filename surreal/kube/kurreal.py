@@ -1,32 +1,27 @@
 import os
-import argparse
-import itertools
 import shlex
 from copy import copy
-from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import GKEDispatcher
 from symphony.addons import clean_images
 from benedict import BeneDict
 from surreal.launch import (
+    SurrealDockerBuilder,
     CommandGenerator,
     setup_network,
 )
-# TODO: import from surreal.launch after new images are built
-from surreal.launch.build_images import SurrealDockerBuilder
 import surreal.utils as U
-import pkg_resources
 
 
 def _merge_setting_dictionaries(customize, base):
     di = copy(base)
     for key in di:
         if isinstance(di[key], dict):
-            if key in customize and customize[key] is not None:
+            if key in customize:
                 di[key] = _merge_setting_dictionaries(customize[key], di[key])
         else:
-            if key in customize:
+            if key in customize and customize[key] is not None:
                 di[key] = customize[key]
     return di
 
@@ -49,12 +44,12 @@ class KurrealParser(SymphonyParser):
         # self._setup_get_config()
         # self._setup_get_tensorboard()
 
-    def load_config(self, surreal_yml='~/.surreal.yml'):
-        surreal_yml = U.f_expand(surreal_yml)
-        if not U.f_exists(surreal_yml):
+    def load_config(self):
+        surreal_yml_path = U.get_config_file()
+        if not U.f_exists(surreal_yml_path):
             raise ValueError('Cannot find surreal config file at {}'
-                             .format(surreal_yml))
-        self.config = BeneDict.load_yaml_file(surreal_yml)
+                             .format(surreal_yml_path))
+        self.config = BeneDict.load_yaml_file(surreal_yml_path)
         SymphonyConfig().set_username(self.username)
         SymphonyConfig().set_experiment_folder(self.folder)
 
@@ -64,7 +59,7 @@ class KurrealParser(SymphonyParser):
 
     @property
     def folder(self):
-        return U.f_expand(self.config.local_kurreal_folder)
+        return U.f_expand(self.config.kurreal_metadata_folder)
 
     @property
     def username(self):
@@ -115,12 +110,12 @@ class KurrealParser(SymphonyParser):
 
     def _setup_create(self):
         parser = self.add_subparser('create', aliases=['c'])
-        self._add_experiment_name(parser)
         parser.add_argument(
             'setting_name',
             type=str,
             help='the setting in .surreal.yml that specifies how an'
                  'experiment should be run')
+        self._add_experiment_name(parser)
         parser.add_argument(
             '--algorithm',
             type=str,
@@ -129,13 +124,13 @@ class KurrealParser(SymphonyParser):
                  'container**'
         )
         parser.add_argument(
-            '--num_agent',
+            '--num_agents',
             type=int,
             default=None,
             help='number of agent pods to run in parallel.'
         )
         parser.add_argument(
-            '--num_eval',
+            '--num_evals',
             type=int,
             default=None,
             help='number of eval pods to run in parallel.'
@@ -151,12 +146,6 @@ class KurrealParser(SymphonyParser):
             type=int,
             default=None,
             help='put how many eval on each eval pod'
-        )
-        parser.add_argument(
-            '--eval-batch',
-            type=int,
-            default=None,
-            help='put how many eval on each eval machine'
         )
         parser.add_argument(
             '--env',
@@ -265,11 +254,6 @@ class KurrealParser(SymphonyParser):
                 'gpu_count': None,
             }
         },
-        # 'nfs': {
-        #     'server': , #  address of nfs servere
-        #     'data_path': , #  fs directory on server
-        #     'mount_path': , #  where to mount nfs on containers
-        # }
     }
 
     def create_basic(self, *,
@@ -284,7 +268,7 @@ class KurrealParser(SymphonyParser):
         settings = _merge_setting_dictionaries(input_args, settings)
         settings = BeneDict(settings)
 
-        cluster = Cluster.new('kube')
+        cluster = self.create_cluster()
         exp = cluster.new_experiment(experiment_name)
 
         image_builder = SurrealDockerBuilder(
@@ -332,9 +316,10 @@ class KurrealParser(SymphonyParser):
             args=[cmd_gen.get_command('learner')])
         # Because learner and everything are bundled together
 
-        json_path = 'cluster_definition.tf.json'  # always use slash
-        filepath = pkg_resources.resource_filename(__name__, json_path)
-        dispatcher = GKEDispatcher(filepath)
+        # json_path = 'cluster_definition.tf.json'  # always use slash
+        # filepath = pkg_resources.resource_filename(__name__, json_path)
+        json_path = self.config.cluster_definition
+        dispatcher = GKEDispatcher(json_path)
         # We only need to claim resources for learner
         dispatcher.assign_to(learner,
                              process_group=nonagent,
@@ -409,18 +394,17 @@ class KurrealParser(SymphonyParser):
                       tensorplex=tensorplex,
                       loggerplex=loggerplex)
 
-        # TODO: clean up nfs support
-        if not self.config.fs.type.lower() in ['nfs']:
-            raise NotImplementedError('Unsupported file server type: "{}". '
-                                      'Supported options are [nfs]'
-                                      .format(self.config.fs.type))
-        nfs_server = self.config.fs.server
-        nfs_server_path = self.config.fs.path_on_server
-        nfs_mount_path = self.config.fs.mount_path
-        for proc in exp.list_all_processes():
-            proc.mount_nfs(server=nfs_server,
-                           path=nfs_server_path,
-                           mount_path=nfs_mount_path)
+        if 'nfs' in self.config:
+            print('NFS mounted')
+            nfs_server = self.config.nfs.servername
+            nfs_server_path = self.config.fs.path_on_server
+            nfs_mount_path = self.config.fs.mount_path
+            for proc in exp.list_all_processes():
+                proc.mount_nfs(server=nfs_server,
+                               path=nfs_server_path,
+                               mount_path=nfs_mount_path)
+        else:
+            print('NFS not mounted')
 
         image_builder.build()
         cluster.launch(exp, force=force, dry_run=dry_run)
@@ -431,17 +415,8 @@ class KurrealParser(SymphonyParser):
             <mount_path>/<root_subfolder>/<experiment_name>/
         """
         # DON'T use U.f_join because we don't want to expand the path locally
-        root_subfolder = self.config.fs.experiment_root_subfolder
-        # TODO: remove assert
-        assert not root_subfolder.startswith('/'), \
-            'experiment_root_subfolder should not start with "/". ' \
-            'Actual experiment folder path will be ' \
-            '<mount_path>/<root_subfolder>/<experiment_name>/'
-        return os.path.join(
-            self.config.fs.mount_path,
-            self.config.fs.experiment_root_subfolder,
-            experiment_name
-        )
+        directory = self.config.kurreal_results_folder
+        return os.path.join(directory, experiment_name)
 
     def action_tensorboard(self, args):
         self.action_visit(args)

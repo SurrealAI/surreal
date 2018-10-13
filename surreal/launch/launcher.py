@@ -14,9 +14,6 @@ from tensorplex import Tensorplex
 from surreal.distributed import ShardedParameterServer
 from surreal.replay import ShardedReplay
 import surreal.utils as U
-import faulthandler
-
-faulthandler.enable()
 
 
 class Launcher:

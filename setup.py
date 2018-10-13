@@ -21,9 +21,11 @@ setup(
     packages=['surreal'],
     entry_points={
         'console_scripts': [
-            'git-snapshot=surreal.kube.git_snapshot:main',
-            'surreal-runner=surreal.main_scripts.runner:main',
             'kurreal=surreal.kube.kurreal:main',
+            'turreal=surreal.tmux.turreal:main',
+            'surreal-ddpg=surreal.main.ddpg_configs:main',
+            'surreal-ppo=surreal.main.ppo_configs:main',
+            'surreal-default-config=surreal.main.generate_default_config:main',
         ]
     },
     classifiers=[

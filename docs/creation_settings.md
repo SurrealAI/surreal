@@ -32,9 +32,9 @@ creation_settings:
     <settings_name>:
         mode: basic
         # Number of agent pods
-        num_agent: 2
+        num_agents: 2
         # Number of eval pods
-        num_eval: 1
+        num_evals: 1
         # Number of agent processes per pod
         agent_batch: 1
         # Number of eval processes per pod
@@ -63,12 +63,12 @@ creation_settings:
 
 When creating an experiment using `kurreal`, the following commandline arguments are allowed:
 ```bash
---num_agent 2
---num_eval 1
+--num_agents 2
+--num_evals 1
 --algorithm ppo
 --agent_batch: 8
 --eval_batch: 8
---env: dm_control:cartpole-balance
+--env dm_control:cartpole-balance
 ```
 TODO: symphony_scheduling kwargs
 TODO: .surreal.yml file

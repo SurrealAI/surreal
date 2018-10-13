@@ -216,7 +216,7 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
-        parser.add_argument('--restore_folder', type=str, default=None,
+        parser.add_argument('--restore-folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment files'
@@ -252,5 +252,8 @@ class DDPGLauncher(SurrealDefaultLauncher):
             self.session_config.ps.shards = 1
 
 
-if __name__ == '__main__':
+def main():
     DDPGLauncher().main()
+
+if __name__ == '__main__':
+    main()

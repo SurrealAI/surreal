@@ -1,0 +1,15 @@
+caraml
+symphony # TODO: Jiren
+torchx # TODO: Jim
+benedict
+nanolog
+psutil
+tabulate
+imageio
+# TODO: tensorboard
+tensorboard
+# tensorplex # TODO: Jim
+# pytorch
+# gym[atari]
+# dm_control
+# robotics_suite

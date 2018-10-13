@@ -41,12 +41,12 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    import MujocoManip
+    import RoboticsSuite
     
     demo_config = None if env_config.demonstration is None or \
                   not env_config.demonstration.use_demo else env_config.demonstration
 
-    env = MujocoManip.make(
+    env = RoboticsSuite.make(
         env_name,
         has_renderer=False,
         ignore_done=True,

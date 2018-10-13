@@ -22,7 +22,6 @@ WORKDIR /root/.mujoco
 RUN wget https://www.roboti.us/download/mjpro150_linux.zip \
     && unzip mjpro150_linux.zip \
     && rm mjpro150_linux.zip
-COPY mjkey.txt /root/.mujoco/mjkey.txt
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/root/.mujoco/mjpro150/bin
 
 # python deps
@@ -46,8 +45,21 @@ RUN conda install -y ffmpeg -c conda-forge
 # fake display to work around the GLFW problem
 RUN mkdir /etc/fakeX \
 	&& touch /etc/fakeX/10.log
-COPY xorg.conf /etc/fakeX/
-COPY xorg.service /etc/systemd/system/
+COPY build_files/xorg.conf /etc/fakeX/
+COPY build_files/xorg.service /etc/systemd/system/
 RUN systemctl enable xorg
 ENV DISPLAY=:10
 
+# TODO: remove (by deprecating) lines below
+RUN pip install \
+    git+git://github.com/SurrealAI/Tensorplex.git \
+    git+git://github.com/SurrealAI/TorchX.git
+
+COPY mujoco /mylibs/mujoco
+RUN pip install -e /mylibs/mujoco
+
+COPY surreal /mylibs/surreal
+RUN pip install -e /mylibs/surreal
+
+COPY build_files/entrypoint-ubuntu.py /usr/local/bin/entrypoint.py
+ENTRYPOINT ["/usr/local/bin/entrypoint.py"]

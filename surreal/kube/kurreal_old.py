@@ -76,7 +76,7 @@ class KurrealParser(SymphonyParser):
 
     @property
     def folder(self):
-        return U.f_expand(self.config.local_kurreal_folder)
+        return U.f_expand(self.config.kurreal_metadata_folder)
 
     @property
     def username(self):

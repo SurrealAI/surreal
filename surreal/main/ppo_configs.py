@@ -191,7 +191,7 @@ class PPOLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
-        parser.add_argument('--restore_folder', type=str, default=None,
+        parser.add_argument('--restore-folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment'
@@ -220,8 +220,12 @@ class PPOLauncher(SurrealDefaultLauncher):
             self.learner_config.replay.sampling_start_size = 2
 
 
-if __name__ == '__main__':
+def main():
     PPOLauncher().main()
+
+
+if __name__ == '__main__':
+    main()
 
 
 '''

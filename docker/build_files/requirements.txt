@@ -1,0 +1,20 @@
+gym[atari]
+mujoco-py<1.50.2,>=1.50.1
+tabulate
+tensorboard # TODO: remove
+tensorboardX # TODO: remove
+imageio
+pygame
+benedict
+nanolog
+psutil
+tabulate
+imageio
+
+# caraml
+# symphony # TODO: Jiren
+# torchx # TODO: Jim
+# tensorplex # TODO: Jim
+# pytorch
+# dm_control
+# robotics_suite

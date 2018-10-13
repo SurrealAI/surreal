@@ -15,7 +15,7 @@ In other words:
 In this case, you can run surreal on a google cloud kubernetes engine cluster using existing public images. Here are the steps:
 * Follow the instructions here (TODO!!) to setup the cluster. You will obtain `<cluster_name>.tf.json`
 * Install surreal
-* Create `~/.surreal.yml` or a yml file at `SURREAL_CONFIG_PATH`.
+* Create `~/.surreal.yml` or a yml file at `SURREAL_CONFIG_PATH` (TODO).
 * Setup necessary information in `~/.surreal.yml`, see guide here (TODO!!)
 * Run `kurreal create ...` (TODO: more details)
 

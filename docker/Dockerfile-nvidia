@@ -1,15 +1,22 @@
+# Deprecated
+
+FROM nvidia/cuda@sha256:4df157f2afde1cb6077a191104ab134ed4b2fd62927f27b69d788e8e79a45fa1
 # Adapted from mujoco-py image
+
+# Comments from mujoco-py image docker file
 # We need the CUDA base dockerfile to enable GPU rendering
 # on hosts with GPUs.
 # The image below is a pinned version of nvidia/cuda:9.1-cudnn7-devel-ubuntu16.04 (from Jan 2018)
 # If updating the base image, be sure to test on GPU since it has broken in the past.
-FROM nvidia/cuda@sha256:4df157f2afde1cb6077a191104ab134ed4b2fd62927f27b69d788e8e79a45fa1
+
+
+LABEL author="Stanford Surreal team"
 
 RUN apt-get update -q \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl \
     git \
-    cmake \ 
+    cmake \
     unzip \
     bzip2 \
     wget \
@@ -37,15 +44,14 @@ RUN mkdir -p /root/.mujoco \
     && wget https://www.roboti.us/download/mjpro150_linux.zip -O mujoco.zip \
     && unzip mujoco.zip -d /root/.mujoco \
     && rm mujoco.zip
-COPY ./mjkey.txt /root/.mujoco/
 ENV LD_LIBRARY_PATH /root/.mujoco/mjpro150/bin:${LD_LIBRARY_PATH}
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
 
-COPY mujoco-py-vendor/Xdummy /usr/local/bin/Xdummy
+COPY build_files/Xdummy /usr/local/bin/Xdummy
 RUN chmod +x /usr/local/bin/Xdummy
 
 # Workaround for https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-375/+bug/1674677
-COPY mujoco-py-vendor/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+COPY build_files/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
 # python deps
 WORKDIR /mylibs
@@ -53,10 +59,35 @@ RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.s
     && bash Miniconda3-latest-Linux-x86_64.sh -p /mylibs/miniconda -b
 RUN rm /mylibs/Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/mylibs/miniconda/bin:${PATH}
+RUN conda install python=3.5
 
 # pytorch
 RUN conda install --yes pytorch torchvision cuda90 -c pytorch
 RUN conda install --yes ffmpeg -c conda-forge
-COPY requirements.txt /mylibs/
+COPY build_files/requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
+
+# COPY mjkey.txt /root/.mujoco/mjkey.txt
+
+# TODO: remove (by deprecating) lines below
+RUN pip install \
+    git+git://github.com/SurrealAI/Tensorplex.git \
+    git+git://github.com/SurrealAI/TorchX.git
+
+COPY mujoco /mylibs/mujoco
+RUN pip install -e /mylibs/mujoco
+
+COPY caraml /mylibs/caraml
+RUN pip install -e /mylibs/caraml
+
+COPY torchx /mylibs/torchx
+RUN pip install -e /mylibs/torchx
+
+COPY surreal /mylibs/surreal
+RUN pip install -e /mylibs/surreal
+
+COPY mjkey.txt /root/.mujoco/mjkey.txt
+
+COPY build_files/entrypoint-nvidia.py /usr/local/bin/entrypoint.py
+ENTRYPOINT ["/usr/local/bin/entrypoint.py"]
 
