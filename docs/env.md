@@ -1,4 +1,7 @@
-# Environments 
+# Environments
+
+Environments are created and run on agent machines; the API methods they expose
+are detailed below.
 
 TODO: Write about environments, use some of existing documentations in this file.
 1 - How to initialize an environment (including how to get obervation and action dimensions to automatically be populated in env_config)
@@ -6,18 +9,45 @@ TODO: Write about environments, use some of existing documentations in this file
 3 - Describe observation and action format
 4 - (Later) Describe building custom environments
 
+# Env initialization
+You can find examples of environment initialization in surreal/env/make_env.py.
+The make_env function is used in surreal/agent/base.py. In addition, note the lines
+
+`   env_config.action_spec = env.action_spec()
+    env_config.obs_spec = env.observation_spec()`
+    
+in surreal/env/make_env.py.  These lines populate the env_config with the action
+and observation specs, which specify the dimensions of the action and observation
+space.  This means that the action and observation dimensions are generated at
+runtime rather than specified manually in the env_config.
+
+# Available envs
+
+The surreal repository contains several environments available for use.  If you want
+to create your own environment class, see the section
+[Building your own custom environments](#building-your-own-custom-environments).
+Note that some of the environments listed below may require a mujoco license.
+
+- OpenAI gym environments `gym:HalfCheetah-v2`
+- Deepmind control suite environments `make_env('dm_control:humanoid-walk')`
+- Stanford robotics suite (MujocoManipulation) environments `mujocomanip:SawyerLiftEnv`
+
 # Environment wrappers
+Environment wrappers are environments which wrap around an environment and
+applies some modification. For example, we have environments which will perform
+frame stacking or grayscaling.
+
 In wrapper.py, you will find wrappers that take environments and reformat them into the format that the models expect.
 
-For example, 
+For example, the command below will create a dm_control environment.
 
 `suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)`
 
-will return an environment whose observation spec looks like
+This environment has an observation spec that looks like
 
 `collections.OrderedDict([('pixels', dm_control.rl.specs.ArraySpec(shape=(84, 84, 3), dtype=np.dtype('float32')))])`
 
-The observation format we use is as follows:
+We reformat the above observation spec so that it satisfies the Surreal format. The observation format we use is as follows:
 
 ## observation (OrderedDict):
 observation dictionaries are returned in both the `env.step()` and `env.reset()` functions
@@ -80,3 +110,5 @@ e.g.
     'dim': (7,)
 }
 ```
+
+# Building your own custom environments
