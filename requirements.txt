@@ -6,7 +6,6 @@ nanolog
 psutil
 tabulate
 imageio
-# TODO: tensorboard
 tensorboard
 # tensorplex # TODO: Jim
 # pytorch
