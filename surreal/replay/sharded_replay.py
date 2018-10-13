@@ -37,6 +37,16 @@ class ShardedReplay(object):
         self.sampler_backend_add = "tcp://*:{}".format(self.sampler_backend_port)
 
     def launch(self):
+
+        self.processes = []
+
+        print('Starting {} replay shards'.format(self.shards))
+        for i in range(self.shards):
+            print('Replay {} starting'.format(i))
+            p = Process(target=self.start_replay, args=[i])
+            p.start()
+            self.processes.append(p)
+
         self.collector_proxy = ZmqProxyThread(
             in_add=self.collector_frontend_add,
             out_add=self.collector_backend_add,
@@ -48,15 +58,6 @@ class ShardedReplay(object):
 
         self.collector_proxy.start()
         self.sampler_proxy.start()
-
-        self.processes = []
-
-        print('Starting {} replay shards'.format(self.shards))
-        for i in range(self.shards):
-            print('Replay {} starting'.format(i))
-            p = Process(target=self.start_replay, args=[i])
-            p.start()
-            self.processes.append(p)
 
     def start_replay(self, index):
         replay = self.replay_class(self.learner_config,

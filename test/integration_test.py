@@ -51,7 +51,7 @@ def test(temp_path, config_path, launcher):
         '1',
         '--env',
         'gym:HalfCheetah-v2',
-        # 'mujocomanip:SawyerLiftEnv',
+        # 'robosuite:SawyerLift',
         # 'dm_control:cartpole-balance',
         '--experiment-folder',
         str(temp_path)]

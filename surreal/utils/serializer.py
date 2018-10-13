@@ -5,14 +5,16 @@ import pickle
 import base64
 import hashlib
 import json
-import pickle as pa
+import pyarrow as pa
 
 
 def pa_serialize(obj):
-    return pa.dumps(obj)
+    return pa.serialize(obj).to_buffer()
+
 
 def pa_deserialize(binary):
-    return pa.loads(binary)
+    return pa.deserialize(binary)
+
 
 _SERIALIZER = pa_serialize
 _DESERIALIZER = pa_deserialize

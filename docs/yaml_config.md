@@ -35,4 +35,9 @@ When running an experiment on kubernetes, you can mount a nfs to all containers 
 * `cluster_definition`. After creating a kubernetes cluster with cloudwise, you will obtain a `.tf.json` file detailing the setup of the cluster. Specify its location at `cluster_definition` to allow `kurreal` commandline interface to properly schedule your workload.
 * `kurreal_results_folder`. Where do experiments save results. Experiments write results to `<kurreal_results_folder>/<experiment_name>` in the container.
 * `creation_settings`. Configures how experiments are launched on Kubernetes. See [documentation](creation_settings.md) for details.
-* `docker_build_settings`. Configures customly built docker images.
+* `mount_secrets`. Mount the listed files as secrets. These files would be available in `/etc/secrets` on every container. One example is to use it to mount the mujoco liscense. 
+```yaml
+mount_secrets:
+  - ~/.mujoco/mjkey.txt
+```
+* `docker_build_settings`. Configures customly built docker images TODO.

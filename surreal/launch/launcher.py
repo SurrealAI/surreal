@@ -14,6 +14,8 @@ from tensorplex import Tensorplex
 from surreal.distributed import ShardedParameterServer
 from surreal.replay import ShardedReplay
 import surreal.utils as U
+import faulthandler
+faulthandler.enable()
 
 
 class Launcher:
@@ -158,6 +160,10 @@ class SurrealDefaultLauncher(Launcher):
             self.run_ps()
         elif component_name == 'replay':
             self.run_replay()
+        # elif component_name == 'replay_loadbalancer':
+        #     self.run_replay_loadbalancer()
+        # elif component_name == 'replay_worker':
+        #     self.run_replay_worker(replay_id=component_id)
         elif component_name == 'tensorboard':
             self.run_tensorboard()
         elif component_name == 'tensorplex':
@@ -166,6 +172,12 @@ class SurrealDefaultLauncher(Launcher):
             self.run_loggerplex()
         else:
             raise ValueError('Unexpected component {}'.format(component_name))
+
+    def run_component(self, component_name):
+        return subprocess.Popen([sys.executable, '-u',
+                                 sys.argv[0],
+                                 component_name,
+                                 '--'] + self.config_args)
 
     def run_agent(self, agent_id):
         """
@@ -216,11 +228,7 @@ class SurrealDefaultLauncher(Launcher):
         agents = []
         for agent_id in agent_ids:
             component_name = 'agent-{}'.format(agent_id)
-            agent = subprocess.Popen([sys.executable, '-u',
-                                      sys.argv[0],
-                                      component_name,
-                                      '--']
-                                     + self.config_args)
+            agent = self.run_component(component_name)
             agents.append(agent)
         U.wait_for_popen(agents)
 
@@ -281,11 +289,7 @@ class SurrealDefaultLauncher(Launcher):
         evals = []
         for eval_id in eval_ids:
             component_name = 'eval-{}'.format(eval_id)
-            agent = subprocess.Popen([sys.executable, '-u',
-                                      sys.argv[0],
-                                      component_name,
-                                      '--']
-                                     + self.config_args)
+            agent = self.run_component(component_name)
             evals.append(agent)
         U.wait_for_popen(evals)
 

@@ -26,24 +26,27 @@ cluster_definition: <cluster_definition.tf.json>
 # Every time an experiment is created on tmux, result data will be written here
 # Important: This path is inside a container
 kurreal_results_folder: <put path here> # /fs/experiments/<your_username>
+# Mount secret files, they would be available at /etc/secrets
+mount_secrets:
+  - ~/mjkey.txt
 
 # Here you can specify creation settings for your experiments. See creation_settings.md for more details
 creation_settings:
   cpu-experiment:
     # Currently there is only one mode available
     mode: basic
-    # Number of agent pods
+    # Number of agent containers
     num_agents: 2
-    # Number of eval pods
+    # Number of eval containers
     num_evals: 1
-    # Number of agent processes per pod
+    # Number of agent processes per container
     agent_batch: 1
-    # Number of eval processes per pod
+    # Number of eval processes per container
     eval_batch: 1
     # RL algorithm to use (ddpg / ppo) or path to a .py excecutable file in the container
     # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
     algorithm: ppo
-    # Environment to use, see TODO for details
+    # Environment to use
     env: gym:HalfCheetah-v2
     agent:
       image: surreal-cpu-image # TODO
@@ -62,56 +65,3 @@ creation_settings:
 # TODO: more examples
 
 docker_build_settings: {}
-  # - name: cpu-image # kurreal refers to this name when launching
-  #   # set it to your favorite, a subdirectory will hold all build files
-  #   temp_directory: ~/symph_temp/cpu
-  #   # verbose: true (default: prints docker cmdline output)
-  #   dockerfile: ~/surreal/Surreal/container/DockerfileCPU
-  #   context_directories: # These paths will be copied to temp_directory before build
-  #     - name: surreal # Directory will be under folder @name in the build context
-  #       path: ~/surreal/Surreal
-  #       force_update: true # Copy a new version every time
-  #     - name: mujoco
-  #       path: ~/surreal/MujocoManipulation-old
-  #       force_update: false 
-  #     - name: torchx
-  #       path: ~/surreal/TorchX
-  #       force_update: false
-  #     - name: caraml
-  #       path: ~/surreal/caraml
-  #       force_update: true
-  # - name: gpu-image
-  #   # set it to your favorite, a subdirectory will hold all build files
-  #   temp_directory: ~/symph_temp/gpu
-  #   dockerfile: ~/surreal/Surreal/container/DockerfileGPU
-  #   context_directories: # These paths will be copied to temp_directory before build
-  #     - name: surreal # Directory will be under folder @name in the build context
-  #       path: ~/surreal/Surreal
-  #       force_update: true # Copy a new version every time
-  #     - name: mujoco
-  #       path: ~/surreal/MujocoManipulation-old
-  #       force_update: false 
-  #     - name: torchx
-  #       path: ~/surreal/TorchX
-  #       force_update: false
-  #     - name: caraml
-  #       path: ~/surreal/caraml
-  #       force_update: true
-  # - name: mujoco-gpu-image # kurreal refers to this name when launching
-  #   # set it to your favorite, a subdirectory will hold all build files
-  #   temp_directory: ~/symph_temp/cpu
-  #   # verbose: true (default: prints docker cmdline output)
-  #   dockerfile: ~/surreal/Surreal/container/DockerfileMujocopyGPU
-  #   context_directories: # These paths will be copied to temp_directory before build
-  #     - name: surreal # Directory will be under folder @name in the build context
-  #       path: ~/surreal/Surreal
-  #       force_update: true # Copy a new version every time
-  #     - name: mujoco
-  #       path: ~/surreal/MujocoManipulation-old
-  #       force_update: true 
-  #     - name: torchx
-  #       path: ~/surreal/TorchX
-  #       force_update: false
-  #     - name: caraml
-  #       path: ~/surreal/caraml
-  #       force_update: true

@@ -31,14 +31,15 @@ settings = {
       'force_update': True,
     },
     # mjkey.txt
-    {
-      'name': 'mjkey.txt',
-      'path': '~/.mujoco/mjkey.txt',
-      'force_update': True,
-    }
+    # {
+    #   'name': 'mjkey.txt',
+    #   'path': '~/.mujoco/mjkey.txt',
+    #   'force_update': True,
+    # }
   ]
 }
 
 builder = DockerBuilder.from_dict(settings)
 builder.build()
 builder.tag('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')
+builder.push()

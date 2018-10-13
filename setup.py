@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read(fname):
@@ -18,7 +18,9 @@ setup(
               'Deep Learning',
               'Distributed Computing'],
     license='GPLv3',
-    packages=['surreal'],
+    packages=[
+        package for package in find_packages() if package.startswith("surreal")
+    ],
     entry_points={
         'console_scripts': [
             'kurreal=surreal.kube.kurreal:main',

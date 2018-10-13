@@ -1,8 +1,8 @@
 gym
 mujoco-py<1.50.2,>=1.50.1
 tabulate
-tensorboard # TODO: remove
-tensorboardX # TODO: remove
+tensorflow # TODO: separate tensorboard image
+tensorboardX
 imageio
 pygame
 benedict

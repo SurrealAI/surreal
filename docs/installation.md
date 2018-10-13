@@ -90,39 +90,6 @@ cluster_definition: <path to cluster_name.tf.json>
 ```
 
 * To launch an experiment on the cloud, you also need to configure the `creation_settings` field in `.surreal.yml`. This allows you to choose how to schedule things, etc. The first settings in the template is provided here. For details about creation settings, check [the documentation](creation_settings.md).
-```yaml
-  cpu-experiment:
-    # Currently there is only one mode available
-    mode: basic
-    # Number of agent pods
-    num_agents: 2
-    # Number of eval pods
-    num_evals: 1
-    # Number of agent processes per pod
-    agent_batch: 1
-    # Number of eval processes per pod
-    eval_batch: 1
-    # RL algorithm to use (ddpg / ppo) or path to a .py excecutable file in the container
-    # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
-    algorithm: ppo
-    # Environment to use, see TODO for details
-    env: gym:HalfCheetah-v2
-    agent:
-      image: surreal-cpu-image # TODO
-      build_image: null
-      scheduling:
-        # Configure scheduling depending on your need
-        assign_to: resource
-        cpu: 1.5
-    nonagent:
-      image: surreal-cpu-image # TODO
-      build_image: null
-      # Configure scheduling depending on your need
-      scheduling:
-        assign_to: resource
-        cpu: 7
-```
-
 * With everything setup. You can use the `kurreal` commandline to create the distributed experiment. 
 ```bash
 kurreal create cpu-experiment my-first-experiment

@@ -35,7 +35,7 @@ creation_settings:
         # or path to a .py excecutable file in the container
         # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
         algorithm: ppo
-        # Number of agent pods
+        # Number of agent containers
         num_agents: 2
         # Number of eval pods
         num_evals: 1
@@ -60,14 +60,13 @@ creation_settings:
             # See TODO
             scheduling: {<symphony scheduling kwargs>}
 ```
-* `num_agents`, `num_evals`, `agent_batch`, and `eval_batch` controls how many agent / evals there are in an experiment. The total number of agents is computed by `num_agents x agent_batch`. Similarly for eval.
-        # Number of eval pods
-        num_evals: 1
-        # Number of agent processes per pod
-        agent_batch: 1
-        # Number of eval processes per pod
-        eval_batch: 1
-When creating an experiment using `kurreal`, the following commandline arguments are allowed:
+* `algorithm` is the RL algorithm to use. It can be `ddpg` or `ppo`, in which case our `kurreal` commandline knows where the executables are located. If you wrote your own algorithm (follow the example of [ddpg](../surreal/main/ddpg_configs.py) and [ppo](../surreal/main/ppo_configs.py) to do so), provide the path to `<you_algorithm>.py` so our launcher can properly provide arguments to the containers' entrypoint (`python -u` will be prepended before your provided path if it ends with `.py`, otherwise, we assume that you are providing an executable and will call it directly).
+* `num_agents`, `num_evals`, `agent_batch`, and `eval_batch` controls how many agent / evals there are in an experiment. The total number of agents is computed by `num_agents x agent_batch`. The total number of evaluators is computed by `num_evals x eval_batch`. Agents in the same batch are launched in the same container. This setup allows us to run 16 agents on a single GPU, maximizing resource usage. 
+* `env` is the name of the enrivonment to run our algorithms on. 
+* `agent` / `nonagent`: specifies deployment related information on the cluster. `agent` is defined for each agent container (`agent_batch` processes). `nonagent` is defined for the `nonagent` container, which includes learner, replay, parameter server, tensorplex, loggerplex and tensorboard.
+    - `image` and `build_image` define the container image to run on the cluster. You can provide `image:repo:tag, build_image: null` to pull from an existing image. Or you can provide `image:repo, build_image: <image-build-setting-name>` to build an image, push it to `repo:<experiment-name>` and use it for your experiment. For more about image build settings, see TODO.
+    - `scheduling` defines how much compute resource to allocate to the `agent`, resp. `nonagent`, container. See `symphony.GKEDispatcher.assign_to` ([documented here](https://github.com/SurrealAI/symphony/blob/master/docs/kubernetes.md#dispatcher)) for details. You need to provide all kwargs other than `process` and `process_group`.
+* When creating an experiment using `kurreal`, the following commandline arguments are allowed:
 ```bash
 --num_agents 2
 --num_evals 1

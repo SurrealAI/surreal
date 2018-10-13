@@ -24,7 +24,7 @@ class CommandGenerator:
         self.executable = executable
         self.config_commands = config_commands
         if ignore_python == 'auto':
-            ignore_python = executable[:-3] != '.py'
+            ignore_python = executable[-3:] != '.py'
         self.ignore_python = ignore_python
 
     def get_command(self, role):

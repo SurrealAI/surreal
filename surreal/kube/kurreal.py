@@ -269,7 +269,11 @@ class KurrealParser(SymphonyParser):
         settings = BeneDict(settings)
 
         cluster = self.create_cluster()
-        exp = cluster.new_experiment(experiment_name)
+        if 'mount_secrets' in self.config:
+            secrets = self.config.mount_secrets
+        else:
+            secrets = None
+        exp = cluster.new_experiment(experiment_name, secrets=secrets)
 
         image_builder = SurrealDockerBuilder(
             build_settings=self.docker_build_settings,
@@ -289,12 +293,11 @@ class KurrealParser(SymphonyParser):
         nonagent_image = image_builder.images_provided['nonagent']
         # defer to build last, so we don't build unless everything passes
 
-        # TODO: experiment_folder
         algorithm_args += [
             "--num-agents",
             str(settings.num_agents * settings.agent_batch),
             ]
-        # TODO: deprecate restore_folder
+        # TODO: restore_functionalities
         if settings.restore_folder is not None:
             algorithm_args += ["--restore_folder",
                                shlex.quote(settings.restore_folder)]
@@ -397,8 +400,8 @@ class KurrealParser(SymphonyParser):
         if 'nfs' in self.config:
             print('NFS mounted')
             nfs_server = self.config.nfs.servername
-            nfs_server_path = self.config.fs.path_on_server
-            nfs_mount_path = self.config.fs.mount_path
+            nfs_server_path = self.config.nfs.path_on_server
+            nfs_mount_path = self.config.nfs.mount_path
             for proc in exp.list_all_processes():
                 proc.mount_nfs(server=nfs_server,
                                path=nfs_server_path,
