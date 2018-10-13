@@ -1,3 +1,11 @@
+# Environments 
+
+TODO: Write about environments, use some of existing documentations in this file.
+1 - How to initialize an environment (including how to get obervation and action dimensions to automatically be populated in env_config)
+2 - A list of all available environments
+3 - Describe observation and action format
+4 - (Later) Describe building custom environments
+
 # Environment wrappers
 In wrapper.py, you will find wrappers that take environments and reformat them into the format that the models expect.
 

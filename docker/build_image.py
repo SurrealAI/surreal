@@ -21,8 +21,8 @@ settings = {
       'force_update': True,
     },
     {
-      'name': 'torchx',
-      'path': '~/surreal/TorchX',
+      'name': 'symphony',
+      'path': '~/surreal/symphony',
       'force_update': True,
     },
     {

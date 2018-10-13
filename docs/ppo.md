@@ -1,4 +1,3 @@
-
 # Tutorial for Surreal PPO
 
 In this tutorial, we will go through the Proximal Policy Gradient algorithm in this specific implementation. In the following sections, we will introduce the algorithm, discuss some of its key features, outline the expected behaviors in terms of some metrics, and explain the configuration file in details.

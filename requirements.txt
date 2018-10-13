@@ -7,8 +7,9 @@ psutil
 tabulate
 imageio
 tensorboard
+gym
 # tensorplex # TODO: Jim
 # pytorch
-# gym[atari]
+# gym
 # dm_control
 # robotics_suite

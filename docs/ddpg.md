@@ -11,7 +11,7 @@ The target network is a representation of a previous iteration of the model, and
 The replay buffer performs a similar function of mitigating the moving target problem.  Recent experiences are stored in a buffer, and batches are sampled uniformly at random from the buffer to perform gradient descent on instead of immediately performing gradient descent on experiences after they are generated.  This slows down the rate at which the network has to model the value of a shifting policy.
 
 ## Implementation details
-
+TODO: we should no longer use the notebooks
 To see an example Surreal DDPG experiment, run the [ipython notebook](../surreal/main/cluster_dashboard_symphony.ipynb). This will run the environments, agents, and learner locally on your machine.
 
 The code for Surreal DDPG is contained in the following files
@@ -30,7 +30,7 @@ Learner Config:
 * `learner_config.parameter_publish.exp_interval`: specifies how often learner pushes parameter to Parameter Server. For ddpg, parameter publish is time-based, and occurs at set time intervals.
 
 Environment Config:
-* See the [Environment Readme](../surreal/env/README.md) for details on observation and action formats.
+* See the [Environment documentations](env.md) for details on observation and action formats.
 * `env_config.action_repeat`: specifies how many times the input action is repeated before allowing next action input from actor. We find this highly impactful for Robotic Manipulation benchmark tasks
 * `env_config.pixel_input`: set to True if the environment returns image output.
 * `env_config.limit_episode length`: specifies the maximum number of steps an environment can perform before termination.

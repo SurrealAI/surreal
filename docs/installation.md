@@ -131,7 +131,10 @@ kurreal tensorboard
 ```
 For more creation customization and more information about `kurreal`, see [kurreal documentation](kurreal.md).
 
-TODO: add some actions to take in 
+After you are done, delete the experiment.
+```bash
+kurreal delete
+```
 
 ## Setup Custom Docker Build Process
 If you want to use mujoco environments on the cloud, you need to provide a valid mujoco liscense in the container that you deploy. We provide docker builder (powered by [Symphony](https://github.com/SurrealAI/symphony)) that puts together a docker build environment from multiple locations in your file system.
@@ -141,6 +144,7 @@ If you want to use mujoco environments on the cloud, you need to provide a valid
 * Install [Docker](https://www.docker.com).
 * Ensure that a valid multi-machine Mujoco Liscense is located at `~/mjkey.txt`.
 * In your `.surreal.yml`, there is a `mujoco-experiment`. In `mujoco-experiment`, ...
+TODO:
 
 
 ## Develop Algorithms Locally

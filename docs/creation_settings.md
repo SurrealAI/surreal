@@ -31,6 +31,10 @@ This is the basic agent / learner / replay setup of surreal. Default settings ar
 creation_settings:
     <settings_name>:
         mode: basic
+        # RL algorithm to use (ddpg / ppo) 
+        # or path to a .py excecutable file in the container
+        # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
+        algorithm: ppo
         # Number of agent pods
         num_agents: 2
         # Number of eval pods
@@ -39,11 +43,7 @@ creation_settings:
         agent_batch: 1
         # Number of eval processes per pod
         eval_batch: 1
-        # RL algorithm to use (ddpg / ppo) 
-        # or path to a .py excecutable file in the container
-        # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
-        algorithm: ppo
-        # Environment to use, see TODO for details
+        # Environment to use
         env: gym:HalfCheetah-v2
         agent:
             # The docker image to use for agent and eval
@@ -60,7 +60,13 @@ creation_settings:
             # See TODO
             scheduling: {<symphony scheduling kwargs>}
 ```
-
+* `num_agents`, `num_evals`, `agent_batch`, and `eval_batch` controls how many agent / evals there are in an experiment. The total number of agents is computed by `num_agents x agent_batch`. Similarly for eval.
+        # Number of eval pods
+        num_evals: 1
+        # Number of agent processes per pod
+        agent_batch: 1
+        # Number of eval processes per pod
+        eval_batch: 1
 When creating an experiment using `kurreal`, the following commandline arguments are allowed:
 ```bash
 --num_agents 2

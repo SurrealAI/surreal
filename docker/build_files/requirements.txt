@@ -1,4 +1,4 @@
-gym[atari]
+gym
 mujoco-py<1.50.2,>=1.50.1
 tabulate
 tensorboard # TODO: remove
