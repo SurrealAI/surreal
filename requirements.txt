@@ -8,8 +8,10 @@ tabulate
 imageio
 tensorboard
 gym
+zmq
+tensorboardX
 # tensorplex # TODO: Jim
-# pytorch
+torch
 # gym
 # dm_control
 # robotics_suite
