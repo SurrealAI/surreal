@@ -3,12 +3,6 @@
 Environments are created and run on agent machines; the API methods they expose
 are detailed below.
 
-TODO: Write about environments, use some of existing documentations in this file.
-1 - How to initialize an environment (including how to get obervation and action dimensions to automatically be populated in env_config)
-2 - A list of all available environments
-3 - Describe observation and action format
-4 - (Later) Describe building custom environments
-
 # Env initialization
 You can find examples of environment initialization in surreal/env/make_env.py.
 The make_env function is used in surreal/agent/base.py. In addition, note the lines
@@ -28,9 +22,9 @@ to create your own environment class, see the section
 [Building your own custom environments](#building-your-own-custom-environments).
 Note that some of the environments listed below may require a mujoco license.
 
-- OpenAI gym environments `gym:HalfCheetah-v2`
-- Deepmind control suite environments `make_env('dm_control:humanoid-walk')`
-- Stanford robotics suite (MujocoManipulation) environments `mujocomanip:SawyerLiftEnv`
+- OpenAI gym environments, e.g. `make_env(gym:HalfCheetah-v2)`
+- Deepmind control suite environments, e.g. `make_env('dm_control:humanoid-walk')`
+- Stanford robotics suite (MujocoManipulation) environments, e.g. `make_env(mujocomanip:SawyerLiftEnv)`
 
 # Environment wrappers
 Environment wrappers are environments which wrap around an environment and
@@ -112,3 +106,7 @@ e.g.
 ```
 
 # Building your own custom environments
+To create a new environment, you should subclass the class Env in surreal/env/base.py.
+Your env must override the necessary methods listed in that class in order for your env
+to work.  Finally, you should add a corresponding entry into surreal/env/make_env.py
+so that make_env('your_env_name') will work.
