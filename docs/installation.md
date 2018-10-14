@@ -23,9 +23,13 @@ source activate surreal
 * Install [pytorch](https://pytorch.org/get-started/locally/).
 
 * Install surreal
+(WIP) Surreal is not released yet, see below for instructions
+TODO: allow `pip install surreal to work`
 ```bash
 pip install surreal
 ```
+
+* (Temporary): Install Robotics Suite and Symphony from master branch. Install surreal by `pip install -e .` on branch `refactor4release`.
 
 * Setup `.surreal.yml`. Run the following command to setup the surreal config file at `~/.surreal.yml`. 
 ```bash

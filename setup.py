@@ -30,6 +30,24 @@ setup(
             'surreal-default-config=surreal.main.generate_default_config:main',
         ]
     },
+    install_requires=[
+        "gym",
+        "mujoco-py<1.50.2,>=1.50.1",
+        "tabulate",
+        "tensorflow", # TODO: separate tensorboard image
+        "tensorboardX",
+        "imageio",
+        "pygame",
+        "benedict",
+        "nanolog",
+        "psutil",
+        "tabulate",
+        "imageio",
+        "caraml",
+        # "symphony",
+        "torchx",
+        "tensorplex",
+    ],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
