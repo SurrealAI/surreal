@@ -1,17 +1,16 @@
-caraml
-symphony # TODO: Jiren
-torchx # TODO: Jim
+gym
+mujoco-py<1.50.2,>=1.50.1
+tabulate
+tensorflow # TODO: separate tensorboard image
+tensorboardX
+imageio
+pygame
 benedict
 nanolog
 psutil
 tabulate
 imageio
-tensorboard
-gym
-zmq
-tensorboardX
-# tensorplex # TODO: Jim
-torch
-# gym
-# dm_control
-# robotics_suite
+caraml
+# symphony
+torchx
+tensorplex

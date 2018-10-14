@@ -1,12 +1,14 @@
 # Kurreal user guide
 `kurreal` stands for Surreal on Kubernetes. It is a commandline for launching and managing Surreal experiments on Kubernetes, powered by [Symphony](https://github.com/SurrealAI/symphony). Check symphony docs to see how to creat a commandline like `kurreal`.
 
-(Configs)[#configs]
-(Create Experiments)[#create-experiments]
-(Monitor Experiments)[#monitor-experiments]
-(Manage Multiple Experiments)[#manage-multiple-experiments]
-(Delete Experiments)[#delete-experiments]
-(Miscellaneous)[#miscellaneous]
+(Configs)[#configs]  
+(Create Experiments)[#create-experiments]  
+(Monitor Experiments)[#monitor-experiments]  
+(Manage Multiple Experiments)[#manage-multiple-experiments]  
+(Delete Experiments)[#delete-experiments]  
+(Miscellaneous)[#miscellaneous]  
+
+---
 
 ## Configs
 Using kurreal requires you to configure `.surreal.yml` correctly. Here is a template that we will be using. See [documentation](yaml_config.md) for details.
@@ -40,7 +42,7 @@ See [documentation](creation_settings.md) for details.
 ```bash
 kurreal create cpu-experiment my-first-experiment --algorithm my_ppo -- --use-alternative-loss
 ```
-TODO: add documentation
+TODO: add documentation about algorithm specific settings
 
 ## Monitor Experiments
 After creating the experiment, you can use `kurreal list-processes` (or `kurreal lsp` or `kurreal p`) to list all running processes in the current experiment.

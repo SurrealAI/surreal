@@ -7,8 +7,10 @@ are detailed below.
 You can find examples of environment initialization in surreal/env/make_env.py.
 The make_env function is used in surreal/agent/base.py. In addition, note the lines
 
-`   env_config.action_spec = env.action_spec()
-    env_config.obs_spec = env.observation_spec()`
+```python
+env_config.action_spec = env.action_spec()
+env_config.obs_spec = env.observation_spec()
+```
     
 in surreal/env/make_env.py.  These lines populate the env_config with the action
 and observation specs, which specify the dimensions of the action and observation
@@ -105,7 +107,7 @@ e.g.
 }
 ```
 
-# Building your own custom environments
+# Building Your Own Custom Environments
 To create a new environment, you should subclass the class Env in surreal/env/base.py.
 Your env must override the necessary methods listed in that class in order for your env
 to work.  Finally, you should add a corresponding entry into surreal/env/make_env.py

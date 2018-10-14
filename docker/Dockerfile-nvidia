@@ -1,5 +1,3 @@
-# Deprecated
-
 FROM nvidia/cuda@sha256:4df157f2afde1cb6077a191104ab134ed4b2fd62927f27b69d788e8e79a45fa1
 # Adapted from mujoco-py image
 
@@ -67,24 +65,15 @@ RUN conda install --yes ffmpeg -c conda-forge
 COPY build_files/requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
-# TODO: remove (by deprecating) lines below
-RUN pip install \
-    git+git://github.com/SurrealAI/Tensorplex.git \
-   git+git://github.com/SurrealAI/TorchX.git
-
 COPY mujoco /mylibs/mujoco
 RUN pip install -e /mylibs/mujoco
 
-COPY caraml /mylibs/caraml
-RUN pip install -e /mylibs/caraml
-
 COPY symphony /mylibs/symphony
-RUN pip install -e /mylibs/symphony
+RUN pip uninstall -y symphony && \
+    pip install -e /mylibs/symphony
 
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
-
-COPY mjkey.txt /root/.mujoco/mjkey.txt
 
 COPY build_files/entrypoint-nvidia.py /usr/local/bin/entrypoint.py
 ENTRYPOINT ["/usr/local/bin/entrypoint.py"]

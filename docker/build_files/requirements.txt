@@ -10,11 +10,7 @@ nanolog
 psutil
 tabulate
 imageio
-
-# caraml
-# symphony # TODO: Jiren
-# torchx # TODO: Jim
-# tensorplex # TODO: Jim
-# pytorch
-# dm_control
-# robotics_suite
+caraml
+symphony
+torchx
+tensorplex

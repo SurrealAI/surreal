@@ -11,8 +11,6 @@ The target network is a representation of a previous iteration of the model, and
 The replay buffer performs a similar function of mitigating the moving target problem.  Recent experiences are stored in a buffer, and batches are sampled uniformly at random from the buffer to perform gradient descent on instead of immediately performing gradient descent on experiences after they are generated.  This slows down the rate at which the network has to model the value of a shifting policy.
 
 ## Implementation details
-TODO: we should no longer use the notebooks
-To see an example Surreal DDPG experiment, run the [ipython notebook](../surreal/main/cluster_dashboard_symphony.ipynb). This will run the environments, agents, and learner locally on your machine.
 
 The code for Surreal DDPG is contained in the following files
 * [DDPG Learner class](../surreal/learner/ddpg.py)

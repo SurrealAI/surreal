@@ -1,6 +1,8 @@
+# This is used by Surreal developers to build public surreal images
+
 from symphony.addons import DockerBuilder
 
-
+force_update = False
 settings = {
   'temp_directory': '~/symph_temp/',
   'dockerfile': '~/surreal/Surreal/docker/Dockerfile-nvidia',
@@ -8,38 +10,27 @@ settings = {
     {
       'name': 'surreal',
       'path': '~/surreal/Surreal',
-      'force_update': True,
+      'force_update': force_update,
     },
     {
       'name': 'mujoco',
       'path': '~/surreal/RoboticsSuite',
-      'force_update': True,
-    },
-    {
-      'name': 'caraml',
-      'path': '~/surreal/caraml',
-      'force_update': True,
+      'force_update': force_update,
     },
     {
       'name': 'symphony',
       'path': '~/surreal/symphony',
-      'force_update': True,
+      'force_update': force_update,
     },
     {
       'name': 'build_files',
       'path': '~/surreal/Surreal/docker/build_files',
-      'force_update': True,
+      'force_update': force_update,
     },
-    # mjkey.txt
-    # {
-    #   'name': 'mjkey.txt',
-    #   'path': '~/.mujoco/mjkey.txt',
-    #   'force_update': True,
-    # }
   ]
 }
 
 builder = DockerBuilder.from_dict(settings)
 builder.build()
 builder.tag('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')
-builder.push()
+# builder.push('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')

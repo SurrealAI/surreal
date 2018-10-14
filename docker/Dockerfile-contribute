@@ -1,0 +1,5 @@
+TODO: From
+# ~/surreal/docker/Dockerfile-contribute
+COPY surreal /mylibs/surreal-dev
+RUN pip uninstall surreal \
+	pip install -e /mylibs/surreal-dev

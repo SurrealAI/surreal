@@ -109,8 +109,7 @@ class TurrealParser(SymphonyParser):
         experiment_name = self._process_experiment_name(args.experiment_name)
         exp = cluster.new_experiment(
             experiment_name,
-            preamble_cmds=['source activate surreal',
-                           'export DISABLE_MUJOCO_RENDERING=1'])
+            preamble_cmds=self.config.tmux_preamble_cmds)
 
         algorithm_args = []
         algorithm_args += [
