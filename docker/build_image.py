@@ -32,5 +32,10 @@ settings = {
 
 builder = DockerBuilder.from_dict(settings)
 builder.build()
-builder.tag('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')
+repo = "surrealai/surreal-nvidia"
+tag = "v0.0"
+builder.tag(repo, tag)
+builder.push(repo, tag)
+
+# builder.tag('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')
 # builder.push('us.gcr.io/jimfan2018-208323/surreal-prepublic-nvidia', 'latest')

@@ -7,7 +7,6 @@ import os
 import sys
 import subprocess
 from argparse import ArgumentParser
-from multiprocessing import Process
 import numpy as np
 from tensorplex import Loggerplex
 from tensorplex import Tensorplex
@@ -313,7 +312,7 @@ class SurrealDefaultLauncher(Launcher):
             and publishes experience to parameter server
         """
         learner = self.setup_learner()
-        return learner
+        learner.main()
 
     def setup_learner(self):
         """

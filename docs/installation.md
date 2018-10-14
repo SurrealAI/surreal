@@ -122,9 +122,9 @@ To develop a distributed application and run on Kubernetes, you need to build yo
 
 ### Installation
 * Install [Docker](https://www.docker.com)
-* Obtain Surreal base image (TODO: image). This image take ~10G space.
+* Obtain Surreal base image. This image take ~10G space.
 ```bash
-docker pull 
+docker pull surrealai/surreal-nvidia:v0.0
 ```
 * Prepare your own docker registry to host your custom images. You need to put your custom images in a registry that is accessible from your Kubernetes cluster.
     - If you are using Google Cloud with project-id (i.e. myproject-123456), you can push-pull from Google Cloud's container registry: `us.gcr.io/<project-id>/<repo>:tag`. You do need to configure your own docker to have the credentials to read/write from the google hosted registry, see [documentation](https://cloud.google.com/sdk/gcloud/reference/auth/configure-docker).

@@ -52,18 +52,18 @@ creation_settings:
     eval_batch: 1
     # RL algorithm to use (ddpg / ppo) or path to a .py excecutable file in the container
     # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
-    algorithm: ppo
+    algorithm: ddpg
     # Environment to use
     env: gym:HalfCheetah-v2
     agent:
-      image: # TODO
+      image: surrealai/surreal-nvidia:v0.0
       build_image: null
       scheduling:
         # Configure scheduling depending on your need
         assign_to: resource
         cpu: 1.5
     nonagent:
-      image: # TODO
+      image: surrealai/surreal-nvidia:v0.0
       build_image: null
       # Configure scheduling depending on your need
       scheduling:
@@ -81,37 +81,14 @@ creation_settings:
     algorithm: ppo
     env: robosuite:SawyerLift
     agent:
-      image: # TODO
+      image: surrealai/surreal-nvidia:v0.0
       build_image: null
       scheduling:
         assign_to: resource
         gpu_type: k80
         gpu_count: 1
     nonagent:
-      image: # TODO
-      build_image: null
-      scheduling:
-        assign_to: resource
-        gpu_type: k80
-        gpu_count: 1
-
-  contribute:
-    mode: basic
-    num_agents: 4
-    num_evals: 1
-    agent_batch: 8
-    eval_batch: 8
-    algorithm: ppo
-    env: robosuite:SawyerLift
-    agent:
-      image: # TODO
-      build_image: null
-      scheduling:
-        assign_to: resource
-        gpu_type: k80
-        gpu_count: 1
-    nonagent:
-      image: # TODO
+      image: surrealai/surreal-nvidia:v0.0
       build_image: null
       scheduling:
         assign_to: resource
