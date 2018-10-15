@@ -1,4 +1,9 @@
-from surreal.session import Config, LOCAL_SESSION_CONFIG
+from surreal.session import (
+    Config,
+    LOCAL_SESSION_CONFIG,
+    BASE_LEARNER_CONFIG,
+    BASE_ENV_CONFIG
+    )
 from surreal.agent import PPOAgent
 from surreal.learner import PPOLearner
 from surreal.replay import FIFOReplay
@@ -87,6 +92,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         'exp_interval': 4096,
     },
 })
+PPO_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': None,
@@ -128,6 +134,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
     'limit_episode_length': 500,
     'stochastic_eval': True,
 })
+PPO_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)
 
 PPO_DEFAULT_SESSION_CONFIG = Config({
     'folder': '_str_',

@@ -100,19 +100,24 @@ def test(temp_path, config_path, launcher):
 
     print('Finished testing.')
 
-
-if __name__ == '__main__':
+def test_ddpg():
     print('BEGIN DDPG TEST')
     test('/tmp/surreal/ddpg',
          os.path.join(os.path.dirname(__file__),
                       '../surreal/main/ddpg_configs.py'),
          DDPGLauncher())
     print('PASSED')
-    # print('BEGIN PPO TEST')
-    # test('/tmp/surreal/ppo',
-    #      os.path.join(os.path.dirname(__file__),
-    #                   '../surreal/main/ppo_configs.py'),
-    #      PPOLauncher())
-    # print('PASSED')
+
+def test_ppo():
+    print('BEGIN PPO TEST')
+    test('/tmp/surreal/ppo',
+         os.path.join(os.path.dirname(__file__),
+                      '../surreal/main/ppo_configs.py'),
+         PPOLauncher())
+    print('PASSED')
+
+if __name__ == '__main__':
+    # test_ddpg()
+    test_ppo()
     self = psutil.Process()
     self.kill()
