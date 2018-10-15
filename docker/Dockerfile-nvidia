@@ -68,10 +68,6 @@ RUN pip install -r /mylibs/requirements.txt
 COPY mujoco /mylibs/mujoco
 RUN pip install -e /mylibs/mujoco
 
-COPY symphony /mylibs/symphony
-RUN pip uninstall -y symphony && \
-    pip install -e /mylibs/symphony
-
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 

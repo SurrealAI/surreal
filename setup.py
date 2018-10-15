@@ -44,7 +44,7 @@ setup(
         "tabulate",
         "imageio",
         "caraml",
-        # "symphony",
+        "symphony>=0.9",
         "torchx",
         "tensorplex",
     ],

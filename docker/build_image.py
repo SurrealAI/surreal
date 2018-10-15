@@ -17,11 +17,11 @@ settings = {
       'path': '~/surreal/RoboticsSuite',
       'force_update': force_update,
     },
-    {
-      'name': 'symphony',
-      'path': '~/surreal/symphony',
-      'force_update': force_update,
-    },
+    # {
+    #   'name': 'symphony',
+    #   'path': '~/surreal/symphony',
+    #   'force_update': force_update,
+    # },
     {
       'name': 'build_files',
       'path': '~/surreal/Surreal/docker/build_files',
