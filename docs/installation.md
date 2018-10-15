@@ -1,7 +1,7 @@
 # Installing Surreal
 [Install and Run SURREAL Locally](#install-and-run-surreal-locally)  
 [Develop Algorithms Locally](#develop-algorithms-locally)  
-[Run Surreal on Google Cloud](#run-surreal-on-google-cloud)
+[Run Surreal on Google Cloud](#run-surreal-on-google-cloud)  
 [Setup Custom Docker Build Process](#setup-custom-docker-build-process)  
 [Develop Algorithms on Kubernets](#develop-algorithms-on-kubernetes)  
 [Develop Surreal on Kubernets](#develop-surreal-on-kubernetes)  
@@ -39,7 +39,7 @@ Then follow [this guide](yaml_config.md) to setup the config file.
 
 * Install environments
 You can install RL environments depending on your need. The supported environments are [gym](https://github.com/openai/gym), [DeepMind Control Suite](https://github.com/deepmind/dm_control), and [Surreal Robotics Suite](https://github.com/StanfordVL/MujocoManipulation/tree/refactor4release).
-# TODO(optional): step by step installation commands
+  - TODO(optional): step by step installation commands
 
 * Create an experiment
 You are now ready to create an experiment. Run
