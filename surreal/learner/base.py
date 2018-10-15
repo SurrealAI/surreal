@@ -104,7 +104,7 @@ class Learner(metaclass=U.AutoInitializeMeta):
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
-            worker_preprocess=self._prefetch_thread_preprocess,
+            worker_preprocess=self._prefetcher_preprocess,
             main_preprocess=self.preprocess
         )
         self._prefetch_queue.start()
@@ -329,23 +329,20 @@ class Learner(metaclass=U.AutoInitializeMeta):
         '''
         return batch
 
-    # def _prefetch_thread_preprocess(self, batch):
-    #     batch = self.aggregator.aggregate(batch)
-    #     return batch
+    def _prefetcher_preprocess(self, batch):
+        """
 
-    # def _preprocess_batch(self):
-    #     for batch in self.fetch_iterator():
-    #         batch = BeneDict(batch.data)
-    #         # The preprocess step creates Variables
-    #         # which will become GpuVariables
-    #         batch = self.preprocess(batch)
-    #         self._preprocess_prefetch_queue.put(batch)
+        This function processes the list of experience retrieved from replay
+        It happens in a different process from learner's main process
 
-    # def _setup_batch_prefetch(self):
-    #     self._preprocess_prefetch_queue = queue.Queue(maxsize=2)
-    #     self._preprocess_thread = threading.Thread(
-    #         target=self._preprocess_batch)
-    #     self._preprocess_thread.start()
+        Args:
+            batch: A list of experience
+                i.e. a list of packets that agents send to replay
+
+        Returns:
+            Data for learner main process
+        """
+        return batch
 
     ######
     # Main Loop
