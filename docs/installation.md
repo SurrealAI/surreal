@@ -1,5 +1,5 @@
 # Installing Surreal
-[Install and Run SURREAL Locally](#install-and-run-surral-locally)  
+[Install and Run SURREAL Locally](#install-and-run-surreal-locally)  
 [Develop Algorithms Locally](#develop-algorithms-locally)  
 [Run Surreal on Google Cloud](#run-surreal-on-google-cloud)
 [Setup Custom Docker Build Process](#setup-custom-docker-build-process)  
@@ -16,7 +16,7 @@
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh 
 source ~/.bashrc 
-conda create -n surreal python=3.5
+conda create -n surreal python>=3.5
 source activate surreal
 ```
 
@@ -38,7 +38,7 @@ surreal-default-config
 Then follow [this guide](yaml_config.md) to setup the config file.
 
 * Install environments
-You can install RL environments depending on your need. The supported environments are [gym](https://github.com/openai/gym), [DeepMind Control Suite](https://github.com/deepmind/dm_control), and [Stanford Robotics Suite](https://github.com/StanfordVL/MujocoManipulation/tree/refactor4release).
+You can install RL environments depending on your need. The supported environments are [gym](https://github.com/openai/gym), [DeepMind Control Suite](https://github.com/deepmind/dm_control), and [Surreal Robotics Suite](https://github.com/StanfordVL/MujocoManipulation/tree/refactor4release).
 # TODO(optional): step by step installation commands
 
 * Create an experiment
