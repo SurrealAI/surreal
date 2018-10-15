@@ -1,6 +1,6 @@
 from multiprocessing import Process
 import os
-from surreal.distributed import ZmqLoadBalancerThread
+from caraml.zmq import ZmqProxyThread
 import surreal.utils as U
 
 
@@ -36,17 +36,7 @@ class ShardedReplay(object):
         self.sampler_frontend_add = "tcp://*:{}".format(self.sampler_frontend_port)
         self.sampler_backend_add = "tcp://*:{}".format(self.sampler_backend_port)
 
-
     def launch(self):
-        self.collector_proxy = ZmqLoadBalancerThread(in_add=self.collector_frontend_add,
-                                                     out_add=self.collector_backend_add,
-                                                     pattern='router-dealer')
-        self.sampler_proxy = ZmqLoadBalancerThread(in_add=self.sampler_frontend_add,
-                                                   out_add=self.sampler_backend_add,
-                                                   pattern='router-dealer')
-
-        self.collector_proxy.start()
-        self.sampler_proxy.start()
 
         self.processes = []
 
@@ -56,6 +46,18 @@ class ShardedReplay(object):
             p = Process(target=self.start_replay, args=[i])
             p.start()
             self.processes.append(p)
+
+        self.collector_proxy = ZmqProxyThread(
+            in_add=self.collector_frontend_add,
+            out_add=self.collector_backend_add,
+            pattern='router-dealer')
+        self.sampler_proxy = ZmqProxyThread(
+            in_add=self.sampler_frontend_add,
+            out_add=self.sampler_backend_add,
+            pattern='router-dealer')
+
+        self.collector_proxy.start()
+        self.sampler_proxy.start()
 
     def start_replay(self, index):
         replay = self.replay_class(self.learner_config,

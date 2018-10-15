@@ -677,3 +677,7 @@ class PPOLearner(Learner):
             'critic_lr_scheduler',
             'current_iteration',
         ]
+
+    def _prefetcher_preprocess(self, batch):
+        batch = self.aggregator.aggregate(batch)
+        return batch

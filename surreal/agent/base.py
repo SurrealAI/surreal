@@ -156,18 +156,22 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
     #######
     def on_parameter_fetched(self, params, info):
         """
-            Method called when a new parameter is fetched. Free to be inherited by subclasses.
+            Called when a new parameter is fetched.
         """
-        # The time it takes for parameter to go from learner to agent
         if self.agent_mode == 'training':
+            # The time it takes for parameter to go from learner to agent
             delay = time.time() - info['time']
-            self.actions_per_param_update.add_value(self.actions_since_param_update)
-            self.episodes_per_param_update.add_value(self.episodes_since_param_update)
+            self.actions_per_param_update.add_value(
+                self.actions_since_param_update)
+            self.episodes_per_param_update.add_value(
+                self.episodes_since_param_update)
             self.tensorplex.add_scalars(
                 {
                     '.core/parameter_publish_delay_s': delay,
-                    '.core/actions_per_param_update': self.actions_per_param_update.cur_value(),
-                    '.core/episodes_per_param_update': self.episodes_per_param_update.cur_value()
+                    '.core/actions_per_param_update':
+                        self.actions_per_param_update.cur_value(),
+                    '.core/episodes_per_param_update':
+                        self.episodes_per_param_update.cur_value()
                 })
             self.actions_since_param_update = 0
             self.episodes_since_param_update = 0
@@ -211,7 +215,6 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         """
         self.current_episode += 1
 
-
     #######
     # Main loops.
     # Customize this to fully customize the agent process
@@ -222,35 +225,47 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         Args:
             @env: the environment to run agent on
         """
+        self.main_setup()
+        while True:
+            self.main_loop()
+
+    def main_setup(self):
+        """
+            Setup before constant looping
+        """
         env = self.get_env()
         env = self.prepare_env(env)
         self.env = env
         self.fetch_parameter()
+
+    def main_loop(self):
+        """
+            One loop of agent, runs one episode of the environment
+        """
+        env = self.env
+        self.pre_episode()
+        obs, info = env.reset()
+        total_reward = 0.0
         while True:
-            self.pre_episode()
-            obs, info = env.reset()
-            total_reward = 0.0
-            while True:
-                if self.render:
-                    env.render()
-                self.pre_action(obs)
-                action = self.act(obs)
-                obs_next, reward, done, info = env.step(action)
-                total_reward += reward
-                self.post_action(obs, action, obs_next, reward, done, info)
-                obs = obs_next
-                if done:
-                    break
-            self.post_episode()
-            if self.current_episode % 20 == 0:
-                self.log.info('Episode {} reward {}'
-                              .format(self.current_episode,
-                                      total_reward))
+            if self.render:
+                env.render()
+            self.pre_action(obs)
+            action = self.act(obs)
+            obs_next, reward, done, info = env.step(action)
+            total_reward += reward
+            self.post_action(obs, action, obs_next, reward, done, info)
+            obs = obs_next
+            if done:
+                break
+        self.post_episode()
+        if self.current_episode % 20 == 0:
+            self.log.info('Episode {} reward {}'
+                          .format(self.current_episode,
+                                  total_reward))
 
     def get_env(self):
-        """Creates an environment instance
-
-        Returns a subclass of EnvBase
+        """
+        Returns a subclass of EnvBase, created from self.env_config
         """
         if self.agent_mode in ['eval_deterministic', 'eval_stochastic']:
             env, _ = make_env(self.env_config, mode='eval')
@@ -261,6 +276,9 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
     def prepare_env(self, env):
         """
             Applies custom wrapper to the environment as necessary
+        Args:
+            @env: subclass of EnvBse
+
         Returns:
             @env: The (possibly wrapped) environment
         """

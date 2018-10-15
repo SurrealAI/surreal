@@ -43,7 +43,7 @@ class Wrapper(Env):
                 if env.class_name() == self.class_name():
                     raise RuntimeError(
                         "Attempted to double wrap with Wrapper: {}"
-                            .format(self.__class__.__name__)
+                        .format(self.__class__.__name__)
                     )
                 env = env.env
             else:
@@ -210,7 +210,7 @@ class GymAdapter(Wrapper):
         return SpecFormat.SURREAL_CLASSIC
 
 
-class MujocoManipulationWrapper(Wrapper):
+class RobosuiteWrapper(Wrapper):
     def __init__(self, env, env_config):
         # dm_control envs don't have metadata
         env.metadata = {}
@@ -243,7 +243,8 @@ class MujocoManipulationWrapper(Wrapper):
         for repeat in range(self._action_repeat):
             obs, reward, done, info = self.env.step(action)
             rewards.append(reward)
-            if done: break
+            if done:
+                break
         reward = np.mean(rewards)
 
         if self.use_depth:
@@ -286,6 +287,7 @@ class MujocoManipulationWrapper(Wrapper):
                                    width=512,
                                    depth=False)
 
+
 class ObservationConcatenationWrapper(Wrapper):
     def __init__(self, env, concatenated_obs_name='flat_inputs'):
         super().__init__(env)
@@ -327,6 +329,7 @@ class ObservationConcatenationWrapper(Wrapper):
     def action_spec(self):
         return self.env.action_spec()
 
+
 class TransposeWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
@@ -355,6 +358,7 @@ class TransposeWrapper(Wrapper):
                 visual_dim = (C, H, W)
                 spec['pixel'][key] = visual_dim
         return spec
+
 
 class GrayscaleWrapper(Wrapper):
     def __init__(self, env):

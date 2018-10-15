@@ -232,3 +232,18 @@ def extract_tar(source_tarball, output_dir='.', members=None):
     source_tarball, output_dir = f_expand(source_tarball), f_expand(output_dir)
     with tarfile.open(source_tarball, 'r:*')  as tar:
         tar.extractall(output_dir, members=members)
+
+
+def move_with_backup(path, suffix='.bak'):
+    """
+    Ensures that a path is not occupied. If there is a file, rename it by
+    adding @suffix. Resursively backs up everything.
+
+    Args:
+        path: file path to clear
+        suffix: Add to backed up files (default: {'.bak'})
+    """
+    path = str(path)
+    if os.path.exists(path):
+        move_with_backup(path + suffix)
+        shutil.move(path, path + suffix)

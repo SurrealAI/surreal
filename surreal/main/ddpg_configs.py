@@ -8,7 +8,7 @@ from surreal.session import (
 from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
-from surreal.launcher import SurrealDefaultLauncher
+from surreal.launch import SurrealDefaultLauncher
 from surreal.env import make_env
 
 # TODO：Documentation on config files
@@ -216,13 +216,17 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
-        parser.add_argument('--restore_folder', type=str, default=None,
+        parser.add_argument('--restore-folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment files'
                             ' like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--unit-test', action='store_true',
+                            help='Prevents sharding replay and paramter '
+                            'server. Helps prevent address collision'
+                            ' in unit testing.')
 
         args = parser.parse_args(args=argv)
 
@@ -239,6 +243,17 @@ class DDPGLauncher(SurrealDefaultLauncher):
         self.agent_batch_size = args.agent_batch
         self.eval_batch_size = args.agent_batch
 
+        # Used in tests: Prevent IP address in use error
+        #                Prevent replay from hanging learner
+        #                due to sample_start
+        if args.unit_test:
+            self.learner_config.replay.sampling_start_size = 5
+            self.learner_config.replay.replay_shards = 1
+            self.session_config.ps.shards = 1
+
+
+def main():
+    DDPGLauncher().main()
 
 if __name__ == '__main__':
-    DDPGLauncher().main()
+    main()

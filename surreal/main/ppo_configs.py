@@ -7,7 +7,7 @@ from surreal.session import (
 from surreal.agent import PPOAgent
 from surreal.learner import PPOLearner
 from surreal.replay import FIFOReplay
-from surreal.launcher import SurrealDefaultLauncher
+from surreal.launch import SurrealDefaultLauncher
 from surreal.env import make_env
 import argparse
 
@@ -103,14 +103,14 @@ PPO_DEFAULT_ENV_CONFIG = Config({
     'frame_stacks': 1,
     'sleep_time': 0,
     'video': {
-        'record_video': True,
-        'save_folder': '',
+        'record_video': False,
+        'save_folder': None,
         'max_videos': 500,
         'record_every': 5,
     },
     'observation': {
         'pixel': ['camera0'],
-        'low_dim': ['proprio', 'low-level'],
+        'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
     },
     'eval_mode': {
         'demonstration': None
@@ -162,7 +162,7 @@ PPO_DEFAULT_SESSION_CONFIG = Config({
     },
     'replay': {
         'max_puller_queue': 3,
-        'max_prefetch_batch_queue': 1,
+        'max_prefetch_queue': 1,
     },
     'checkpoint': {
         'learner': {
@@ -198,13 +198,15 @@ class PPOLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
-        parser.add_argument('--restore_folder', type=str, default=None,
+        parser.add_argument('--restore-folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment'
                             'files like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--unit-test', action='store_true',
+                            help='Set config values to settings that can run locally for unit testing')
 
         args = parser.parse_args(args=argv)
 
@@ -220,9 +222,17 @@ class PPOLauncher(SurrealDefaultLauncher):
         self.agent_batch_size = args.agent_batch
         self.eval_batch_size = args.agent_batch
 
+        if args.unit_test:
+            self.learner_config.replay.batch_size = 2
+            self.learner_config.replay.sampling_start_size = 2
+
+
+def main():
+    PPOLauncher().main()
+
 
 if __name__ == '__main__':
-    PPOLauncher().main()
+    main()
 
 
 '''

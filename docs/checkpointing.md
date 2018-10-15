@@ -1,5 +1,6 @@
 # Checkpointing in Surreal
 This document describes how checkpointing works in Surreal.
+TODO: update after checkpoint refactor
 
 ## The Checkpoint Class
 The class that takes care of checkpointing is defined [here](https://github.com/SurrealAI/Surreal/blob/master/surreal/utils/checkpoint.py) in `utils/checkpoint.py`. It is called `Checkpoint`. There is also a subclass that does checkpointing periodically. It keeps track of declared attributes of a class and tries to save them into the file system properly.   

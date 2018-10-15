@@ -1,15 +1,15 @@
 import os
-from multiprocessing import Process, Queue
 from surreal.env.video_env import VideoWrapper
 import surreal.utils as U
-from .wrapper import GymAdapter
-from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
-from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
-
-import sys
-import pickle
-import subprocess
-import shlex
+from .wrapper import (
+    GymAdapter,
+    FrameStackWrapper,
+    GrayscaleWrapper,
+    TransposeWrapper,
+    FilterWrapper,
+    ObservationConcatenationWrapper,
+    RobosuiteWrapper
+    )
 
 
 def make_env(env_config, mode=None):
@@ -27,7 +27,7 @@ def make_env(env_config, mode=None):
             env_config[k] = v
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
-    elif env_category == 'mujocomanip':
+    elif env_category == 'robosuite':
         env, env_config = make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
         env, env_config = make_dm_control(env_name, env_config)
@@ -46,12 +46,9 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    import MujocoManip
-    
-    demo_config = None if env_config.demonstration is None or \
-                  not env_config.demonstration.use_demo else env_config.demonstration
+    import robosuite
 
-    env = MujocoManip.make(
+    env = robosuite.make(
         env_name,
         has_renderer=False,
         ignore_done=True,
@@ -64,9 +61,9 @@ def make_mujocomanip(env_name, env_config):
         use_object_obs=(not env_config.pixel_input),
         camera_depth=env_config.use_depth,
         reward_shaping=True,
-        demo_config=env_config.demonstration,
+        # demo_config=env_config.demonstration,
     )
-    env = MujocoManipulationWrapper(env, env_config)
+    env = RobosuiteWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     if env_config.pixel_input:
@@ -106,7 +103,8 @@ def make_dm_control(env_name, env_config):
     if pixel_input:
         env = TransposeWrapper(env)
         env = GrayscaleWrapper(env)
-        env = FrameStackWrapper(env, env_config)
+        if env_config.frame_stacks > 1:
+            env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config

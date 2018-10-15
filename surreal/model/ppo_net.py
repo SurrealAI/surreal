@@ -137,8 +137,7 @@ class PPOModel(nnx.Module):
         self.cnn_stem = None
         if self.if_pixel_input:
             self.cnn_stem = CNNStemNetwork(self.obs_spec['pixel']['camera0'],
-                                           self.model_config.cnn_feature_dim,
-                                           use_layernorm=self.model_config.use_layernorm)
+                                           self.model_config.cnn_feature_dim)
 
         # optional LSTM stem feature extractor
         self.rnn_stem = None

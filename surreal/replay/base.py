@@ -2,7 +2,8 @@ import time
 import os
 import surreal.utils as U
 from surreal.session import get_tensorplex_client, get_loggerplex_client
-from surreal.distributed import ZmqSimpleServer, ExperienceCollectorServer
+from surreal.distributed import ExperienceCollectorServer
+from caraml.zmq import ZmqServer
 
 
 class Replay:
@@ -18,8 +19,10 @@ class Replay:
                  index=0):
         """
         """
+        # TODO: can we clean this up?
         # Note that there're 2 replay configs:
-        # one in learner_config that controls algorithmic part of the replay logic
+        # one in learner_config that controls algorithmic
+        # part of the replay logic
         # one in session_config that controls system settings
         self.learner_config = learner_config
         self.env_config = env_config
@@ -31,16 +34,14 @@ class Replay:
         self._collector_server = ExperienceCollectorServer(
             host='localhost',
             port=collector_port,
-            # port=7001,
             exp_handler=self._insert_wrapper,
             load_balanced=True,
         )
-        self._sampler_server = ZmqSimpleServer(
+        self._sampler_server = ZmqServer(
             host='localhost',
             port=sampler_port,
-            handler=self._sample_request_handler,
-            load_balanced=True,
-        )
+            bind=False)
+        self._sampler_server_thread = None
 
         self._evict_interval = self.session_config.replay.evict_interval
         self._evict_thread = None
@@ -56,11 +57,12 @@ class Replay:
         if self._evict_interval:
             self.start_evict_thread()
 
-        self._sampler_server.start()
+        self._sampler_server_thread = self._sampler_server.start_loop(
+            handler=self._sample_request_handler)
 
     def join(self):
         self._collector_server.join()
-        self._sampler_server.join()
+        self._sampler_server_thread.join()
         if self._has_tensorplex:
             self._tensorplex_thread.join()
         if self._evict_interval:
@@ -104,11 +106,10 @@ class Replay:
         """
         raise NotImplementedError
 
-
     def __len__(self):
         raise NotImplementedError
 
-    # ======================== internal methods ========================    
+    # ======================== internal methods ========================
     def _setup_logging(self):
         self.log = get_loggerplex_client(
             '{}/{}'.format('replay', self.index),
@@ -185,13 +186,14 @@ class Replay:
     def start_tensorplex_thread(self):
         if self._tensorplex_thread is not None:
             raise RuntimeError('tensorplex thread already running')
-        self._tensorplex_thread = U.PeriodicWakeUpWorker(target=self.generate_tensorplex_report)
+        self._tensorplex_thread = U.PeriodicWakeUpWorker(
+            target=self.generate_tensorplex_report)
         self._tensorplex_thread.start()
         return self._tensorplex_thread
 
     def generate_tensorplex_report(self):
         """
-            Generates tensorplex reports
+            Generates stats to be reported to tensorplex
         """
         global_step = int(time.time() - self.init_time)
 
