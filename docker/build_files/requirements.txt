@@ -14,3 +14,4 @@ caraml
 symphony>=0.9
 torchx
 tensorplex
+Cython<0.29

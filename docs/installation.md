@@ -41,12 +41,27 @@ Then follow [this guide](yaml_config.md) to setup the config file.
 You can install RL environments depending on your need. The supported environments are [gym](https://github.com/openai/gym), [DeepMind Control Suite](https://github.com/deepmind/dm_control), and [Surreal Robotics Suite](https://github.com/StanfordVL/MujocoManipulation/tree/refactor4release).
   - TODO(optional): step by step installation commands
 
+* Install Tmux
+We use tmux to manage experiments locally. You need to install it if you don't already have it.
+On Mac
+```bash
+brew install tmux
+```
+On linux
+```bash
+sudo apt-get install tmux
+```
+
 * Create an experiment
 You are now ready to create an experiment. Run
 ```bash
 turreal create-basic <experiment_name>
 ```
-If you setup your `.surreal.yml` as default (you need fiels `tmux_preamble_cmds` and `tmux_results_folder` to be properly set), you will see experiment outputs in `~/turreal/experiment_name` and see tensorboard output at `localhost:6006`.
+If you setup your `.surreal.yml` as default (you need fiels `tmux_preamble_cmds` and `tmux_results_folder` to be properly set), you will see experiment outputs in `~/turreal/experiment_name` and see tensorboard output at `localhost:6006`. You can choose one of the two pre-installed surreal algorithms by using the `--algorithm` flag.
+```bash
+turreal create-basic --algorithm ppo <experiment_name> # Runs Surreal-PPO
+turreal create-basic --algorithm ddpg <experiment_name> # Runs Surreal-DDPG
+```
 
 Use `turreal p` to check the status of each process.
 ```bash
