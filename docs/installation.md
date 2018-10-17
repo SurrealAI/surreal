@@ -44,7 +44,7 @@ You can install RL environments depending on your need. The supported environmen
 * Create an experiment
 You are now ready to create an experiment. Run
 ```bash
-turreal create <experiment_name>
+turreal create-basic <experiment_name>
 ```
 If you setup your `.surreal.yml` as default (you need fiels `tmux_preamble_cmds` and `tmux_results_folder` to be properly set), you will see experiment outputs in `~/turreal/experiment_name` and see tensorboard output at `localhost:6006`.
 
