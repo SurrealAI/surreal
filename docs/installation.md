@@ -57,13 +57,18 @@ sudo apt-get install tmux
 * Create an experiment
 You are now ready to create an experiment. Run
 ```bash
-turreal create-basic <experiment_name>
+turreal create <experiment_name>
 ```
 If you setup your `.surreal.yml` as default (you need fiels `tmux_preamble_cmds` and `tmux_results_folder` to be properly set), you will see experiment outputs in `~/turreal/experiment_name` and see tensorboard output at `localhost:6006`. You can choose one of the two pre-installed surreal algorithms by using the `--algorithm` flag.
 ```bash
-turreal create-basic --algorithm ppo <experiment_name> # Runs Surreal-PPO
-turreal create-basic --algorithm ddpg <experiment_name> # Runs Surreal-DDPG
+turreal create --algorithm ppo <experiment_name> # Runs Surreal-PPO
+turreal create --algorithm ddpg <experiment_name> # Runs Surreal-DDPG
 ```
+If you have a GPU and installed pytorch with GPU compatibility, you can use 
+```
+turreal create ... -- --num-gpus 1
+```
+to use a GPU for learner training.
 
 Use `turreal p` to check the status of each process.
 ```bash
@@ -96,7 +101,7 @@ TODO (optional): more documentation on turreal
 ## Develop Algorithms Locally
 If you want to develop algorithms locally using Surreal. You should create a `my_algorithm.py` file. Run
 ```bash
-turreal create-basic --algorithm <path to my_algorithm.py>
+turreal create --algorithm <path to my_algorithm.py>
 ```
 to launch your own algorithm. You can refer to [ddpg_configs.py](../) or [ppo_configs.py](../surreal/main/ppo_configs.py) for reference.
 

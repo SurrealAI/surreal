@@ -30,7 +30,7 @@ class TurrealParser(SymphonyParser):
         super().setup()
         self.config = BeneDict()
         self.load_config()
-        self._setup_create_basic()
+        self._setup_create()
 
     def load_config(self):
         surreal_yml_path = U.get_config_file()
@@ -53,8 +53,8 @@ class TurrealParser(SymphonyParser):
             raise KeyError('Please specify "username" in ~/.surreal.yml')
         return self.config.username
 
-    def _setup_create_basic(self):
-        parser = self.add_subparser('create-basic', aliases=['c', 'cb'])
+    def _setup_create(self):
+        parser = self.add_subparser('create', aliases=['c'])
         self._add_experiment_name(parser)
         parser.add_argument(
             '--algorithm',
@@ -100,7 +100,7 @@ class TurrealParser(SymphonyParser):
                   .format(experiment_name, new_name))
         return new_name
 
-    def action_create_basic(self, args):
+    def action_create(self, args):
         """
             Spin up a multi-node distributed Surreal experiment.
             Put any command line args that pass to the config script after "--"
@@ -111,7 +111,7 @@ class TurrealParser(SymphonyParser):
             experiment_name,
             preamble_cmds=self.config.tmux_preamble_cmds)
 
-        algorithm_args = []
+        algorithm_args = args.remainder
         algorithm_args += [
             "--num-agents",
             str(args.num_agents),
