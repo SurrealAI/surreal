@@ -20,6 +20,8 @@ conda create -n surreal python>=3.5
 source activate surreal
 ```
 
+* If you run into issues when installing on Ubuntu, you can check [our docker file](docker/Dockerfile-nvidia).
+
 * Install [pytorch](https://pytorch.org/get-started/locally/).
 
 * Install surreal
