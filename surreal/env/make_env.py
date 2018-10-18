@@ -86,7 +86,7 @@ def make_mujocomanip(env_name, env_config):
         camera_width=84,
         render_collision_mesh=False,
         render_visual_mesh=True,
-        camera_name='tabletop',
+        camera_name='agentview',
         use_object_obs=(not env_config.pixel_input),
         camera_depth=env_config.use_depth,
         reward_shaping=True,
