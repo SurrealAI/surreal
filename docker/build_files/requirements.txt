@@ -1,0 +1,17 @@
+gym
+mujoco-py<1.50.2,>=1.50.1
+tabulate
+tensorflow # TODO: separate tensorboard image
+tensorboardX
+imageio
+pygame
+benedict
+nanolog
+psutil
+tabulate
+imageio
+caraml
+symphony>=0.9
+torchx
+tensorplex
+Cython<0.29

@@ -14,57 +14,6 @@
             }
         },
         "google_container_node_pool": {
-            "np-12cpu-46080mem-1v100-np": {
-                "autoscaling": {
-                    "max_node_count": 50,
-                    "min_node_count": 0
-                },
-                "cluster": "${var.cluster_name}",
-                "lifecycle": {
-                    "ignore_changes": [
-                        "node_config.0.taint"
-                    ]
-                },
-                "management": {
-                    "auto_repair": true,
-                    "auto_upgrade": true
-                },
-                "name": "np-12cpu-46080mem-1v100-np",
-                "node_config": {
-                    "disk_size_gb": 100,
-                    "guest_accelerator": [
-                        {
-                            "count": 1,
-                            "type": "nvidia-tesla-v100"
-                        }
-                    ],
-                    "labels": {
-                        "cpu": 12,
-                        "gpu_count": 1,
-                        "gpu_type": "nvidia-tesla-v100",
-                        "machine_summary": "np-12cpu-46080mem-1v100-np",
-                        "machine_type": "custom-12-46080",
-                        "memory_m": 46080,
-                        "name": "np-12cpu-46080mem-1v100-np",
-                        "preemptible": false
-                    },
-                    "machine_type": "custom-12-46080",
-                    "oauth_scopes": [
-                        "https://www.googleapis.com/auth/compute",
-                        "https://www.googleapis.com/auth/devstorage.read_only",
-                        "https://www.googleapis.com/auth/logging.write",
-                        "https://www.googleapis.com/auth/monitoring"
-                    ],
-                    "preemptible": false,
-                    "taint": [
-                        {
-                            "effect": "NO_EXECUTE",
-                            "key": "exclusive_workload",
-                            "value": "exclusive"
-                        }
-                    ]
-                }
-            },
             "np-2cpu-7680mem-np": {
                 "autoscaling": {
                     "max_node_count": 200,
@@ -82,7 +31,7 @@
                 },
                 "name": "np-2cpu-7680mem-np",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "labels": {
                         "cpu": 2,
                         "machine_summary": "np-2cpu-7680mem-np",
@@ -92,49 +41,6 @@
                         "preemptible": false
                     },
                     "machine_type": "n1-standard-2",
-                    "oauth_scopes": [
-                        "https://www.googleapis.com/auth/compute",
-                        "https://www.googleapis.com/auth/devstorage.read_only",
-                        "https://www.googleapis.com/auth/logging.write",
-                        "https://www.googleapis.com/auth/monitoring"
-                    ],
-                    "preemptible": false,
-                    "taint": [
-                        {
-                            "effect": "NO_EXECUTE",
-                            "key": "exclusive_workload",
-                            "value": "exclusive"
-                        }
-                    ]
-                }
-            },
-            "np-32cpu-122880mem-np": {
-                "autoscaling": {
-                    "max_node_count": 50,
-                    "min_node_count": 0
-                },
-                "cluster": "${var.cluster_name}",
-                "lifecycle": {
-                    "ignore_changes": [
-                        "node_config.0.taint"
-                    ]
-                },
-                "management": {
-                    "auto_repair": true,
-                    "auto_upgrade": true
-                },
-                "name": "np-32cpu-122880mem-np",
-                "node_config": {
-                    "disk_size_gb": 100,
-                    "labels": {
-                        "cpu": 32,
-                        "machine_summary": "np-32cpu-122880mem-np",
-                        "machine_type": "n1-standard-32",
-                        "memory_m": 122880,
-                        "name": "np-32cpu-122880mem-np",
-                        "preemptible": false
-                    },
-                    "machine_type": "n1-standard-32",
                     "oauth_scopes": [
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/devstorage.read_only",
@@ -168,7 +74,7 @@
                 },
                 "name": "np-8cpu-30720mem-1k80-np",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "guest_accelerator": [
                         {
                             "count": 1,
@@ -204,7 +110,7 @@
             },
             "np-8cpu-30720mem-np": {
                 "autoscaling": {
-                    "max_node_count": 50,
+                    "max_node_count": 100,
                     "min_node_count": 0
                 },
                 "cluster": "${var.cluster_name}",
@@ -219,7 +125,7 @@
                 },
                 "name": "np-8cpu-30720mem-np",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "labels": {
                         "cpu": 8,
                         "machine_summary": "np-8cpu-30720mem-np",
@@ -262,7 +168,7 @@
                 },
                 "name": "np-8cpu-53248mem-1p100-np",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "guest_accelerator": [
                         {
                             "count": 1,
@@ -313,7 +219,7 @@
                 },
                 "name": "np-8cpu-53248mem-1v100-np",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "guest_accelerator": [
                         {
                             "count": 1,
@@ -365,7 +271,7 @@
                 },
                 "name": "np-default-n1-standard-2",
                 "node_config": {
-                    "disk_size_gb": 100,
+                    "disk_size_gb": 30,
                     "labels": {
                         "cpu": 2,
                         "machine_summary": "np-2cpu-7680mem-np",

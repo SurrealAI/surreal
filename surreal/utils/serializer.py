@@ -11,8 +11,10 @@ import pyarrow as pa
 def pa_serialize(obj):
     return pa.serialize(obj).to_buffer()
 
+
 def pa_deserialize(binary):
     return pa.deserialize(binary)
+
 
 _SERIALIZER = pa_serialize
 _DESERIALIZER = pa_deserialize
@@ -80,3 +82,9 @@ def str2bytes(string):
         return string
     else:
         return string.encode('UTF-8')
+
+def to_pickle_hex(obj):
+    return pickle.dumps(obj).hex()
+
+def from_pickle_hex(hex_string):
+    return pickle.loads(bytes.fromhex(hex_string))

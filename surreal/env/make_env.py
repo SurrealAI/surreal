@@ -1,41 +1,15 @@
 import os
-from multiprocessing import Process, Queue
 from surreal.env.video_env import VideoWrapper
-from .wrapper import GymAdapter
-from .wrapper import FrameStackWrapper, GrayscaleWrapper, TransposeWrapper, FilterWrapper
-from .wrapper import ObservationConcatenationWrapper, MujocoManipulationWrapper
-
-
-def make_env_config(env_config, mode=None):
-    """
-    Forks a process, creates the environment and generate the config
-    This makes sure that when we initializes an environment using
-    make_env, we have not created and then deleted another one (just
-    to get the dimension of input). Many rendering related things
-    can break when created and destroyed.
-
-    e.g. If you create a mujoco_py MjOffscreenRenderContext,
-    delete it, fork the process and re-create the context, you
-    will get a setfault
-
-    Args:
-        env_config: see make_env
-        mode: see make_env
-    """
-    q = Queue()
-    p = Process(target=_make_env_wrapped, args=(q, env_config, mode))
-    p.start()
-    config = q.get()
-    p.join()
-    return config
-
-
-def _make_env_wrapped(q, env_config, mode):
-    """
-    For running make env in another process
-    """
-    config, _ = make_env(env_config, mode)
-    q.put(config)
+import surreal.utils as U
+from .wrapper import (
+    GymAdapter,
+    FrameStackWrapper,
+    GrayscaleWrapper,
+    TransposeWrapper,
+    FilterWrapper,
+    ObservationConcatenationWrapper,
+    RobosuiteWrapper
+    )
 
 
 def make_env(env_config, mode=None):
@@ -53,7 +27,7 @@ def make_env(env_config, mode=None):
             env_config[k] = v
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
-    elif env_category == 'mujocomanip':
+    elif env_category == 'robosuite':
         env, env_config = make_mujocomanip(env_name, env_config)
     elif env_category == 'dm_control':
         env, env_config = make_dm_control(env_name, env_config)
@@ -72,12 +46,9 @@ def make_gym(env_name, env_config):
 
 
 def make_mujocomanip(env_name, env_config):
-    import MujocoManip
-    
-    demo_config = None if env_config.demonstration is None or \
-                  not env_config.demonstration.use_demo else env_config.demonstration
+    import robosuite
 
-    env = MujocoManip.make(
+    env = robosuite.make(
         env_name,
         has_renderer=False,
         ignore_done=True,
@@ -90,9 +61,9 @@ def make_mujocomanip(env_name, env_config):
         use_object_obs=(not env_config.pixel_input),
         camera_depth=env_config.use_depth,
         reward_shaping=True,
-        demo_config=env_config.demonstration,
+        # demo_config=env_config.demonstration,
     )
-    env = MujocoManipulationWrapper(env, env_config)
+    env = RobosuiteWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     if env_config.pixel_input:
@@ -123,19 +94,17 @@ def make_dm_control(env_name, env_config):
             env = DMControlDummyWrapper(env) #...
         else:
             env = pixels.Wrapper(env, render_kwargs={'height': 84, 'width': 84, 'camera_id': 0})
-        
     # TODO: what to do with reward visualization
     # Reward visualization should only be done in the eval agent
     # env = suite.load(domain_name=domain_name, task_name=task_name, visualize_reward=record_video)
-
     env = DMControlAdapter(env, pixel_input)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
     if pixel_input:
         env = TransposeWrapper(env)
         env = GrayscaleWrapper(env)
-        env = FrameStackWrapper(env, env_config)
+        if env_config.frame_stacks > 1:
+            env = FrameStackWrapper(env, env_config)
     env_config.action_spec = env.action_spec()
     env_config.obs_spec = env.observation_spec()
     return env, env_config
-

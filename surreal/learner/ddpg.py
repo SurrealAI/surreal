@@ -1,4 +1,3 @@
-from queue import Queue
 import torch
 import torch.nn as nn
 import numpy as np
@@ -431,7 +430,7 @@ class DDPGLearner(Learner):
                     self.model_target.perception.hard_update(self.model.perception)
 
     # override
-    def _prefetch_thread_preprocess(self, batch):
+    def _prefetcher_preprocess(self, batch):
         '''
         If frame_stack_preprocess is not set, each experience in the replay will be stored as a list of frames, as
         opposed to a single numpy array.  We must condense them into a single numpy array as that is what the
@@ -441,4 +440,3 @@ class DDPGLearner(Learner):
             batch = self.frame_stack_preprocess.preprocess_list(batch)
         batch = self.aggregator.aggregate(batch)
         return batch
-

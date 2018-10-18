@@ -8,8 +8,8 @@ from surreal.session import (
 from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
-from surreal.launcher import SurrealDefaultLauncher
-from surreal.env import make_env_config
+from surreal.launch import SurrealDefaultLauncher
+from surreal.env import make_env
 
 # TODO：Documentation on config files
 
@@ -124,13 +124,13 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
 
     'use_demonstration': False,
     # If true, DDPG will expect an image at obs['pixel']['camera0']
-    'pixel_input': False,
+    'pixel_input': True,
     'use_grayscale': False,
     # Stacks previous image frames together to provide history information
     'frame_stacks': 3,
     # Each action will be played this number of times. The reward of the consecutive actions will be the the reward
     # of the last action in the sequence
-    'action_repeat': 1,
+    'action_repeat': 10,
     # If false, the agent will send an image will be a list of frames to the replay.  When the learner receives an
     # observation, it will concatenate the frames into a single tensor.  This allows the replay to optimize memory
     # usage so that identical frames aren't duplicated in memory
@@ -138,7 +138,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
     # Debug only: agent will sleep for this number of seconds between actions
     'sleep_time': 0.0,
     # If an episode reaches this number of steps, the state will be considered terminal
-    'limit_episode_length': 0, # 0 means no limit
+    'limit_episode_length': 200, # 0 means no limit
     'video': {
         'record_video': False,
         'save_folder': None,
@@ -216,18 +216,22 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             help='number of GPUs to use, 0 for CPU only.')
         parser.add_argument('--agent-num-gpus', type=int, default=0,
                             help='number of GPUs to use for agent, 0 for CPU only.')
-        parser.add_argument('--restore_folder', type=str, default=None,
+        parser.add_argument('--restore-folder', type=str, default=None,
                             help='folder containing checkpoint to restore from')
         parser.add_argument('--experiment-folder', required=True,
                             help='session_config.folder that has experiment files'
                             ' like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--unit-test', action='store_true',
+                            help='Prevents sharding replay and paramter '
+                            'server. Helps prevent address collision'
+                            ' in unit testing.')
 
         args = parser.parse_args(args=argv)
 
         self.env_config.env_name = args.env
-        self.env_config = make_env_config(self.env_config)
+        _, self.env_config = make_env(self.env_config)
         self.env_config.num_agents = args.num_agents
 
         self.session_config.folder = args.experiment_folder
@@ -239,6 +243,17 @@ class DDPGLauncher(SurrealDefaultLauncher):
         self.agent_batch_size = args.agent_batch
         self.eval_batch_size = args.agent_batch
 
+        # Used in tests: Prevent IP address in use error
+        #                Prevent replay from hanging learner
+        #                due to sample_start
+        if args.unit_test:
+            self.learner_config.replay.sampling_start_size = 5
+            self.learner_config.replay.replay_shards = 1
+            self.session_config.ps.shards = 1
+
+
+def main():
+    DDPGLauncher().main()
 
 if __name__ == '__main__':
-    DDPGLauncher().main()
+    main()

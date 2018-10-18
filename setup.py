@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read(fname):
@@ -18,14 +18,36 @@ setup(
               'Deep Learning',
               'Distributed Computing'],
     license='GPLv3',
-    packages=['surreal'],
+    packages=[
+        package for package in find_packages() if package.startswith("surreal")
+    ],
     entry_points={
         'console_scripts': [
-            'git-snapshot=surreal.kube.git_snapshot:main',
-            'surreal-runner=surreal.main_scripts.runner:main',
             'kurreal=surreal.kube.kurreal:main',
+            'turreal=surreal.tmux.turreal:main',
+            'surreal-ddpg=surreal.main.ddpg_configs:main',
+            'surreal-ppo=surreal.main.ppo_configs:main',
+            'surreal-default-config=surreal.main.generate_default_config:main',
         ]
     },
+    install_requires=[
+        "gym",
+        "mujoco-py<1.50.2,>=1.50.1",
+        "tabulate",
+        "tensorflow", # TODO: separate tensorboard image
+        "tensorboardX",
+        "imageio",
+        "pygame",
+        "benedict",
+        "nanolog",
+        "psutil",
+        "tabulate",
+        "imageio",
+        "caraml",
+        "symphony>=0.9",
+        "torchx",
+        "tensorplex",
+    ],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",

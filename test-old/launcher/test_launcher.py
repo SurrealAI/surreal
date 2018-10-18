@@ -1,2 +1,2 @@
-from surreal.launcher import LaunchSettings
+from surreal.launch import LaunchSettings
 
