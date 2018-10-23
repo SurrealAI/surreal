@@ -18,7 +18,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'convs': [],
         'actor_fc_hidden_sizes': [300, 200],
         'critic_fc_hidden_sizes': [400, 300],
-        'use_layernorm': False,
+        'use_layernorm': True,
         'conv_spec': {
             # First conv layer: 16 out channels, second layer 32 channels
             'out_channels': [16, 32],
@@ -76,15 +76,13 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
             'param_noise_target_stddev': 0.005,
 
             # Vanilla noise: applies gaussian noise on every action
-            'noise_type': 'normal',
-            # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
-            # The sigma values will be 0.0, 0.33, 0.66
-            'max_sigma': 1.0,
+            #'noise_type': 'normal',
+            'sigma': 0.6,
 
             # Or, use Ornstein-Uhlenbeck noise instead of gaussian
-            #'noise_type': 'ou_noise',
-            #'theta': 0.15,
-            #'dt': 1e-3,
+            'noise_type': 'ou_noise',
+            'theta': 0.15,
+            'dt': 1e-3,
         },
     },
     'replay': {
@@ -92,20 +90,6 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'memory_size': int(1000000/3), # The total replay size is memory_size * replay_shards
         'sampling_start_size': 3000,
         'replay_shards': 3,
-    },
-    'exploration': {
-        'param_noise_type': None,
-        'param_noise_sigma': 0.05,
-        'param_noise_alpha': 1.15,
-        'param_noise_target_stddev': 0.005,
-        #'noise_type': 'normal',
-        # Agents will be uniformly distributed sigma values from 0.0 to max_sigma.  For example, with 3 agents
-        # The sigma values will be 0.0, 0.33, 0.66
-        'max_sigma': 2.0,
-        'noise_type': 'ou_noise',
-        'theta': 0.15,
-        # 'sigma': 0.3,
-        'dt': 1e-3,
     },
     'parameter_publish': {
         # Minimum amount of time (seconds) between two parameter publish

@@ -74,11 +74,7 @@ class DDPGAgent(Agent):
         self.frame_stack_concatenate_on_env = self.env_config.frame_stack_concatenate_on_env
 
         self.noise_type = self.learner_config.algo.exploration.noise_type
-        if env_config.num_agents == 1:
-            # If only one agent, we don't want a sigma of 0
-            self.sigma = self.learner_config.algo.exploration.max_sigma / 3.0
-        else:
-            self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
+        self.sigma = self.learner_config.algo.exploration.sigma
         print('Using exploration sigma', self.sigma)
 
         if torch.cuda.is_available():
