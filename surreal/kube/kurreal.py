@@ -305,6 +305,8 @@ class KurrealParser(SymphonyParser):
         algorithm_args += ["--experiment-folder",
                            experiment_folder]
         algorithm_args += ["--env", settings.env]
+        algorithm_args += ["--agent-batch", settings.agent_batch]
+        algorithm_args += ["--eval-batch", settings.eval_batch]
         executable = self._find_executable(settings.algorithm)
         cmd_gen = CommandGenerator(
             num_agents=settings.num_agents,
