@@ -216,9 +216,9 @@ class KurrealParser(SymphonyParser):
             name: ddpg / ppo / <path in container to compatible .py file>
         """
         if name == 'ddpg':
-            return '/mylibs/surreal/surreal/main/ddpg_configs.py'
+            return 'surreal-ddpg'
         elif name == 'ppo':
-            return '/mylibs/surreal/surreal/main/ppo_configs.py'
+            return 'surreal-ppo'
         else:
             return name
 

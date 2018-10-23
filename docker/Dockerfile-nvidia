@@ -62,6 +62,8 @@ RUN conda install python=3.5
 # pytorch
 RUN conda install --yes pytorch torchvision cuda90 -c pytorch
 RUN conda install --yes ffmpeg -c conda-forge
+# Fake a mujoco key
+RUN touch /root/.mujoco/mjkey.txt 
 COPY build_files/requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
