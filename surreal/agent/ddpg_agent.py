@@ -81,18 +81,15 @@ class DDPGAgent(Agent):
             self.sigma = self.learner_config.algo.exploration.max_sigma * (float(agent_id) / (env_config.num_agents))
         print('Using exploration sigma', self.sigma)
 
-        self._num_gpus = session_config.agent.num_gpus
-        if self._num_gpus == 0:
-            self.gpu_ids = 'cpu'
-        else:
+        if torch.cuda.is_available():
             self.gpu_ids = 'cuda:all'
-
-        if self._num_gpus == 0:
-            self.log.info('Using CPU')
-        else:
-            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.log.info('DDPG agent is using GPU')
+            # Note that user is responsible for only providing one GPU for the program
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
+        else:
+            self.gpu_ids = 'cpu'
+            self.log.info('DDPG agent is using CPU')
 
         with tx.device_scope(self.gpu_ids):
             self.model = DDPGModel(

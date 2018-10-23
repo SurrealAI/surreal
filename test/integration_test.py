@@ -117,7 +117,7 @@ def test_ppo():
     print('PASSED')
 
 if __name__ == '__main__':
-    # test_ddpg()
-    test_ppo()
+    test_ddpg()
+    # test_ppo()
     self = psutil.Process()
     self.kill()
