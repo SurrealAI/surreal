@@ -65,7 +65,7 @@ class PPOAgent(Agent):
 
         if torch.cuda.is_available():
             self.gpu_ids = 'cuda:all'
-            self.log.info('Using {} GPUs')
+            self.log.info('Using GPU')
         else:
             self.gpu_ids = 'cpu'
 
