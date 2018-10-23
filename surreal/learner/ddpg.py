@@ -73,7 +73,7 @@ class DDPGLearner(Learner):
             self.log.info('Using CPU')
         else:
             self.gpu_ids = 'cuda:all'
-            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.log.info('Using GPU')
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
 
