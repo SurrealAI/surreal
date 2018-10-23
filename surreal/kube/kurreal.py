@@ -303,10 +303,10 @@ class KurrealParser(SymphonyParser):
                                shlex.quote(settings.restore_folder)]
         experiment_folder = self.get_remote_experiment_folder(experiment_name)
         algorithm_args += ["--experiment-folder",
-                           experiment_folder]
-        algorithm_args += ["--env", settings.env]
-        algorithm_args += ["--agent-batch", settings.agent_batch]
-        algorithm_args += ["--eval-batch", settings.eval_batch]
+                           str(experiment_folder)]
+        algorithm_args += ["--env", str(settings.env)]
+        algorithm_args += ["--agent-batch", str(settings.agent_batch)]
+        algorithm_args += ["--eval-batch", str(settings.eval_batch)]
         executable = self._find_executable(settings.algorithm)
         cmd_gen = CommandGenerator(
             num_agents=settings.num_agents,
