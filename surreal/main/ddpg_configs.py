@@ -44,8 +44,8 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
             'clip_critic_gradient': False,
             'critic_gradient_value_clip': 5.,
             # Weight regularization
-            'actor_regularization': 0.0,
-            'critic_regularization': 0.0,
+            'actor_regularization': 1e-4,
+            'critic_regularization': 1e-4,
             # beta version: see https://arxiv.org/pdf/1802.09477.pdf and
             # https://github.com/sfujim/TD3/blob/master/TD3.py
             # for action regularization and double critic algorithm details
