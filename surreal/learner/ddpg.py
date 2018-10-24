@@ -76,6 +76,7 @@ class DDPGLearner(Learner):
             self.log.info('Using GPU')
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
+            self._num_gpus = 1
 
         with tx.device_scope(self.gpu_ids):
             self._target_update_init()
