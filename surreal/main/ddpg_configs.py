@@ -38,7 +38,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'stride': 1,
         'network': {
             'lr_actor': 1e-4,
-            'lr_critic': 1e-3,
+            'lr_critic': 1e-4,
             'clip_actor_gradient': True,
             'actor_gradient_value_clip': 1.,
             'clip_critic_gradient': False,
