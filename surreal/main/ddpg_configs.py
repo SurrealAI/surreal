@@ -108,7 +108,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
 
     'use_demonstration': False,
     # If true, DDPG will expect an image at obs['pixel']['camera0']
-    'pixel_input': True,
+    'pixel_input': False,
     'use_grayscale': False,
     # Stacks previous image frames together to provide history information
     'frame_stacks': 3,
