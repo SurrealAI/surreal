@@ -77,7 +77,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
 
             # Vanilla noise: applies gaussian noise on every action
             #'noise_type': 'normal',
-            'sigma': 0.6,
+            'max_sigma': 2.0,
 
             # Or, use Ornstein-Uhlenbeck noise instead of gaussian
             'noise_type': 'ou_noise',
