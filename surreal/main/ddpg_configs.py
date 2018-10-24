@@ -18,7 +18,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'convs': [],
         'actor_fc_hidden_sizes': [300, 200],
         'critic_fc_hidden_sizes': [400, 300],
-        'use_layernorm': True,
+        'use_layernorm': False,
         'conv_spec': {
             # First conv layer: 16 out channels, second layer 32 channels
             'out_channels': [16, 32],
@@ -38,7 +38,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'stride': 1,
         'network': {
             'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
+            'lr_critic': 1e-3,
             'clip_actor_gradient': True,
             'actor_gradient_value_clip': 1.,
             'clip_critic_gradient': False,
@@ -76,11 +76,11 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
             'param_noise_target_stddev': 0.005,
 
             # Vanilla noise: applies gaussian noise on every action
-            #'noise_type': 'normal',
-            'max_sigma': 2.0,
+            'noise_type': 'normal',
+            'max_sigma': 1.0,
 
             # Or, use Ornstein-Uhlenbeck noise instead of gaussian
-            'noise_type': 'ou_noise',
+            #'noise_type': 'ou_noise',
             'theta': 0.15,
             'dt': 1e-3,
         },
@@ -114,7 +114,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
     'frame_stacks': 3,
     # Each action will be played this number of times. The reward of the consecutive actions will be the the reward
     # of the last action in the sequence
-    'action_repeat': 10,
+    'action_repeat': 1,
     # If false, the agent will send an image will be a list of frames to the replay.  When the learner receives an
     # observation, it will concatenate the frames into a single tensor.  This allows the replay to optimize memory
     # usage so that identical frames aren't duplicated in memory
