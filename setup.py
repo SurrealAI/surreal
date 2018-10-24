@@ -23,8 +23,8 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'kurreal=surreal.kube.kurreal:main',
-            'turreal=surreal.tmux.turreal:main',
+            'surreal-kube=surreal.kube.surreal_kube:main',
+            'surreal-tmux=surreal.tmux.surreal_tmux:main',
             'surreal-ddpg=surreal.main.ddpg_configs:main',
             'surreal-ppo=surreal.main.ppo_configs:main',
             'surreal-default-config=surreal.main.generate_default_config:main',

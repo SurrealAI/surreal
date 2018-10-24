@@ -1,4 +1,6 @@
 import os
+import sys
+import math
 from copy import copy
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
@@ -79,6 +81,14 @@ class TurrealParser(SymphonyParser):
             type=str,
             default='gym:HalfCheetah-v2',
             help='What environment to run'
+        )
+        parser.add_argument(
+            '--gpu',
+            type=str,
+            default="auto",
+            help='Which gpus to use: "auto" (default) uses all gpus '
+            'available through CUDA_VISIBLE_DEVICES, or use a '
+            'comma seperated list to override'
         )
         self._add_dry_run(parser)
 
@@ -177,7 +187,10 @@ class TurrealParser(SymphonyParser):
                       tensorboard=tensorboard,
                       tensorplex=tensorplex,
                       loggerplex=loggerplex)
-
+        self._setup_gpu(agents=agents,
+                        evals=evals,
+                        learner=learner,
+                        gpus=args.gpu)
         cluster.launch(exp, dry_run=args.dry_run)
 
     def _find_executable(self, name):
@@ -193,6 +206,45 @@ class TurrealParser(SymphonyParser):
             return 'surreal-ppo'
         else:
             return name
+
+    def _setup_gpu(self, agents, evals, learner, gpus):
+        """
+            Assigns GPU to agents and learners in an optimal way.
+            No GPU, do nothing
+        """
+        actors = agents + evals
+        if gpus == "auto":
+            if 'CUDA_VISIBLE_DEVICES' in os.environ:
+                gpus = os.environ['CUDA_VISIBLE_DEVICES']
+            else:
+                gpus = ''
+        gpus_str = gpus
+        try:
+            gpus = [x for x in gpus_str.split(',') if len(x) > 0]
+        except Exception as e:
+            print("Error parsing GPU specification {}\n".format(gpus_str),
+                  file=sys.stderr)
+            raise e
+        if len(gpus) == 0:
+            print('Using CPU')
+        elif len(gpus) == 1:
+            gpu = gpus[0]
+            print('Putting agents, evals and learner on GPU {}'.format(gpu))
+            for actor in actors + [learner]:
+                actor.set_envs({'CUDA_VISIBLE_DEVICES': gpu})
+        elif len(gpus) > 1:
+            learner_gpu = gpus[0]
+            print('Putting learner on GPU {}'.format(learner_gpu))
+            learner.set_envs({'CUDA_VISIBLE_DEVICES': learner_gpu})
+
+            actors_per_gpu = float(len(actors)) / (len(gpus) - 1)
+            actors_per_gpu = int(math.ceil(actors_per_gpu))
+            print('Putting up to {} agents/evals on each of gpus {}'.format(
+                    actors_per_gpu, ','.join([x for x in gpus[1:]])))
+
+            for i, actor in enumerate(actors):
+                cur_gpu = gpus[1 + i // actors_per_gpu]
+                actor.set_envs({'CUDA_VISIBLE_DEVICES': cur_gpu})
 
 
 def main():
