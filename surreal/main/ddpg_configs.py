@@ -122,7 +122,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
     # Debug only: agent will sleep for this number of seconds between actions
     'sleep_time': 0.0,
     # If an episode reaches this number of steps, the state will be considered terminal
-    'limit_episode_length': 200, # 0 means no limit
+    'limit_episode_length': 0, # 0 means no limit
     'video': {
         'record_video': False,
         'save_folder': None,
