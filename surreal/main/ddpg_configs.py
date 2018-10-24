@@ -18,7 +18,7 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
         'convs': [],
         'actor_fc_hidden_sizes': [300, 200],
         'critic_fc_hidden_sizes': [400, 300],
-        'use_layernorm': True,
+        'use_layernorm': False,
         'conv_spec': {
             # First conv layer: 16 out channels, second layer 32 channels
             'out_channels': [16, 32],
