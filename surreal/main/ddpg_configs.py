@@ -202,6 +202,8 @@ DDPG_BLOCK_LIFTING_LEARNER_CONFIG = Config({
 DDPG_BLOCK_LIFTING_LEARNER_CONFIG.extend(DDPG_DEFAULT_LEARNER_CONFIG)
 
 DDPG_BLOCK_LIFTING_ENV_CONFIG = Config({
+    'env_name': '_str_',
+    'num_agents': '_int_',
     # If true, DDPG will expect an image at obs['pixel']['camera0']
     'pixel_input': True,
     'use_grayscale': False,
