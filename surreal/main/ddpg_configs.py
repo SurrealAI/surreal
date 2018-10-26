@@ -44,8 +44,8 @@ DDPG_DEFAULT_LEARNER_CONFIG = Config({
             'clip_critic_gradient': False,
             'critic_gradient_value_clip': 5.,
             # Weight regularization
-            'actor_regularization': 1e-4,
-            'critic_regularization': 1e-4,
+            'actor_regularization': 0.0,
+            'critic_regularization': 0.0,
             # beta version: see https://arxiv.org/pdf/1802.09477.pdf and
             # https://github.com/sfujim/TD3/blob/master/TD3.py
             # for action regularization and double critic algorithm details
@@ -135,7 +135,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
         'pixel':['camera0', 'depth'],
         # if using ObservationConcatWrapper, all low_dim inputs will be concatenated together into a single input
         # named 'flat_inputs'
-        'low_dim':['position', 'velocity', 'robot-state', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
+        'low_dim':['position', 'velocity', 'proprio', 'robot-state', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
     },
 })
 
@@ -308,3 +308,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
