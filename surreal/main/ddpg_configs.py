@@ -135,7 +135,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
         'pixel':['camera0', 'depth'],
         # if using ObservationConcatWrapper, all low_dim inputs will be concatenated together into a single input
         # named 'flat_inputs'
-        'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
+        'low_dim':['position', 'velocity', 'proprio', 'robot-state', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
     },
 })
 
@@ -172,6 +172,57 @@ DDPG_DEFAULT_SESSION_CONFIG = Config({
 
 DDPG_DEFAULT_SESSION_CONFIG.extend(LOCAL_SESSION_CONFIG)
 
+DDPG_BLOCK_LIFTING_LEARNER_CONFIG = Config({
+    'algo': {
+        'network': {
+            'lr_actor': 1e-4,
+            'lr_critic': 1e-4,
+            # Weight regularization
+            'actor_regularization': 1e-4,
+            'critic_regularization': 1e-4,
+            'target_update': {
+                # Soft: after every iteration, target_params = (1 - tau) * target_params + tau * params
+                #'type': 'soft',
+                #'tau': 1e-3,
+                # Hard: after `interval` iterations, target_params = params
+                'type': 'hard',
+                'interval': 500,
+            },
+        },
+        'exploration': {
+            'max_sigma': 2.0,
+            # Use Ornstein-Uhlenbeck noise instead of gaussian
+            'noise_type': 'ou_noise',
+            'theta': 0.15,
+            'dt': 1e-3,
+        },
+    },
+})
+
+DDPG_BLOCK_LIFTING_LEARNER_CONFIG.extend(DDPG_DEFAULT_LEARNER_CONFIG)
+
+DDPG_BLOCK_LIFTING_ENV_CONFIG = Config({
+    # If true, DDPG will expect an image at obs['pixel']['camera0']
+    'pixel_input': True,
+    'use_grayscale': False,
+    # Stacks previous image frames together to provide history information
+    'frame_stacks': 3,
+    # Each action will be played this number of times. The reward of the consecutive actions will be the the reward
+    # of the last action in the sequence
+    'action_repeat': 10,
+    # If an episode reaches this number of steps, the state will be considered terminal
+    'limit_episode_length': 200, # 0 means no limit
+    # observation: if using FilterWrapper, any input not listed will be thrown out.
+    # For example, if an observation had a value at obs['pixel']['badkey'], that value will be ignored
+    'observation': {
+        'pixel':['camera0', 'depth'],
+        # if using ObservationConcatWrapper, all low_dim inputs will be concatenated together into a single input
+        # named 'flat_inputs'
+        'low_dim':['position', 'velocity', 'robot-state', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
+    },
+})
+
+DDPG_BLOCK_LIFTING_ENV_CONFIG.extend(DDPG_DEFAULT_ENV_CONFIG)
 
 class DDPGLauncher(SurrealDefaultLauncher):
     def __init__(self):
@@ -215,6 +266,20 @@ class DDPGLauncher(SurrealDefaultLauncher):
                             ' in unit testing.')
 
         args = parser.parse_args(args=argv)
+
+        if args.env == 'robosuite:SawyerLift':
+            learner_class = DDPGLearner
+            agent_class = DDPGAgent
+            replay_class = UniformReplay
+            learner_config = DDPG_BLOCK_LIFTING_LEARNER_CONFIG
+            env_config = DDPG_BLOCK_LIFTING_ENV_CONFIG
+            session_config = DDPG_DEFAULT_SESSION_CONFIG
+            super.__init__(agent_class,
+                           learner_class,
+                           replay_class,
+                           session_config,
+                           env_config,
+                           learner_config)
 
         self.env_config.env_name = args.env
         _, self.env_config = make_env(self.env_config)
