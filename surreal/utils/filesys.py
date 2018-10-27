@@ -190,7 +190,7 @@ def parent_dir(location, abspath=False):
     """
     Args:
       location: current directory or file
-    
+
     Returns:
         parent directory absolute or relative path
     """

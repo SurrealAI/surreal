@@ -23,8 +23,8 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'kurreal=surreal.kube.kurreal:main',
-            'turreal=surreal.tmux.turreal:main',
+            'surreal-kube=surreal.kube.surreal_kube:main',
+            'surreal-tmux=surreal.tmux.surreal_tmux:main',
             'surreal-ddpg=surreal.main.ddpg_configs:main',
             'surreal-ppo=surreal.main.ppo_configs:main',
             'surreal-default-config=surreal.main.generate_default_config:main',
@@ -32,6 +32,7 @@ setup(
     },
     install_requires=[
         "gym",
+        "robosuite",
         "mujoco-py<1.50.2,>=1.50.1",
         "tabulate",
         "tensorflow", # TODO: separate tensorboard image
@@ -47,6 +48,7 @@ setup(
         "symphony>=0.9",
         "torchx",
         "tensorplex",
+        "Cython<0.29",
     ],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

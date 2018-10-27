@@ -12,11 +12,6 @@ settings = {
       'path': '~/surreal/Surreal',
       'force_update': force_update,
     },
-    {
-      'name': 'mujoco',
-      'path': '~/surreal/RoboticsSuite',
-      'force_update': force_update,
-    },
     # {
     #   'name': 'symphony',
     #   'path': '~/surreal/symphony',

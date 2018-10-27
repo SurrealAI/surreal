@@ -124,7 +124,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
     # If an episode reaches this number of steps, the state will be considered terminal
     'limit_episode_length': 0, # 0 means no limit
     'video': {
-        'record_video': False,
+        'record_video': True,
         'save_folder': None,
         'max_videos': 500,
         'record_every': 20,

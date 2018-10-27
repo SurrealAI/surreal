@@ -1,8 +1,9 @@
 Cython<0.29
 gym
+robosuite
 mujoco-py<1.50.2,>=1.50.1
 tabulate
-tensorflow # TODO: separate tensorboard image
+tensorflow
 tensorboardX
 imageio
 pygame
@@ -15,3 +16,5 @@ caraml
 symphony>=0.9
 torchx
 tensorplex
+Cython<0.29
+cloudwise

@@ -5,11 +5,11 @@ import torch
 import pickle
 import time
 import datetime
+from benedict import BeneDict
 from pkg_resources import parse_version
 from collections import OrderedDict
 from contextlib import contextmanager
 from . import filesys as U
-from .ezdict import EzDict
 
 
 CHEKCPOINT_VERSION = '0.0.1'
@@ -63,7 +63,7 @@ class Checkpoint(object):
             self._load_metadata()
         else:
             # blank-slate checkpoint
-            metadata = EzDict()
+            metadata = BeneDict()
             metadata.version = CHEKCPOINT_VERSION
             metadata.save_counter = 0
             metadata.history_ckpt_files = []
@@ -96,7 +96,7 @@ class Checkpoint(object):
 
     def _load_metadata(self):
         if U.f_exists(self.metadata_path()):
-            self.metadata = EzDict.load_yaml(self.metadata_path())
+            self.metadata = BeneDict.load_yaml_file(self.metadata_path())
         self._check_version()
 
     def _restore(self, ckpt_file, check_ckpt_exists):
@@ -179,8 +179,9 @@ class Checkpoint(object):
                         ckpt_file = meta.history_ckpt_files[target]
                 except IndexError:
                     if check_ckpt_exists:
-                        raise FileNotFoundError('{} [{}] ckpt file missing'
-                                    .format(mode.capitalize(), target))
+                        raise FileNotFoundError(
+                            '{} [{}] ckpt file missing'
+                            .format(mode.capitalize(), target))
                     else:
                         ckpt_file = '__DOES_NOT_EXIST__'
             else:
@@ -228,7 +229,7 @@ class Checkpoint(object):
         return self._get_path(self.ckpt_name(suffix))
 
     def _save_metadata(self):
-        self.metadata.dump_yaml(self.metadata_path())
+        self.metadata.dump_yaml_file(self.metadata_path())
 
     def _save_ckpt(self, suffix):
         data = OrderedDict()
@@ -319,7 +320,7 @@ class PeriodicCheckpoint(Checkpoint):
         Same signature as Checkpoint
         Args:
             period: Only update when the interval counter % period == 0
-            min_interval: Only update when the last update 
+            min_interval: Only update when the last update
                           happend min_interval minutes ago
         """
         super().__init__(*args, **kwargs)
@@ -388,5 +389,3 @@ class _ScoreQueue(object):
     def get_scores_filepaths(self):
         "returns score_list, filepath_list"
         return tuple(zip(*self._queue))
-
-

@@ -1,6 +1,9 @@
 import os
+import re
 import shlex
+import subprocess
 from copy import copy
+from pathlib import Path
 from symphony.commandline import SymphonyParser
 from symphony.engine import SymphonyConfig, Cluster
 from symphony.kube import GKEDispatcher
@@ -37,12 +40,12 @@ class KurrealParser(SymphonyParser):
         self.load_config()
         self._setup_create()
         self._setup_tensorboard()
-        # self._setup_docker_clean()
+        self._setup_docker_clean()
 
         # Secondary nfs related support
-        # self._setup_get_videos()
-        # self._setup_get_config()
-        # self._setup_get_tensorboard()
+        self._setup_get_videos()
+        self._setup_get_config()
+        self._setup_get_tensorboard()
 
     def load_config(self):
         surreal_yml_path = U.get_config_file()
@@ -59,41 +62,41 @@ class KurrealParser(SymphonyParser):
 
     @property
     def folder(self):
-        return U.f_expand(self.config.kurreal_metadata_folder)
+        return U.f_expand(self.config.kube_metadata_folder)
 
     @property
     def username(self):
         assert 'username' in self.config, 'must specify username in ~/.surreal.yml'
         return self.config.username
 
-    # def _setup_get_videos(self):
-    #     parser = self.add_subparser('get-videos', aliases=['gv'])
-    #     parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
-    #                         help='experiments to retrieve videos for, '
-    #                         'none to retrieve your own running experiments')
-    #     parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
-    #                         help='Number of most recent videos, -1 to get all')
-    #     parser.add_argument('save_folder', type=str,
-    #                         help='save_videos in [save_folder]/experiment_name')
+    def _setup_get_videos(self):
+        parser = self.add_subparser('get-videos', aliases=['gv'])
+        parser.add_argument('experiment_names', nargs='*', type=str, metavar='experiment_name',
+                            help='experiments to retrieve videos for, '
+                            'none to retrieve your own running experiments')
+        parser.add_argument('--last', type=int, default=5, metavar='last_n_videos',
+                            help='Number of most recent videos, -1 to get all')
+        parser.add_argument('--save_folder', type=str, default='.',
+                            help='save_videos in [save_folder]/experiment_name')
 
-    # def _setup_get_config(self):
-    #     parser = self.add_subparser('get-config', aliases=['gc'])
-    #     parser.add_argument('experiment_name', type=str,
-    #                         help='experiments to retrieve videos for, '
-    #                              'none to retrieve your own running experiments')
-    #     parser.add_argument('-o', '--output-file', type=str,
-    #                         help='save remote config to a specified local file path')
+    def _setup_get_config(self):
+        parser = self.add_subparser('get-config', aliases=['gc'])
+        parser.add_argument('experiment_name', type=str,
+                            help='experiments to retrieve videos for, '
+                                 'none to retrieve your own running experiments')
+        parser.add_argument('-o', '--output-file', type=str,
+                            help='save remote config to a specified local file path')
 
-    # def _setup_get_tensorboard(self):
-    #     parser = self.add_subparser('get-tensorboard', aliases=['gt'])
-    #     parser.add_argument('experiment_name', type=str,
-    #                         help='experiments to retrieve tensorboard for, '
-    #                              'none to retrieve your own running experiments')
-    #     parser.add_argument('-s', '--subfolder', type=str, default='',
-    #                         help='retrieve only a subfolder under the "tensorboard" folder. '
-    #                              'currently valid folders are agent, eval, learner, replay')
-    #     parser.add_argument('-o', '--output-folder', type=str,
-    #                         help='save remote TB folder to a specified local folder path')
+    def _setup_get_tensorboard(self):
+        parser = self.add_subparser('get-tensorboard', aliases=['gt'])
+        parser.add_argument('experiment_name', type=str,
+                            help='experiments to retrieve tensorboard for, '
+                                 'none to retrieve your own running experiments')
+        parser.add_argument('-s', '--subfolder', type=str, default='',
+                            help='retrieve only a subfolder under the "tensorboard" folder. '
+                                 'currently valid folders are agent, eval, learner, replay')
+        parser.add_argument('-o', '--output-folder', type=str,
+                            help='save remote TB folder to a specified local folder path')
 
     def _setup_docker_clean(self):
         parser = self.add_subparser('docker-clean', aliases=['dc'])
@@ -287,7 +290,7 @@ class KurrealParser(SymphonyParser):
                     'build_config': settings.nonagent.build_image
                 },
             },
-            tag=experiment_name,
+            tag=exp.name,
             push=True)
         agent_image = image_builder.images_provided['agent']
         nonagent_image = image_builder.images_provided['nonagent']
@@ -301,10 +304,10 @@ class KurrealParser(SymphonyParser):
         if settings.restore_folder is not None:
             algorithm_args += ["--restore_folder",
                                shlex.quote(settings.restore_folder)]
-        experiment_folder = self.get_remote_experiment_folder(experiment_name)
+        experiment_folder = self.get_remote_experiment_folder(exp.name)
         algorithm_args += ["--experiment-folder",
-                           experiment_folder]
-        algorithm_args += ["--env", settings.env]
+                           str(experiment_folder)]
+        algorithm_args += ["--env", str(settings.env)]
         algorithm_args += ["--agent-batch", str(settings.agent_batch)]
         algorithm_args += ["--eval-batch", str(settings.eval_batch)]
         executable = self._find_executable(settings.algorithm)
@@ -402,7 +405,7 @@ class KurrealParser(SymphonyParser):
         if 'nfs' in self.config:
             print('NFS mounted')
             nfs_server = self.config.nfs.servername
-            nfs_server_path = self.config.nfs.path_on_server
+            nfs_server_path = self.config.nfs.fs_location
             nfs_mount_path = self.config.nfs.mount_path
             for proc in exp.list_all_processes():
                 proc.mount_nfs(server=nfs_server,
@@ -420,7 +423,7 @@ class KurrealParser(SymphonyParser):
             <mount_path>/<root_subfolder>/<experiment_name>/
         """
         # DON'T use U.f_join because we don't want to expand the path locally
-        directory = self.config.kurreal_results_folder
+        directory = self.config.kube_results_folder
         return os.path.join(directory, experiment_name)
 
     def action_tensorboard(self, args):
@@ -430,12 +433,123 @@ class KurrealParser(SymphonyParser):
         """
             Cleans all docker images used to create experiments
         """
-        images_to_clean = {}
-        for pod_type_name, pod_type in self.config.pod_types.items():
-            if 'image' in pod_type and ':' not in pod_type['image']:
-                images_to_clean[pod_type['image']] = True
-        images_to_clean = ['{}:*'.format(x) for x in images_to_clean.keys()]
+        potential_images = []
+        for name, settings in self.config.creation_settings.items():
+            if settings.mode == 'basic':
+                if 'agent' in settings and 'image' in settings.agent:
+                    potential_images.append(settings.agent.image)
+                if 'nonagent' in settings and 'image' in settings.nonagent:
+                    potential_images.append(settings.nonagent.image)
+            else:
+                raise ValueError('Unsupported creation setting mode {}'
+                                 .format(settings.mode) + ' for creation'
+                                 + ' setting ' + name)
+
+        potential_images = list(set(potential_images))
+        potential_images = [x for x in potential_images if ':' not in x]
+        images_to_clean = ['{}:*'.format(x) for x in potential_images]
         clean_images(images_to_clean)
+
+    def action_get_videos(self, args):
+        self._check_nfs_retrieve_settings()
+        remote_folder = Path(self.config.nfs.results_folder)
+        todos = []
+        if len(args.experiment_names) == 0:
+            experiments = self.cluster.list_experiments()
+            for experiment in experiments:
+                if re.match(self.username, experiment):
+                    todos.append(experiment)
+        else:
+            todos = args.experiment_names
+
+        print('Fetching videos for:')
+        print('\n'.join(['\t' + x for x in todos]))
+
+        save_folder = os.path.expanduser(args.save_folder)
+        save_last = args.last
+
+        for experiment_name in todos:
+            self._get_video_for_experiment(
+                experiment_name, save_folder, remote_folder, save_last
+            )
+
+    def _get_video_for_experiment(self,
+                                  experiment_name,
+                                  save_folder,
+                                  remote_folder,
+                                  save_last=-1):
+        # Find remote path
+        remote_folder = remote_folder / experiment_name / 'videos'
+        # parse existing files
+        results = self._gcloud_nfs_exec('ls -1 {}'.format(remote_folder))
+        video_files = results.strip().split('\n')
+        video_episodes = [x[len('video_eps_'):] for x in video_files]
+        video_episodes = [int(x[:len(x) - len('.mp4')]) for x in video_episodes]
+        video_episodes = sorted(video_episodes, reverse=True)
+        if save_last > 0:
+            save_last = min(save_last, len(video_episodes))
+            video_episodes = video_episodes[:save_last]
+        filenames = ['video_eps_{}.mp4'.format(x) for x in video_episodes]
+        # local path
+        local_folder = Path(os.path.expanduser(save_folder)) / experiment_name
+        local_folder.mkdir(exist_ok=True, parents=True)
+        # download
+        for filename in filenames:
+            print('$> get {}'.format(str(remote_folder / filename)))
+            self._gcloud_download(remote_folder / filename, local_folder / filename)
+        return filenames
+
+    def action_get_config(self, args):
+        """
+        Download remote config.yml in the experiment folder
+        """
+        self._check_nfs_retrieve_settings()
+        remote_folder = Path(self.config.nfs.results_folder)
+        if args.output_file:
+            output_file = args.output_file
+        else:
+            output_file = 'config.yml'
+        experiment_name = args.experiment_name
+        remote_config_file = (remote_folder / experiment_name / 'config.yml')
+        print('Downloading', remote_config_file)
+        self._gcloud_download(remote_config_file, output_file)
+
+    def action_get_tensorboard(self, args):
+        """
+        Download remote config.yml in the experiment folder
+        """
+        self._check_nfs_retrieve_settings()
+        remote_folder = Path(self.config.nfs.results_folder)
+        experiment_name = args.experiment_name
+        if args.output_folder:
+            output_folder = args.output_folder
+        else:
+            output_folder = experiment_name
+        remote_tb_folder = (remote_folder / experiment_name
+                            / 'tensorboard' / args.subfolder)
+        print('Downloading', remote_tb_folder)
+        self._gcloud_download(remote_tb_folder, output_folder)
+
+    def _gcloud_download(self, remote_path, local_path):
+        cmd = "gcloud compute scp --recurse {}:'{}' '{}'".format(
+            self.config.nfs.servername, remote_path, local_path
+        )
+        os.system(cmd)
+
+    def _gcloud_nfs_exec(self, command):
+        return subprocess.check_output(
+            "gcloud compute ssh {} -- '{}'".format(self.config.nfs.servername, command),
+            shell=True
+        ).decode('utf-8').replace('\r\n', '\n')
+
+
+    def _check_nfs_retrieve_settings(self):
+        if 'nfs' not in self.config:
+            raise ValueError('nfs field not found in .surreal.yml, aborting')
+        if 'servername' not in self.config.nfs:
+            raise ValueError('nfs:servername field not found in .surreal.yml, aborting')
+        if 'results_folder' not in self.config.nfs:
+            raise ValueError('nfs:results_folder not found .surreal.yml, aborting')
 
 
 def main():

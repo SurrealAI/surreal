@@ -67,9 +67,6 @@ RUN touch /root/.mujoco/mjkey.txt
 COPY build_files/requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
-COPY mujoco /mylibs/mujoco
-RUN pip install -e /mylibs/mujoco
-
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 

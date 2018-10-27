@@ -679,3 +679,18 @@ def wait_for_popen(processes, verbose=True):
                             process.kill()
                     raise RuntimeError('Process {} exited with code {}'
                                        .format(i, ret))
+
+
+def start_thread(func, daemon=True, args=None, kwargs=None):
+    if args is None:
+        args = ()
+    if kwargs is None:
+        kwargs = {}
+    t = Thread(
+        target=func,
+        args=args,
+        kwargs=kwargs,
+        daemon=daemon,
+    )
+    t.start()
+    return t

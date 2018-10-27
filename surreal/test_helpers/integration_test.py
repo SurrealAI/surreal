@@ -2,8 +2,6 @@ import os
 import sys
 import psutil
 import subprocess
-from surreal.main.ddpg_configs import DDPGLauncher
-from surreal.main.ppo_configs import PPOLauncher
 
 
 # Currently planned tests
@@ -41,7 +39,13 @@ def _setup_env():
     os.environ["SYMPH_PREFETCH_QUEUE_PORT"] = "7000"
 
 
-def test(temp_path, config_path, launcher):
+def integration_test(temp_path,
+                     config_path,
+                     launcher,
+                     env='gym:HalfCheetah-v2',
+                     additional_args=None):
+    if additional_args is None:
+        additional_args = []
     print("Making temp directory...")
     os.makedirs(temp_path, exist_ok=True)
     print("Setting up experiment launcher...")
@@ -54,7 +58,7 @@ def test(temp_path, config_path, launcher):
         # 'robosuite:SawyerLift',
         # 'dm_control:cartpole-balance',
         '--experiment-folder',
-        str(temp_path)]
+        str(temp_path)] + additional_args
 
     print("Setting up environment variables...")
     _setup_env()
@@ -99,25 +103,3 @@ def test(temp_path, config_path, launcher):
         child.terminate()
 
     print('Finished testing.')
-
-def test_ddpg():
-    print('BEGIN DDPG TEST')
-    test('/tmp/surreal/ddpg',
-         os.path.join(os.path.dirname(__file__),
-                      '../surreal/main/ddpg_configs.py'),
-         DDPGLauncher())
-    print('PASSED')
-
-def test_ppo():
-    print('BEGIN PPO TEST')
-    test('/tmp/surreal/ppo',
-         os.path.join(os.path.dirname(__file__),
-                      '../surreal/main/ppo_configs.py'),
-         PPOLauncher())
-    print('PASSED')
-
-if __name__ == '__main__':
-    test_ddpg()
-    # test_ppo()
-    self = psutil.Process()
-    self.kill()

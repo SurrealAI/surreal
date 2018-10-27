@@ -28,7 +28,7 @@ def make_env(env_config, mode=None):
     if env_category == 'gym':
         env, env_config = make_gym(env_name, env_config)
     elif env_category == 'robosuite':
-        env, env_config = make_mujocomanip(env_name, env_config)
+        env, env_config = make_robosuite(env_name, env_config)
     elif env_category == 'dm_control':
         env, env_config = make_dm_control(env_name, env_config)
     else:
@@ -45,7 +45,7 @@ def make_gym(env_name, env_config):
     return env, env_config
 
 
-def make_mujocomanip(env_name, env_config):
+def make_robosuite(env_name, env_config):
     import robosuite
 
     env = robosuite.make(
