@@ -28,7 +28,7 @@ mount_secrets:
 
 # Uncomment to enable nfs support
 # nfs:
-#   servername: nfs_server
+#   servername: <put instance name here> # nfs_server
 #   # This directory on the nfs server contains the file system
 #   fs_location: <put path here> # /data
 #   # Mount fs_location to mount_path in containers
@@ -37,7 +37,7 @@ mount_secrets:
 
 # Here you can specify creation settings for your experiments. See creation_settings.md for more details
 creation_settings:
-  cpu-experiment:
+  cpu-gym:
     # Currently there is only one mode available
     mode: basic
     # Number of agent containers
@@ -68,9 +68,41 @@ creation_settings:
         assign_to: resource
         cpu: 7
 
+
+  cpu-mujoco:
+    # Currently there is only one mode available
+    mode: basic
+    # Number of agent containers
+    num_agents: 8
+    # Number of eval containers
+    num_evals: 1
+    # Number of agent processes per container
+    agent_batch: 1
+    # Number of eval processes per container
+    eval_batch: 1
+    # RL algorithm to use (ddpg / ppo) or path to a .py excecutable file in the container
+    # The .py excecutable should at least support the interface of surreal/main/ddpg.py and surreal/main/ppo.py
+    algorithm: ppo
+    # Environment to use
+    env: robosuite:SawyerLift
+    agent:
+      image: surrealai/surreal-nvidia:v0.0
+      build_image: null
+      scheduling:
+        # Configure scheduling depending on your need
+        assign_to: resource
+        cpu: 1.5
+    nonagent:
+      image: surrealai/surreal-nvidia:v0.0
+      build_image: null
+      # Configure scheduling depending on your need
+      scheduling:
+        assign_to: resource
+        cpu: 7
+
 ## !!! Stop here if you are only running cpu based experiments on Kubernetes !!!
 
-  robosuite:
+  k80-robosuite:
     mode: basic
     num_agents: 4
     num_evals: 1

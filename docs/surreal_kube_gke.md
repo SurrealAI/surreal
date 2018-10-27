@@ -20,7 +20,9 @@ pip install surreal
 
 4. **Create Google Cloud Project.** We are using Google Cloud. You will need a [google cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) if you don't have a project, create one. You can find your project id at [console.cloud.google.com](console.cloud.google.com). It will be used later on.
 
-![project-id](../assets/project-id.png)
+<div align="center">
+<img src="../.README_images/project-id.png" width=40% />
+</div>
 
 We need to install google cloud SDK. See [guide here](https://cloud.google.com/sdk/). After you successfully install, you can login to your google account using, this provides the credential for `terraform`.
 ```bash
@@ -82,15 +84,21 @@ kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container
 ```
 
 6. **Create a Network File System.** (Optional, recommended) Create a shared network file system. This allows you to store experiment outputs in a centralized location. The general guide for file servers on Google Cloud is [here](https://cloud.google.com/solutions/filers-on-compute-engine). We used a single node file server, [documentation here](https://cloud.google.com/solutions/filers-on-compute-engine#single-node-file-server). To set it up:
-    - Go to google cloud [console](https://console.cloud.google.com). And then search for Marketplace.  
-![marketplace](../assets/marketplace.png)
+    - Go to google cloud [console](https://console.cloud.google.com). And then search for Marketplace. 
+<div align="center">
+<img src="../.README_images/marketplace.png" width=40% />
+</div>
     - Select single node file server.
-![single node file server](../assets/single-node-fs.png)
+<div align="center">
+<img src="../.README_images/single-node-fs.png" width=40% />
+</div>
     - Click "Launch on Compute Engine"
     - The default settings are in general fine. Make sure that the `zone` attribute should match your the zone that your cluster is in. We usually set the `Instance name` field to be `surreal-fs`.
     - Wait for the deployment. After it finishes, you have a network file system. The data are stored on the `/data` directory in the machine running the file server.
     - Now you can go to the Compute engine tab. And search for your file system. For example, see below. The blue box is the instance name. Machines on google cloud can use instance name to find this file server. The red box is the external ip. You can setup ssh into this machine using the externel ip (see [documentations](https://cloud.google.com/compute/docs/instances/connecting-advanced#provide-key) for how to configure it).  
-![fs-configuration](../assets/file-server.png)
+<div align="center">
+<img src="../.README_images/file-server.png" width=40% />
+</div>
 To configure Surreal to utilize the file system, there are several attributes that needs to be provided in a yaml dictionary. They will be needed later. 
     - First, we need to mount this file system onto each container running our experiments. `servername` is used by nodes on google cloud to locate the file server. Use the instance name of internal id of the server. `fs_location` specifies where is the file system on the server. This is by default `/data`. `/mount_path` is where the file system is mounted on the containers. For exmaple, if we mount the file system to `/fs` and save outputs to `/fs/experiments/foobar`, the data would reside on the file server.
 ```yaml
