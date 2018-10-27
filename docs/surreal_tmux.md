@@ -1,5 +1,5 @@
 # Install and Run SURREAL Locally
-This guide will allow you to setup Surreal on a local machine. Multiple processes are managed through tmux using the `surreal-tmux` commandline interface.  
+This guide will allow you to setup Surreal on your local machine. Multiple processes are managed through tmux using the `surreal-tmux` commandline interface.  
 [Requirements](#requirements)  
 [Install Surreal](#install-surreal)  
 [Create and run an experiment](#Create-and-run-an-experiment)  
