@@ -29,11 +29,11 @@ _Stanford Vision and Learning Lab_
 
 <!--<img src=".README_images/pipeline.png" alt="drawing" height="250" />-->
 
-## Quick Start
+## Installation
 Surreal algorithms can be deployed at various scales. It can run on a single laptop and solve easier locomotion tasks, or run on hundreds of machines to solve complex manipulation tasks.  
-[Surreal on your Laptop](docs/surreal_tmux.md)   
-[Surreal on Google Cloud Kubenetes Engine](docs/surreal_kube_gke.md)   
-[Documentation Index](docs/index.md)  
+* [Surreal on your Laptop](docs/surreal_tmux.md)   
+* [Surreal on Google Cloud Kubenetes Engine](docs/surreal_kube_gke.md)   
+* [Documentation Index](docs/index.md)  
 
 ## Benchmarking
 

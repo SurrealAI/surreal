@@ -1,3 +1,4 @@
+Cython<0.29
 gym
 robosuite
 mujoco-py<1.50.2,>=1.50.1

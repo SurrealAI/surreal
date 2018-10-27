@@ -68,17 +68,15 @@ class DDPGLearner(Learner):
 
         self.log.info('Initializing DDPG learner')
         self._num_gpus = session_config.learner.num_gpus
-        if self._num_gpus == 0:
+        if not torch.cuda.is_available():
             self.gpu_ids = 'cpu'
-        else:
-            self.gpu_ids = 'cuda:all'
-
-        if self._num_gpus == 0:
             self.log.info('Using CPU')
         else:
-            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.gpu_ids = 'cuda:all'
+            self.log.info('Using GPU')
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
+            self._num_gpus = 1
 
         with tx.device_scope(self.gpu_ids):
             self._target_update_init()

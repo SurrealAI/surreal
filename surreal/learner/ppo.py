@@ -60,12 +60,11 @@ class PPOLearner(Learner):
         # GPU setting
         self.current_iteration = 0
         self.global_step = 0
-        num_gpus = session_config.learner.num_gpus
-        if num_gpus == 0:
+        if not torch.cuda.is_available():
             self.gpu_option = 'cpu'
         else:
             self.gpu_option = 'cuda:all'
-        self.use_cuda = num_gpus > 0
+        self.use_cuda = torch.cuda.is_available()
 
         if not self.use_cuda:
             self.log.info('Using CPU')

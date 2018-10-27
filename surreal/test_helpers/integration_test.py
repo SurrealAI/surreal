@@ -103,4 +103,3 @@ def integration_test(temp_path,
         child.terminate()
 
     print('Finished testing.')
-

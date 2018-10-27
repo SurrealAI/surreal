@@ -2,7 +2,7 @@
 
 from symphony.addons import DockerBuilder
 
-force_update = False
+force_update = True
 settings = {
   'temp_directory': '~/symph_temp/',
   'dockerfile': '~/surreal/Surreal/docker/Dockerfile-nvidia',

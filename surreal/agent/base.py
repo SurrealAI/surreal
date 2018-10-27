@@ -140,7 +140,6 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         """
         raise NotImplementedError
 
-
     def module_dict(self):
         """
         Returns:

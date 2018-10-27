@@ -61,20 +61,18 @@ class PPOAgent(Agent):
         self.rnn_config = self.learner_config.algo.rnn
 
         # GPU setup
+        # TODO: deprecate
         self._num_gpus = session_config.agent.num_gpus
 
         if torch.cuda.is_available():
             self.gpu_ids = 'cuda:all'
-            self.log.info('Using {} GPUs')
-        else:
-            self.gpu_ids = 'cpu'
-
-        if self._num_gpus == 0:
-            self.log.info('Using CPU')
-        else:
-            self.log.info('Using {} GPUs'.format(self._num_gpus))
+            self.log.info('PPO agent is using GPU')
+            # Note that user is responsible for only providing one GPU for the program
             self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
+        else:
+            self.gpu_ids = 'cpu'
+            self.log.info('PPO agent is using CPU')
 
         self.pd = DiagGauss(self.action_dim)
         self.cells = None
