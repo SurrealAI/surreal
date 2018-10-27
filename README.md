@@ -1,22 +1,26 @@
-# **[SURREAL](https://surreal.stanford.edu)**: Open-Source Distributed Reinforcement Learning Framework
+<img src=".README_images/surreal-logo.png" width=10% align="right" />
+
+# **[SURREAL](https://surreal.stanford.edu)**
+## Open-Source Distributed Reinforcement Learning Framework
 
 _Stanford Vision and Learning Lab_
 
 [SURREAL](https://surreal.stanford.edu) is a fully integrated framework that runs state-of-the-art distributed reinforcement learning (RL) algorithms.
 
-It boasts the following features:
+
+<img src=".README_images/iconic-features.png" width=70% align="center" />
+
 
 - **Scalability**. RL algorithms are data hungry by nature. Even the simplest Atari games, like Breakout, typically requires up to a billion frames to learn a good solution. To accelerate training significantly, SURREAL parallelizes the environment simulation and learning. The system can easily scale to thousands of CPUs and hundreds of GPUs.
 
-![](.README_images/scalability-robotics.png)
 
-- **Unification of on-policy and off-policy methods**. The key is to separate experience generation from learning. Parallel actors generate massive amount of experience data, while a _single, centralized_ learner performs model updates. Each actor interacts with the environment independently, which allows them to diversify the exploration for hard long-horizon robotic tasks. They send the experiences to a centralized buffer that supports both on-policy (FIFO mode) and off-policy (replay memory mode) learning.
+- **Flexibility**. SURREAL unifies distributed on-policy and off-policy learning into a single algorithmic formulation. The key is to separate experience generation from learning. Parallel actors generate massive amount of experience data, while a _single, centralized_ learner performs model updates. Each actor interacts with the environment independently, which allows them to diversify the exploration for hard long-horizon robotic tasks. They send the experiences to a centralized buffer, implemented with a FIFO queue for on-policy mode and replay memory for off-policy mode.
 
-<img src=".README_images/distributed.png" alt="drawing" width="500" />
+<!--<img src=".README_images/distributed.png" alt="drawing" width="500" />-->
 
 - **Reproducibility**. RL algorithms are notoriously hard to reproduce \[Henderson et al., 2017\], due to multiple sources of variations like algorithm implementation details, library dependencies, and hardware types. We address this by providing an _end-to-end integrated pipeline_ that replicates our full cluster hardware and software runtime setup.
 
-<img src=".README_images/pipeline.png" alt="drawing" height="250" />
+<!--<img src=".README_images/pipeline.png" alt="drawing" height="250" />-->
 
 ## Quick Start
 
@@ -119,6 +123,16 @@ to launch your own algorithm. You can refer to [ddpg_configs.py](../) or [ppo_co
 ### Deploy on the cloud
 
 For how to deploy on the Kubernetes engine with Google Cloud, please refer to the [detailed installation guide](docs/installation.md)
+
+## Benchmarking
+
+- Scalability of Surreal-PPO with up to 1024 actors on Surreal Robotics Suite.
+
+![](.README_images/scalability-robotics.png)
+
+- Training curves of 16 actors on OpenAI Gym tasks for 3 hours, compared to other baselines. 
+
+![](.README_images/performance-gym.png)
 
 
 ## Citations
