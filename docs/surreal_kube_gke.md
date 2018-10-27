@@ -9,16 +9,16 @@ TODO: contributing
 TODO: development
 
 ## Install Requirements
-1. You must have surreal installed. Surreal supports python 3. We usually use python 3.5 and later.
+1. **Install Surreal.** You must have surreal installed. Surreal supports python 3. We usually use python 3.5 and later.
 ```
 pip install surreal
 ```
 
-2. If you haven't heard about [Kubernetes](https://kubernetes.io), it would be helpful to look at some basic concepts. Surreal uses the `kubectl` commandline to interact with Kubernetes. So you need to install `kubectl` following [this guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
+2. **Install Kubectl.** If you haven't heard about [Kubernetes](https://kubernetes.io), it would be helpful to look at some basic concepts. Surreal uses the `kubectl` commandline to interact with Kubernetes. So you need to install `kubectl` following [this guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 
-3. We use `terraform` to automate kubernetes cluster creation. Install `terraform` following instructions [here](https://www.terraform.io/intro/getting-started/install.html).
+3. **Install Terraform.** We use `terraform` to automate kubernetes cluster creation. Install `terraform` following instructions [here](https://www.terraform.io/intro/getting-started/install.html).
 
-4. We are using Google Cloud. You will need a [google cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) if you don't have a project, create one. You can find your project id at [console.cloud.google.com](console.cloud.google.com). It will be used later on.
+4. **Create Google Cloud Project.** We are using Google Cloud. You will need a [google cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) if you don't have a project, create one. You can find your project id at [console.cloud.google.com](console.cloud.google.com). It will be used later on.
 
 [!project-id](../assets/project-id.png)
 
@@ -27,9 +27,9 @@ We need to install google cloud SDK. See [guide here](https://cloud.google.com/s
 gcloud auth login
 ```
 
-5. To run Mujoco on a multi-node cluster, you will need a multi-machine liscense.
+5. **Mujoco License.** To run Mujoco on a multi-node cluster, you will need a multi-machine license.
 
-6. (Optional) If you want to customize surreal, you will need to use your own docker image. You can obtain docker [here](https://www.docker.com). If you have docker, you can use the following command to authenticate docker with you own google cloud container registry
+6. **Install Docker.** (Optional) If you want to customize surreal, you will need to use your own docker image. You can obtain docker [here](https://www.docker.com). If you have docker, you can use the following command to authenticate docker with you own google cloud container registry
 ```bash
 gcloud auth configure-docker
 ```
@@ -37,12 +37,12 @@ gcloud auth configure-docker
 ## Creating the Cluster
 We use [Cloudwise](https://github.com/SurrealAI/cloudwise) to generate cluster definition and then use `terraform` to excecute the actual operations.
 
-1. Cloudwise is installed with surreal. If you cannot find the executable used, you can install cloudwise by running
+1. **Install Cloudwise.** Cloudwise is installed with surreal. If you cannot find the executable used, you can install cloudwise by running
 ```bash
 pip install cloudwise
 ```
 
-2. Make an empty directory, and run the cloudwise command for google cloud
+2. **Define the Cluster.** Make an empty directory, and run the cloudwise command for google cloud
 ```
 mkdir kurreal
 cd kurreal
@@ -63,9 +63,9 @@ cloudwise-gke
 ```
     - You can use any save file name you want.
 
-3. Cloudwise will generate the `<filename>.tf.json` file. This is the definition file for your Kubernetes cluster. Keep track of its location (we shall refer to it as `<cluster_definition_file>`) as we need the generated settings to schedule jobs on the cluster.
+3. **Obtain Cluster Definition.** Cloudwise will generate the `<filename>.tf.json` file. This is the definition file for your Kubernetes cluster. Keep track of its location (we shall refer to it as `<cluster_definition_file>`) as we need the generated settings to schedule jobs on the cluster.
 
-4. We shall create the Kubernetes cluster using `terraform`. First, run
+4. **Create the Cluster.** We shall create the Kubernetes cluster using `terraform`. First, run
 ```bash
 terraform init
 terraform plan
@@ -76,12 +76,12 @@ terraform apply
 ```
 and type `yes` to confirm the operation. Terraform will then create your kubernetes cluster for you. This operation can take from 20 minutes to an hour depending on how complex your cluster is. Because these clusters have autoscaling enabled, it will initially have only three `n1-standard-2` machienes. Large instances and GPU will scale up and incur cost only when you need them. 
 
-5. If some machines in your cluster has GPUs, you need create the daemon set to install drivers. This is done by running the following command. See [documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/gpus#installing_drivers) for details. 
+5. **Install GPU Drivers.** If some machines in your cluster has GPUs, you need create the daemon set to install drivers. This is done by running the following command. See [documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/gpus#installing_drivers) for details. 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/stable/nvidia-driver-installer/cos/daemonset-preloaded.yaml
 ```
 
-6. (Optional, recommended) Create a shared network file system. This allows you to store experiment outputs in a centralized location. The general guide for file servers on Google Cloud is [here](https://cloud.google.com/solutions/filers-on-compute-engine). We used a single node file server, [documentation here](https://cloud.google.com/solutions/filers-on-compute-engine#single-node-file-server). To set it up:
+6. **Create a Network File System.** (Optional, recommended) Create a shared network file system. This allows you to store experiment outputs in a centralized location. The general guide for file servers on Google Cloud is [here](https://cloud.google.com/solutions/filers-on-compute-engine). We used a single node file server, [documentation here](https://cloud.google.com/solutions/filers-on-compute-engine#single-node-file-server). To set it up:
     - Go to google cloud [console](https://console.cloud.google.com). And then search for Marketplace.  
 [!marketplace](../assets/marketplace.png)
     - Select single node file server.
@@ -141,7 +141,7 @@ cluster_definition: ~/surreal/cluster.tf.json
 kube_results_folder: /fs/experiments/foobar
 ```
 
-6. To run mujoco on kubernetes you need to put your liscense in every container's `~/.mujoco/mjkey.txt`. Every file under the `mount_secrets` field will be mounted to the `/etc/secrets` directory using Kubernetes Secrets. The entry point of the Surreal Docker container will copy `mjkey.txt` from `/etc/secrets` to `~/.mujoco` if it is present. So you should write for this to happen.
+6. To run mujoco on kubernetes you need to put your license in every container's `~/.mujoco/mjkey.txt`. Every file under the `mount_secrets` field will be mounted to the `/etc/secrets` directory using Kubernetes Secrets. The entry point of the Surreal Docker container will copy `mjkey.txt` from `/etc/secrets` to `~/.mujoco` if it is present. So you should write for this to happen.
 ```yaml
 mount_secrets:
   - ~/.mujoco/mjkey.txt

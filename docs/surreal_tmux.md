@@ -59,13 +59,13 @@ surreal-default-config
 
 This will generate a config file at `~/.surreal.yml`. Optionally, you can put it in another location and specify `SURREAL_CONFIG_PATH`. 
 
-    - Experiments are automatically prepended with your username. Specify it in the config. You can turn this behavior off by setting `prefix_experiment_with_username = False`.
+Experiments are automatically prepended with your username. Specify it in the config. You can turn this behavior off by setting `prefix_experiment_with_username = False`.
 
 ```yaml
 username: <your_username>
 ```
 
-    - When running experiments locally, you may want to setup environment variables (e.g. activate a virtual python environment) before running the python script. You can do this by specifying one command in each line of 
+When running experiments locally, you may want to setup environment variables (e.g. activate a virtual python environment) before running the python script. You can do this by specifying one command in each line of 
 `tmux_preamble_cmds`.
 
 ```yaml
@@ -73,16 +73,15 @@ tmux_preamble_cmds:
   - 'source activate surreal'
 ```
 
-    - Every time an experiment is created on tmux, result data will be written to `<tmux_results_folder>/<experiment_name>`. `tmux_results_folder` is specified in the config. (e.g. You can put all your experiment results in `~/surreal/tmux/`)
+Every time an experiment is created on tmux, result data will be written to `<tmux_results_folder>/<experiment_name>`. `tmux_results_folder` is specified in the config. (e.g. You can put all your experiment results in `~/surreal/tmux/`)
 
 ```yaml
 tmux_results_folder: <put path here> # ~/surreal/tmux/
 ```
 
-    - If you want to know more about the config and other fields, refer to [this guide](yaml_config.md). For now, we have what we need to setup local experiments.
+If you want to know more about the config and other fields, refer to [this guide](yaml_config.md). For now, we have what we need to setup local experiments.
 
-5. **Install Tmux**
-We build upon tmux to manage experiments locally. You need to install tmux if you don't already have it.  
+5. **Install Tmux.** We build upon tmux to manage experiments locally. You need to install tmux if you don't already have it.  
 On Mac
 ```bash
 brew install tmux
