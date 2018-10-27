@@ -102,6 +102,10 @@ kurreal dc
 > Cleaning docker images
 ```
 
-TODO: add nfs support related, `get-video`, `get-experiment`, etc.
-
+If you setup the `nfs` fields in `.surreal.yml` following [the tutorial](surreal_kube_gke.md#create-the-cluster). You can use `get-video`, `get-config`, `get-tensorboard` to get the coresponding information from the nfs.
+```
+surreal-kube get-video <experiment_name>
+surreal-kube get-config <experiment_name>
+surreal-kube get-tensorboard <experiment_name>
+```
 

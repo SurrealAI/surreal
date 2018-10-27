@@ -91,7 +91,7 @@ On linux
 sudo apt-get install tmux
 ```
 
-## Create and run an experiment
+## Create and run an Experiment
 You are now ready to create an experiment. Run
 ```bash
 surreal-tmux create <experiment_name>

@@ -34,7 +34,7 @@ gcloud auth login
 gcloud auth configure-docker
 ```
 
-## Creating the Cluster
+## Create the Cluster
 We use [Cloudwise](https://github.com/SurrealAI/cloudwise) to generate cluster definition and then use `terraform` to excecute the actual operations.
 
 1. **Install Cloudwise.** Cloudwise is installed with surreal. If you cannot find the executable used, you can install cloudwise by running
@@ -141,7 +141,7 @@ cluster_definition: ~/surreal/cluster.tf.json
 kube_results_folder: /fs/experiments/foobar
 ```
 
-6. To run mujoco on kubernetes you need to put your license in every container's `~/.mujoco/mjkey.txt`. Every file under the `mount_secrets` field will be mounted to the `/etc/secrets` directory using Kubernetes Secrets. The entry point of the Surreal Docker container will copy `mjkey.txt` from `/etc/secrets` to `~/.mujoco` if it is present. So you should write for this to happen.
+6. To run mujoco on kubernetes you need to put your license in every container's `~/.mujoco/mjkey.txt`. Every file under the `mount_secrets` field will be mounted to the `/etc/secrets` directory using Kubernetes Secrets. The entry point of the Surreal Docker container will copy `mjkey.txt` from `/etc/secrets` to `~/.mujoco` if it is present. You can tell `surreal-kube` to upload `mjkey.txt` as a secret by setting the following field.
 ```yaml
 mount_secrets:
   - ~/.mujoco/mjkey.txt
@@ -163,7 +163,7 @@ creation_settings:
     k80-robosuite:
         ...
 ```
-When creating an experiment, the template is selected as an argument to `surreal-kube`. The default ones are good for now, we will use them later. If you want more information about creation setting, check [the documentation](creation_settings.md).
+When creating an experiment, the template is selected as an argument to `surreal-kube`. The default ones are good for now, we will use them later. If you want more information about creation settings, check [the documentation](creation_settings.md).
 
 ## Launch Experiments
 With everything setup. You can use the `surreal-kube` commandline to create the distributed experiment. The syntax for creating an experiment is 

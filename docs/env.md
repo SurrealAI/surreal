@@ -26,7 +26,7 @@ Note that some of the environments listed below may require a mujoco license.
 
 - OpenAI gym environments, e.g. `make_env(gym:HalfCheetah-v2)`
 - Deepmind control suite environments, e.g. `make_env('dm_control:humanoid-walk')`
-- Surreal Robotics Suite environments, e.g. `make_env(mujocomanip:SawyerLiftEnv)`
+- Surreal Robotics Suite environments, e.g. `make_env(robosuite:SawyerLift)`
 
 # Environment wrappers
 Environment wrappers are environments which wrap around an environment and
