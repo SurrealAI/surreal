@@ -66,7 +66,7 @@ nfs:
 
 ## Kubernetes
 * `kube_metadata_folder`. This is the path that experiments launched to kubernetes store their metadata (actual experiments happen in the cloud). 
-* `cluster_definition`. After creating a kubernetes cluster with cloudwise, you will obtain a `.tf.json` file detailing the setup of the cluster. Specify its location at `cluster_definition` to allow `kurreal` commandline interface to properly schedule your workload.
+* `cluster_definition`. After creating a kubernetes cluster with cloudwise, you will obtain a `.tf.json` file detailing the setup of the cluster. Specify its location at `cluster_definition` to allow `surreal-kube` commandline interface to properly schedule your workload.
 * `kube_results_folder`. Where do experiments save results. Experiments write results to `<kube_results_folder>/<experiment_name>` in the container.
 * `creation_settings`. Configures how experiments are launched on Kubernetes. See [documentation](creation_settings.md) for details.
 * `mount_secrets`. Mount the listed files as secrets. These files would be available in `/etc/secrets` on every container. One example is to use it to mount the mujoco license. 
@@ -79,7 +79,7 @@ mount_secrets:
 ### Docker Build Settings
 When you are developing a distributed containerized application, it is very natural that you will build docker images and then deploy them. This process is sped up by `symphony.DockerBuilder` which allows you build docker images using files at different location on your file system. 
 
-`docker_build_settings` in your `.surreal.yml` allows you to specify how docker images are build. Take the following file as an example. Let's assume that you have your own fork of Surreal at `~/my_surreal`. You have a docker registry accessible from your Kubernetes cluster at `my-registry`. The following setting would allow `kurreal` to automatically build an image for you whenever you are launching an experiment.
+`docker_build_settings` in your `.surreal.yml` allows you to specify how docker images are build. Take the following file as an example. Let's assume that you have your own fork of Surreal at `~/my_surreal`. You have a docker registry accessible from your Kubernetes cluster at `my-registry`. The following setting would allow `surreal-kube` to automatically build an image for you whenever you are launching an experiment.
 ```yaml
 # .surreal.yml
 creation_settings:
@@ -95,7 +95,7 @@ docker_build_settings:
   - name: contrib-image
     ...
 ```
-Here `agent: build_image` field equals, `contrib-image`, which tells `kurreal` to look at the dictionary in `docker_build_settings` with `name: contrib-image`. The remaining fields in the `contrib-image` build settings are passed to `symphony.DockerBuilder`, see[documentation here](https://github.com/SurrealAI/symphony/blob/master/docs/docker_builder.md). Long story short, it builds a docker image using `~/surreal/docker/Dockerfile-contribute` in a directory containing a copy of `~/my_surreal`.
+Here `agent: build_image` field equals, `contrib-image`, which tells `surreal-kube` to look at the dictionary in `docker_build_settings` with `name: contrib-image`. The remaining fields in the `contrib-image` build settings are passed to `symphony.DockerBuilder`, see[documentation here](https://github.com/SurrealAI/symphony/blob/master/docs/docker_builder.md). Long story short, it builds a docker image using `~/surreal/docker/Dockerfile-contribute` in a directory containing a copy of `~/my_surreal`.
 ```yaml
 docker_build_settings:
   - name: contrib-image

@@ -1,5 +1,5 @@
 # Run SURREAL on Google Cloud Kubernetes Engine
-To run large scale experiments, you need to setup Surreal on a Kubernetes Cluster. Here we provide a tutorial for how to do this using Google Cloud. The tutorial is expected to cost at most TODO.
+To run large scale experiments, you need to setup Surreal on a Kubernetes Cluster. Here we provide a tutorial for how to do this using Google Cloud.
 
 [Install Requirements](#install-requirements)  
 [Create the Cluster](#create-the-cluster)  
@@ -46,14 +46,14 @@ pip install cloudwise
 
 2. **Define the Cluster.** Make an empty directory, and run the cloudwise command for google cloud
 ```
-mkdir kurreal
-cd kurreal
+mkdir surreal-kube
+cd surreal-kube
 cloudwise-gke
 ```
     - You will first be asked to provide your project id. 
     - Next cloudwise will ask for authentication json. Press `Enter` to skip since we have already done `gcloud auth login`.
     - Configure the zone that your cluster is going to be in, e.g. `us-west1-b`.
-    - Name your cluster. We usually use `kurreal`.
+    - Name your cluster. We usually use `surreal-kube`.
     - Cloudwise will then ask you to create the default node pool. You can use the default settings (`20` and `n1-standard-2`).
     - Use `no` (default) when asked about preemptible machines.
     - Cloudwise will then ask you to setup the machines for your cluster. For surreal, you can use one of the four pre-defined combinations.
@@ -86,18 +86,18 @@ kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container
 6. **Create a Network File System.** (Optional, recommended) Create a shared network file system. This allows you to store experiment outputs in a centralized location. The general guide for file servers on Google Cloud is [here](https://cloud.google.com/solutions/filers-on-compute-engine). We used a single node file server, [documentation here](https://cloud.google.com/solutions/filers-on-compute-engine#single-node-file-server). To set it up:
     - Go to google cloud [console](https://console.cloud.google.com). And then search for Marketplace. 
 <div align="center">
-<img src="../.README_images/marketplace.png" width=40% />
+<img src="../.README_images/marketplace.png" width=90% />
 </div>
     - Select single node file server.
 <div align="center">
-<img src="../.README_images/single-node-fs.png" width=40% />
+<img src="../.README_images/single-node-fs.png" width=60% />
 </div>
     - Click "Launch on Compute Engine"
     - The default settings are in general fine. Make sure that the `zone` attribute should match your the zone that your cluster is in. We usually set the `Instance name` field to be `surreal-fs`.
     - Wait for the deployment. After it finishes, you have a network file system. The data are stored on the `/data` directory in the machine running the file server.
     - Now you can go to the Compute engine tab. And search for your file system. For example, see below. The blue box is the instance name. Machines on google cloud can use instance name to find this file server. The red box is the external ip. You can setup ssh into this machine using the externel ip (see [documentations](https://cloud.google.com/compute/docs/instances/connecting-advanced#provide-key) for how to configure it).  
 <div align="center">
-<img src="../.README_images/file-server.png" width=40% />
+<img src="../.README_images/file-server.png" width=90% />
 </div>
 To configure Surreal to utilize the file system, there are several attributes that needs to be provided in a yaml dictionary. They will be needed later. 
     - First, we need to mount this file system onto each container running our experiments. `servername` is used by nodes on google cloud to locate the file server. Use the instance name of internal id of the server. `fs_location` specifies where is the file system on the server. This is by default `/data`. `/mount_path` is where the file system is mounted on the containers. For exmaple, if we mount the file system to `/fs` and save outputs to `/fs/experiments/foobar`, the data would reside on the file server.
@@ -178,7 +178,7 @@ With everything setup. You can use the `surreal-kube` commandline to create the 
 ```bash
 surreal-kube create <creation_setting_name> <experiment_name> [--override-args] [-- [algorithm specific configs]]
 ```
-Here `<creation_setting_name>` is the key of the settings template in `~/.surreal.yml`. For example, the default one is `cpu-gym`. Certain fields in the template can be changed by using `--override-args` (see [documentation](creation_settings) for details). Algorithm specific arguments, if present, are provided after `--`. They are parameters passed to specific algorithms. For example, one can specify learning rate for DDPG using `-- TODO`. **TL;DR** For the time being, we only need the basic features.
+Here `<creation_setting_name>` is the key of the settings template in `~/.surreal.yml`. For example, the default one is `cpu-gym`. Certain fields in the template can be changed by using `--override-args` (see [documentation](creation_settings) for details). Algorithm specific arguments, if present, are provided after `--`. They are parameters passed to specific algorithms. **TL;DR** For the time being, we only need the basic features.
 ```bash
 surreal-kube create cpu-gym first-experiment
 ```
@@ -223,7 +223,7 @@ Kubernetes allow us to run multiple experiments at once. This means we can creat
 ```bash
 surreal-kube create cpu-mujoco second-experiment
 ```
-Wait for the nodes to spin up and check out the nodes. To list all the experiments that you have, run `kurreal lse (list-experiments)`. 
+Wait for the nodes to spin up and check out the nodes. To list all the experiments that you have, run `surreal-kube lse (list-experiments)`. 
 ```bash
 surreal-kube lse
 > foobar-first-experiment
@@ -237,7 +237,7 @@ surreal-kube se foobar-first-experiment
 surreal-kube se
 > foobar-first-experiment
 ```
-If you have nfs setup properly, you can retrieve data using TODO
+If you have nfs setup properly, you can retrieve data using the following commands
 ```bash
 surreal-kube get-video foobar-first-experiment
 > Downloading ...
@@ -248,24 +248,7 @@ surreal-kube get-tensorboard foobar-second-experiment
 ```
 After you are done, delete the experiment.
 ```bash
-kurreal delete
+surreal-kube delete
 ```
 
-For more information about `kurreal`, see [kurreal documentation](kurreal.md). It will also detail how to create experiments with more customization. TODO
-
-## Setup Custom Docker Build Process
-TODO
-
-To develop a distributed application and run on Kubernetes, you need to build your own docker image. We provide docker builder (powered by [Symphony](https://github.com/SurrealAI/symphony)) that puts together a docker build environment from multiple locations in your file system. 
-
-### Installation
-* Install [Docker](https://www.docker.com)
-* Obtain Surreal base image. This image take ~10G space.
-```bash
-docker pull surrealai/surreal-nvidia:v0.0
-```
-* Prepare your own docker registry to host your custom images. You need to put your custom images in a registry that is accessible from your Kubernetes cluster.
-    - If you are using Google Cloud with project-id (i.e. myproject-123456), you can push-pull from Google Cloud's container registry: `us.gcr.io/<project-id>/<repo>:tag`. You do need to configure your own docker to have the credentials to read/write from the google hosted registry, see [documentation](https://cloud.google.com/sdk/gcloud/reference/auth/configure-docker).
-```bash
-gcloud auth configure-docker
-```
+For more information about `surreal-kube`, see [surreal-kube documentation](kurreal.md). It will also detail how to create experiments with more customization.

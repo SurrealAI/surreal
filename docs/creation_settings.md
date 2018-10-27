@@ -1,12 +1,12 @@
 # Creation Settings
-Creating a surreal experiment in kurreal involves a lot of settings, e.g. the number of agents, the number of evals, and where to schedule each pod. Creation setting helps declare and configure these settings in an intuitive way.
+Creating a surreal experiment in surreal-kube involves a lot of settings, e.g. the number of agents, the number of evals, and where to schedule each pod. Creation setting helps declare and configure these settings in an intuitive way.
 
 ## Specifying a setting
 When you are creating an experiment, you write
 ```bash
-kurreal create <experiment_name> <settings_name> [settings_override_args] -- config_args
+surreal-kube create <experiment_name> <settings_name> [settings_override_args] -- config_args
 ```
-`settings` name help `kurreal` locate a sub-dictionary in `creation_settings` field of `.surreal.yml`. This dictionary decides the behavior of create.
+`settings` name help `surreal-kube` locate a sub-dictionary in `creation_settings` field of `.surreal.yml`. This dictionary decides the behavior of create.
 ```yaml
 creation_settings:
     <settings_name>:
@@ -60,13 +60,13 @@ creation_settings:
             # scheduling specifications
             scheduling: {<symphony scheduling kwargs>}
 ```
-* `algorithm` is the RL algorithm to use. It can be `ddpg` or `ppo`, in which case our `kurreal` commandline knows where the executables are located. If you wrote your own algorithm (follow the example of [ddpg](../surreal/main/ddpg_configs.py) and [ppo](../surreal/main/ppo_configs.py) to do so), provide the path to `<you_algorithm>.py` so our launcher can properly provide arguments to the containers' entrypoint (`python -u` will be prepended before your provided path if it ends with `.py`, otherwise, we assume that you are providing an executable and will call it directly).
+* `algorithm` is the RL algorithm to use. It can be `ddpg` or `ppo`, in which case our `surreal-kube` commandline knows where the executables are located. If you wrote your own algorithm (follow the example of [ddpg](../surreal/main/ddpg_configs.py) and [ppo](../surreal/main/ppo_configs.py) to do so), provide the path to `<you_algorithm>.py` so our launcher can properly provide arguments to the containers' entrypoint (`python -u` will be prepended before your provided path if it ends with `.py`, otherwise, we assume that you are providing an executable and will call it directly).
 * `num_agents`, `num_evals`, `agent_batch`, and `eval_batch` controls how many agent / evals there are in an experiment. The total number of agents is computed by `num_agents x agent_batch`. The total number of evaluators is computed by `num_evals x eval_batch`. Agents in the same batch are launched in the same container. This setup allows us to run 16 agents on a single GPU, maximizing resource usage. 
 * `env` is the name of the enrivonment to run our algorithms on. 
 * `agent` / `nonagent`: specifies deployment related information on the cluster. `agent` is defined for each agent container (`agent_batch` processes). `nonagent` is defined for the `nonagent` container, which includes learner, replay, parameter server, tensorplex, loggerplex and tensorboard.
     - `image` and `build_image` define the container image to run on the cluster. You can provide `image:repo:tag, build_image: null` to pull from an existing image. Or you can provide `image:repo, build_image: <image-build-setting-name>`. When you run an experiment that requires this image, this will trigger an image build , push it to `repo:<experiment-name>` and use it for your experiment. For more about image build settings, see [documentation of Symphony docker builder](https://github.com/SurrealAI/symphony/blob/master/docs/docker_builder.md).
     - `scheduling` defines how much compute resource to allocate to the `agent`, resp. `nonagent`, container. See `symphony.GKEDispatcher.assign_to` ([documented here](https://github.com/SurrealAI/symphony/blob/master/docs/kubernetes.md#dispatcher)) for details. You need to provide all kwargs other than `process` and `process_group`.
-* When creating an experiment using `kurreal`, the following commandline arguments are allowed:
+* When creating an experiment using `surreal-kube`, the following commandline arguments are allowed:
 ```bash
 --num_agents 2
 --num_evals 1

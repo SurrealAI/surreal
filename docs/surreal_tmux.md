@@ -136,10 +136,3 @@ You can use `surreal-tmux delete` to terminate the experiment.
 surreal-tmux delete
 > Terminating
 ```
-
-## Develop Algorithms Locally
-If you want to develop algorithms locally using Surreal. You should create a `my_algorithm.py` file. Run
-```bash
-surreal-tmux create --algorithm <path to my_algorithm.py>
-```
-to launch your own algorithm. You can refer to [ddpg_configs.py](../) or [ppo_configs.py](../surreal/main/ppo_configs.py) for reference. TODO

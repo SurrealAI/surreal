@@ -13,7 +13,12 @@ We recommend following the local mode guide first and then go to the Kubernetes 
 * [Config file](yaml_config.md)  
 * [Creation settings for Kubernetes mode](creation_settings.md)  
 
-## Issues and Contributing
-* For customizing the surreal library, check the tutorials for [Local mode](surreal_tmux.md) and [Kubernetes mode](surreal_kube_gke.md)..
+## Development
+* [Contribute to Surreal](contributing.md)
+* [Using Surreal as part of your project](importing.md)
+
+## Customizing Surreal
+
+## Issues
 * [FAQ](faq.md)
 * [Reporting Issues](reporting_issues.md)

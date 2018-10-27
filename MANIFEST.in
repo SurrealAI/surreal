@@ -1,1 +1,2 @@
 recursive-include docs *
+include surreal/sample_surreal.yml
