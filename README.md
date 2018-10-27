@@ -12,11 +12,11 @@ It boasts the following features:
 
 - **Unification of on-policy and off-policy methods**. The key is to separate experience generation from learning. Parallel actors generate massive amount of experience data, while a _single, centralized_ learner performs model updates. Each actor interacts with the environment independently, which allows them to diversify the exploration for hard long-horizon robotic tasks. They send the experiences to a centralized buffer that supports both on-policy (FIFO mode) and off-policy (replay memory mode) learning.
 
-<img src=".README_images/distributed.png" alt="drawing" width="70%"/>
+<img src=".README_images/distributed.png" alt="drawing" width="70%" height="70%" />
 
 - **Reproducibility**. RL algorithms are notoriously hard to reproduce \[Henderson et al., 2017\], due to multiple sources of variations like algorithm implementation details, library dependencies, and hardware types. We address this by providing an _end-to-end integrated pipeline_ that replicates our full cluster hardware and software runtime setup.
 
-<img src=".README_images/pipeline.png" alt="drawing" width="80%"/>
+<img src=".README_images/pipeline.png" alt="drawing" width="80%" height="80%" />
 
 ## Quick Start
 
