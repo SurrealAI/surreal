@@ -32,6 +32,7 @@ setup(
     },
     install_requires=[
         "gym",
+        "robosuite",
         "mujoco-py<1.50.2,>=1.50.1",
         "tabulate",
         "tensorflow", # TODO: separate tensorboard image
@@ -47,6 +48,7 @@ setup(
         "symphony>=0.9",
         "torchx",
         "tensorplex",
+        "Cython<0.29",
     ],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

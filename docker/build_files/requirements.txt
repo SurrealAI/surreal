@@ -1,4 +1,5 @@
 gym
+robosuite
 mujoco-py<1.50.2,>=1.50.1
 tabulate
 tensorflow # TODO: separate tensorboard image
@@ -15,3 +16,4 @@ symphony>=0.9
 torchx
 tensorplex
 Cython<0.29
+cloudwise

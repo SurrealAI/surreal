@@ -5,15 +5,26 @@ username: <your_username>
 # Optionally, you can turn this behavior off by setting prefix_experiment_with_username = False
 prefix_experiment_with_username: True
 
-# These commands a run in every tmux window before you launch an experiment using turreal
+# These commands a run in every tmux window before you launch an experiment using surreal-tmux
 tmux_preamble_cmds:
   - 'source activate surreal'
   # - ...
 # Every time an experiment is created on tmux, result data will be written here
-tmux_results_folder: <put path here> # ~/turreal/
+tmux_results_folder: <put path here> # ~/surreal-tmux/
 
 
 ## !!! Stop here if you are only running things locally !!!
+
+# Every time an experiment is created on kubernetes, some persisted data will be stored here
+kube_metadata_folder: <put path here> # ~/kurreal/
+# After you use cloudwise to create a cluster, you will obtain <cluster_name>.tf.json put its location here
+cluster_definition: <cluster_definition.tf.json>
+# Every time an experiment is created on tmux, result data will be written here
+# Important: This path is inside a container
+kube_results_folder: <put path here> # /fs/experiments/<your_username>
+# Mount secret files, they would be available at /etc/secrets
+mount_secrets:
+  - ~/.mujoco/mjkey.txt
 
 # Uncomment to enable nfs support
 # nfs:
@@ -25,17 +36,6 @@ tmux_results_folder: <put path here> # ~/turreal/
 #   mount_path: <put path here> # /fs
 #   # Retrieve experiment related data from <results_folder>/<experiment_name>
 #   results_folder: <put path here> # /data/experiments/<your_username>
-
-# Every time an experiment is created on kubernetes, some persisted data will be stored here
-kurreal_metadata_folder: <put path here> # ~/kurreal/
-# After you use cloudwise to create a cluster, you will obtain <cluster_name>.tf.json put its location here
-cluster_definition: <cluster_definition.tf.json>
-# Every time an experiment is created on tmux, result data will be written here
-# Important: This path is inside a container
-kurreal_results_folder: <put path here> # /fs/experiments/<your_username>
-# Mount secret files, they would be available at /etc/secrets
-mount_secrets:
-  - ~/mjkey.txt
 
 # Here you can specify creation settings for your experiments. See creation_settings.md for more details
 creation_settings:

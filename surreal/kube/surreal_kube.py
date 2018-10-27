@@ -59,7 +59,7 @@ class KurrealParser(SymphonyParser):
 
     @property
     def folder(self):
-        return U.f_expand(self.config.kurreal_metadata_folder)
+        return U.f_expand(self.config.kube_metadata_folder)
 
     @property
     def username(self):
@@ -420,7 +420,7 @@ class KurrealParser(SymphonyParser):
             <mount_path>/<root_subfolder>/<experiment_name>/
         """
         # DON'T use U.f_join because we don't want to expand the path locally
-        directory = self.config.kurreal_results_folder
+        directory = self.config.kube_results_folder
         return os.path.join(directory, experiment_name)
 
     def action_tensorboard(self, args):

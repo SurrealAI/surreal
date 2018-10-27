@@ -65,9 +65,6 @@ RUN conda install --yes ffmpeg -c conda-forge
 COPY build_files/requirements.txt /mylibs/
 RUN pip install -r /mylibs/requirements.txt
 
-COPY mujoco /mylibs/mujoco
-RUN pip install -e /mylibs/mujoco
-
 COPY surreal /mylibs/surreal
 RUN pip install -e /mylibs/surreal
 
