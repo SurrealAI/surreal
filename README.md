@@ -8,7 +8,9 @@ _Stanford Vision and Learning Lab_
 [SURREAL](https://surreal.stanford.edu) is a fully integrated framework that runs state-of-the-art distributed reinforcement learning (RL) algorithms.
 
 
-<img src=".README_images/iconic-features.png" width=40% align="center" />
+<div align="center">
+<img src=".README_images/iconic-features.png" width=40% />
+</div>
 
 
 - **Scalability**. RL algorithms are data hungry by nature. Even the simplest Atari games, like Breakout, typically requires up to a billion frames to learn a good solution. To accelerate training significantly, SURREAL parallelizes the environment simulation and learning. The system can easily scale to thousands of CPUs and hundreds of GPUs.
