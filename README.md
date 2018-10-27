@@ -1,4 +1,4 @@
-<img src=".README_images/surreal-logo.png" width=10% align="right" />
+<img src=".README_images/surreal-logo.png" width=20% align="right" />
 
 # **[SURREAL](https://surreal.stanford.edu)**
 ## Open-Source Distributed Reinforcement Learning Framework
@@ -132,7 +132,7 @@ For how to deploy on the Kubernetes engine with Google Cloud, please refer to th
 
 - Training curves of 16 actors on OpenAI Gym tasks for 3 hours, compared to other baselines. 
 
-![](.README_images/performance-gym.png)
+<img src=".README_images/performance-gym.png" width=70% />
 
 
 ## Citations
