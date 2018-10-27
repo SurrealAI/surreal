@@ -28,36 +28,41 @@ The following guide allows you to setup the necessary fields in the config. Depe
 ## NFS
 * `nfs`. When running surreal on Kubernetes. It is highly recommended to use a network file system with Kubernetes. The `nfs` block in `.surreal.yml` configures nfs related information.
 
-### Retrieving Data From the NFS
-* `hostname`. Hostname of the nfs on your machine. Define this to use our helpers for retrieving data from the nfs system.
-* `results_folder`. Where experiment results are stored on the nfs server. Experiment data utilities retrieve data from `<results_folder>/<experiment_name>`.
-
-### Mounting the NFS on Kubernetes.
-When running an experiment on kubernetes, you can mount a nfs to all containers so every process can access a shared file system.
-
-* `servername`. Name of the nfs server in the perspective of nodes in the kubernetes cluster.
-* `fs_location`. Server directory serving as the file system.
-* `mount_path`. Where the nfs is mounted in the containers.
+  - `servername`. This is the instance name of the nfs server. Containers on Kubernetes will connect to the file server using this name. When `surreal-kube` retrieves experiment data for you, it also uses `servername` to generate the correct `gcloud compute scp ...` command.
+  - `mount_path`. Where the nfs volume is mounted in the containers.
+  - - `fs_location`. Server directory serving as the file system. This is by default `/data`. In other words, from the perspective of the machine hosting the nfs, `/data/` contains the data of the file system.
+  - `results_folder`. Where experiment results are stored on the nfs server. Experiment data utilities retrieve data from `<results_folder>/<experiment_name>`.
 
 ### Example
-Suppose that you created a single node file server on Google Cloud and named it `surreal-fs-server`. You configred the server's `/data` directory to serve as the file system. On containers, you mount the file system to directory `/fs`. And you want to store the experiment outputs to `/fs/experiments/my_username`. You can use the following configuration. In your own `~/.ssh/config`, you can configure host name `surrealfs`. This would result in the following settings.
+You can use the following configuration. In your own `~/.ssh/config`, you can configure host name `surrealfs`. This would result in the following settings:
+
+1. Suppose that you created a single node file server on Google Cloud and named it `surreal-fs`. The instance name of the file server would be `surreal-fs`, this gives the `servername` field.
 ```yaml
-kube_results_folder: /fs/experiments/my_username
 nfs:
-  hostname: surrealfs
-  servername: surreal-fs-server
+  servername: surreal-fs
+```
+2. By default, the server's `/data` directory serves as the file system. We specify it using `fs_location`.
+```yaml
+nfs:
   fs_location: /data
+```
+3. On containers, we mount the file system to directory `/fs`. This is specified by `mount_path`.
+```yaml
+nfs:
   mount_path: /fs
-  results_folder: /data/experiments/my_username
 ```
-```bash
-# ~/.ssh/config
-Host surrealfs
-  Hostname <ip or surreal-fs-server>
-  User <your username to access google cloud vm>
-  IdentityFile <your secret key to access google cloud vm>
+4. We want to store the experiment outputs to `/fs/experiments/foobar`, this is configured through the `kube_results_folder` field (not in the `nfs` dictionary). 
+```yaml
+kube_results_folder: /fs/experiments/foobar
+nfs:
+  ...
 ```
-Note: This solution does not deal with user name mapping in nfs well. If there are permission issues, set the permissions on your `/data/experiments` folder to be `777`.
+5. If we ssh into the server, the location `/fs/experiments/foobar` on the containers corresponds to `/data/experiments/foobar` on the server. This gives the `results_folder` field.
+```yaml
+nfs:
+  results_folder: /data/experiments/foobar
+```
+6. If you run into permission issues, set the permissions on your `/data/experiments` folder to be `777`.
 
 ## Kubernetes
 * `kube_metadata_folder`. This is the path that experiments launched to kubernetes store their metadata (actual experiments happen in the cloud). 
@@ -104,7 +109,7 @@ docker_build_settings:
 ```
 The dockerfile then copies the custom Surreal library and installs it.
 ```Dockerfile
-TODO: From
+FROM surrealai/surreal-nvidia:v0.0
 # ~/surreal/docker/Dockerfile-contribute
 COPY surreal /mylibs/surreal-dev
 RUN pip install -e -U /mylibs/surreal-dev

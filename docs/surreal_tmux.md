@@ -3,6 +3,7 @@ This guide will allow you to setup Surreal on a local machine. Multiple processe
 [Requirements](#requirements)  
 [Install Surreal](#install-surreal)  
 [Create and run an experiment](#Create-and-run-an-experiment)  
+[Develop Algorithms Locally](#Develop-Algorithms-Locally)
 
 ## Requirements
 * This guide is written and tested primarily on Mac OS X and Ubuntu 16.04. If you run into issues when installing, you can check [our docker file](docker/Dockerfile-nvidia) (adapted from the image for [mujoco_py](https://github.com/openai/mujoco-py)). For linux users, the dependencies that we needed on top of a nvidia image is listed as follows.
@@ -101,11 +102,13 @@ If you setup your `.surreal.yml` as default (you need fiels `tmux_preamble_cmds`
 surreal-tmux create --algorithm ppo <experiment_name> # Runs Surreal-PPO
 surreal-tmux create --algorithm ddpg <experiment_name> # Runs Surreal-DDPG
 ```
-`surreal-tmux create ...` respects `CUDA_VISIBLE_DEVICES` for using GPU acceleration for rendering and neural network acceleration. You can control what GPUs are used with
+
+**Consuming GPU.** `surreal-tmux create ...` respects `CUDA_VISIBLE_DEVICES` for using GPU acceleration for rendering and neural network acceleration. You can control what GPUs are used with
 ```bash
 export CUDA_VISIBLE_DEVICES=0,1
 surreal-tmux create ...
 ```
+When there is only one GPU present, the launcher will assign agents, evals and learner to this GPU. When there is more than one. The launcher will assign learner to one GPU and evenly distribute agents and evals to the remaining GPUs.
 
 Use `surreal-tmux p` (`p` is a short hand for `list-processes`) to check the status of each process.
 ```bash
