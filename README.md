@@ -1,4 +1,4 @@
-<img src=".README_images/surreal-logo.png" width=20% align="right" />
+<img src=".README_images/surreal-logo.png" width=15% align="right" />
 
 # **[SURREAL](https://surreal.stanford.edu)**
 ## Open-Source Distributed Reinforcement Learning Framework
@@ -8,13 +8,13 @@ _Stanford Vision and Learning Lab_
 [SURREAL](https://surreal.stanford.edu) is a fully integrated framework that runs state-of-the-art distributed reinforcement learning (RL) algorithms.
 
 
-<img src=".README_images/iconic-features.png" width=70% align="center" />
+<img src=".README_images/iconic-features.png" width=40% align="center" />
 
 
 - **Scalability**. RL algorithms are data hungry by nature. Even the simplest Atari games, like Breakout, typically requires up to a billion frames to learn a good solution. To accelerate training significantly, SURREAL parallelizes the environment simulation and learning. The system can easily scale to thousands of CPUs and hundreds of GPUs.
 
 
-- **Flexibility**. SURREAL unifies distributed on-policy and off-policy learning into a single algorithmic formulation. The key is to separate experience generation from learning. Parallel actors generate massive amount of experience data, while a _single, centralized_ learner performs model updates. Each actor interacts with the environment independently, which allows them to diversify the exploration for hard long-horizon robotic tasks. They send the experiences to a centralized buffer, implemented with a FIFO queue for on-policy mode and replay memory for off-policy mode.
+- **Flexibility**. SURREAL unifies distributed on-policy and off-policy learning into a single algorithmic formulation. The key is to separate experience generation from learning. Parallel actors generate massive amount of experience data, while a _single, centralized_ learner performs model updates. Each actor interacts with the environment independently, which allows them to diversify the exploration for hard long-horizon robotic tasks. They send the experiences to a centralized buffer, implemented with a FIFO queue for on-policy mode and replay memory for off-policy mode. 
 
 <!--<img src=".README_images/distributed.png" alt="drawing" width="500" />-->
 
