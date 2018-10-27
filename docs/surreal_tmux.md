@@ -39,38 +39,46 @@ sudo apt-get install \
      Note that for older versions of Ubuntu (e.g., 14.04) there's no libglfw3 package, in which case you need to `export LD_LIBRARY_PATH=$HOME/.mujoco/mjpro150/bin` before proceeding to the next step.
 
 ## Install Surreal
-1. **(Optional) Setup python environment** First, create a python environment. Surreal is developed on python 3.5+. We recommend using [conda](https://conda.io/docs/user-guide/install/index.html) or a [virtual environment](https://virtualenv.pypa.io/en/stable/) for the dependencies of Surreal. For example, we usually use conda.
+1. **(Optional) Setup python environment.** First, create a python environment. Surreal is developed on python 3.5+. We recommend using [conda](https://conda.io/docs/user-guide/install/index.html) or a [virtual environment](https://virtualenv.pypa.io/en/stable/) for the dependencies of Surreal. For example, we usually use conda.
 ```bash
 conda create -n surreal python>=3.5
 source activate surreal
 ```
 
-2. **Install pytorch** Install [pytorch](https://pytorch.org/get-started/locally/) following the official guide. Optionally, setup cuda if you have GPUs enabled.
+2. **Install pytorch.** Install [pytorch](https://pytorch.org/get-started/locally/) following the official guide. Optionally, setup cuda if you have GPUs enabled.
 
-3. **Install Surreal** Installing surreal through pip would install the surreal library and all its dependencies.
+3. **Install Surreal.** Installing surreal through pip would install the surreal library and all its dependencies.
 ```bash
 pip install surreal
 ```
 
-4. **Configure Surreal** TODO: Setup `.surreal.yml`. Run the following command to setup the surreal config file at `~/.surreal.yml`. 
+4. **Configure Surreal.** Setup `.surreal.yml`. Run the following command to setup the surreal config file at `~/.surreal.yml`. 
 ```bash
 surreal-default-config
 ```
+
 This will generate a config file at `~/.surreal.yml`. Optionally, you can put it in another location and specify `SURREAL_CONFIG_PATH`. 
+
     - Experiments are automatically prepended with your username. Specify it in the config. You can turn this behavior off by setting `prefix_experiment_with_username = False`.
+
 ```yaml
 username: <your_username>
 ```
+
     - When running experiments locally, you may want to setup environment variables (e.g. activate a virtual python environment) before running the python script. You can do this by specifying one command in each line of 
 `tmux_preamble_cmds`.
+
 ```yaml
 tmux_preamble_cmds:
   - 'source activate surreal'
 ```
+
     - Every time an experiment is created on tmux, result data will be written to `<tmux_results_folder>/<experiment_name>`. `tmux_results_folder` is specified in the config. (e.g. You can put all your experiment results in `~/surreal/tmux/`)
+
 ```yaml
 tmux_results_folder: <put path here> # ~/surreal/tmux/
 ```
+
     - If you want to know more about the config and other fields, refer to [this guide](yaml_config.md). For now, we have what we need to setup local experiments.
 
 5. **Install Tmux**
