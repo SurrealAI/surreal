@@ -134,7 +134,7 @@ For how to deploy on the Kubernetes engine with Google Cloud, please refer to th
 
 - Training curves of 16 actors on OpenAI Gym tasks for 3 hours, compared to other baselines. 
 
-<img src=".README_images/performance-gym.png" width=70% />
+<img src=".README_images/performance-gym.png" width=60% />
 
 
 ## Citations
