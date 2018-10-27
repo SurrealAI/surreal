@@ -91,12 +91,22 @@ kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container
     - Wait for the deployment. After it finishes, you have a network file system. The data are stored on the `/data` directory in the machine running the file server.
     - Now you can go to the Compute engine tab. And search for your file system. For example, see below. The blue box is the instance name. Machines on google cloud can use instance name to find this file server. The red box is the external ip. You can setup ssh into this machine using the externel ip (see [documentations](https://cloud.google.com/compute/docs/instances/connecting-advanced#provide-key) for how to configure it).  
 [!fs-configuration](../assets/file-server.png)
-To configure Surreal to utilize the file system, there are four attributes that needs to be provided. For container 
+To configure Surreal to utilize the file system, there are several attributes that needs to be provided in a yaml dictionary. They will be needed later. 
+    - First, we need to mount this file system onto each container running our experiments. `servername` is used by nodes on google cloud to locate the file server. Use the instance name of internal id of the server. `fs_location` specifies where is the file system on the server. This is by default `/data`. `/mount_path` is where the file system is mounted on the containers. For exmaple, if we mount the file system to `/fs` and save outputs to `/fs/experiments/foobar`, the data would reside on the file server.
+```yaml
+# experiment outputs are saved to /fs/experiments/foobar
+nfs:
+  servername: surreal-fs # or internal ip 
+  fs_location: /data
+  mount_path: /fs
+  ...
+```
+    - To retrieve data from the ssh server, the location where experiment data is stored *on the server* needs to be provided. In our sample, it is at `/data/experiments/foobar`
 ```yaml
 nfs:
-  servername: my-nfs-server
+    ...
+    results_folder: /data/experiments/foobar
 ```
-
 
 ## Configure Surreal
 You need to configure surreal properly to run experiments. If you have setup surreal to run locally using tmux, you may have already setup some fields. If you haven't, run 
@@ -220,9 +230,14 @@ surreal-kube se
 > foobar-first-experiment
 ```
 If you have nfs setup properly, you can retrieve data using TODO
-
-
-
+```bash
+surreal-kube get-video foobar-first-experiment
+> Downloading ...
+surreal-kube get-config foobar-first-experiment
+> Downloading ...
+surreal-kube get-tensorboard foobar-second-experiment
+> Downloading ...
+```
 After you are done, delete the experiment.
 ```bash
 kurreal delete

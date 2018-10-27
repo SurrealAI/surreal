@@ -2,7 +2,7 @@ gym
 robosuite
 mujoco-py<1.50.2,>=1.50.1
 tabulate
-tensorflow # TODO: separate tensorboard image
+tensorflow
 tensorboardX
 imageio
 pygame

@@ -36,7 +36,7 @@ The following guide allows you to setup the necessary fields in the config. Depe
 When running an experiment on kubernetes, you can mount a nfs to all containers so every process can access a shared file system.
 
 * `servername`. Name of the nfs server in the perspective of nodes in the kubernetes cluster.
-* `path_on_server`. Server directory serving as the file system.
+* `fs_location`. Server directory serving as the file system.
 * `mount_path`. Where the nfs is mounted in the containers.
 
 ### Example
@@ -46,7 +46,7 @@ kube_results_folder: /fs/experiments/my_username
 nfs:
   hostname: surrealfs
   servername: surreal-fs-server
-  path_on_server: /data
+  fs_location: /data
   mount_path: /fs
   results_folder: /data/experiments/my_username
 ```

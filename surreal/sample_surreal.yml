@@ -28,13 +28,11 @@ mount_secrets:
 
 # Uncomment to enable nfs support
 # nfs:
-#   hostname: 100.100.100.100 # the (user) + host name that you ssh into to access nfs
 #   servername: nfs_server
 #   # This directory on the nfs server contains the file system
-#   path_on_server: <put path here> # /data
-#   # Mount path_on_server to mount_path in containers
+#   fs_location: <put path here> # /data
+#   # Mount fs_location to mount_path in containers
 #   mount_path: <put path here> # /fs
-#   # Retrieve experiment related data from <results_folder>/<experiment_name>
 #   results_folder: <put path here> # /data/experiments/<your_username>
 
 # Here you can specify creation settings for your experiments. See creation_settings.md for more details
