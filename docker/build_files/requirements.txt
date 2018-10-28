@@ -12,8 +12,8 @@ nanolog
 psutil
 tabulate
 imageio
-caraml
-symphony>=0.9
+caraml>=0.10.0
+symphony>=0.9.1
 torchx
 tensorplex
 Cython<0.29

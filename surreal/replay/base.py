@@ -19,7 +19,6 @@ class Replay:
                  index=0):
         """
         """
-        # TODO: can we clean this up?
         # Note that there're 2 replay configs:
         # one in learner_config that controls algorithmic
         # part of the replay logic

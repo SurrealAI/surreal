@@ -40,15 +40,13 @@ See [documentation](creation_settings.md) for details.
 
 * You can provide algorithm specific configs after `--`. This is especially useful when you are using your own entrypoint.
 ```bash
-surreal-kube create cpu-experiment my-first-experiment --algorithm my_ppo -- --use-alternative-loss
+surreal-kube create cpu-experiment my-first-experiment --algorithm my_ppo.py -- --use-alternative-loss
 ```
-TODO: add documentation about algorithm specific settings
 
 ## Monitor Experiments
 After creating the experiment, you can use `surreal-kube list-processes` (or `surreal-kube lsp` or `surreal-kube p`) to list all running processes in the current experiment.
 ```bash
 surreal-kube p
-# TODO: Add output
 ```
 
 You can always use `kubectl` to supplement `surreal-kube`. For example, to check autoscaling related issues, you can do

@@ -234,7 +234,7 @@ class KurrealParser(SymphonyParser):
         'restore_folder': None,
         'env': 'gym:HalfCheetah-v2',
         'agent': {
-            'image': 'surreal-cpu-image',  # TODO
+            'image': 'surrealai/surreal-nvidia:v0.1',
             'build_image': None,
             'scheduling': {
                 'assign_to': 'node_pool',
@@ -246,7 +246,7 @@ class KurrealParser(SymphonyParser):
             }
         },
         'nonagent': {
-            'image': 'surreal-cpu-image',  # TODO
+            'image': 'surrealai/surreal-nvidia:v0.1',
             'build_image': None,
             'scheduling': {
                 'assign_to': 'node_pool',

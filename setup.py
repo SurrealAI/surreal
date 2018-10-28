@@ -9,11 +9,11 @@ def read(fname):
 
 setup(
     name='Surreal',
-    version='0.0.1',
+    version='0.1.0',
     author='Stanford Vision and Learning Lab',
     url='http://github.com/StanfordVL/Surreal',
     description='Stanford University Repository for Reinforcement Algorithms',
-    # long_description=read('README.rst'),
+    long_description=read('README.rst'),
     keywords=['Reinforcement Learning',
               'Deep Learning',
               'Distributed Computing'],
@@ -35,7 +35,7 @@ setup(
         "robosuite",
         "mujoco-py<1.50.2,>=1.50.1",
         "tabulate",
-        "tensorflow", # TODO: separate tensorboard image
+        "tensorflow",
         "tensorboardX",
         "imageio",
         "pygame",
@@ -44,10 +44,11 @@ setup(
         "psutil",
         "tabulate",
         "imageio",
-        "caraml",
-        "symphony>=0.9",
+        "caraml>=0.10.0",
+        "symphony>=0.9.1",
         "torchx",
         "tensorplex",
+        "cloudwise>=0.1.1",
         "Cython<0.29",
     ],
     classifiers=[

@@ -1,5 +1,4 @@
-# WIP
-# TODO: test and prepare, this is for dm_control environments
+# WIP: this is for dm_control environments
 
 FROM ubuntu:16.04
 

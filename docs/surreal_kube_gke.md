@@ -5,8 +5,6 @@ To run large scale experiments, you need to setup Surreal on a Kubernetes Cluste
 [Create the Cluster](#create-the-cluster)  
 [Configure Surreal](#configure-surreal)  
 [Launch Experiments](#launch-experiments)  
-TODO: contributing
-TODO: development
 
 ## Install Requirements
 1. **Install Surreal.** You must have surreal installed. Surreal supports python 3. We usually use python 3.5 and later.
@@ -26,7 +24,7 @@ pip install surreal
 
 We need to install google cloud SDK. See [guide here](https://cloud.google.com/sdk/). After you successfully install, you can login to your google account using, this provides the credential for `terraform`.
 ```bash
-gcloud auth login
+gcloud auth application-default login
 ```
 
 5. **Mujoco License.** To run Mujoco on a multi-node cluster, you will need a multi-machine license.
