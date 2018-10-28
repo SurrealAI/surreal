@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name='Surreal',
-    version='0.1.0',
+    version='0.1.1',
     author='Stanford Vision and Learning Lab',
     url='http://github.com/StanfordVL/Surreal',
     description='Stanford University Repository for Reinforcement Algorithms',

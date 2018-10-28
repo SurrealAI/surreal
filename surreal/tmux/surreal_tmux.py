@@ -24,7 +24,7 @@ def _merge_setting_dictionaries(customize, base):
     return di
 
 
-class surreal-tmuxParser(SymphonyParser):
+class TurrealParser(SymphonyParser):
     def create_cluster(self):
         return Cluster.new('tmux')
 
@@ -248,7 +248,7 @@ class surreal-tmuxParser(SymphonyParser):
 
 
 def main():
-    surreal-tmuxParser().main()
+    TurrealParser().main()
 
 
 if __name__ == '__main__':
