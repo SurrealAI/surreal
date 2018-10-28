@@ -16,13 +16,21 @@ pip install surreal
 
 3. **Install Terraform.** We use `terraform` to automate kubernetes cluster creation. Install `terraform` following instructions [here](https://www.terraform.io/intro/getting-started/install.html).
 
-4. **Create Google Cloud Project.** We are using Google Cloud. You will need a [google cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) if you don't have a project, create one. You can find your project id at [console.cloud.google.com](console.cloud.google.com). It will be used later on.
+4. **Create Google Cloud Project.** We are using Google Cloud. You will need a [google cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) if you don't have a project, create one. You can find your project id at [console.cloud.google.com](console.cloud.google.com). See image.
 
 <div align="center">
 <img src="../.README_images/project-id.png" width=40% />
 </div>
 
-We need to install google cloud SDK. See [guide here](https://cloud.google.com/sdk/). After you successfully install, you can login to your google account using, this provides the credential for `terraform`.
+We need to install google cloud SDK. See [guide here](https://cloud.google.com/sdk/). After you successfully install, you can login to your google account using
+```bash
+gcloud auth login
+```
+Use your project id as default for `gcloud`
+```bash
+gcloud config set project <project -id>
+```
+Finally, expose the credentials to `terraform`.
 ```bash
 gcloud auth application-default login
 ```
