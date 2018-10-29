@@ -28,7 +28,7 @@ settings = {
 builder = DockerBuilder.from_dict(settings)
 builder.build()
 repo = "surrealai/surreal-nvidia"
-tag = "v0.0"
+tag = "v0.1"
 builder.tag(repo, tag)
 builder.push(repo, tag)
 
