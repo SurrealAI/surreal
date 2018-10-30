@@ -86,14 +86,14 @@ creation_settings:
     # Environment to use
     env: robosuite:SawyerLift
     agent:
-      image: surrealai/surreal-nvidia:v0.0
+      image: surrealai/surreal-nvidia:v0.1
       build_image: null
       scheduling:
         # Configure scheduling depending on your need
         assign_to: resource
         cpu: 1.5
     nonagent:
-      image: surrealai/surreal-nvidia:v0.0
+      image: surrealai/surreal-nvidia:v0.1
       build_image: null
       # Configure scheduling depending on your need
       scheduling:
@@ -111,14 +111,14 @@ creation_settings:
     algorithm: ppo
     env: robosuite:SawyerLift
     agent:
-      image: surrealai/surreal-nvidia:v0.0
+      image: surrealai/surreal-nvidia:v0.1
       build_image: null
       scheduling:
         assign_to: resource
         gpu_type: k80
         gpu_count: 1
     nonagent:
-      image: surrealai/surreal-nvidia:v0.0
+      image: surrealai/surreal-nvidia:v0.1
       build_image: null
       scheduling:
         assign_to: resource
