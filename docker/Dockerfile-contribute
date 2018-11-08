@@ -1,4 +1,4 @@
-FROM surrealai/surreal-nvidia:v0.0
+FROM surrealai/surreal-nvidia:v0.1
 # ~/surreal/docker/Dockerfile-contribute
 COPY surreal /mylibs/surreal-dev
 RUN pip uninstall -y surreal

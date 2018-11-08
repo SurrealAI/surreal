@@ -205,6 +205,8 @@ class PPOLauncher(SurrealDefaultLauncher):
                             'files like checkpoint and logs')
         parser.add_argument('--agent-batch', type=int, default=1,
                             help='how many agents/evals per batch')
+        parser.add_argument('--eval-batch', type=int, default=1,
+                            help='how many agents/evals per batch')
         parser.add_argument('--unit-test', action='store_true',
                             help='Set config values to settings that can run locally for unit testing')
 

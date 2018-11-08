@@ -127,13 +127,13 @@ class KurrealParser(SymphonyParser):
                  'container**'
         )
         parser.add_argument(
-            '--num_agents',
+            '--num-agents',
             type=int,
             default=None,
             help='number of agent pods to run in parallel.'
         )
         parser.add_argument(
-            '--num_evals',
+            '--num-evals',
             type=int,
             default=None,
             help='number of eval pods to run in parallel.'

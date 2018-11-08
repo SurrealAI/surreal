@@ -4,6 +4,7 @@ A template class that defines base agent APIs
 import time
 import os
 import surreal.utils as U
+import torch
 from surreal.env import make_env
 from surreal.session import (
     PeriodicTracker, PeriodicTensorplex,
@@ -57,6 +58,9 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         self.episodes_since_param_update = 0
 
         self.render = render
+        self.fetch_param_time = U.TimeRecorder()
+        self.act_time = U.TimeRecorder()
+        self.env_time = U.TimeRecorder()
 
     #######
     # Internal initialization methods
@@ -183,7 +187,8 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         if self.agent_mode == 'training':
             if self._fetch_parameter_mode == 'step' and \
                     self._fetch_parameter_tracker.track_increment():
-                self.fetch_parameter()
+                with self.fetch_param_time.time():
+                    self.fetch_parameter()
 
     def post_action(self, obs, action, obs_next, reward, done, info):
         """
@@ -205,6 +210,12 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             if self._fetch_parameter_mode == 'episode' and \
                     self._fetch_parameter_tracker.track_increment():
                 self.fetch_parameter()
+        self.tensorplex.add_scalars(
+            {
+                '.core/fetch_param_time': self.fetch_param_time.avg,
+                '.core/env_time': self.env_time.avg,
+                '.core/act_time': self.act_time.avg,
+            })
 
     def post_episode(self):
         """
@@ -249,8 +260,11 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             if self.render:
                 env.render()
             self.pre_action(obs)
-            action = self.act(obs)
-            obs_next, reward, done, info = env.step(action)
+            with self.act_time.time():
+                action = self.act(obs)
+                torch.cuda.synchronize()
+            with self.env_time.time():
+                obs_next, reward, done, info = env.step(action)
             total_reward += reward
             self.post_action(obs, action, obs_next, reward, done, info)
             obs = obs_next

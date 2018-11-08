@@ -226,6 +226,7 @@ DDPG_BLOCK_LIFTING_ENV_CONFIG = Config({
 
 DDPG_BLOCK_LIFTING_ENV_CONFIG.extend(DDPG_DEFAULT_ENV_CONFIG)
 
+
 class DDPGLauncher(SurrealDefaultLauncher):
     def __init__(self):
         learner_class = DDPGLearner
@@ -270,18 +271,18 @@ class DDPGLauncher(SurrealDefaultLauncher):
         args = parser.parse_args(args=argv)
 
         if args.env == 'robosuite:SawyerLift':
-            learner_class = DDPGLearner
-            agent_class = DDPGAgent
-            replay_class = UniformReplay
-            learner_config = DDPG_BLOCK_LIFTING_LEARNER_CONFIG
-            env_config = DDPG_BLOCK_LIFTING_ENV_CONFIG
-            session_config = DDPG_DEFAULT_SESSION_CONFIG
-            super.__init__(agent_class,
-                           learner_class,
-                           replay_class,
-                           session_config,
-                           env_config,
-                           learner_config)
+            self.learner_class = DDPGLearner
+            self.agent_class = DDPGAgent
+            self.replay_class = UniformReplay
+            self.learner_config = DDPG_BLOCK_LIFTING_LEARNER_CONFIG
+            self.env_config = DDPG_BLOCK_LIFTING_ENV_CONFIG
+            self.session_config = DDPG_DEFAULT_SESSION_CONFIG
+            # super.__init__(agent_class,
+            #                learner_class,
+            #                replay_class,
+            #                session_config,
+            #                env_config,
+            #                learner_config)
 
         self.env_config.env_name = args.env
         _, self.env_config = make_env(self.env_config)

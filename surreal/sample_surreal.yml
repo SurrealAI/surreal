@@ -108,7 +108,7 @@ creation_settings:
     num_evals: 1
     agent_batch: 8
     eval_batch: 8
-    algorithm: ppo
+    algorithm: ddpg
     env: robosuite:SawyerLift
     agent:
       image: surrealai/surreal-nvidia:v0.1
