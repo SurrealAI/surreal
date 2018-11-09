@@ -122,6 +122,12 @@ nfs:
     results_folder: /data/experiments/foobar
 ```
 
+### Set up Kube on your own
+
+You can set up a custom Kubernetes cluster if you want to deploy SURREAL on your own network-connected machines instead of Google Cloud.
+
+Here is the official tutorial: https://kubernetes.io/docs/setup/scratch/
+
 ## Configure Surreal
 You need to configure surreal properly to run experiments. If you have setup surreal to run locally using tmux, you may have already setup some fields. If you haven't, run 
 ```bash
