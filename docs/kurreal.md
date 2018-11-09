@@ -16,31 +16,31 @@ Using surreal-kube requires you to configure `.surreal.yml` correctly. Here is a
 ## Create Experiments
 If you followed the guide in [installation](installation.md), you can launch an experiment with 
 ```bash
-surreal-kube create cpu-experiment my-first-experiment
+surreal-kube create cpu-gym my-first-experiment
 ```
-Here `cpu-experiment` refers to the `creation_settings: cpu-experiment:`  in `.surreal.yml`. `my-first-experiment` is the name of the experiment. For details of the creation settings in each mode, see [documentation](creation_settings.md). 
+Here `cpu-gym` refers to the `creation_settings: cpu-gym:`  in `.surreal.yml`. `my-first-experiment` is the name of the experiment. For details of the creation settings in each mode, see [documentation](creation_settings.md). 
 
 There are several ways to customize `surreal-kube create` (or `surreal-kube c`).
 
 * Duplicate experiment names are by default blocked to prevent overwriting existing data. Override this behavior by using `-f`
 ```bash
-surreal-kube create -f cpu-experiment my-first-experiment
+surreal-kube create -f cpu-gym my-first-experiment
 > Creating...
-surreal-kube create cpu-experiment my-first-experiment
+surreal-kube create cpu-gym my-first-experiment
 > Error
-surreal-kube create -f cpu-experiment my-first-experiment
+surreal-kube create -f cpu-gym my-first-experiment
 > Creating...
 ```
 
 * You can override specific creation setting fields.
 ```bash
-surreal-kube create cpu-experiment my-first-experiment --algorithm ddpg --num-agents 100
+surreal-kube create cpu-gym my-first-experiment --algorithm ddpg --num-agents 100
 ```
 See [documentation](creation_settings.md) for details.
 
 * You can provide algorithm specific configs after `--`. This is especially useful when you are using your own entrypoint.
 ```bash
-surreal-kube create cpu-experiment my-first-experiment --algorithm my_ppo.py -- --use-alternative-loss
+surreal-kube create cpu-gym my-first-experiment --algorithm my_ppo.py -- --use-alternative-loss
 ```
 
 ## Monitor Experiments
