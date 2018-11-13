@@ -6,7 +6,7 @@
 [Monitor Experiments](#monitor-experiments)
 [Manage Multiple Experiments](#manage-multiple-experiments)
 [Delete Experiments](#delete-experiments)
-[Miscellaneous](#miscellaneous)
+[Miscellaneous](#miscellaneous)  
 
 ---
 
