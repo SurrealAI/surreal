@@ -1,12 +1,12 @@
 # surreal-kube user guide
 `surreal-kube` stands for Surreal on Kubernetes. It is a commandline for launching and managing Surreal experiments on Kubernetes, powered by [Symphony](https://github.com/SurrealAI/symphony). Check symphony docs to see how to creat a commandline like `surreal-kube`.
 
-[Configs](#configs)
-[Create Experiments](#create-experiments)
-[Monitor Experiments](#monitor-experiments)
-[Manage Multiple Experiments](#manage-multiple-experiments)
-[Delete Experiments](#delete-experiments)
-[Miscellaneous](#miscellaneous)
+[Configs](#configs)  
+[Create Experiments](#create-experiments)  
+[Monitor Experiments](#monitor-experiments)  
+[Manage Multiple Experiments](#manage-multiple-experiments)  
+[Delete Experiments](#delete-experiments)  
+[Miscellaneous](#miscellaneous)  
 
 ---
 
