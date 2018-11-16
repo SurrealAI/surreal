@@ -6,7 +6,7 @@ We recommend following the local mode guide first and then go to the Kubernetes 
 
 ## Algorithms
 * [Surreal DDPG](ddpg.md)  
-* [Surreal PPO](ddpg.md)  
+* [Surreal PPO](ppo.md)  
 
 ## References
 * [Environments](env.md)  
