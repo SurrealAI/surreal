@@ -110,7 +110,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
     },
     'observation': {
         'pixel': ['camera0'],
-        'low_dim':['position', 'velocity', 'proprio', 'cube_pos', 'cube_quat', 'gripper_to_cube', 'low-dim'],
+        'low_dim':['robot-state','object-state'],
     },
     'eval_mode': {
         'demonstration': None
