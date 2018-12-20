@@ -243,7 +243,7 @@ class PPOLearner(Learner):
         if self.clip_actor_gradient:
             stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
                                             self.model.get_actor_params(), 
-                                            self.actor_gradient_clip_value).item()
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -304,7 +304,7 @@ class PPOLearner(Learner):
         if self.clip_actor_gradient:
             stats['grad_norm_actor'] = nn.utils.clip_grad_norm_(
                                             self.model.get_actor_params(), 
-                                            self.actor_gradient_clip_value).item()
+                                            self.actor_gradient_clip_value)
         self.actor_optim.step()
         return stats
 
@@ -348,7 +348,7 @@ class PPOLearner(Learner):
         if self.clip_critic_gradient:
             stats['grad_norm_critic'] = nn.utils.clip_grad_norm_(
                                                 self.model.get_critic_params(), 
-                                                self.critic_gradient_clip_value).item()
+                                                self.critic_gradient_clip_value)
         self.critic_optim.step()
         return stats
 
