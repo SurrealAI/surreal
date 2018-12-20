@@ -5,6 +5,7 @@ from surreal.session import get_tensorplex_client, get_loggerplex_client
 from surreal.distributed import ExperienceCollectorServer
 from caraml.zmq import ZmqServer
 
+import threading
 
 class Replay:
     """
@@ -19,6 +20,8 @@ class Replay:
                  index=0):
         """
         """
+        self.replay_lock = threading.Lock()
+
         # Note that there're 2 replay configs:
         # one in learner_config that controls algorithmic
         # part of the replay logic
@@ -149,9 +152,12 @@ class Replay:
         """
             Allows us to do some book keeping in the base class
         """
-        self.cumulative_collected_count += 1
-        with self.insert_time.time():
-            self.insert(exp)
+        with self.replay_lock:
+            print('Begin Insert')
+            self.cumulative_collected_count += 1
+            with self.insert_time.time():
+                self.insert(exp)
+            print('End Insert')
 
     def _sample_request_handler(self, req):
         """
@@ -159,16 +165,25 @@ class Replay:
         https://stackoverflow.com/questions/29082268/python-time-sleep-vs-event-wait
         Since we don't have external notify, we'd better just use sleep
         """
+        self.replay_lock.acquire()
+        print('Begin Sample')
         batch_size = U.deserialize(req)
         U.assert_type(batch_size, int)
         while not self.start_sample_condition():
+            self.replay_lock.release()
             time.sleep(0.01)
+            self.replay_lock.acquire()
         self.cumulative_sampled_count += batch_size
         self.cumulative_request_count += 1
         with self.sample_time.time():
             sample = self.sample(batch_size)
         with self.serialize_time.time():
-            return U.serialize(sample)
+            print('start req serialize')
+            ret = U.serialize(sample)
+            print('end req serialize')
+        self.replay_lock.release()
+        print('End Sample')
+        return ret
 
     def start_evict_thread(self):
         if self._evict_thread is not None:

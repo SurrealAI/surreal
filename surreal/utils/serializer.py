@@ -16,11 +16,11 @@ def pa_deserialize(binary):
     return pa.deserialize(binary)
 
 
-_SERIALIZER = pa_serialize
-_DESERIALIZER = pa_deserialize
+#_SERIALIZER = pa_serialize
+#_DESERIALIZER = pa_deserialize
 
-# _SERIALIZER = pickle.dumps
-# _DESERIALIZER = pickle.loads
+_SERIALIZER = pickle.dumps
+_DESERIALIZER = pickle.loads
 
 
 def set_global_serializer(serializer, deserializer):
@@ -37,15 +37,20 @@ def serialize(obj):
     """
     We can improve this function if we *really* need more memory efficiency
     """
-    return _SERIALIZER(obj)
-
+    print("before serializing")
+    #return _SERIALIZER(obj)
+    ret = pickle.dumps(obj)
+    #ret = pa_serialize(obj) 
+    print("after serializing")
+    return ret
 
 def deserialize(binary):
     """
     We can improve this function if we *really* need more memory efficiency
     """
-    return _DESERIALIZER(binary)
-
+    #return _DESERIALIZER(binary)
+    return pickle.loads(binary)
+    #return pa_deserialize(binary)
 
 def string_hash(s):
     assert isinstance(s, str)

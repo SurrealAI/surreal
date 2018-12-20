@@ -63,6 +63,7 @@ def make_robosuite(env_name, env_config):
         reward_shaping=True,
         # demo_config=env_config.demonstration,
     )
+    print("ROBOSUITE: {}".format(env_name))
     env = RobosuiteWrapper(env, env_config)
     env = FilterWrapper(env, env_config)
     env = ObservationConcatenationWrapper(env)
