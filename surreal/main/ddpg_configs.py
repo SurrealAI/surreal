@@ -105,6 +105,7 @@ DDPG_DEFAULT_ENV_CONFIG = Config({
 
     'demonstration': None,
     'use_depth': False,
+    'render': False,
 
     'use_demonstration': False,
     # If true, DDPG will expect an image at obs['pixel']['camera0']

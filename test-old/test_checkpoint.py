@@ -21,7 +21,7 @@ def get_loader(train=False):
         datasets.MNIST(DATA_FOLDER, train=train, transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
+                       ]), download = True),
         batch_size=12, shuffle=False)
 
 
@@ -83,7 +83,7 @@ class Trainer():
             loss.backward()
             self.optimizer.step()
             self.steps += 1
-            l = loss.data[0]
+            l = loss.data.item()
             self.checkpoint.save(
                 score=-l,
                 global_steps=self.steps

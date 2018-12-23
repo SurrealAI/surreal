@@ -75,9 +75,10 @@ def make_robosuite(env_name, env_config):
 
     env = robosuite.make(
         env_name,
-        has_renderer=False,
+        has_renderer=env_config.render,
         ignore_done=True,
         use_camera_obs=env_config.pixel_input,
+        has_offscreen_renderer=env_config.pixel_input,
         camera_height=84,
         camera_width=84,
         render_collision_mesh=False,

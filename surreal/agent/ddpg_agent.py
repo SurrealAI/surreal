@@ -86,13 +86,15 @@ class DDPGAgent(Agent):
 
         if torch.cuda.is_available():
             self.gpu_ids = 'cuda:all'
-            self.log.info('DDPG agent is using GPU')
-            # Note that user is responsible for only providing one GPU for the program
-            self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
+            if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+                self.log.info('DDPG agent is using GPU')
+                # Note that user is responsible for only providing one GPU for the program
+                self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
         else:
             self.gpu_ids = 'cpu'
-            self.log.info('DDPG agent is using CPU')
+            if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+                self.log.info('DDPG agent is using CPU')
 
         with tx.device_scope(self.gpu_ids):
             self.model = DDPGModel(
@@ -115,7 +117,7 @@ class DDPGAgent(Agent):
             initializes exploration noise and populates self.noise, a callable
             that returns noise of dimension same as action
         """
-        if self.agent_mode == 'eval_deterministic':
+        if self.agent_mode in ['eval_deterministic', 'eval_deterministic_local']:
             return
         if self.noise_type == 'normal':
             self.noise = NormalActionNoise(
@@ -175,7 +177,7 @@ class DDPGAgent(Agent):
 
             action = action.clip(-1, 1)
 
-            if self.agent_mode != 'eval_deterministic':
+            if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']:
                 action += self.noise()
 
             action = action.clip(-1, 1)
@@ -202,7 +204,7 @@ class DDPGAgent(Agent):
 
     def pre_episode(self):
         super().pre_episode()
-        if self.agent_mode != 'eval_deterministic':
+        if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']:
             self.noise.reset()
 
     def prepare_env_agent(self, env):

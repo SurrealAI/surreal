@@ -39,7 +39,7 @@ class QAgent(Agent):
         else:
             eps = self.learner_config.eval.eps
         self.T += 1
-        if self.agent_mode == 'eval_deterministic' or random.random() > eps:
+        if (self.agent_mode in ['eval_deterministic', 'eval_deterministic_local']) or random.random() > eps:
             obs = obs[None]  # vectorize
             obs = Variable(obs, volatile=True)
             q_values = self.q_func(obs)
