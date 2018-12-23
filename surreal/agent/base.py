@@ -17,7 +17,8 @@ from surreal.env import (
     VideoWrapper
 )
 
-AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
+AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic', 
+    'eval_deterministic_local', 'eval_stochastic_local']
 
 
 class Agent(object, metaclass=U.AutoInitializeMeta):
@@ -46,8 +47,9 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         self.agent_mode = agent_mode
         self.agent_id = agent_id
 
-        self._setup_parameter_pull()
-        self._setup_logging()
+        if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+            self._setup_parameter_pull()
+            self._setup_logging()
 
         self.current_episode = 0
         self.cumulative_steps = 0
@@ -66,14 +68,15 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             implements AutoInitializeMeta meta class.
             self.module_dict can only happen after the module is constructed by subclasses.
         """
-        host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
-        self._module_dict = self.module_dict()
-        if not isinstance(self._module_dict, ModuleDict):
-            self._module_dict = ModuleDict(self._module_dict)
-        self._ps_client = ParameterClient(
-            host=host,
-            port=port,
-        )
+        if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+            host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
+            self._module_dict = self.module_dict()
+            if not isinstance(self._module_dict, ModuleDict):
+                self._module_dict = ModuleDict(self._module_dict)
+            self._ps_client = ParameterClient(
+                host=host,
+                port=port,
+            )
 
     def _setup_parameter_pull(self):
         self._fetch_parameter_mode = self.session_config.agent.fetch_parameter_mode

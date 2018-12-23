@@ -100,6 +100,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
     'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
+    'render': False,
     'frame_stacks': 1,
     'sleep_time': 0,
     'video': {
