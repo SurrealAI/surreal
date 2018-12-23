@@ -131,7 +131,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
         'curriculum_length': 50,
         'history_length': 20,
     },
-    'limit_episode_length': 500,
+    'limit_episode_length': 200,
     'stochastic_eval': True,
 })
 PPO_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)

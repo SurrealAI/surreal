@@ -179,7 +179,7 @@ LOCAL_SESSION_CONFIG = {
     'tensorplex': {
         'host': 'localhost',
         'port': 7008,
-        'tensorboard_port': 6006,
+        'tensorboard_port': 9009,
         'update_schedule': { # TODO: rename this to 'periodic'
             # for TensorplexWrapper:
             'training_env': 20,  # env record every N episodes
