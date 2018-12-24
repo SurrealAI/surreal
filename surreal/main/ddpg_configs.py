@@ -9,7 +9,7 @@ from surreal.agent import DDPGAgent
 from surreal.learner import DDPGLearner
 from surreal.replay import UniformReplay
 from surreal.launch import SurrealDefaultLauncher
-from surreal.env import make_env
+from surreal.env import make_env_config
 
 # TODO：Documentation on config files
 
@@ -269,22 +269,8 @@ class DDPGLauncher(SurrealDefaultLauncher):
 
         args = parser.parse_args(args=argv)
 
-        if args.env == 'robosuite:SawyerLift':
-            learner_class = DDPGLearner
-            agent_class = DDPGAgent
-            replay_class = UniformReplay
-            learner_config = DDPG_BLOCK_LIFTING_LEARNER_CONFIG
-            env_config = DDPG_BLOCK_LIFTING_ENV_CONFIG
-            session_config = DDPG_DEFAULT_SESSION_CONFIG
-            super.__init__(agent_class,
-                           learner_class,
-                           replay_class,
-                           session_config,
-                           env_config,
-                           learner_config)
-
         self.env_config.env_name = args.env
-        _, self.env_config = make_env(self.env_config)
+        self.env_config = make_env_config(self.env_config)
         self.env_config.num_agents = args.num_agents
 
         self.session_config.folder = args.experiment_folder
