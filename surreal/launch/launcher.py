@@ -11,7 +11,7 @@ import numpy as np
 from tensorplex import Loggerplex
 from tensorplex import Tensorplex
 from surreal.distributed import ShardedParameterServer
-from surreal.replay import ShardedReplay
+from surreal.replay import ShardedReplay, ReplayLoadBalancer
 import surreal.utils as U
 import faulthandler
 faulthandler.enable()
@@ -159,10 +159,10 @@ class SurrealDefaultLauncher(Launcher):
             self.run_ps()
         elif component_name == 'replay':
             self.run_replay()
-        # elif component_name == 'replay_loadbalancer':
-        #     self.run_replay_loadbalancer()
-        # elif component_name == 'replay_worker':
-        #     self.run_replay_worker(replay_id=component_id)
+        elif component_name == 'replay_loadbalancer':
+            self.run_replay_loadbalancer()
+        elif component_name == 'replay_worker':
+            self.run_replay_worker(replay_id=component_id)
         elif component_name == 'tensorboard':
             self.run_tensorboard()
         elif component_name == 'tensorplex':
@@ -349,16 +349,36 @@ class SurrealDefaultLauncher(Launcher):
             Replay collects experience from agents
             and serve them to learner
         """
-        session_config, learner_config, env_config = \
-            self.session_config, self.learner_config, self.env_config
+        loadbalancer = self.run_component('replay_loadbalancer')
+        components = [loadbalancer]
+        for replay_id in range(self.learner_config.replay.replay_shards):
+            component_name = 'replay_worker-{}'.format(replay_id)
+            replay = self.run_component(component_name)
+            components.append(replay)
+        U.wait_for_popen(components)
+        # session_config, learner_config, env_config = \
+        #     self.session_config, self.learner_config, self.env_config
 
-        sharded = ShardedReplay(learner_config=learner_config,
-                                env_config=env_config,
-                                session_config=session_config,
-                                replay_class=self.replay_class)
+        # sharded = ShardedReplay(learner_config=learner_config,
+        #                         env_config=env_config,
+        #                         session_config=session_config,
+        #                         replay_class=self.replay_class)
 
-        sharded.launch()
-        sharded.join()
+        # sharded.launch()
+        # sharded.join()
+
+    def run_replay_loadbalancer(self):
+        loadbalancer = ReplayLoadBalancer()
+        loadbalancer.launch()
+        loadbalancer.join()
+
+    def run_replay_worker(self, replay_id):
+        replay = self.replay_class(self.learner_config,
+                                   self.env_config,
+                                   self.session_config,
+                                   index=replay_id)
+        replay.start_threads()
+        replay.join()
 
     def run_tensorboard(self):
         """
