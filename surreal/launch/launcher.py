@@ -356,23 +356,23 @@ class SurrealDefaultLauncher(Launcher):
             replay = self.run_component(component_name)
             components.append(replay)
         U.wait_for_popen(components)
-        # session_config, learner_config, env_config = \
-        #     self.session_config, self.learner_config, self.env_config
-
-        # sharded = ShardedReplay(learner_config=learner_config,
-        #                         env_config=env_config,
-        #                         session_config=session_config,
-        #                         replay_class=self.replay_class)
-
-        # sharded.launch()
-        # sharded.join()
 
     def run_replay_loadbalancer(self):
+        """
+            Launches the learner and agent facing load balancing proxys
+            for replays
+        """
         loadbalancer = ReplayLoadBalancer()
         loadbalancer.launch()
         loadbalancer.join()
 
     def run_replay_worker(self, replay_id):
+        """
+            Launches a single replay server
+
+        Args:
+            replay_id: The id of the replay server
+        """
         replay = self.replay_class(self.learner_config,
                                    self.env_config,
                                    self.session_config,
