@@ -1,17 +1,14 @@
 import pickle
-import os
+import sys
 import time
-
-import torch
-
 from os.path import join as pjoin
 from glob import glob
 
 from surreal.env import *
-from surreal.main_scripts.runner import load_config
-from surreal.learner import learner_factory
-from surreal.agent import agent_factory
+# from surreal.main_scripts.runner import load_config
 import surreal.utils as U
+
+from benedict import BeneDict
 
 USER = "amandlek"
 EXPERIMENT_NAME = "ppo-pegs-round-sparse-eplen-100-1000-1"
@@ -23,7 +20,6 @@ def restore_model(folder):
     """
 
     # choose latest ckpt
-    folder = pjoin(destination, experiment_name)
     max_iter = -1.
     max_ckpt = None
     for ckpt in glob(pjoin(folder, "*.ckpt")):
@@ -31,6 +27,8 @@ def restore_model(folder):
         if iter_num > max_iter:
             max_iter = iter_num
             max_ckpt = ckpt
+    if max_ckpt is None:
+        raise ValueError('No checkpoint available in folder {}'.format())
     path_to_ckpt = max_ckpt
     with open(path_to_ckpt, 'rb') as fp:
         data = pickle.load(fp)
@@ -40,15 +38,7 @@ def restore_config(path_to_config):
     """
     Loads a config from a file.
     """
-
-    ### TODO: how to load config from YAML? ###
-
-    # hard code additional args for now, but make this part better eventually... 
-    additional_args = ['--env', 'mujocomanip:SawyerLift',
-                       '--num-agents', '1',
-                       '--num-gpus', '0',
-                       '--agent-num-gpus', '0']
-    configs = load_config(path_to_config, additional_args)
+    configs = BeneDict.load_yaml_file(path_to_config)
     return configs
 
 def restore_env(env_config):
@@ -59,12 +49,11 @@ def restore_env(env_config):
     env, env_config = make_env(env_config, 'eval')
     return env, env_config
 
-def restore_agent(learner_config, env_config, session_config, model):
+def restore_agent(agent_class, learner_config, env_config, session_config, model):
     """
     Restores an agent from a model.
     """
-    learner_config.algo.use_z_filter = True
-    agent_class = agent_factory(learner_config.algo.agent_class)
+    # learner_config.algo.use_z_filter = True
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -76,16 +65,16 @@ def restore_agent(learner_config, env_config, session_config, model):
     return agent
 
 if __name__ == "__main__":
-
+    folder = sys.argv[1]
     # set a seed
     np.random.seed(int(time.time() * 100000 % 100000))
 
     # restore policy
     print("\nLoading policy located at {}\n".format(folder))
-    model = restore_model(folder)
+    model = restore_model(pjoin(folder, 'checkpoint'))
 
     # restore the configs
-    configs = restore_config(CONFIG_PATH)
+    configs = restore_config(pjoin(folder, 'config.yml'))
     session_config, learner_config, env_config = \
         configs.session_config, configs.learner_config, configs.env_config
 
@@ -114,11 +103,3 @@ if __name__ == "__main__":
     # # for restoring checkpoint from session config
     # session_config.checkpoint.restore = True
     # session_config.checkpoint.restore_folder = pjoin(destination, experiment_name)
-
-    # # make the learner
-    # learner_class = learner_factory(learner_config.algo.learner_class)
-    # learner = learner_class(
-    #     learner_config=learner_config,
-    #     env_config=env_config,
-    #     session_config=session_config
-    # )
