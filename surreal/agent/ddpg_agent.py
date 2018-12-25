@@ -204,7 +204,7 @@ class DDPGAgent(Agent):
 
     def pre_episode(self):
         super().pre_episode()
-        if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']
+        if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']:
             self.noise.reset()
 
     def prepare_env_agent(self, env):
