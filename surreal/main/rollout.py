@@ -1,12 +1,14 @@
 import pickle
 import sys
 import time
-from os.path import join as pjoin
+from os import path
+
 from glob import glob
 
 from surreal.env import *
 # from surreal.main_scripts.runner import load_config
 import surreal.utils as U
+from surreal.agent import PPOAgent
 
 from benedict import BeneDict
 
@@ -22,8 +24,9 @@ def restore_model(folder):
     # choose latest ckpt
     max_iter = -1.
     max_ckpt = None
-    for ckpt in glob(pjoin(folder, "*.ckpt")):
-        iter_num = int(ckpt.split('.')[1])
+    for ckpt in glob(path.join(folder, "*.ckpt")):
+        print(ckpt)
+        iter_num = int(path.basename(ckpt).split('.')[1])
         if iter_num > max_iter:
             max_iter = iter_num
             max_ckpt = ckpt
@@ -71,10 +74,10 @@ if __name__ == "__main__":
 
     # restore policy
     print("\nLoading policy located at {}\n".format(folder))
-    model = restore_model(pjoin(folder, 'checkpoint'))
+    model = restore_model(path.join(folder, 'checkpoint'))
 
     # restore the configs
-    configs = restore_config(pjoin(folder, 'config.yml'))
+    configs = restore_config(path.join(folder, 'config.yml'))
     session_config, learner_config, env_config = \
         configs.session_config, configs.learner_config, configs.env_config
 
@@ -86,7 +89,7 @@ if __name__ == "__main__":
     env, env_config = restore_env(env_config)
 
     # restore the agent
-    agent = restore_agent(learner_config, env_config, session_config, model)
+    agent = restore_agent(PPOAgent, learner_config, env_config, session_config, model)
     print("Successfully loaded agent and model!")
 
     # do some rollouts
@@ -102,4 +105,4 @@ if __name__ == "__main__":
 
     # # for restoring checkpoint from session config
     # session_config.checkpoint.restore = True
-    # session_config.checkpoint.restore_folder = pjoin(destination, experiment_name)
+    # session_config.checkpoint.restore_folder = path.join(destination, experiment_name)

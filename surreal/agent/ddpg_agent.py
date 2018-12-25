@@ -177,7 +177,7 @@ class DDPGAgent(Agent):
 
             action = action.clip(-1, 1)
 
-            if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']
+            if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']:
                 action += self.noise()
 
             action = action.clip(-1, 1)
