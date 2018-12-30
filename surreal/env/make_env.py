@@ -1,4 +1,5 @@
 import os
+import gc
 from surreal.env.video_env import VideoWrapper
 import surreal.utils as U
 from .wrapper import (
@@ -12,13 +13,37 @@ from .wrapper import (
     )
 
 
+def make_env_config(env_config, mode=None):
+    """
+    Issue: Surreal-tmux gives segfault on running robosuite environments.
+    Cause: On launching a surreal process, an instance of RL environment is
+        created to obtain observation and action dimension info. This
+        environment can hold reference to openGL context that is not safe
+        for multiprocessing. The environment is dereferenced but not
+        necessarily garbage collected before fork/exec happens,
+        causing memory issues.
+    Solution: make_env_config method deallocates the environment and explicitly
+    calls the garbage collector. Use this method to obtain observation and
+        action dimensions.
+
+    Same as make_env, but explicitly deallocates the environment to avoid
+    further complications
+
+    Returns:
+        Populated env_config
+    """
+    env, env_config = make_env(env_config, mode)
+    del env
+    gc.collect()
+    return env_config
+
+
 def make_env(env_config, mode=None):
     """
     Makes an environment and populates related fields in env_config
     return env, env_config
     Args:
-        overrides(str): point to the override in env_config to 
-                        provide differnt kwargs to the initializer of the environment
+        mode(str): allow differnt kwargs to the initializer of the environment
     """
     env_name = env_config.env_name
     env_category, env_name = env_name.split(':')
