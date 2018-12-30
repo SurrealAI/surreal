@@ -15,7 +15,18 @@ from .wrapper import (
 
 def make_env_config(env_config, mode=None):
     """
-    Same as make_env, but explicitly deallocates the environment to avoid 
+    Issue: Surreal-tmux gives segfault on running robosuite environments.
+    Cause: On launching a surreal process, an instance of RL environment is
+        created to obtain observation and action dimension info. This
+        environment can hold reference to openGL context that is not safe
+        for multiprocessing. The environment is dereferenced but not
+        necessarily garbage collected before fork/exec happens,
+        causing memory issues.
+    Solution: make_env_config method deallocates the environment and explicitly
+    calls the garbage collector. Use this method to obtain observation and
+        action dimensions.
+
+    Same as make_env, but explicitly deallocates the environment to avoid
     further complications
 
     Returns:
