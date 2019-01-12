@@ -95,13 +95,16 @@ if __name__ == "__main__":
     # do some rollouts
     while True:
         ob, info = env.reset()
+        ret = 0.
         env.unwrapped.viewer.viewer._hide_overlay = True
         env.unwrapped.viewer.set_camera(0)
         for i in range(200):
             a = agent.act(ob)
-            ob, _, _, _ = env.step(a)
+            ob, r, _, _ = env.step(a)
             # NOTE: we need to unwrap the environment here because some wrappers override render
             env.unwrapped.render()
+            ret += r
+        print("return: {}".format(ret))
 
     # # for restoring checkpoint from session config
     # session_config.checkpoint.restore = True
