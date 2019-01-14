@@ -174,3 +174,22 @@ class PPO_CriticNetwork(nnx.Module):
             v = v.view(obs_shape[0], obs_shape[1], 1)
         return v
 
+class GAIL_Discriminator(nnx.Module):
+    '''
+        GAIL discriminator network structure. Simple neural network.
+    '''
+
+    def __init__(self, D_in, hidden_sizes=[100, 64], activation=L.Tanh):
+        super(GAIL_Discriminator, self).__init__()
+        layers = []
+        for dim in hidden_sizes:
+            layers.append(L.Linear(dim))
+            layers.append(activation())
+        layers.append(L.Linear(1))
+        # layers.append(activation())
+
+        self.model = L.Sequential(*layers)
+        self.model.build((None, D_in))
+
+    def forward(self, obs):
+        return self.model(obs)

@@ -483,8 +483,7 @@ class PPOLearner(Learner):
             )
             return batch
 
-
-    def _optimize(self, obs, actions, rewards, obs_next, persistent_infos, onetime_infos, dones):
+    def _optimize(self, batch):
         '''
             main method for optimization that calls _adapt/clip_update and 
             _value_update epoch_policy and epoch_baseline times respectively
@@ -500,6 +499,16 @@ class PPOLearner(Learner):
             Returns:
                 dictionary of recorded statistics
         '''
+
+        # extract relevant quantities from the batch dictionary
+        obs = batch.obs
+        actions = batch.actions
+        rewards = batch.rewards
+        obs_next = batch.obs_next
+        persistent_infos = batch.persistent_infos
+        onetime_infos = batch.onetime_infos
+        dones = batch.dones
+
         # convert everything to float tensor: 
         with tx.device_scope(self.gpu_option):
             pds = persistent_infos[-1]
@@ -594,15 +603,7 @@ class PPOLearner(Learner):
         '''
         self.current_iteration += 1
         batch = self._preprocess_batch_ppo(batch)
-        tensorplex_update_dict = self._optimize(
-            batch.obs,
-            batch.actions,
-            batch.rewards,
-            batch.obs_next,
-            batch.persistent_infos,
-            batch.onetime_infos,
-            batch.dones,
-        )
+        tensorplex_update_dict = self._optimize(batch)
         self.periodic_checkpoint(
             global_steps=self.current_iteration,
             score=None,

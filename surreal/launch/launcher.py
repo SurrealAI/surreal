@@ -321,7 +321,6 @@ class SurrealDefaultLauncher(Launcher):
         """
         session_config, learner_config, env_config = \
             self.session_config, self.learner_config, self.env_config
-
         learner_class = self.learner_class
         learner = learner_class(
             learner_config=learner_config,

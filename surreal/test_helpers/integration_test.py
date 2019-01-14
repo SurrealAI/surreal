@@ -43,7 +43,8 @@ def integration_test(temp_path,
                      config_path,
                      launcher,
                      env='gym:HalfCheetah-v2',
-                     additional_args=None):
+                     additional_args=None,
+                     demo_path=None):
     if additional_args is None:
         additional_args = []
     print("Making temp directory...")
@@ -54,11 +55,13 @@ def integration_test(temp_path,
         '--num-agents',
         '1',
         '--env',
-        'gym:HalfCheetah-v2',
-        # 'robosuite:SawyerLift',
-        # 'dm_control:cartpole-balance',
+        env,
         '--experiment-folder',
         str(temp_path)] + additional_args
+
+    if demo_path:
+        args.append("--demo-path")
+        args.append(demo_path)
 
     print("Setting up environment variables...")
     _setup_env()
@@ -75,7 +78,7 @@ def integration_test(temp_path,
     print('Supplementary components launched')
 
     launcher.setup(args)
-
+    print(launcher.env_config.obs_spec)
     print('Launcher setup')
 
     agent = launcher.setup_agent(0)

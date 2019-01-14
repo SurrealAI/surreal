@@ -101,6 +101,8 @@ class Learner(metaclass=U.AutoInitializeMeta):
 
     def _setup_prefetching(self):
         batch_size = self.learner_config.replay.batch_size
+        print("BATCH_SIZE")
+        print(batch_size)
         self._prefetch_queue = LearnerDataPrefetcher(
             session_config=self.session_config,
             batch_size=batch_size,
