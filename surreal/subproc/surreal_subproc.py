@@ -16,10 +16,6 @@ import surreal.utils as U
 import mujoco_py
 # Use spawn to avoid running into fork caused issues
 from multiprocessing import set_start_method
-try:
-    set_start_method('spawn')
-except RuntimeError:
-    pass
 
 
 def _merge_setting_dictionaries(customize, base):
@@ -266,4 +262,5 @@ def main():
 
 
 if __name__ == '__main__':
+    set_start_method('spawn')
     main()
