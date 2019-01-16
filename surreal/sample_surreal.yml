@@ -12,6 +12,8 @@ tmux_preamble_cmds:
 # Every time an experiment is created on tmux, result data will be written here
 tmux_results_folder: <put path here> # ~/surreal-tmux/
 
+subproc_results_folder: <put path here> # ~/surreal-subproc/
+
 
 ## !!! Stop here if you are only running things locally !!!
 
