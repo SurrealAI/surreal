@@ -12,6 +12,15 @@ from surreal.launch import (
 )
 import surreal.utils as U
 
+# Import to avoid duplicate build process
+import mujoco_py
+# Use spawn to avoid running into fork caused issues
+from multiprocessing import set_start_method
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    pass
+
 
 def _merge_setting_dictionaries(customize, base):
     di = copy(base)
