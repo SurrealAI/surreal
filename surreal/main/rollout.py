@@ -1,20 +1,16 @@
 import pickle
 import sys
 import time
+import argparse
 from os import path
 
 from glob import glob
 
 from surreal.env import *
-# from surreal.main_scripts.runner import load_config
 import surreal.utils as U
 from surreal.agent import PPOAgent
 
 from benedict import BeneDict
-
-USER = "amandlek"
-EXPERIMENT_NAME = "ppo-pegs-round-sparse-eplen-100-1000-1"
-CONFIG_PATH = "ppo_configs.py"
 
 def restore_model(folder):
     """
@@ -48,7 +44,7 @@ def restore_env(env_config):
     """
     Restores the environment.
     """
-    env_config.eval_mode.render = True
+    #env_config.eval_mode.render = True
     env, env_config = make_env(env_config, 'eval')
     return env, env_config
 
@@ -56,7 +52,6 @@ def restore_agent(agent_class, learner_config, env_config, session_config, model
     """
     Restores an agent from a model.
     """
-    # learner_config.algo.use_z_filter = True
     agent = agent_class(
         learner_config=learner_config,
         env_config=env_config,
@@ -68,7 +63,13 @@ def restore_agent(agent_class, learner_config, env_config, session_config, model
     return agent
 
 if __name__ == "__main__":
-    folder = sys.argv[1]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--folder", type=str,)
+    parser.add_argument("--render", action='store_true',)
+    args = parser.parse_args()
+    folder = args.folder
+    render = args.render
+
     # set a seed
     np.random.seed(int(time.time() * 100000 % 100000))
 
@@ -86,6 +87,7 @@ if __name__ == "__main__":
     # env_config.env_name = 'mujocomanip:SawyerPegsRoundEnv'
 
     # restore the environment
+    env_config.eval_mode.render = render
     env, env_config = restore_env(env_config)
 
     # restore the agent
@@ -96,16 +98,15 @@ if __name__ == "__main__":
     while True:
         ob, info = env.reset()
         ret = 0.
-        env.unwrapped.viewer.viewer._hide_overlay = True
-        env.unwrapped.viewer.set_camera(0)
+        if render:
+            env.unwrapped.viewer.viewer._hide_overlay = True
+            env.unwrapped.viewer.set_camera(0)
         for i in range(200):
             a = agent.act(ob)
             ob, r, _, _ = env.step(a)
-            # NOTE: we need to unwrap the environment here because some wrappers override render
-            env.unwrapped.render()
+            print(ob)
+            if render:
+                # NOTE: we need to unwrap the environment here because some wrappers override render
+                env.unwrapped.render()
             ret += r
         print("return: {}".format(ret))
-
-    # # for restoring checkpoint from session config
-    # session_config.checkpoint.restore = True
-    # session_config.checkpoint.restore_folder = path.join(destination, experiment_name)
