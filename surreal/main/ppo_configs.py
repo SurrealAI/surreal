@@ -25,25 +25,25 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         # 'agent_class': 'PPOAgent',
         # 'learner_class': 'PPOLearner',
         # 'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-        'use_z_filter': False,
+        'use_z_filter': True,
         'use_r_filter': False,
-        'gamma': .99,
+        'gamma': .995,
         'n_step': 25,  # 10 for without RNN
         'stride': 20,  # 10 for without RNN
         'network': {
             'lr_actor': 1e-4,
             'lr_critic': 1e-4,
             'clip_actor_gradient': True,
-            'actor_gradient_norm_clip': 10.,
+            'actor_gradient_norm_clip': 5.,
             'clip_critic_gradient': True,
-            'critic_gradient_norm_clip': 10.,
+            'critic_gradient_norm_clip': 5.,
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'anneal': {
                 'lr_scheduler': "LinearWithMinLR",
                 'frames_to_anneal': 5e6,
                 'lr_update_frequency': 100,
-                'min_lr': 1e-4,
+                'min_lr': 5e-5,
             },
         },
 
@@ -51,7 +51,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         'ppo_mode': 'adapt',
         'advantage':{
             'norm_adv': True,
-            'lam': 1.0,
+            'lam': 0.97,
             'reward_scale': 1.0,
         },
         'rnn': {
@@ -62,14 +62,14 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         },
         'consts': {
             'init_log_sig': -1.0,
-            'log_sig_range': 0,
+            'log_sig_range': 0.25,
             'epoch_policy': 10,
             'epoch_baseline': 10,
             'adjust_threshold': (0.5, 2.0),  # threshold to magnify clip epsilon
-            'kl_target': 0.02,  # target KL divergence between before and after
+            'kl_target': 0.015,  # target KL divergence between before and after
         },
         'adapt_consts': {
-            'kl_cutoff_coeff': 500,  # penalty coeff when kl large
+            'kl_cutoff_coeff': 250,  # penalty coeff when kl large
             'beta_init': 1.0,  # original beta
             'beta_range': (1/35.0, 35.0),  # range of the adapted penalty factor
             'scale_constant': 1.5,
@@ -96,7 +96,7 @@ PPO_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': '',
-    'action_repeat': 10,
+    'action_repeat': 1,
     'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
@@ -131,7 +131,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
         'curriculum_length': 50,
         'history_length': 20,
     },
-    'limit_episode_length': 500,
+    'limit_episode_length': 200,
     'stochastic_eval': True,
 })
 PPO_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)
@@ -151,7 +151,7 @@ PPO_DEFAULT_SESSION_CONFIG = Config({
     },
     'agent': {
         'fetch_parameter_mode': 'step',
-        'fetch_parameter_interval': 250,  # 10 for without RNN
+        'fetch_parameter_interval': 100,  # 10 for without RNN
         'num_gpus': 0,
     },
     'sender': {
