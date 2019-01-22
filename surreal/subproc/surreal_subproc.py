@@ -12,6 +12,11 @@ from surreal.launch import (
 )
 import surreal.utils as U
 
+# Import to avoid duplicate build process
+import mujoco_py
+# Use spawn to avoid running into fork caused issues
+from multiprocessing import set_start_method
+
 
 def _merge_setting_dictionaries(customize, base):
     di = copy(base)
@@ -257,4 +262,5 @@ def main():
 
 
 if __name__ == '__main__':
+    set_start_method('spawn')
     main()

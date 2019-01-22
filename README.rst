@@ -1,5 +1,5 @@
-`SURREAL <https://surreal.stanford.edu>`__
-==========================================
+**`SURREAL <https://surreal.stanford.edu>`__**
+==============================================
 
 | `About <#open-source-distributed-reinforcement-learning-framework>`__
 | `Installation <#installation>`__
@@ -15,7 +15,13 @@ Open-Source Distributed Reinforcement Learning Framework
 framework that runs state-of-the-art distributed reinforcement learning
 (RL) algorithms.
 
-.. container::
+.. raw:: html
+
+   <div align="center">
+
+.. raw:: html
+
+   </div>
 
 -  **Scalability**. RL algorithms are data hungry by nature. Even the
    simplest Atari games, like Breakout, typically requires up to a
@@ -55,9 +61,8 @@ Installation
 | Surreal algorithms can be deployed at various scales. It can run on a
   single laptop and solve easier locomotion tasks, or run on hundreds of
   machines to solve complex manipulation tasks.
-| \* `Surreal on your Laptop <docs/surreal_tmux.md>`__
-| \* `Surreal on Google Cloud Kubenetes
-  Engine <docs/surreal_kube_gke.md>`__
+| \* `Surreal on your Laptop <docs/surreal_subproc.md>`__ \* `Surreal on
+  Google Cloud Kubenetes Engine <docs/surreal_kube_gke.md>`__
 | \* `Customizing Surreal <docs/contributing.md>`__
 | \* `Documentation Index <docs/index.md>`__
 
@@ -67,7 +72,8 @@ Benchmarking
 -  Scalability of Surreal-PPO with up to 1024 actors on Surreal Robotics
    Suite.
 
-|image0|
+.. figure:: .README_images/scalability-robotics.png
+   :alt: 
 
 -  Training curves of 16 actors on OpenAI Gym tasks for 3 hours,
    compared to other baselines.
@@ -80,12 +86,9 @@ publications:
 
 ::
 
-   @inproceedings{corl2018surreal,
-     title={SURREAL: Open-Source Reinforcement Learning Framework and Robot Manipulation Benchmark},
-     author={Fan, Linxi and Zhu, Yuke and Zhu, Jiren and Liu, Zihua and Zeng, Orien and Gupta, Anchit and Creus-Costa, Joan and Savarese, Silvio and Fei-Fei, Li},
-     booktitle={Conference on Robot Learning},
-     year={2018}
-   }
-
-.. |image0| image:: .README_images/scalability-robotics.png
-
+    @inproceedings{corl2018surreal,
+      title={SURREAL: Open-Source Reinforcement Learning Framework and Robot Manipulation Benchmark},
+      author={Fan, Linxi and Zhu, Yuke and Zhu, Jiren and Liu, Zihua and Zeng, Orien and Gupta, Anchit and Creus-Costa, Joan and Savarese, Silvio and Fei-Fei, Li},
+      booktitle={Conference on Robot Learning},
+      year={2018}
+    }
