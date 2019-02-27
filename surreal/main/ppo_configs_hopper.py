@@ -25,18 +25,18 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         # 'agent_class': 'PPOAgent',
         # 'learner_class': 'PPOLearner',
         # 'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-        'use_z_filter': True,
+        'use_z_filter': False,
         'use_r_filter': False,
         'gamma': .995,
-        'n_step': 25,  # 10 for without RNN
-        'stride': 20,  # 10 for without RNN
+        'n_step': 20,  # 10 for without RNN
+        'stride': 15,  # 10 for without RNN
         'network': {
-            'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
+            'lr_actor': 0.75e-4,
+            'lr_critic': 0.75e-4,
             'clip_actor_gradient': True,
-            'actor_gradient_norm_clip': 5.,
+            'actor_gradient_norm_clip': 3.,
             'clip_critic_gradient': True,
-            'critic_gradient_norm_clip': 5.,
+            'critic_gradient_norm_clip': 3.,
             'actor_regularization': 0.0,
             'critic_regularization': 0.0,
             'anneal': {
@@ -52,7 +52,7 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         'advantage':{
             'norm_adv': True,
             'lam': 0.97,
-            'reward_scale': 1.0,
+            'reward_scale': 0.005,
         },
         'rnn': {
             'if_rnn_policy': True,
@@ -61,12 +61,12 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
             'horizon': 5,
         },
         'consts': {
-            'init_log_sig': -1.0,
+            'init_log_sig': -1.5,
             'log_sig_range': 0.25,
             'epoch_policy': 10,
             'epoch_baseline': 10,
             'adjust_threshold': (0.5, 2.0),  # threshold to magnify clip epsilon
-            'kl_target': 0.015,  # target KL divergence between before and after
+            'kl_target': 0.01,  # target KL divergence between before and after
         },
         'adapt_consts': {
             'kl_cutoff_coeff': 250,  # penalty coeff when kl large
@@ -96,7 +96,7 @@ PPO_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': '',
-    'action_repeat': 1,
+    'action_repeat': 10,
     'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
@@ -131,7 +131,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
         'curriculum_length': 50,
         'history_length': 20,
     },
-    'limit_episode_length': 200,
+    'limit_episode_length': 0,
     'stochastic_eval': True,
 })
 PPO_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)

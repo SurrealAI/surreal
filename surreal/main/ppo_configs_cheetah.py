@@ -31,8 +31,8 @@ PPO_DEFAULT_LEARNER_CONFIG = Config({
         'n_step': 25,  # 10 for without RNN
         'stride': 20,  # 10 for without RNN
         'network': {
-            'lr_actor': 1e-4,
-            'lr_critic': 1e-4,
+            'lr_actor': 2e-4,
+            'lr_critic': 2e-4,
             'clip_actor_gradient': True,
             'actor_gradient_norm_clip': 5.,
             'clip_critic_gradient': True,
@@ -96,7 +96,7 @@ PPO_DEFAULT_LEARNER_CONFIG.extend(BASE_LEARNER_CONFIG)
 
 PPO_DEFAULT_ENV_CONFIG = Config({
     'env_name': '',
-    'action_repeat': 1,
+    'action_repeat': 10,
     'pixel_input': False,
     'use_grayscale': False,
     'use_depth': False,
@@ -131,7 +131,7 @@ PPO_DEFAULT_ENV_CONFIG = Config({
         'curriculum_length': 50,
         'history_length': 20,
     },
-    'limit_episode_length': 200,
+    'limit_episode_length': 0,
     'stochastic_eval': True,
 })
 PPO_DEFAULT_ENV_CONFIG.extend(BASE_ENV_CONFIG)
