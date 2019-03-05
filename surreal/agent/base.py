@@ -17,7 +17,8 @@ from surreal.env import (
     VideoWrapper
 )
 
-AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic']
+AGENT_MODES = ['training', 'eval_deterministic', 'eval_stochastic', 
+    'eval_deterministic_local', 'eval_stochastic_local']
 
 
 class Agent(object, metaclass=U.AutoInitializeMeta):
@@ -46,8 +47,9 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         self.agent_mode = agent_mode
         self.agent_id = agent_id
 
-        self._setup_parameter_pull()
-        self._setup_logging()
+        if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+            self._setup_parameter_pull()
+            self._setup_logging()
 
         self.current_episode = 0
         self.cumulative_steps = 0
@@ -66,14 +68,15 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             implements AutoInitializeMeta meta class.
             self.module_dict can only happen after the module is constructed by subclasses.
         """
-        host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
-        self._module_dict = self.module_dict()
-        if not isinstance(self._module_dict, ModuleDict):
-            self._module_dict = ModuleDict(self._module_dict)
-        self._ps_client = ParameterClient(
-            host=host,
-            port=port,
-        )
+        if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+            host, port = os.environ['SYMPH_PS_FRONTEND_HOST'], os.environ['SYMPH_PS_FRONTEND_PORT']
+            self._module_dict = self.module_dict()
+            if not isinstance(self._module_dict, ModuleDict):
+                self._module_dict = ModuleDict(self._module_dict)
+            self._ps_client = ParameterClient(
+                host=host,
+                port=port,
+            )
 
     def _setup_parameter_pull(self):
         self._fetch_parameter_mode = self.session_config.agent.fetch_parameter_mode
@@ -235,7 +238,8 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         env = self.get_env()
         env = self.prepare_env(env)
         self.env = env
-        self.fetch_parameter()
+        if self.agent_mode == "training":
+            self.fetch_parameter()
 
     def main_loop(self):
         """
@@ -247,7 +251,7 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         total_reward = 0.0
         while True:
             if self.render:
-                env.render()
+                env.unwrapped.render() # TODO: figure out why it needs to be unwrapped
             self.pre_action(obs)
             action = self.act(obs)
             obs_next, reward, done, info = env.step(action)
@@ -257,6 +261,10 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
             if done:
                 break
         self.post_episode()
+
+        if self.agent_mode in ['eval_deterministic_local', 'eval_stochastic_local']:
+            return
+
         if self.current_episode % 20 == 0:
             self.log.info('Episode {} reward {}'
                           .format(self.current_episode,
@@ -312,19 +320,19 @@ class Agent(object, metaclass=U.AutoInitializeMeta):
         if limit_episode_length > 0:
             env = MaxStepWrapper(env, limit_episode_length)
 
-        env = EvalTensorplexMonitor(
-            env,
-            eval_id=self.agent_id,
-            fetch_parameter=self.fetch_parameter,
-            session_config=self.session_config,
-        )
+        if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+            env = EvalTensorplexMonitor(
+                env,
+                eval_id=self.agent_id,
+                fetch_parameter=self.fetch_parameter,
+                session_config=self.session_config,
+            )
 
         env_category = self.env_config.env_name.split(':')[0]
         if self.env_config.video.record_video and self.agent_id == 0:
-            if env_category != 'gym':
-                # gym video recording not supported due to bug in OpenAI gym
-                # https://github.com/openai/gym/issues/1050
-                env = VideoWrapper(env, self.env_config, self.session_config)
+            # gym video recording not supported due to bug in OpenAI gym
+            # https://github.com/openai/gym/issues/1050
+            env = VideoWrapper(env, self.env_config, self.session_config)
         return env
 
     def main_agent(self):

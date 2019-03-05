@@ -118,6 +118,9 @@ class Learner(metaclass=U.AutoInitializeMeta):
         """
             For AutoInitializeMeta interface
         """
+        if self.session_config.checkpoint.restore:
+            self.restore_checkpoint()
+
         self._setup_publish()
         self._setup_prefetching()
         # Logging should only start here so that all components are
@@ -270,12 +273,6 @@ class Learner(metaclass=U.AutoInitializeMeta):
             keep_best=self.session_config.checkpoint.learner.keep_best,
             # TODO figure out how to add score to learner
         )
-
-        # Load when instructed by config
-        # restore_checkpoint should be called _after_ subclass __init__
-        # that's why we put it in _initialize()
-        if self.session_config.checkpoint.restore:
-            self.restore_checkpoint()
 
     def periodic_checkpoint(self, global_steps, score=None, **info):
         """

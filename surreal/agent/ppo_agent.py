@@ -48,10 +48,11 @@ class PPOAgent(Agent):
 
         # setting agent mode
         if self.agent_mode != 'training':
-            if self.env_config.stochastic_eval:
-                self.agent_mode = 'eval_stochastic'
-            else:
-                self.agent_mode = 'eval_deterministic'
+            if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+                if self.env_config.stochastic_eval:
+                    self.agent_mode = 'eval_stochastic'
+                else:
+                    self.agent_mode = 'eval_deterministic'
 
         if self.agent_mode != 'training':
             self.noise = 0
@@ -66,13 +67,15 @@ class PPOAgent(Agent):
 
         if torch.cuda.is_available():
             self.gpu_ids = 'cuda:all'
-            self.log.info('PPO agent is using GPU')
-            # Note that user is responsible for only providing one GPU for the program
-            self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
+            if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+                self.log.info('PPO agent is using GPU')
+                # Note that user is responsible for only providing one GPU for the program
+                self.log.info('cudnn version: {}'.format(torch.backends.cudnn.version()))
             torch.backends.cudnn.benchmark = True
         else:
             self.gpu_ids = 'cpu'
-            self.log.info('PPO agent is using CPU')
+            if self.agent_mode not in ['eval_deterministic_local', 'eval_stochastic_local']:
+                self.log.info('PPO agent is using CPU')
 
         self.pd = DiagGauss(self.action_dim)
         self.cells = None
@@ -135,7 +138,7 @@ class PPOAgent(Agent):
             action_pd = action_pd.detach().cpu().numpy()
             action_pd[:, self.action_dim:] *= np.exp(self.noise)
 
-            if self.agent_mode != 'eval_deterministic':
+            if self.agent_mode not in ['eval_deterministic', 'eval_deterministic_local']:
                 action_choice = self.pd.sample(action_pd)
             else:
                 action_choice = self.pd.maxprob(action_pd)

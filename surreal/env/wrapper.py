@@ -88,7 +88,10 @@ class Wrapper(Env):
 
     @property
     def unwrapped(self):
-        return self.env.unwrapped
+        if hasattr(self.env, "unwrapped"):
+            return self.env.unwrapped
+        else:
+            return self.env
 
 
 class ObsWrapper(Wrapper):
