@@ -41,8 +41,10 @@ class GymSampler(object):
 
         self.demo_path = demo_path
 
-        # list of all demonstration file paths
-        self.demo_list = [os.path.join(self.demo_path, f) for f in os.listdir(self.demo_path) if f.endswith(".npy")]
+        # list of all demonstration and action file paths
+        self.demo_list = self._list_file_type("observation")
+        self.action_list = self._list_file_type("action")
+        self.num_demonstrations = len(self.demo_list)
 
         # subsample a selection of demonstrations if requested
         if num_traj > 0:
@@ -61,6 +63,11 @@ class GymSampler(object):
         schemes = self.sample_method_dict.keys()
         assert np.all([(s in schemes) for s in self.sampling_schemes])
 
+    def _list_file_type(self, starts_with):
+        files = [os.path.join(self.demo_path, f) for f in os.listdir(self.demo_path) if
+                 f.endswith(".npy") and f.startswith(starts_with)]
+        return sorted(files)
+
     def sample(self):
         """
         This is the core sampling method. Samples a state from a
@@ -78,10 +85,17 @@ class GymSampler(object):
         First uniformly sample a demonstration from the set of demonstrations.
         Then uniformly sample a state from the selected demonstration.
         """
+        episode_choice = random.randint(0, self.num_demonstrations - 1)
         # get a random episode index
-        ep_path = random.choice(self.demo_list)
+        demo_episode_path = self.demo_list[episode_choice]
+        action_episode_path = self.action_list[episode_choice]
 
-        # select a flattened mujoco state uniformly from this episode
-        episode = np.load(ep_path)
-        state = random.choice(episode)
-        return state
+        # select a flattened mujoco demonstration and
+        # action step uniformly from this episode
+        demonstration_episode = np.load(demo_episode_path)
+        step_choice = random.randint(0, demonstration_episode.shape[0] - 1)
+        demonstration_state = demonstration_episode[step_choice]
+        action_episode = np.load(action_episode_path)
+        action_state = action_episode[step_choice]
+
+        return demonstration_state, action_state

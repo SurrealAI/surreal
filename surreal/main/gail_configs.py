@@ -26,7 +26,7 @@ GAIL_DEFAULT_LEARNER_CONFIG = Config({
         'agent_class': 'PPOAgent',
         'learner_class': 'GAILLearner',
         'experience': 'ExpSenderWrapperMultiStepMovingWindowWithInfo',
-        'reward_lambda': 0.0, # weight in [0, 1] for gail reward vs. env reward
+        'reward_lambda': 0.5, # weight in [0, 1] for gail reward vs. env reward
         'use_z_filter': False,
         'use_r_filter': False,
         'gamma': .99,

@@ -8,7 +8,6 @@ from .ppo import PPOLearner
 from surreal.model.gail_net import GAILModel
 from surreal.env import make_env
 
-
 class GAILLearner(PPOLearner):
     '''
     GAILLearner: subclass of PPOLearner that contains GAIL algorithm logic
@@ -73,6 +72,7 @@ class GAILLearner(PPOLearner):
             # add a discriminator
             self.discriminator_model = GAILModel(
                 obs_spec=self.obs_spec,
+                action_dim=self.action_dim,
                 model_config=self.learner_config.model,
                 use_cuda=self.use_cuda,
                 use_z_filter=self.use_z_filter
@@ -98,6 +98,8 @@ class GAILLearner(PPOLearner):
             self.discriminator_loss = nn.BCEWithLogitsLoss()
 
         self._load_demo_sampler(env_config)
+        self.iteration = 0
+        self.freeze = 50
 
     def _load_demo_sampler(self, env_config):
         assert env_config.demonstration is not None, "need demo_config set in env_config for discriminator"
@@ -135,7 +137,6 @@ class GAILLearner(PPOLearner):
         ### TODO: extract object features before making a tensor here... ###
 
         # We compute gail rewards per subtrajectory via reshaping
-
         import time
         t = time.time()
         # get GAIL rewards for this batch
@@ -143,11 +144,23 @@ class GAILLearner(PPOLearner):
             with torch.no_grad():
                 obs = batch['obs'] # each observation has value of shape (batch_size, horizon, obs_dim)
                 obs = obs["low_dim"]["flat_inputs"]
-                _, horizon, dim = obs.shape
-                obs_tensor = torch.tensor(obs.reshape(-1, dim), dtype=torch.float32)
+                action = batch["actions"]
 
-                # compute rewards over entire subtrajectory in one forward pass, then reshape
-                gail_rewards = self.discriminator_model.get_discriminator_reward(obs_tensor)
+                _, horizon, obs_dim = obs.shape
+                _, _, action_dim = action.shape
+
+                obs_tensor = torch.tensor(obs, dtype=torch.float32)
+                action_tensor = torch.tensor(action, dtype=torch.float32)
+
+                combined = torch.cat((obs_tensor, action_tensor), dim=2)
+                obs_action_tensor = combined.view(-1, obs_dim + action_dim)
+
+                # compute rewards over entire subtrajectory
+                # in one forward pass, then reshape
+                gail_rewards = (
+                   self.discriminator_model.get_discriminator_reward(
+                        obs_action_tensor)
+                )
                 gail_rewards = torch.clamp(gail_rewards, max=10.).cpu().numpy()
                 gail_rewards = gail_rewards.reshape(-1, horizon)
 
@@ -156,6 +169,8 @@ class GAILLearner(PPOLearner):
         # compute mixed rewards and feed it to PPO
         env_rewards = np.array(batch['rewards'])
         batch['rewards'] = self.reward_lambda * gail_rewards + (1. - self.reward_lambda) * env_rewards
+        data_file = open("/Users/peter/disc_update_file.txt", "a")
+        data_file.write(str(np.mean(gail_rewards)) + "\n")
         preproc_batch = super()._preprocess_batch_ppo(batch)
         # keep track of pure env and pure gail rewards as well
         with tx.device_scope(self.gpu_option):
@@ -166,7 +181,7 @@ class GAILLearner(PPOLearner):
     def _get_demo_samples(self, N):
         out = []
         for i in range(N):
-            obs = self.demo_env.demo_sampler._uniform_sample()
+            obs, action = self.demo_env.demo_sampler._uniform_sample()
             # TODO refactor the matryoshka env/wrappers
             #obs = self.demo_env._flatten_obs(self.demo_env._filtered_obs(self.demo_env._add_modality(obs)))
             #for mod in obs.keys():
@@ -176,7 +191,7 @@ class GAILLearner(PPOLearner):
             #        if not out[mod].get(k):
             #            out[mod][k] = []
             #        out[mod][k].append(obs[mod][k])
-            out.append(obs)
+            out.append(np.concatenate((obs, action), axis=1))
 
         #obs_tensor = {}
         #for mod in obs.keys():
@@ -192,9 +207,9 @@ class GAILLearner(PPOLearner):
         actor_logits = self.discriminator_model.forward_discriminator(actor_obs)
         expert_logits = self.discriminator_model.forward_discriminator(expert_obs)
 
-        # accurracies
-        actor_acc = (actor_logits < 0.).float().mean()
-        expert_acc = (expert_logits > 0.).float().mean()
+        # accuracies
+        actor_acc = (actor_logits < 0).float().mean()
+        expert_acc = (expert_logits > 0).float().mean()
 
         # losses
         actor_loss = self.discriminator_loss(actor_logits, torch.zeros_like(actor_logits))
@@ -242,7 +257,10 @@ class GAILLearner(PPOLearner):
         '''
 
         # update policy with PPO
-        stats = super()._optimize(batch)
+        if self.iteration > self.freeze:
+            stats = super()._optimize(batch)
+        else:
+            stats = {}
 
         # update GAIL discriminator
         with tx.device_scope(self.gpu_option):
@@ -253,11 +271,17 @@ class GAILLearner(PPOLearner):
             # this effectively increases the batch size for the discriminator
             # TODO(peter): double check stride logic
             obs = batch.obs["low_dim"]["flat_inputs"]
+            actions = batch["actions"]
             bsize = obs.size()[0]
             if self.if_rnn_policy:
                 obs = obs[:, :self.stride, :].contiguous().view(bsize * self.stride, -1).detach()
+                actions = actions[:, :self.stride, :].contiguous().view(bsize * self.stride, -1).detach()
             else:
                 obs = obs[:, 0, :].contiguous().detach()
+                actions = actions[:, 0, :].contiguous().detach()
+
+            obs = torch.cat((obs, actions), dim=1)
+
             #obs_iter = {}
             #for mod in obs.keys():
             #    obs_iter[mod] = {}
@@ -268,12 +292,15 @@ class GAILLearner(PPOLearner):
             #        else:
             #            obs_iter[mod][k] = obs[mod][k][:, 0, :].contiguous().detach()
             expert_obs = torch.squeeze(self._get_demo_samples(bsize * self.stride))
-            for _ in range(self.epoch_discriminator):
+            #for _ in range(self.epoch_discriminator):
+            self.iteration += 1
+            print(self.iteration)
+            if self.iteration % self.epoch_discriminator == 0:
                 discriminator_stats = self._discriminator_update(actor_obs=obs, expert_obs=expert_obs)
 
-            # log stats
-            for k in discriminator_stats:
-                stats[k] = discriminator_stats[k]
+                # log stats
+                for k in discriminator_stats:
+                    stats[k] = discriminator_stats[k]
             stats["env_rewards"] = batch.env_rewards.mean().item()
             stats["gail_rewards"] = batch.gail_rewards.mean().item()
             print("env_rewards: {}".format(stats["env_rewards"]))

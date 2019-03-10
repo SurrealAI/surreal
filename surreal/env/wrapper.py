@@ -8,6 +8,7 @@ import functools
 import sys
 import gym
 from surreal.samplers import GymSampler
+from surreal.session.config import ConfigError
 
 
 class SpecFormat(U.StringEnum):
@@ -166,7 +167,10 @@ class GymAdapter(Wrapper):
         assert not env_config.pixel_input, "Pixel input training not supported with OpenAI Gym"
         assert isinstance(env, gym.Env)
         self.env = env
-        self.demo_sampler = GymSampler(env_config.demo_path)
+        try:
+            self.demo_sampler = GymSampler(env_config.demo_path)
+        except ConfigError:
+            pass
 
     def _add_modality(self, obs):
         obs = {

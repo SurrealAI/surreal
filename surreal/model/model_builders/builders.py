@@ -181,15 +181,30 @@ class GAIL_Discriminator(nnx.Module):
 
     def __init__(self, D_in, hidden_sizes=[100, 64], activation=L.Tanh):
         super(GAIL_Discriminator, self).__init__()
-        layers = []
-        for dim in hidden_sizes:
-            layers.append(L.Linear(dim))
-            layers.append(activation())
-        layers.append(L.Linear(1))
+        self.layer1 = nn.Linear(D_in, 100)
+        torch.nn.init.xavier_uniform(self.layer1.weight)
+        torch.nn.init.zeros_(self.layer1.bias)
+        self.layer2 = nn.Linear(100, 64)
+        torch.nn.init.xavier_uniform(self.layer2.weight)
+        torch.nn.init.zeros_(self.layer2.bias)
+        self.layer3 = nn.Linear(64, 1)
+        torch.nn.init.xavier_uniform(self.layer3.weight)
+        torch.nn.init.zeros_(self.layer3.bias)
+        self.act = nn.Tanh()
+        #layers = []
+        #for dim in hidden_sizes:
+        #    layers.append(L.Linear(dim))
+        #    layers.append(activation())
+        #layers.append(L.Linear(1))
         # layers.append(activation())
 
-        self.model = L.Sequential(*layers)
-        self.model.build((None, D_in))
+        #self.model = L.Sequential(*layers)
+        #self.model.build((None, D_in))
 
     def forward(self, obs):
-        return self.model(obs)
+        out_1 = self.layer1(obs)
+        act_1 = self.act(out_1)
+        out_2 = self.layer2(act_1)
+        act_2 = self.act(out_2)
+        out_3 = self.layer3(act_2)
+        return out_3#self.model(obs)

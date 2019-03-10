@@ -455,6 +455,9 @@ class PPOLearner(Learner):
                 self.reward_filter.update(rewards)
                 rewards = normed_reward
 
+            data_file = open("/Users/peter/ppo_data_file.txt", "a")
+            data_file.write(str(np.mean(rewards.numpy())) + "\n")
+
             done = torch.tensor(done, dtype=torch.float32)
 
             if persistent_infos is not None:

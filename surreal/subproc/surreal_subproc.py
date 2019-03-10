@@ -197,6 +197,8 @@ class SubprocSurrealParser:
             return 'surreal-ddpg'
         elif name == 'ppo':
             return 'surreal-ppo'
+        elif name == 'gail':
+            return 'surreal-gail'
         else:
             return name
 

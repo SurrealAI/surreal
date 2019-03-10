@@ -19,12 +19,14 @@ class GAILModel(nnx.Module):
     """
     def __init__(self,
                  obs_spec,
+                 action_dim,
                  model_config,
                  use_cuda,
                  use_z_filter=False):
 
         super(GAILModel, self).__init__()
         self.obs_spec = obs_spec
+        self.action_dim = action_dim
         self.model_config = model_config
         self.use_z_filter = use_z_filter
 
@@ -33,7 +35,7 @@ class GAILModel(nnx.Module):
         assert self.obj_dim > 0, "Need to have low-dim features for GAIL, add 'low-dim' \
                                   to the observation dictionary"
         print(self.obj_dim, self.model_config.discriminator_hidden_sizes)
-        self.discriminator = GAIL_Discriminator(self.obj_dim,
+        self.discriminator = GAIL_Discriminator(self.obj_dim + self.action_dim,
                                                 self.model_config.discriminator_hidden_sizes)
 
     #def _gather_object_features(self, obs):
@@ -64,7 +66,6 @@ class GAILModel(nnx.Module):
         '''
 
         ### TODO: should we have a z-filter on the discriminator? ###
-
         #obs = self._gather_object_features(obs)
         # if self.use_z_filter:
         #     obs = self.z_filter.forward(obs)
