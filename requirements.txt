@@ -14,7 +14,7 @@ tabulate
 imageio
 caraml>=0.10.0
 symphony>=0.9.1
-torchx
+torchx==0.9
 tensorplex
 Cython<0.29
 cloudwise>=0.1.1
